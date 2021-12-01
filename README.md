@@ -1,4 +1,4 @@
-# Seg2Map
+# CoastSeg
 The mapping extension for Zoo; carry out image segmentation on geospatial datasets
 
 This tool will facilitate Doodler and Zoo style image segmentation on geospatial imagery, by combining the following elements
