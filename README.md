@@ -48,3 +48,23 @@ This tool will facilitate Doodler and Zoo style image segmentation on geospatial
 3. CoastSat functionality downloads imagery, archives, cloud masking, tidal corrections
 4. Data converted to xarrays
 5. Zoo models act on xarray datacubes
+
+### This toolbox will attempt to be fully automated
+
+this toolbox will attempt to use semantic segmentation on deep learning models trained on large labeled datasets 
+
+this will hopefully cirumvent two limitations in the current CoastSat workflow
+- Coastsat uses a user-defined reference shoreline
+- Coastsat relies on user-modified classifiers
+
+The expected user experience will be:
+
+1. define ROI graphically / interactively
+2. use coastsat to download imagery
+3. user selects a pre-trained segmentation model
+4. user applies model to a large region
+5. optionally, user interactively refines segmentation by selecting different or more models to ensemble until they are satisfied with the result
+5. outputs would replace the segmentation outputs of coastsat (or they could be cleverly combined, TBD)
+6. we would modify CoastSat Shoreline change analysis functions in a web map (ipyleaflet) environment
+7. we would apply CoastSat tidal corretions
+8. Install and activate the FES global tide model (like Inlet Tracker)
