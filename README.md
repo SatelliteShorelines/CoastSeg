@@ -1,5 +1,8 @@
 # CoastSeg
-The mapping extension for CoastSat and Zoo; carry out image segmentation on coastal satellite imagery datacubes
+
+(in the planning stages only)
+
+A mapping extension for CoastSat and Zoo; carry out image segmentation on coastal satellite imagery datacubes
 
 In a nutshell ...
 
