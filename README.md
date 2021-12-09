@@ -2,7 +2,10 @@
 
 (in the planning stages only)
 
-A mapping extension for CoastSat and Zoo; carry out image segmentation on coastal satellite imagery datacubes
+A mapping extension for CoastSat and Zoo
+
+1) it extends CoastSat by facilitating deep learning based image segmentation on coastal satellite imagery datacubes, and by providing a web mapping interface to prepare data downloads, view data, and analyze segmentation outputs
+2) it extends Zoo by faciliating the application of deep learning based image segmentation on geospatial imagery with a web mapping interface
 
 In a nutshell ...
 
