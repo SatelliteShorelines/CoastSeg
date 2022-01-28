@@ -4,28 +4,31 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-- python=3.7
-- earthengine-api
-- google-api-python-client
-- gdal
-- rasterio
-- pandas
-- geopandas
-- numpy
-- matplotlib
-- pillow
-- pytz
-- scikit-image
-- scikit-learn
-- shapely
-- scipy
-- astropy
-- jupyter
-- ipython
-- pyproj
-- cartopy
-- pyproj
-- simplekml
-- pip
-- pip:
-   - localtileserver
+  - python=3.7
+  - earthengine-api
+  - google-api-python-client
+  - gdal
+  - rasterio
+  - pandas
+  - geopandas
+  - numpy
+  - matplotlib
+  - pillow
+  - pytz
+  - scikit-image
+  - scikit-learn
+  - shapely
+  - scipy
+  - astropy
+  - jupyter
+  - ipython
+  - pyproj
+  - cartopy
+  - pyproj
+  - simplekml
+  - pip
+  - ipyleaflet
+  - leafmap
+  - pip:
+      - localtileserver
+      - area
