@@ -1,0 +1,23 @@
+##conda env create --file new_coastseg.yml
+name: new_coastseg
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.7
+  - earthengine-api
+  - google-api-python-client
+  - gdal
+  - geopandas
+  - scikit-image
+  - scikit-learn
+  - scipy
+  - astropy
+  - jupyter
+  - ipython
+  - cartopy
+  - simplekml
+  - leafmap
+  - pip
+  - pip:
+      - area
