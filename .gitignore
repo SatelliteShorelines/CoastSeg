@@ -1,3 +1,12 @@
+## db: data downloaded by notebooks
+notebooks/data/*
+notebooks/roi.geojson
+notebooks/selected_roi.geojson
+notebooks/.ipynb_checkpoints/*
+
+## db: checkpoints
+.ipynb_checkpoints/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
