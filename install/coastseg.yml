@@ -1,5 +1,5 @@
-##conda env create --file install/coastseg.yml
-name: coastseg
+##conda env create --file new_coastseg.yml
+name: new_coastseg
 channels:
   - conda-forge
   - defaults
@@ -8,27 +8,17 @@ dependencies:
   - earthengine-api
   - google-api-python-client
   - gdal
-  - rasterio
-  - pandas
   - geopandas
-  - numpy
-  - matplotlib
-  - pillow
-  - pytz
   - scikit-image
   - scikit-learn
-  - shapely
   - scipy
   - astropy
   - jupyter
   - ipython
-  - pyproj
   - cartopy
-  - pyproj
   - simplekml
-  - pip
-  - ipyleaflet
   - leafmap
+  - tqdm
+  - pip
   - pip:
-      - localtileserver
       - area
