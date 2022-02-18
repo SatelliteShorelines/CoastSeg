@@ -18,6 +18,7 @@ dependencies:
   - cartopy
   - simplekml
   - leafmap
+  - tqdm
   - pip
   - pip:
       - area
