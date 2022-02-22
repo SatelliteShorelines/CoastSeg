@@ -532,7 +532,7 @@ def create_overlap(
             perserve_id=False,
             start_id=start_id)
         end_id_list.append(end_id)
-        print(f"\nend_id_list {end_id_list}\n")
+        # print(f"\nend_id_list {end_id_list}\n")
         df_overlap = get_overlap_dataframe(filename)
         # If df_overlap is empty means not a single ROI overlapped each other
         if not df_overlap.empty:
