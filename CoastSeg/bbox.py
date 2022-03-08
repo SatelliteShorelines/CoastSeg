@@ -81,6 +81,7 @@ def clip_coastline_to_bbox(
     roi_coast : "geopandas.geodataframe.GeoDataFrame"
         roi_coast a GeoDataFrame that holds the clipped portion of the coastline_vector within geojson_bbox
     """
+    assert coastline_vector.empty != True, "ERROR: Empty shoreline dataframe" 
     # clip coastal polyline
     roi_coast = gpd.clip(coastline_vector, geojson_bbox)
     roi_coast = roi_coast.to_crs('EPSG:4326')
@@ -96,7 +97,7 @@ def get_coastline(shoreline_file: str, bbox: dict):
     shoreline_file: str
         location of geojson file containing shoreline data
     bbox: dict
-        dict containing geojson of the bouding box drawn by the user
+        dict containing geojson of the bounding box drawn by the user
 
     Returns:
     --------
@@ -117,6 +118,7 @@ def get_coastline(shoreline_file: str, bbox: dict):
 
 def get_coastline_for_map(coast_geojson: dict):
     """Returns a GeoJSON object that can be added to the map """
+    assert coast_geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
     return GeoJSON(
         data=coast_geojson,
         style={
