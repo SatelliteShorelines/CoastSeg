@@ -12,7 +12,7 @@ from tqdm.notebook import tqdm_notebook
 TEMP_FILENAME = "temp.geojson"
 
 
-def get_empty_overlap_df(csv_name: "str"):
+def get_empty_overlap_df():
     """Creates an empty geodataframe to hold the overlapping ROIs information"""
     df_overlap = gpd.GeoDataFrame({"id": [],
                                    'primary_id': [],
@@ -42,7 +42,7 @@ def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str):
     start_id = 0
     # list to hold all the end_ids created in create_overlap()
     end_id_list = []
-    master_overlap_df = get_empty_overlap_df(csv_filename)
+    master_overlap_df = get_empty_overlap_df()
     finalized_roi = {'type': 'FeatureCollection', 'features': []}
     for line in tqdm_notebook(lines_list, desc="Calculating Overlap"):
         geojson_polygons = get_geojson_polygons(line)
@@ -171,12 +171,7 @@ def get_overlap_dataframe(filename):
     # portion of the coastline
     df = gpd.read_file(filename)
     # Make dataframe to hold all the overlays
-    df_master = gpd.GeoDataFrame({"id": [],
-                                  'primary_id': [],
-                                  'geometry': [],
-                                  'intersection_area': [],
-                                  '%_overlap': []})
-    df_master = df_master.astype({'id': 'int32', 'primary_id': 'int32'})
+    df_master = get_empty_overlap_df()
 #     Iterate through all the polygons in the dataframe
     for index in df.index:
         polygon = df.iloc[index]
@@ -298,31 +293,17 @@ def get_linestring_list(vector_in_bbox_geojson: dict) -> list:
     """
     lines_list = []
     length_vector_bbox_features = len(vector_in_bbox_geojson['features'])
-    length_vector_bbox_features
-    if(length_vector_bbox_features != 1):
-        for i in range(0, length_vector_bbox_features):
-            if vector_in_bbox_geojson['features'][i]['geometry']['type'] == 'MultiLineString':
-                for y in range(
-                        len(vector_in_bbox_geojson['features'][i]['geometry']['coordinates'])):
-                    line = LineString(
-                        vector_in_bbox_geojson['features'][i]['geometry']['coordinates'][y])
-                    lines_list.append(line)
-            elif vector_in_bbox_geojson['features'][i]['geometry']['type'] == 'LineString':
+    for i in range(0, length_vector_bbox_features):
+        if vector_in_bbox_geojson['features'][i]['geometry']['type'] == 'MultiLineString':
+            for y in range(
+                    len(vector_in_bbox_geojson['features'][i]['geometry']['coordinates'])):
                 line = LineString(
-                    vector_in_bbox_geojson['features'][i]['geometry']['coordinates'])
+                    vector_in_bbox_geojson['features'][i]['geometry']['coordinates'][y])
                 lines_list.append(line)
-    else:
-        for i in range(0, len(vector_in_bbox_geojson['features'])):
-            if vector_in_bbox_geojson['features'][0]['geometry']['type'] == 'MultiLineString':
-                for y in range(
-                        len(vector_in_bbox_geojson['features'][0]['geometry']['coordinates'])):
-                    line = LineString(
-                        vector_in_bbox_geojson['features'][0]['geometry']['coordinates'][y])
-                    lines_list.append(line)
-            elif vector_in_bbox_geojson['features'][i]['geometry']['type'] == 'LineString':
-                line = LineString(
-                    vector_in_bbox_geojson['features'][i]['geometry']['coordinates'])
-                lines_list.append(line)
+        elif vector_in_bbox_geojson['features'][i]['geometry']['type'] == 'LineString':
+            line = LineString(
+                vector_in_bbox_geojson['features'][i]['geometry']['coordinates'])
+            lines_list.append(line)
     return lines_list
 
 
@@ -573,8 +554,7 @@ def adjust_num_pts(new_num_pts):
         new_num_pts = 1
     elif new_num_pts > 100:
         new_num_pts = 100
-    else:
-        return new_num_pts
+    return new_num_pts
 
 
 def check_all_ROI_overlap(df_all_ROIs, df_overlap):
