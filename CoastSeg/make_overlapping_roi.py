@@ -73,35 +73,6 @@ def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str):
     master_overlap_df.to_csv(csv_filename, mode='a', header=False, index=False)
 
 
-def get_selected_roi(selected_set: tuple, roi_geojson: dict) -> dict:
-    """
-    Returns a dictionary containing the geojson of the ROIs selected by the user
-    Arguments:
-    -----------
-    selected_set:tuple
-        A tuple containing the ids of the ROIs selected by the user
-
-    roi_geojson:dict
-        A geojson dict containing all the rois currently on the map
-    Returns:
-    -----------
-    geojson_polygons: dict
-       geojson dictionary containing all the ROIs selected
-    """
-    # Check if selected_set is empty
-    assert len(
-        selected_set) != 0, "\n Please select at least one ROI from the map before continuing."
-    # Create a dictionary for the selected ROIs and add the user's selected
-    # ROIs to it
-    selected_ROI = {}
-    selected_ROI["features"] = [
-        feature
-        for feature in roi_geojson["features"]
-        if feature["properties"]["id"] in selected_set
-    ]
-    return selected_ROI
-
-
 def min_overlap_btw_vectors(
         geojsonfile,
         csv_filename,
