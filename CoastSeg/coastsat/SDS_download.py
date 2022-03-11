@@ -300,7 +300,7 @@ def retrieve_images(inputs):
 def get_metadata(inputs):
     """
     Gets the metadata from the downloaded images by parsing .txt files located
-    in the \meta subfolder.
+    in the meta subfolder.
 
     KV WRL 2018
 
