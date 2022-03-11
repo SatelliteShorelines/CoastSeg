@@ -1,0 +1,14 @@
+earthengine-api
+google-api-python-client
+geopandas
+scikit-image
+scikit-learn
+scipy
+astropy
+jupyter
+ipython
+# cartopy
+simplekml
+leafmap
+tqdm
+area
