@@ -8,6 +8,7 @@ astropy
 jupyter
 ipython
 # cartopy
+fiona
 simplekml
 leafmap
 tqdm
