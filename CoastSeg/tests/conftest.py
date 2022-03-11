@@ -6,8 +6,7 @@ import geopandas as gpd
 from shapely.geometry import shape
 import json
 import pickle
-import download_roi
-
+from CoastSeg import download_roi
 
 @pytest.fixture
 def expected_shapes_list() -> list:
