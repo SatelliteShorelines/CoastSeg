@@ -9,6 +9,8 @@ jupyter
 ipython
 # cartopy
 fiona
+rtree
+pygeos
 simplekml
 leafmap
 tqdm
