@@ -6,6 +6,8 @@ import geopandas as gpd
 from shapely.geometry import shape
 import json
 import pickle
+import download_roi
+
 
 @pytest.fixture
 def expected_shapes_list() -> list:
@@ -72,6 +74,47 @@ def expected_coastline_list() -> list:
     coastline_list=[roi_island_coastline,roi_simple_coastline,duck_coastline,sf_complex_coastline]
     return coastline_list
 
+
+@pytest.fixture
+def expected_multipoint_list() -> list:
+    """ Returns a list of all the true expected multipoints list (aka the the points that make up  each linestring)
+    As of 3/11/2022 this  is  only for the duck coastline
+    Returned type is a list of multipoint lists"""
+    multipoint_list_pkl = './CoastSeg/tests/test_data/duck_multipoint_list.pkl'
+    with open(multipoint_list_pkl, "rb") as file:
+        expected_multipoint_list = pickle.load(file)
+    return expected_multipoint_list
+
+
+@pytest.fixture
+def expected_tuples_list() -> list:
+    """ Returns a list of all the true expected tuples list (aka the the points that make up  each linestring)
+    As of 3/11/2022 this  is  only for the duck coastline
+    Returned type is a list of tuple lists"""
+    tuples_list_pkl ='./CoastSeg/tests/test_data/duck_tuples_list.pkl'
+    with open(tuples_list_pkl, "rb") as file:
+        expected_tuples_list = pickle.load(file)
+    return expected_tuples_list
+
+
+@pytest.fixture
+def expected_geojson_polygons_list() -> list:
+    """ Returns a list of all the true expected tuples list (aka the the points that make up  each linestring)
+    As of 3/11/2022 this  is  only for the duck coastline
+    Returned type is a list of geojson polygons"""
+    geojson_polygons_pkl ='./CoastSeg/tests/test_data/duck_geojson_polygons.pkl'
+    with open(geojson_polygons_pkl, "rb") as file:
+        expected_geojson_polygons_list = pickle.load(file)
+    return expected_geojson_polygons_list    
+
+@pytest.fixture
+def expected_geojson_file() -> list:
+    """ As of 3/11/2022 this  is  only for the duck coastline
+    Returned type geojson file contents"""
+    duck_geojson_file = './CoastSeg/tests/test_data/official_roi_duck.geojson'
+    assert os.path.exists(duck_geojson_file),f"File {duck_geojson_file} not found"
+    expected_duck_geojson = download_roi.read_geojson_file(duck_geojson_file)
+    return expected_duck_geojson
 
 @pytest.fixture
 def expected_geojson_bbox_geodataframe(expected_shapes_list):

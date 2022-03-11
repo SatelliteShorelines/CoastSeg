@@ -93,12 +93,26 @@ def test_read_geojson_from_file():
         overlap_roi.read_geojson_from_file("badfilename.json")
 
 
+# Tests for overlap_roi.interpolate_points
+# -------------------------------------------------------------
+# 1. test if it returns a multipoint for the island coastline
+# 2. test if it returns  valid multipoints for the duck coastline
 def test_interpolate_points(expected_lines_list):
-    # The expected result for the island lines list is the 3rd item in the list
-    for line in expected_lines_list[2]:
+    # The expected result for the island lines list is the 2nd item in the list
+    for line in expected_lines_list[1]:
         multipoint_list = overlap_roi.interpolate_points(line)
         # Ensures multipoint exists
         assert len(multipoint_list)!=0
+
+
+def test_interpolate_points_duck(expected_lines_list, expected_multipoint_list):
+    #  Expected_multipoint_list are the  multipoints for the duck coastline
+    expected_multipoint_list_copy = expected_multipoint_list.copy()
+    # The expected result for the duck lines list is the 3rd item in the list
+    for index,line in enumerate(expected_lines_list[2]):
+        multipoint_list = overlap_roi.interpolate_points(line)
+        # Ensures multipoint exists
+        assert multipoint_list ==  expected_multipoint_list_copy[index]
 
 # Tests for overlap_roi.read_geojson_from_file
 # -------------------------------------------------------------
@@ -158,6 +172,7 @@ def  test_false_all_roi_check_all_ROI_overlap():
     df_overlap = gpd.GeoDataFrame({"primary_id" : [1]})
     result = overlap_roi.check_all_ROI_overlap(df_all_ROIs, df_overlap)
     assert result == False
+
 
 def convert_corners_to_geojson(
         upper_right_y: float,
