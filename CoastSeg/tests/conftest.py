@@ -6,7 +6,7 @@ import geopandas as gpd
 from shapely.geometry import shape
 import json
 import pickle
-from CoastSeg import download_roi
+# from CoastSeg import download_roi
 
 @pytest.fixture
 def expected_shapes_list() -> list:
@@ -106,14 +106,14 @@ def expected_geojson_polygons_list() -> list:
         expected_geojson_polygons_list = pickle.load(file)
     return expected_geojson_polygons_list    
 
-@pytest.fixture
-def expected_geojson_file() -> list:
-    """ As of 3/11/2022 this  is  only for the duck coastline
-    Returned type geojson file contents"""
-    duck_geojson_file = './CoastSeg/tests/test_data/official_roi_duck.geojson'
-    assert os.path.exists(duck_geojson_file),f"File {duck_geojson_file} not found"
-    expected_duck_geojson = download_roi.read_geojson_file(duck_geojson_file)
-    return expected_duck_geojson
+# @pytest.fixture
+# def expected_geojson_file() -> list:
+#     """ As of 3/11/2022 this  is  only for the duck coastline
+#     Returned type geojson file contents"""
+#     duck_geojson_file = './CoastSeg/tests/test_data/official_roi_duck.geojson'
+#     assert os.path.exists(duck_geojson_file),f"File {duck_geojson_file} not found"
+#     expected_duck_geojson = download_roi.read_geojson_file(duck_geojson_file)
+#     return expected_duck_geojson
 
 @pytest.fixture
 def expected_geojson_bbox_geodataframe(expected_shapes_list):

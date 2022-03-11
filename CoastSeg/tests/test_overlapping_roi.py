@@ -114,6 +114,37 @@ def test_interpolate_points_duck(expected_lines_list, expected_multipoint_list):
         # Ensures multipoint exists
         assert multipoint_list ==  expected_multipoint_list_copy[index]
 
+
+# Tests for overlap_roi.convert_multipoints_to_tuples
+# -------------------------------------------------------------
+# 1. test if it returns  valid tuples list for the duck coastline's multipoints
+def test_convert_multipoints_to_tuples_duck( expected_multipoint_list, expected_tuples_list):
+    #  expected_tuples_list are the expected tuples for the duck coastline
+    expected_tuples_list = expected_tuples_list.copy()
+    #  Expected_multipoint_list are the  multipoints for the duck coastline
+    input_multipoint_list = expected_multipoint_list.copy()
+    # The expected result for the duck lines list is the 3rd item in the list
+    for index,multipoint in enumerate(input_multipoint_list):
+        tuples_list = overlap_roi.convert_multipoints_to_tuples(multipoint)
+        # Ensures tuple output matched the expected  input
+        assert tuples_list ==  expected_tuples_list[index]
+
+
+# Tests for overlap_roi.create_reactangles
+# -------------------------------------------------------------
+# 1. test if it returns  valid geojson rectangles for the duck coastline's tuples list
+def test_create_reactangles_duck(  expected_tuples_list, expected_geojson_polygons_list):
+    #  expected_tuples_list are the input tuples for the duck coastline
+    input_tuples_list = expected_tuples_list.copy()
+    #  expected_geojson_polygons_list  are the expected geojson rectangles for the duck coastline
+    expected_geojson_polygons_list = expected_geojson_polygons_list.copy()
+    # The expected result for the duck lines list is the 3rd item in the list
+    for index,tuple in enumerate(input_tuples_list):
+        rectangle_geojson = overlap_roi.create_reactangles(tuple)
+        # Ensures tuple output matched the expected  input
+        assert rectangle_geojson ==  expected_geojson_polygons_list[index]
+
+
 # Tests for overlap_roi.read_geojson_from_file
 # -------------------------------------------------------------
 # Test if it raises assertion error when invalid geojson file is given

@@ -6,14 +6,14 @@ from datetime import datetime
 from tqdm.notebook import tqdm_notebook
 import ee
 import geojson
-import matplotlib.pyplot as plt
-import matplotlib
+# import matplotlib.pyplot as plt
+# import matplotlib
 import os
 import warnings
 warnings.filterwarnings("ignore")
-# from matplotlib import gridspec
-matplotlib.use('Qt5Agg')
-plt.ion()
+# # from matplotlib import gridspec
+# matplotlib.use('Qt5Agg')
+# plt.ion()
 
 
 def download_imagery_with_metadata(
