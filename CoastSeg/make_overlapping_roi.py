@@ -7,6 +7,7 @@ from shapely.ops import unary_union
 from geojson import Feature, FeatureCollection, dump
 import geojson
 from tqdm.notebook import tqdm_notebook
+import os
 
 # Global vars
 TEMP_FILENAME = "temp.geojson"
@@ -53,14 +54,10 @@ def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str):
             start_id=start_id)
         overlap_df = create_overlap(TEMP_FILENAME, line, start_id, end_id_list)
         if len(end_id_list) != 0:
-            # Get the  most recent end_id
-            # print(f"end_id_list {end_id_list}")
-            # print(f"Updating start id from {start_id}")
+            # Get the most recent end_id and clear the list of end_ids
             start_id = end_id_list.pop()
-            # print(f"Updating start id to {start_id}")
-            # print(f"AFTER POP: end_id_list {end_id_list}")
             end_id_list = []
-        else:
+        else: 
             # Once all the overlapping ROIs have been created update the
             # start_id for the next set of ROIs
             start_id = end_id
@@ -135,7 +132,6 @@ def min_overlap_btw_vectors(
 # Checks if all the ROIS were removed if this was the case then we want to
 # return the original data
     if len(ids_in_features) == 0:
-        # print("ALL ROIS were removed by overlap check")
         return overlap_btw_vectors_df
     else:
         feature_collection = FeatureCollection(features)
@@ -161,6 +157,7 @@ def read_geojson_from_file(selected_roi_file: str) -> dict:
     data: dict
         geojson of the selected ROIs
     """
+    assert os.path.exists(selected_roi_file), f"ERROR: {selected_roi_file} does not exist to read selected rois from"
     with open(selected_roi_file) as f:
         data = geojson.load(f)
     return data
@@ -293,6 +290,7 @@ def get_linestring_list(vector_in_bbox_geojson: dict) -> list:
     """
     lines_list = []
     length_vector_bbox_features = len(vector_in_bbox_geojson['features'])
+    assert length_vector_bbox_features != 0, "ERROR: There  must be at least 1 feature in bounding box."
     for i in range(0, length_vector_bbox_features):
         if vector_in_bbox_geojson['features'][i]['geometry']['type'] == 'MultiLineString':
             for y in range(
@@ -304,6 +302,8 @@ def get_linestring_list(vector_in_bbox_geojson: dict) -> list:
             line = LineString(
                 vector_in_bbox_geojson['features'][i]['geometry']['coordinates'])
             lines_list.append(line)
+        else:
+            raise AssertionError("Error: Only features of types LineString or MultiLineString are allowed.")
     return lines_list
 
 
@@ -503,7 +503,7 @@ def create_overlap(
             # print(f"num_pts increased to: {num_pts}")
 # Keep looping while not all the rois overlap and the average overlap is
 # more than 80%
-    while do_all_ROI_overlap == False and is_overlap_excessive:
+    while do_all_ROI_overlap is False and is_overlap_excessive:
         multipoint_list = interpolate_points(line, num_pts)
         tuples_list = convert_multipoints_to_tuples(multipoint_list)
         geojson_polygons = create_reactangles(tuples_list)
@@ -523,16 +523,15 @@ def create_overlap(
             do_all_ROI_overlap = False
         if not do_all_ROI_overlap:
             if num_pts == 1 or num_pts > 25:
-                # print(f"IN LOOP: num_pts is 1. BREAKING")
-                break  # if the num_pts == 1 means no more ROIs should be removed
+                break  # means no more ROIs should be removed or added
+            # This executes if not all the roi overlap so another roi needs to be added
             num_pts = adjust_num_pts(num_pts + 1)
-        else:   # all ROIs overlap
+        else:   # some ROIs overlap
             if num_pts == 1 or num_pts > 25:
-                break  # if the num_pts == 1 means no more ROIs should be removed
+                break  # means no more ROIs should be removed or added
             is_overlap_excessive = check_average_ROI_overlap(df_overlap, .35)
             if is_overlap_excessive:
                 # If the average overlap is over 35% decrease number of rois by
-                # 1
                 num_pts = adjust_num_pts(num_pts - 1)
                 is_overlap_excessive = True
                 # print(f"IN LOOP: num_pts decreased to: {num_pts}")
@@ -563,9 +562,7 @@ def check_all_ROI_overlap(df_all_ROIs, df_overlap):
     True: If all the IDs in df_all_ROIs are also in df_overlap
     False: If NOT all the IDs in df_all_ROIs are also in df_overlap"""
     all_ids_list = list(df_all_ROIs["id"])
-    # print(f"\n all_ids_list:{all_ids_list}\n")
     overlapping_ids = df_overlap["primary_id"]
-    # print(f"\n overlapping_ids:\n{overlapping_ids}\n")
     missing_list = list(set(all_ids_list) - set(overlapping_ids))
     if missing_list == []:
         return True

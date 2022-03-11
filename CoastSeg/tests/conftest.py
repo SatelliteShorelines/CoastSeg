@@ -5,41 +5,91 @@ import os
 import geopandas as gpd
 from shapely.geometry import shape
 import json
-# MAKE SURE TO DOCUMENT WHAT EACH FIXTURE  IS INTENDED FOR
-# FIXTURES NEEDED
-# ----------------------------
-# valid shapes_list
-# valid large shapes_list
-# valid small shapes_list
-# invalid large shapes_list
-# invalid small shapes_list
-
-# -----------------------------------
-# valid rois
-# Valid roi selections for each shapes_list
-# invalid rois
+import pickle
 
 @pytest.fixture
-def valid_shapeslist() -> list:
-    return [{'type': 'Polygon', 'coordinates': [[[-121.609594, 36.007493],[-121.609594, 36.053998],[-121.533957, 36.053998],[-121.533957, 36.007493],[-121.609594, 36.007493]]]}]
+def expected_shapes_list() -> list:
+    """ Returns a list of all the true expected shapes list (aka the bbox)"""
+    shapes_list_pkl = './CoastSeg/tests/test_data/ca_simple_shapes_list.pkl'
+    with open(shapes_list_pkl, "rb") as file:
+        simple_shapes = pickle.load(file)
+
+    shapes_list_pkl = './CoastSeg/tests/test_data/island_shapes_list.pkl'   
+    with open(shapes_list_pkl, "rb") as file:
+        island_shapes = pickle.load(file)
+
+    shapes_list_pkl = './CoastSeg/tests/test_data/duck_shapes_list.pkl'
+    with open(shapes_list_pkl, "rb") as file:
+        duck_shapes = pickle.load(file)
+
+    shapes_list_pkl = './CoastSeg/tests/test_data/sf_complex_shapes_list.pkl'   
+    with open(shapes_list_pkl, "rb") as file:
+        sf_complex_shapes = pickle.load(file)        
+
+    expected_shapes_list=[island_shapes, simple_shapes, duck_shapes, sf_complex_shapes]
+    return expected_shapes_list
+
 
 @pytest.fixture
-def valid_geojson_bbox_geodataframe(valid_shapeslist):
-    shapes_list = valid_shapeslist
+def expected_lines_list() -> list:
+    """ Returns a list of all the true expected lines list (aka all the lines that makeup the coastline)"""
+    lines_list_pkl = './CoastSeg/tests/test_data/ca_simple_lines_list.pkl'
+    with open(lines_list_pkl, "rb") as file:
+        simple_lines = pickle.load(file)
+
+    lines_list_pkl = './CoastSeg/tests/test_data/island_lines_list.pkl'   
+    with open(lines_list_pkl, "rb") as file:
+        island_lines = pickle.load(file)
+
+    lines_list_pkl = './CoastSeg/tests/test_data/duck_lines_list.pkl'
+    with open(lines_list_pkl, "rb") as file:
+        duck_lines = pickle.load(file)
+
+    lines_list_pkl = './CoastSeg/tests/test_data/sf_complex_lines_list.pkl'   
+    with open(lines_list_pkl, "rb") as file:
+        sf_complex_lines = pickle.load(file)        
+
+    expected_lines_list=[island_lines, simple_lines, duck_lines, sf_complex_lines]
+    return expected_lines_list
+
+
+@pytest.fixture
+def expected_coastline_list() -> list:
+    """ Returns a list of all the true expected coastlines (aka coastline in the bbox)"""
+    roi_coastline_pkl = './CoastSeg/tests/test_data/ca_simple_coastline.pkl'
+    with open(roi_coastline_pkl, "rb") as poly_file:
+        roi_simple_coastline = pickle.load(poly_file)
+    roi_coastline_pkl = './CoastSeg/tests/test_data/island_coastline.pkl'   
+    with open(roi_coastline_pkl, "rb") as poly_file:
+        roi_island_coastline = pickle.load(poly_file)
+    roi_coastline_pkl = './CoastSeg/tests/test_data/duck_coastline.pkl'
+    with open(roi_coastline_pkl, "rb") as poly_file:
+        duck_coastline = pickle.load(poly_file)
+    roi_coastline_pkl = './CoastSeg/tests/test_data/sf_complex_coastline.pkl'
+    with open(roi_coastline_pkl, "rb") as poly_file:
+        sf_complex_coastline = pickle.load(poly_file)
+
+    coastline_list=[roi_island_coastline,roi_simple_coastline,duck_coastline,sf_complex_coastline]
+    return coastline_list
+
+
+@pytest.fixture
+def expected_geojson_bbox_geodataframe(expected_shapes_list):
+    shapes_list = expected_shapes_list[0]
     geom = [shape(shapes_list[0])]
     geojson_bbox = gpd.GeoDataFrame({'geometry': geom})
     geojson_bbox.crs = 'EPSG:4326'
     return geojson_bbox
 
 @pytest.fixture
-def valid_roi_coastline_json(valid_clipped_geodataframe):
-    roi_coast = json.loads(valid_clipped_geodataframe.to_json())
+def expected_roi_coastline_json(expected_clipped_geodataframe):
+    roi_coast = json.loads(expected_clipped_geodataframe.to_json())
     return roi_coast
 
 
 @pytest.fixture
-def valid_shoreline_geodataframe(get_shoreline_file):
-    shoreline_file = get_shoreline_file
+def expected_shoreline_geodataframe(expected_shoreline_file):
+    shoreline_file = expected_shoreline_file
     if os.path.exists(shoreline_file):
         with open(shoreline_file, 'r') as f:
             shoreline = gpd.read_file(f)
@@ -49,20 +99,16 @@ def valid_shoreline_geodataframe(get_shoreline_file):
 
 
 @pytest.fixture
-def valid_clipped_geodataframe(valid_geojson_bbox_geodataframe, valid_shoreline_geodataframe):
-    coastline_vector=valid_shoreline_geodataframe
-    geojson_bbox=valid_geojson_bbox_geodataframe
+def expected_clipped_geodataframe(expected_geojson_bbox_geodataframe, expected_shoreline_geodataframe):
+    coastline_vector = expected_shoreline_geodataframe
+    geojson_bbox = expected_geojson_bbox_geodataframe
     roi_coast = gpd.clip(coastline_vector, geojson_bbox)
     roi_coast = roi_coast.to_crs('EPSG:4326')
     return roi_coast
 
-# @pytest.fixture
-# def invalid_shapeslist() -> list:
-#     return [{'type': 'Polygon', 'coordinates': [[[-121.533957, 36.053998],[-121.533957, 36.007493],[-121.609594, 36.007493]]]}]
-
 
 @pytest.fixture
-def get_shoreline_file() -> str:
+def expected_shoreline_file() -> str:
     shoreline_file=os.getcwd()+os.sep+"third_party_data"+os.sep+"stanford-xv279yj9196-geojson.json"
     assert os.path.exists(shoreline_file)
     return shoreline_file
