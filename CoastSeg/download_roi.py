@@ -34,7 +34,6 @@ def download_imagery_with_metadata(
         inputs_file), "Path to inputs_file {inputs_file} did not exist"
     # Read the inputs dict from file and get the list of inputs
     inputs_dict = read_json_file(inputs_file)
-    print(inputs_dict)
     inputs_list = inputs_dict['inputs_list']
     print(inputs_list)
 
@@ -96,7 +95,7 @@ def download_imagery(
     try:
         inputs_list = check_images_available_selected_ROI(
             selected_roi_geojson, dates, sat_list)
-        print(inputs_list)
+        print("Images available: \n",inputs_list)
     except ee.EEException as exception:
         print(exception)
         handle_AuthenticationError()
@@ -108,12 +107,9 @@ def download_imagery(
     for inputs in tqdm_notebook(inputs_list, desc="Downloading ROIs"):
         print("\ninputs: ", inputs, "\n")
         metadata = SDS_download.retrieve_images(inputs)
-        # Alternative method to get metadata if you already have the images saved
-        # metadata = SDS_download.get_metadata(inputs)
         print("\nmetadata", metadata, "\n")
         # Add the inputs to the pre_process_settings
         pre_process_settings['inputs'] = inputs
-        # print(metadata)
         SDS_preprocess.save_jpg(metadata, pre_process_settings)
 
 
@@ -130,7 +126,7 @@ def save_roi(
         The filename of the geojson file containing all the ROI
 
     selected_roi_file: str
-        The filename of the geojson file containing all the ROI selected by the user
+        The name of the geojson file to save the ROI selected
     selected_roi_set: set
         The set of the selected rois' ids
     Returns:
@@ -162,7 +158,7 @@ def get_selected_roi_geojson(selected_set: set(), roi_data: dict) -> dict:
     Arguments:
     -----------
     selected_set:tuple
-        A tuple containing the ids of the ROIs selected by the user
+        ids of the ROIs selected by the user
 
     roi_data:dict
         A geojson dict containing all the rois currently on the map
@@ -226,8 +222,8 @@ def check_images_available_selected_ROI(
     inputs_list = []
     if selected_roi_geojson["features"] != []:
         date_str = generate_datestring()
-        for counter, ROI in enumerate(selected_roi_geojson["features"]):
-            coastSatBBOX = ROI["geometry"]["coordinates"]
+        for counter, roi in enumerate(selected_roi_geojson["features"]):
+            coastSatBBOX = roi["geometry"]["coordinates"]
             polygon = coastSatBBOX
             # it's recommended to convert the polygon to the smallest rectangle
             # (sides parallel to coordinate axes)

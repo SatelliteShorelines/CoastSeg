@@ -3,7 +3,8 @@ notebooks/data/*
 notebooks/roi.geojson
 notebooks/selected_roi.geojson
 notebooks/.ipynb_checkpoints/*
-
+data/*
+segmentation_data*/*
 ## db: checkpoints
 .ipynb_checkpoints/*
 

@@ -553,7 +553,8 @@ def create_jpg(im_ms, cloud_mask, date, satname, filepath):
 
     """
     # rescale image intensity for display purposes
-    im_RGB = rescale_image_intensity(im_ms[:,:,[2,1,0]], cloud_mask, 99.9)
+    im_RGB = rescale_image_intensity(im_ms[:,:,[2,1,0]], cloud_mask, 99.9).astype(np.uint8)
+    print(f"\nim_RGB: {type(im_RGB)} \n")
     # Save the image with skimage.io
     fname=os.path.join(filepath, date + '_' + satname + '.jpg')
     imsave(fname, im_RGB)

@@ -1,4 +1,5 @@
 # External imports
+from audioop import lin2adpcm
 import geopandas as gpd
 import numpy as np
 import shapely
@@ -7,6 +8,7 @@ from shapely.ops import unary_union
 from geojson import Feature, FeatureCollection, dump
 import geojson
 from tqdm.notebook import tqdm_notebook
+import ipywidgets as widgets
 import os
 
 # Global vars
@@ -24,7 +26,7 @@ def get_empty_overlap_df():
     return df_overlap
 
 
-def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str):
+def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str, progressbar : "widgets.FloatProgress"):
     """Writes the ROIs to a geojson file and the overlap between those ROIs to a csv file.
     Arguments:
     -----------
@@ -45,7 +47,10 @@ def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str):
     end_id_list = []
     master_overlap_df = get_empty_overlap_df()
     finalized_roi = {'type': 'FeatureCollection', 'features': []}
-    for line in tqdm_notebook(lines_list, desc="Calculating Overlap"):
+    total = len(lines_list)
+    # for line in tqdm_notebook(lines_list, desc="Calculating Overlap"):
+    for i,line in enumerate(lines_list):
+        progressbar.value = float(i+1)/total
         geojson_polygons = get_geojson_polygons(line)
         end_id = write_to_geojson_file(
             TEMP_FILENAME,
@@ -530,8 +535,8 @@ def adjust_num_pts(new_num_pts):
 def check_all_ROI_overlap(df_all_ROIs, df_overlap):
     """Compares the IDs of the ROIs in df_overlap(contains only the ids of the overlapping ROIs), to df_all_rois(contains the ids of all ROIs)
     Returns
-    True: If all the IDs in df_all_ROIs are also in df_overlap
-    False: If NOT all the IDs in df_all_ROIs are also in df_overlap"""
+    True: All Rois overlap. If all the IDs in df_all_ROIs are also in df_overlap
+    False: Not all Rois overlap. If NOT all the IDs in df_all_ROIs are also in df_overlap"""
     all_ids_list = list(df_all_ROIs["id"])
     overlapping_ids = df_overlap["primary_id"]
     missing_list = list(set(all_ids_list) - set(overlapping_ids))

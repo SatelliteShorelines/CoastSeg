@@ -116,6 +116,7 @@ def get_coastline(shoreline_file: str, bbox: dict):
     return roi_coast
 
 
+# Added to 
 def get_coastline_for_map(coast_geojson: dict):
     """Returns a GeoJSON object that can be added to the map """
     assert coast_geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
