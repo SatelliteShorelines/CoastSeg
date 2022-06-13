@@ -35,7 +35,6 @@ def download_imagery_with_metadata(
     # Read the inputs dict from file and get the list of inputs
     inputs_dict = read_json_file(inputs_file)
     inputs_list = inputs_dict['inputs_list']
-    print(inputs_list)
 
     for inputs in tqdm_notebook(inputs_list,
                                 desc="Downloading ROIs with metadata"):
@@ -43,7 +42,6 @@ def download_imagery_with_metadata(
         # Alternative method to get metadata if you already have the images
         # saved
         metadata = SDS_download.get_metadata(inputs)
-        print("\nmetadata", metadata, "\n")
         # Add the inputs to the pre_process_settings
         pre_process_settings['inputs'] = inputs
         SDS_preprocess.save_jpg(metadata, pre_process_settings)
@@ -107,7 +105,6 @@ def download_imagery(
     for inputs in tqdm_notebook(inputs_list, desc="Downloading ROIs"):
         print("\ninputs: ", inputs, "\n")
         metadata = SDS_download.retrieve_images(inputs)
-        print("\nmetadata", metadata, "\n")
         # Add the inputs to the pre_process_settings
         pre_process_settings['inputs'] = inputs
         SDS_preprocess.save_jpg(metadata, pre_process_settings)
@@ -187,7 +184,6 @@ def generate_datestring():
     EX: "ID02022-01-31__13_hr_19_min"
     """
     date = datetime.now()
-    print(date)
     return date.strftime('%Y-%m-%d__%H_hr_%M_min')
 
 
