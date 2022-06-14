@@ -71,6 +71,7 @@ def download_imagery(
         pre_process_settings: dict,
         dates: list,
         sat_list: list,
+        collection: str,
         inputs_filename="inputs.json") -> None:
     """
      Checks if the images exist with check_images_available(), downloads them with retrieve_images(), and
@@ -86,19 +87,27 @@ def download_imagery(
 
     dates: list
         A list of length two that contains a valid start and end date
+        
+    collection : str 
+     whether to use LandSat Collection 1 (`C01`) 
+     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+     Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
+     images prior to 2022/01/01 will be downloaded from Collection 1, 
+     while images captured after that date will be automatically taken from `C02`.    
+    
     sat_list: list
         A list of strings containing the names of the satellite
     """
 #     1. Check imagery available and check for ee credentials
     try:
         inputs_list = check_images_available_selected_ROI(
-            selected_roi_geojson, dates, sat_list)
+            selected_roi_geojson, dates, collection, sat_list)
         print("Images available: \n",inputs_list)
     except ee.EEException as exception:
         print(exception)
         handle_AuthenticationError()
         inputs_list = check_images_available_selected_ROI(
-            selected_roi_geojson, dates, sat_list)
+            selected_roi_geojson, dates, collection, sat_list)
 # Check if inputs for downloading imagery exist then download imagery
     assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
     write_inputs_file(inputs_filename, inputs_list)
@@ -195,6 +204,7 @@ def handle_AuthenticationError():
 def check_images_available_selected_ROI(
         selected_roi_geojson: dict,
         dates: list,
+        collection:str,
         sat_list: list) -> list:
     """"
 
@@ -209,6 +219,12 @@ def check_images_available_selected_ROI(
         A list of length two that contains a valid start and end date
     sat_list: list
         A list of strings containing the names of the satellite
+    collection : str
+     whether to use LandSat Collection 1 (`C01`) 
+     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+     Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
+     images prior to 2022/01/01 will be downloaded from Collection 1, 
+     while images captured after that date will be automatically taken from `C02`.
 
    Returns:
     -----------
@@ -234,7 +250,8 @@ def check_images_available_selected_ROI(
                 'dates': dates,
                 'sat_list': sat_list,
                 'sitename': sitename,
-                'filepath': filepath}
+                'filepath': filepath,
+                'landsat_collection': collection}
             # before downloading the images, check how many images are
             # available for your inputs
             SDS_download.check_images_available(inputs)
