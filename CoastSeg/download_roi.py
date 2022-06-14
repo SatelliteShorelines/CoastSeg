@@ -6,14 +6,14 @@ from datetime import datetime
 from tqdm.notebook import tqdm_notebook
 import ee
 import geojson
-import matplotlib.pyplot as plt
-import matplotlib
+# import matplotlib.pyplot as plt
+# import matplotlib
 import os
 import warnings
 warnings.filterwarnings("ignore")
-# from matplotlib import gridspec
-matplotlib.use('Qt5Agg')
-plt.ion()
+# # from matplotlib import gridspec
+# matplotlib.use('Qt5Agg')
+# plt.ion()
 
 
 def download_imagery_with_metadata(
@@ -34,9 +34,7 @@ def download_imagery_with_metadata(
         inputs_file), "Path to inputs_file {inputs_file} did not exist"
     # Read the inputs dict from file and get the list of inputs
     inputs_dict = read_json_file(inputs_file)
-    print(inputs_dict)
     inputs_list = inputs_dict['inputs_list']
-    print(inputs_list)
 
     for inputs in tqdm_notebook(inputs_list,
                                 desc="Downloading ROIs with metadata"):
@@ -44,7 +42,6 @@ def download_imagery_with_metadata(
         # Alternative method to get metadata if you already have the images
         # saved
         metadata = SDS_download.get_metadata(inputs)
-        print("\nmetadata", metadata, "\n")
         # Add the inputs to the pre_process_settings
         pre_process_settings['inputs'] = inputs
         SDS_preprocess.save_jpg(metadata, pre_process_settings)
@@ -74,6 +71,7 @@ def download_imagery(
         pre_process_settings: dict,
         dates: list,
         sat_list: list,
+        collection: str,
         inputs_filename="inputs.json") -> None:
     """
      Checks if the images exist with check_images_available(), downloads them with retrieve_images(), and
@@ -89,31 +87,35 @@ def download_imagery(
 
     dates: list
         A list of length two that contains a valid start and end date
+        
+    collection : str 
+     whether to use LandSat Collection 1 (`C01`) 
+     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+     Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
+     images prior to 2022/01/01 will be downloaded from Collection 1, 
+     while images captured after that date will be automatically taken from `C02`.    
+    
     sat_list: list
         A list of strings containing the names of the satellite
     """
 #     1. Check imagery available and check for ee credentials
     try:
         inputs_list = check_images_available_selected_ROI(
-            selected_roi_geojson, dates, sat_list)
-        print(inputs_list)
+            selected_roi_geojson, dates, collection, sat_list)
+        print("Images available: \n",inputs_list)
     except ee.EEException as exception:
         print(exception)
         handle_AuthenticationError()
         inputs_list = check_images_available_selected_ROI(
-            selected_roi_geojson, dates, sat_list)
+            selected_roi_geojson, dates, collection, sat_list)
 # Check if inputs for downloading imagery exist then download imagery
     assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
     write_inputs_file(inputs_filename, inputs_list)
     for inputs in tqdm_notebook(inputs_list, desc="Downloading ROIs"):
         print("\ninputs: ", inputs, "\n")
         metadata = SDS_download.retrieve_images(inputs)
-        # Alternative method to get metadata if you already have the images saved
-        # metadata = SDS_download.get_metadata(inputs)
-        print("\nmetadata", metadata, "\n")
         # Add the inputs to the pre_process_settings
         pre_process_settings['inputs'] = inputs
-        # print(metadata)
         SDS_preprocess.save_jpg(metadata, pre_process_settings)
 
 
@@ -130,7 +132,7 @@ def save_roi(
         The filename of the geojson file containing all the ROI
 
     selected_roi_file: str
-        The filename of the geojson file containing all the ROI selected by the user
+        The name of the geojson file to save the ROI selected
     selected_roi_set: set
         The set of the selected rois' ids
     Returns:
@@ -162,7 +164,7 @@ def get_selected_roi_geojson(selected_set: set(), roi_data: dict) -> dict:
     Arguments:
     -----------
     selected_set:tuple
-        A tuple containing the ids of the ROIs selected by the user
+        ids of the ROIs selected by the user
 
     roi_data:dict
         A geojson dict containing all the rois currently on the map
@@ -191,7 +193,6 @@ def generate_datestring():
     EX: "ID02022-01-31__13_hr_19_min"
     """
     date = datetime.now()
-    print(date)
     return date.strftime('%Y-%m-%d__%H_hr_%M_min')
 
 
@@ -203,6 +204,7 @@ def handle_AuthenticationError():
 def check_images_available_selected_ROI(
         selected_roi_geojson: dict,
         dates: list,
+        collection:str,
         sat_list: list) -> list:
     """"
 
@@ -217,6 +219,12 @@ def check_images_available_selected_ROI(
         A list of length two that contains a valid start and end date
     sat_list: list
         A list of strings containing the names of the satellite
+    collection : str
+     whether to use LandSat Collection 1 (`C01`) 
+     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+     Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
+     images prior to 2022/01/01 will be downloaded from Collection 1, 
+     while images captured after that date will be automatically taken from `C02`.
 
    Returns:
     -----------
@@ -226,8 +234,8 @@ def check_images_available_selected_ROI(
     inputs_list = []
     if selected_roi_geojson["features"] != []:
         date_str = generate_datestring()
-        for counter, ROI in enumerate(selected_roi_geojson["features"]):
-            coastSatBBOX = ROI["geometry"]["coordinates"]
+        for counter, roi in enumerate(selected_roi_geojson["features"]):
+            coastSatBBOX = roi["geometry"]["coordinates"]
             polygon = coastSatBBOX
             # it's recommended to convert the polygon to the smallest rectangle
             # (sides parallel to coordinate axes)
@@ -242,7 +250,8 @@ def check_images_available_selected_ROI(
                 'dates': dates,
                 'sat_list': sat_list,
                 'sitename': sitename,
-                'filepath': filepath}
+                'filepath': filepath,
+                'landsat_collection': collection}
             # before downloading the images, check how many images are
             # available for your inputs
             SDS_download.check_images_available(inputs)
