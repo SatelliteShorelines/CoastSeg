@@ -35,7 +35,7 @@ def generate_datestring():
     """
     date = datetime.now()
     print(date)
-    return date.strftime('%Y-%m-%d__%H_hr_%M_min')
+    return date.strftime('%Y-%m-%d__%H_hr_%M_min%S')
 
 
 def mk_new_dir(name:str,location:str):

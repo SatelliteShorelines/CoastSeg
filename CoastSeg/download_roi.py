@@ -89,8 +89,8 @@ def download_imagery(
         A list of length two that contains a valid start and end date
         
     collection : str 
-     whether to use LandSat Collection 1 (`C01`) 
-     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+     whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`). 
+     Note that after 2022/01/01, Landsat images are only available in Collection 2. 
      Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
      images prior to 2022/01/01 will be downloaded from Collection 1, 
      while images captured after that date will be automatically taken from `C02`.    
