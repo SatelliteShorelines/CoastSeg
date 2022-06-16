@@ -185,8 +185,8 @@ class Zoo_Model:
         outfile =model_direc + os.sep + filename
         # Download the model from Zenodo
         if not os.path.exists(outfile):
-            print('Retrieving model {} ...'.format(url))
             url=(root_url+filename)
+            print('Retrieving model {} ...'.format(url))
             self.download_url(url, outfile)
             print('Unzipping model to {} ...'.format(model_direc))
             with zipfile.ZipFile(outfile, 'r') as zip_ref:
