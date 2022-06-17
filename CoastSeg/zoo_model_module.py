@@ -167,6 +167,10 @@ class Zoo_Model:
         """Returns of the weights files(.h5) within weights_direc """
         if model_choice == 'ENSEMBLE':
             return glob.glob(self.weights_direc+os.sep+'*.h5')
+        elif model_choice == 'BEST':
+            with open(self.weights_direc + os.sep+'BEST_MODEL.txt')as f:
+                w = f.readlines()
+            return [self.weights_direc + os.sep + w[0]]
     
         
     def download_model(self,dataset:str='RGB', dataset_id :str ='landsat_6229071'):

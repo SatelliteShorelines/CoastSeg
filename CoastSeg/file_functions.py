@@ -3,6 +3,25 @@ import glob
 import shutil
 from datetime import datetime
 
+def get_jpgs_from_data():
+    """Copies all the jpgs from the data folder in CoastSeg to a new folder, where the model
+    will save the computed segmentations."""
+    # Data folder location 
+    src_path=os.getcwd()+os.sep+"data"
+    if os.path.exists(src_path):
+        rename_jpgs(src_path)
+        # Create a new folder to hold all the data
+        location=os.getcwd()
+        name="segmentation_data"
+        new_folder=mk_new_dir(name,location)
+        glob_str = src_path + str(os.sep + "**" + os.sep) * 3 + "*jpg"
+        copy_files_to_dst(src_path,new_folder, glob_str)
+        return new_folder
+    else:
+        print("ERROR: Cannot find the data directory in CoastSeg")
+        raise Exception("ERROR: Cannot find the data directory in CoastSeg")
+
+
 def rename_jpgs(src_path: str) -> None:
     """ Renames all the jpgs in the data directory in CoastSeg
     Args:
