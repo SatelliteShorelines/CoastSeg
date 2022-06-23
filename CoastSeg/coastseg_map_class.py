@@ -43,12 +43,22 @@ class CoastSeg_Map:
         self.m.add_control(layer_control)
     
     def check_shoreline_file_exists():
+        """ Prints an error message if the shoreline file does not exist
+        """
         if not os.path.exists(CoastSeg_Map.shoreline_file):
             print("\n The geojson shoreline file does not exist.")
             print("Please ensure the shoreline file is the directory 'third_party_data' ")
     
 
     def create_DrawControl(self,draw_control):
+        """ modifies the given draw control so that only rectangles can be drawn
+
+        Args:
+            draw_control (ipyleaflet.leaflet.DrawControl): draw control to modify
+
+        Returns:
+            ipyleaflet.leaflet.DrawControl: modified draw control with only ability to draw rectangles
+        """
         draw_control.polyline = {}
         draw_control.circlemarker = {}
         draw_control.polygon = {}
@@ -70,6 +80,13 @@ class CoastSeg_Map:
    
    
     def handle_draw(self,target, action, geo_json):
+        """ Adds or removes the bounding box to the shapes_list when it is
+        drawn on the map
+        Args:
+            target (_type_): _description_
+            action (_type_): _description_
+            geo_json (_type_): _description_
+        """
         self.action=action
         self.geo_json=geo_json
         self.target=target
@@ -79,7 +96,15 @@ class CoastSeg_Map:
             self.shapes_list.pop()
     
     
-    def set_data(self, roi_filename):
+    def set_data(self, roi_filename:str):
+        """creates styled geojson for the rois generated based on the geojson read in
+        from the file with the name roi_filename  
+
+        Args:
+            roi_filename (str): name of the geojson file containing the geojson
+            of all the rois generated
+
+        """
         # Read the geojson for all the ROIs generated
         self.data=download_roi.read_geojson_file(roi_filename)
         # Add style to each feature in the geojson
@@ -92,7 +117,13 @@ class CoastSeg_Map:
             }
     
     
-    def generate_ROIS(self, roi_filename, csv_filename, progressbar=None):
+    def generate_ROIS(self, roi_filename :str, csv_filename: str, progressbar=None):
+        """generates a series of overlapping ROIS along the coastline on the map
+        Args:
+            roi_filename (str): _description_
+            csv_filename (str): _description_
+            progressbar (_type_, optional): _description_. Defaults to None.
+        """
         # Make sure your bounding box is within the allowed size
         bbox.validate_bbox_size(self.shapes_list)
         #dictionary containing geojson coastline
@@ -107,12 +138,19 @@ class CoastSeg_Map:
         # overlap_btw_vectors_df=make_overlapping_roi.min_overlap_btw_vectors(roi_filename,csv_filename,overlap_percent=.65)
 
 
-    def save_roi_to_file(self, selected_roi_file, roi_filename):
+    def save_roi_to_file(self, selected_roi_file : str, roi_filename :str):
+        """saves the selected roi to a geojson file with the name selected_roi_file
+
+        Args:
+            selected_roi_file (str):  The name of the geojson file to save the ROI selected
+            roi_filename (str):The filename of the geojson file containing all the ROI
+        """
+
         self.selected_ROI=download_roi.save_roi(roi_filename, selected_roi_file, self.selected_set)
   
   
     def get_coastline_layer(self,roi_coastline: dict):
-        """Returns a GeoJSON object that can be added as layer to map """
+        """Returns the coastline as a GeoJSON object that can be added as layer to map """
         assert roi_coastline != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
         return GeoJSON(
             data=roi_coastline,
@@ -131,13 +169,27 @@ class CoastSeg_Map:
         )  
     
     
-    def get_geojson_layer(self):
+    def get_geojson_layer(self) -> "GeoJSON":
+        """Add the geojson for the selected rois  to the map
+
+        Returns:
+            GeoJSON: geojson object that can be added to the map
+        """
         if self.geojson_layer is None:
              self.geojson_layer=GeoJSON(data=self.data, name="geojson data", hover_style={"fillColor": "red"})
         return self.geojson_layer
     
     
     def geojson_onclick_handler(self, event=None, id=None, properties=None, **args):
+        """geojson_onclick_handler _summary_
+
+        _extended_summary_
+
+        Args:
+            event (_type_, optional): _description_. Defaults to None.
+            id (_type_, optional): _description_. Defaults to None.
+            properties (_type_, optional): _description_. Defaults to None.
+        """
         if properties is None:
             return
         cid = properties["id"]

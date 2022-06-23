@@ -128,7 +128,7 @@ def save_roi(
 
     Arguments:
     -----------
-    geojson_file: strdump
+    geojson_file: str
         The filename of the geojson file containing all the ROI
 
     selected_roi_file: str
