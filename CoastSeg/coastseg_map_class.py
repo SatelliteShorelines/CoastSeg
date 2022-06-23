@@ -4,13 +4,18 @@ import leafmap
 from CoastSeg import download_roi
 from CoastSeg import bbox
 from CoastSeg import make_overlapping_roi
-from CoastSeg import zoo_model_module
-from CoastSeg import file_functions
+# from CoastSeg import zoo_model_module
+# from CoastSeg import file_functions
+from ipywidgets import Layout
+import ipywidgets as widgets
 
-
+debug_map_view = widgets.Output(layout={'border': '1px solid black'})
 class CoastSeg_Map:
+    
     shoreline_file=os.getcwd()+os.sep+"third_party_data"+os.sep+"stanford-xv279yj9196-geojson.json"
-    def __init__(self, map_settings: dict):
+    
+    
+    def __init__(self, map_settings: dict=None):
         # data : geojson data of the rois generated
         self.data=None
         # selected_set : ids of the selected rois
@@ -27,6 +32,17 @@ class CoastSeg_Map:
         self.selected_ROI=None
         self.collection=None
         CoastSeg_Map.check_shoreline_file_exists()
+        # If map_settings is not provided use default settings
+        if not map_settings:
+            map_settings={
+            "center_point": ( 36, -121.5),
+            "zoom":13,
+            "draw_control":False,
+            "measure_control":False, 
+            "fullscreen_control":False, 
+            "attribution_control":True,
+            "Layout":Layout(width='100%', height='100px')
+            }
         self.m = leafmap.Map(
                         draw_control=map_settings["draw_control"],
                         measure_control=map_settings["measure_control"],
@@ -42,14 +58,57 @@ class CoastSeg_Map:
         layer_control = LayersControl(position='topright')
         self.m.add_control(layer_control)
     
+    
     def check_shoreline_file_exists():
-        """ Prints an error message if the shoreline file does not exist
-        """
+        """ Prints an error message if the shoreline file does not exist"""
         if not os.path.exists(CoastSeg_Map.shoreline_file):
             print("\n The geojson shoreline file does not exist.")
             print("Please ensure the shoreline file is the directory 'third_party_data' ")
     
+    
+    def remove_all(self):
+        """Remove the bbox, coastline, all rois from the map"""
+        self.remove_bbox()
+        self.remove_coastline()
+        self.remove_all_rois()
+        self.remove_saved_roi()
+    
+    
+    def remove_bbox(self):
+        """Remove all the bounding boxes from the map"""
+        self.draw_control.clear()
+        self.shapes_list=[]
+    
+    
+    def remove_coastline(self):
+        """Removes the coastline from the map"""
+        if self.coastline_for_map:  
+            self.m.remove_layer(self.coastline_for_map)
+            self.coastline_for_map = None
 
+
+    def remove_saved_roi(self):
+        """Removes all the saved ROI"""
+        self.selected_ROI=None
+
+
+    def remove_all_rois(self):
+        """Removes all the unselected rois from the map """
+        # Get the geojson from the map
+        geojson_layer = self.get_geojson_layer()
+        if geojson_layer:
+            # Remove the layer from the map
+            self.m.remove_layer(geojson_layer)
+            self.geojson_layer = None
+            # clear the stylized geojson
+            self.data = None
+        # Remove the selected rois
+        if self.selected_layer:
+            self.m.remove_layer(self.selected_layer)
+            self.selected_layer = None
+        self.selected_set = set()
+   
+    
     def create_DrawControl(self,draw_control):
         """ modifies the given draw control so that only rectangles can be drawn
 
@@ -77,23 +136,24 @@ class CoastSeg_Map:
             "transform":True
         }
         return  draw_control 
-   
-   
-    def handle_draw(self,target, action, geo_json):
-        """ Adds or removes the bounding box to the shapes_list when it is
+    
+
+    @debug_map_view.capture(clear_output=True)
+    def handle_draw(self,target: 'ipyleaflet.leaflet.DrawControl', action :str, geo_json :dict):
+        """    Adds or removes the bounding box to the shapes_list when it is
         drawn on the map
         Args:
-            target (_type_): _description_
-            action (_type_): _description_
-            geo_json (_type_): _description_
+            target (ipyleaflet.leaflet.DrawControl): draw control used
+            action (str): name of the most recent action ex. 'created', 'deleted'
+            geo_json (dict): geojson dictionary for bounding box
         """
-        self.action=action
-        self.geo_json=geo_json
-        self.target=target
+        self.action = action
+        self.geo_json = geo_json
+        self.target = target
         if self.draw_control.last_action == 'created'and self.draw_control.last_draw['geometry']['type']=='Polygon' :
             self.shapes_list.append( self.draw_control.last_draw['geometry'])
         if self.draw_control.last_action == 'deleted':
-            self.shapes_list.pop()
+            self.shapes_list.remove(self.draw_control.last_draw['geometry'])
     
     
     def set_data(self, roi_filename:str):
@@ -175,7 +235,7 @@ class CoastSeg_Map:
         Returns:
             GeoJSON: geojson object that can be added to the map
         """
-        if self.geojson_layer is None:
+        if self.geojson_layer is None and  self.data:
              self.geojson_layer=GeoJSON(data=self.data, name="geojson data", hover_style={"fillColor": "red"})
         return self.geojson_layer
     
@@ -230,6 +290,7 @@ class CoastSeg_Map:
     
     
     def add_geojson_layer_to_map(self):
+        """ Add the geojson for the generated roi as a styled layer to the map"""
         geojson_layer =self.get_geojson_layer()
         geojson_layer.on_click(self.geojson_onclick_handler)
         self.m.add_layer(geojson_layer)
