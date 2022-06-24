@@ -177,12 +177,11 @@ class CoastSeg_Map:
             }
     
     
-    def generate_ROIS(self, roi_filename :str, csv_filename: str, progressbar=None):
+    def generate_ROIS(self, roi_filename :str, csv_filename: str, overlap_percent:float = None ):
         """generates a series of overlapping ROIS along the coastline on the map
         Args:
             roi_filename (str): _description_
             csv_filename (str): _description_
-            progressbar (_type_, optional): _description_. Defaults to None.
         """
         # Make sure your bounding box is within the allowed size
         bbox.validate_bbox_size(self.shapes_list)
@@ -192,10 +191,10 @@ class CoastSeg_Map:
         self.coastline_for_map=self.get_coastline_layer(roi_coastline)
         self.m.add_layer(self.coastline_for_map)
         #Get the rois using the coastline  within bounding box
-        geojson_polygons=make_overlapping_roi.get_ROIs(roi_coastline,roi_filename,csv_filename,progressbar)
+        geojson_polygons=make_overlapping_roi.get_ROIs(roi_coastline,roi_filename,csv_filename)
         # Save the data from the ROI file to data
         self.set_data(roi_filename)
-        # overlap_btw_vectors_df=make_overlapping_roi.min_overlap_btw_vectors(roi_filename,csv_filename,overlap_percent=.65)
+        # overlap_btw_vectors_df=make_overlapping_roi.min_overlap_btw_vectors(roi_filename,csv_filename, overlap_percent)
 
 
     def save_roi_to_file(self, selected_roi_file : str, roi_filename :str):

@@ -1,5 +1,4 @@
 # External imports
-from audioop import lin2adpcm
 import geopandas as gpd
 import numpy as np
 import shapely
@@ -8,7 +7,6 @@ from shapely.ops import unary_union
 from geojson import Feature, FeatureCollection, dump
 import geojson
 from tqdm.notebook import tqdm_notebook
-import ipywidgets as widgets
 import os
 
 # Global vars
@@ -26,7 +24,7 @@ def get_empty_overlap_df():
     return df_overlap
 
 
-def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str, progressbar : "widgets.FloatProgress"=None):
+def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str):
     """Writes the ROIs to a geojson file and the overlap between those ROIs to a csv file.
     Arguments:
     -----------
@@ -47,56 +45,28 @@ def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str, progressbar 
     end_id_list = []
     master_overlap_df = get_empty_overlap_df()
     finalized_roi = {'type': 'FeatureCollection', 'features': []}
-    total = len(lines_list)
-    if progressbar:
-        for i,line in enumerate(lines_list):
-            progressbar.value = float(i+1)/total
-            geojson_polygons = get_geojson_polygons(line)
-            end_id = write_to_geojson_file(
-                TEMP_FILENAME,
-                geojson_polygons,
-                perserve_id=False,
-                start_id=start_id)
-            overlap_df = create_overlap(TEMP_FILENAME, line, start_id, end_id_list)
-            if len(end_id_list) != 0:
-                # Get the most recent end_id and clear the list of end_ids
-                start_id = end_id_list.pop()
-                end_id_list = []
-            else: 
-                # Once all the overlapping ROIs have been created update the
-                # start_id for the next set of ROIs
-                start_id = end_id
-            master_overlap_df = master_overlap_df.append(
-                overlap_df, ignore_index=False)
-            # Read the geojson data for the ROIs and add it to the geojson list
-            rois_geojson = read_geojson_from_file(TEMP_FILENAME)
-            for single_roi in rois_geojson["features"]:
-                finalized_roi["features"].append(single_roi)       
-    elif progressbar is None:     
-        for line in tqdm_notebook(lines_list, desc="Calculating Overlap"):
-        # for i,line in enumerate(lines_list):
-            # progressbar.value = float(i+1)/total
-            geojson_polygons = get_geojson_polygons(line)
-            end_id = write_to_geojson_file(
-                TEMP_FILENAME,
-                geojson_polygons,
-                perserve_id=False,
-                start_id=start_id)
-            overlap_df = create_overlap(TEMP_FILENAME, line, start_id, end_id_list)
-            if len(end_id_list) != 0:
-                # Get the most recent end_id and clear the list of end_ids
-                start_id = end_id_list.pop()
-                end_id_list = []
-            else: 
-                # Once all the overlapping ROIs have been created update the
-                # start_id for the next set of ROIs
-                start_id = end_id
-            master_overlap_df = master_overlap_df.append(
-                overlap_df, ignore_index=False)
-            # Read the geojson data for the ROIs and add it to the geojson list
-            rois_geojson = read_geojson_from_file(TEMP_FILENAME)
-            for single_roi in rois_geojson["features"]:
-                finalized_roi["features"].append(single_roi)
+    for line in tqdm_notebook(lines_list, desc="Calculating Overlap"):
+        geojson_polygons = get_geojson_polygons(line)
+        end_id = write_to_geojson_file(
+            TEMP_FILENAME,
+            geojson_polygons,
+            perserve_id=False,
+            start_id=start_id)
+        overlap_df = create_overlap(TEMP_FILENAME, line, start_id, end_id_list)
+        if len(end_id_list) != 0:
+            # Get the most recent end_id and clear the list of end_ids
+            start_id = end_id_list.pop()
+            end_id_list = []
+        else: 
+            # Once all the overlapping ROIs have been created update the
+            # start_id for the next set of ROIs
+            start_id = end_id
+        master_overlap_df = master_overlap_df.append(
+            overlap_df, ignore_index=False)
+        # Read the geojson data for the ROIs and add it to the geojson list
+        rois_geojson = read_geojson_from_file(TEMP_FILENAME)
+        for single_roi in rois_geojson["features"]:
+            finalized_roi["features"].append(single_roi)
 
     # Write to the permanent geojson and csv files
     write_to_geojson_file(roi_filename, finalized_roi, perserve_id=True)
@@ -104,8 +74,8 @@ def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str, progressbar 
 
 
 def min_overlap_btw_vectors(
-        geojsonfile,
-        csv_filename,
+        geojsonfile :str,
+        csv_filename :str,
         overlap_percent: float = .65):
     overlap_btw_vectors_df = get_overlap_dataframe(geojsonfile)
     # Set of IDs where the overlap >= 65%
