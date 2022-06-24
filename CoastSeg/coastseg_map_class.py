@@ -1,4 +1,5 @@
 import os
+from typing import Set
 from ipyleaflet import DrawControl, GeoJSON, LayersControl
 import leafmap
 from CoastSeg import download_roi
@@ -140,8 +141,7 @@ class CoastSeg_Map:
 
     @debug_map_view.capture(clear_output=True)
     def handle_draw(self,target: 'ipyleaflet.leaflet.DrawControl', action :str, geo_json :dict):
-        """    Adds or removes the bounding box to the shapes_list when it is
-        drawn on the map
+        """Adds or removes the bounding box from shapes_list when drawn/deleted from map
         Args:
             target (ipyleaflet.leaflet.DrawControl): draw control used
             action (str): name of the most recent action ex. 'created', 'deleted'
@@ -157,13 +157,10 @@ class CoastSeg_Map:
     
     
     def set_data(self, roi_filename:str):
-        """creates styled geojson for the rois generated based on the geojson read in
-        from the file with the name roi_filename  
-
+        """Creates styled geojson for rois generated based on geojson read in from roi_filename  
         Args:
             roi_filename (str): name of the geojson file containing the geojson
             of all the rois generated
-
         """
         # Read the geojson for all the ROIs generated
         self.data=download_roi.read_geojson_file(roi_filename)
@@ -178,10 +175,11 @@ class CoastSeg_Map:
     
     
     def generate_ROIS(self, roi_filename :str, csv_filename: str, overlap_percent:float = None ):
-        """generates a series of overlapping ROIS along the coastline on the map
+        """Generates  series of overlapping ROIS along the coastline on the map
         Args:
-            roi_filename (str): _description_
-            csv_filename (str): _description_
+            roi_filename (str): name of the geojson file containing the geojson
+            of all the rois generated
+            csv_filename (str): name of csv file containing overlap
         """
         # Make sure your bounding box is within the allowed size
         bbox.validate_bbox_size(self.shapes_list)
@@ -207,9 +205,18 @@ class CoastSeg_Map:
 
         self.selected_ROI=download_roi.save_roi(roi_filename, selected_roi_file, self.selected_set)
   
-  
+#   
     def get_coastline_layer(self,roi_coastline: dict):
-        """Returns the coastline as a GeoJSON object that can be added as layer to map """
+        """get_coastline_layer _summary_
+
+        _extended_summary_
+
+        Args:
+            roi_coastline (dict): _description_
+
+        Returns:
+            _type_: _description_
+        """
         assert roi_coastline != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
         return GeoJSON(
             data=roi_coastline,
@@ -228,26 +235,26 @@ class CoastSeg_Map:
         )  
     
     
-    def get_geojson_layer(self) -> "GeoJSON":
-        """Add the geojson for the selected rois  to the map
-
+    def get_geojson_layer(self) -> "'ipyleaflet.leaflet.GeoJSON'":
+        """Returns GeoJSON for generated ROIs
         Returns:
             GeoJSON: geojson object that can be added to the map
         """
-        if self.geojson_layer is None and  self.data:
-             self.geojson_layer=GeoJSON(data=self.data, name="geojson data", hover_style={"fillColor": "red"})
+        if self.geojson_layer is None and self.data:
+             self.geojson_layer=GeoJSON(data=self.data, name="GeoJSON data", hover_style={"fillColor": "red"})
         return self.geojson_layer
     
     
-    def geojson_onclick_handler(self, event=None, id=None, properties=None, **args):
-        """geojson_onclick_handler _summary_
-
-        _extended_summary_
+    def geojson_onclick_handler(self, event: str=None , id : 'NoneType'=None , properties :dict = None, **args):
+        """On click handler for when unselected geojson is clicked.
+        
+        Adds the geojson's id to the selected_set. Replaces current selected layer with a new one that includes
+        the recently clicked geojson.
 
         Args:
-            event (_type_, optional): _description_. Defaults to None.
-            id (_type_, optional): _description_. Defaults to None.
-            properties (_type_, optional): _description_. Defaults to None.
+            event (str, optional): event fired ('click'). Defaults to None.
+            id (NoneType, optional):  Defaults to None.
+            properties (dict, optional): geojson dict for clicked geojson. Defaults to None.
         """
         if properties is None:
             return
@@ -264,11 +271,18 @@ class CoastSeg_Map:
         self.selected_layer.on_click(self.selected_onclick_handler)
         self.m.add_layer(self.selected_layer)
         
-        
-    def selected_onclick_handler(self,event=None, id=None, properties=None, **args):
-        """This is the on click handler for a layer that is selected.
-        This method removes the give layer's cid from the selected_set and removes the layer from
-        select_layer."""
+
+    def selected_onclick_handler(self,event: str=None , id : 'NoneType'=None , properties :dict = None, **args):
+        """On click handler for selected geojson layer.
+
+        Removes clicked layer's cid from the selected_set and replaces the select layer with a new one with
+        the clicked layer removed from select_layer.
+
+        Args:
+            event (str, optional): event fired ('click'). Defaults to None.
+            id (NoneType, optional):  Defaults to None.
+            properties (dict, optional): geojson dict for clicked selected geojson. Defaults to None.
+        """
         if properties is None:
             return
         # Remove the current layers cid from selected set
@@ -295,7 +309,16 @@ class CoastSeg_Map:
         self.m.add_layer(geojson_layer)
         
             
-    def convert_selected_set_to_geojson(self,selected_set):
+    def convert_selected_set_to_geojson(self,selected_set: set) -> dict:
+        """Returns a geojson dict containing a FeatureCollection for all the geojson objects in the
+        selected_set
+        Args:
+            selected_set (set): ids of the selected geojson
+
+        Returns:
+            dict: geojson dict containing a FeatureCollection for all the geojson objects in the
+        selected_set
+        """
         geojson = {"type": "FeatureCollection", "features": []}
         # Select the geojson in the selected layer
         geojson["features"] = [
