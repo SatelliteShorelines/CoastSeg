@@ -3,9 +3,9 @@ import glob
 import shutil
 from datetime import datetime
 
-def get_jpgs_from_data():
-    """Copies all the jpgs from the data folder in CoastSeg to a new folder, where the model
-    will save the computed segmentations."""
+def get_jpgs_from_data() -> str:
+    """Returns the folder where all jpgs were copied from the data folder in CoastSeg. 
+    This is where the model will save the computed segmentations."""
     # Data folder location 
     src_path=os.getcwd()+os.sep+"data"
     if os.path.exists(src_path):
@@ -47,9 +47,8 @@ def rename_jpgs(src_path: str) -> None:
             print(f"Renamed files in {src_path} ")
 
 
-def generate_datestring():
-    """"
-    Returns a string in the following format %Y-%m-%d__%H_hr_%M_min.
+def generate_datestring()-> str:
+    """"Returns a datetime string in the following format %Y-%m-%d__%H_hr_%M_min.
     EX: "ID02022-01-31__13_hr_19_min"
     """
     date = datetime.now()
@@ -58,7 +57,7 @@ def generate_datestring():
 
 
 def mk_new_dir(name:str,location:str):
-    """make a new folder with a datatime stamp at the location
+    """Create new folder with  datetime stamp at location
     Args:
         name (str): name of folder to create
         location (str): location to create folder
@@ -70,8 +69,9 @@ def mk_new_dir(name:str,location:str):
     else:
         raise Exception("Location provided does not exist.")
     
+    
 def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
-    """copy_files_to_dst copies all the files from src_path to dest_path
+    """Copies all files from src_path to dest_path
     Args:
         src_path (str): full path to the data directory in CoastSeg
         dst_path (str): full path to the images directory in Sniffer
@@ -83,4 +83,4 @@ def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
     else:
         for file in glob.glob(glob_str):
             shutil.copy(file, dst_path)
-        print(f"Copied files that matched {glob_str}  to {dst_path}")
+        print(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
