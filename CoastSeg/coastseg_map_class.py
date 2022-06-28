@@ -247,14 +247,7 @@ class CoastSeg_Map:
         gpd_bbox=bbox.create_geodataframe_from_bbox(self.shapes_list)
         # Create two fishnets, one big (1000m) and one small(500m) so they overlap each other
         fishnet_gpd_large=self.fishnet_gpd(gpd_bbox,coastline_gpd)
-        print(fishnet_gpd_large)
         fishnet_gpd_small=self.fishnet_gpd(gpd_bbox,coastline_gpd,500)
-        # print(fishnet_gpd_small)
-
-        # # Get the geodataframe for the fishnet within the bbox
-        # fishnet_gpd=bbox.fishnet(gpd_bbox)
-        # # Get the geodataframe for the fishnet intersecting the coastline 
-        # fishnet_intersect_gpd=bbox.fishnet_intersection(fishnet_gpd,coastline_gpd)
 
         # Concat the fishnets together to create one overlapping set of rois
         fishnet_intersect_gpd = gpd.GeoDataFrame( pd.concat([fishnet_gpd_large,fishnet_gpd_small],ignore_index=True))
@@ -262,13 +255,11 @@ class CoastSeg_Map:
         # Add an id column
         num_roi=int(fishnet_intersect_gpd.count())
         fishnet_intersect_gpd['id']=np.arange(0,num_roi)
-        # print(fishnet_intersect_gpd['id'])
 
         # Save the fishnet intersection with coastline to json
         fishnet_geojson=fishnet_intersect_gpd.to_json()
         fishnet_dict=json.loads(fishnet_geojson)
-        # Convert the json to stylized geojson
-        # fishnet_for_map =GeoJSON(data=json.loads(fishnet_geojson), name="fishnet", hover_style={"fillColor": "red"})
+
         # Add style to each feature in the geojson
         for feature in fishnet_dict["features"]:
             feature["properties"]["style"] = {
