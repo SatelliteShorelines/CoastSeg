@@ -140,7 +140,7 @@ def test_create_reactangles_duck(  expected_tuples_list, expected_geojson_polygo
     expected_geojson_polygons_list = expected_geojson_polygons_list.copy()
     # The expected result for the duck lines list is the 3rd item in the list
     for index,tuple in enumerate(input_tuples_list):
-        rectangle_geojson = overlap_roi.create_reactangles(tuple)
+        rectangle_geojson = overlap_roi.create_rectangles(tuple)
         # Ensures tuple output matched the expected  input
         assert rectangle_geojson ==  expected_geojson_polygons_list[index]
 
