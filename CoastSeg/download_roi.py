@@ -3,17 +3,12 @@ from CoastSeg import SDS_tools, SDS_download, SDS_preprocess
 from CoastSeg import make_overlapping_roi
 import json
 from datetime import datetime
-from tqdm.notebook import tqdm_notebook
+from tqdm import tqdm
 import ee
 import geojson
-# import matplotlib.pyplot as plt
-# import matplotlib
 import os
 import warnings
 warnings.filterwarnings("ignore")
-# # from matplotlib import gridspec
-# matplotlib.use('Qt5Agg')
-# plt.ion()
 
 
 def download_imagery_with_metadata(
@@ -36,7 +31,7 @@ def download_imagery_with_metadata(
     inputs_dict = read_json_file(inputs_file)
     inputs_list = inputs_dict['inputs_list']
 
-    for inputs in tqdm_notebook(inputs_list,
+    for inputs in tqdm(inputs_list,
                                 desc="Downloading ROIs with metadata"):
         print("\ninputs: ", inputs, "\n")
         # Alternative method to get metadata if you already have the images
@@ -111,7 +106,7 @@ def download_imagery(
 # Check if inputs for downloading imagery exist then download imagery
     assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
     write_inputs_file(inputs_filename, inputs_list)
-    for inputs in tqdm_notebook(inputs_list, desc="Downloading ROIs"):
+    for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
         print("\ninputs: ", inputs, "\n")
         metadata = SDS_download.retrieve_images(inputs)
         # Add the inputs to the pre_process_settings

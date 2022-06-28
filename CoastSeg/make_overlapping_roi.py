@@ -6,7 +6,7 @@ from shapely.geometry import LineString
 from shapely.ops import unary_union
 from geojson import Feature, FeatureCollection, dump
 import geojson
-from tqdm.notebook import tqdm_notebook
+from tqdm import tqdm
 import os
 
 # Global vars
@@ -37,15 +37,14 @@ def get_ROIs(coastline: dict, roi_filename: str, csv_filename: str):
     """
     lines_list = get_linestring_list(coastline)
     # TEMP_FILENAME: file where each segment of coastline's rois written to
-    # master_overlap_df: geopandas dataframe containing all the overlap data
-    # for the rois
+    # master_overlap_df: geopandas dataframe containing all overlap data for rois
     # Start_id is used as the starting number for writing the ROI ids
     start_id = 0
     # list to hold all the end_ids created in create_overlap()
     end_id_list = []
     master_overlap_df = get_empty_overlap_df()
     finalized_roi = {'type': 'FeatureCollection', 'features': []}
-    for line in tqdm_notebook(lines_list, desc="Calculating Overlap"):
+    for line in tqdm(lines_list, desc="Calculating Overlap"):
         geojson_polygons = get_geojson_polygons(line)
         end_id = write_to_geojson_file(
             TEMP_FILENAME,
@@ -88,7 +87,7 @@ def min_overlap_btw_vectors(
     ids_in_features = []
     features = []
     # Remove the features overlapping more than 65% from the geojson
-    for feature in tqdm_notebook(
+    for feature in tqdm(
             geojson["features"],
             desc="Removing ROI with Excessive Overlap"):
         all_ids.append(feature["properties"]["id"])
@@ -249,7 +248,7 @@ def write_to_geojson_file(
 
 def get_linestring_list(vector_in_bbox_geojson: dict) -> list:
     """
-    Create a list of linestrings from the multilinestrings and linestrings that compose the vector
+    Creates a list of linestrings from the multilinestrings and linestrings that compose the vector
     Arguments:
     -----------
     vector_in_bbox_geojson: dict
@@ -282,7 +281,7 @@ def get_geojson_polygons(linestring):
     """ Returns the ROI rectangles in geojson"""
     multipoint_list = interpolate_points(linestring)
     tuples_list = convert_multipoints_to_tuples(multipoint_list)
-    geojson_polygons = create_reactangles(tuples_list)
+    geojson_polygons = create_rectangles(tuples_list)
     return geojson_polygons
 
 
@@ -343,7 +342,7 @@ def convert_multipoints_to_tuples(multipoint_list: list) -> list:
         else:
             # First get each point from the multipoint object
             points_array = [point for point in multipoint.geoms]
-            # For each point swap lat and lng because ipyleaflet swaps them
+            # For each point swap (lng,lat) because ipyleaflet has it (lat,lng)
             for point in points_array:
                 point_tuple = (point.coords[0][1], point.coords[0][0])
                 points_list.append(point_tuple)
@@ -381,7 +380,7 @@ def convert_corners_to_geojson(
     return geojson_feature
 
 
-def create_reactangles(tuples_list: list, size: int = 0.04) -> dict:
+def create_rectangles(tuples_list: list, size: int = 0.04) -> dict:
     """
     Create the geojson rectangles for each point in the tuples_list
     Arguments:
@@ -463,21 +462,20 @@ def create_overlap(
 
         if do_all_ROI_overlap:
             if check_average_ROI_overlap(df_overlap, .35):
-                # If the average overlap is over 35% decrease number of rois by
-                # 1
+                # If average overlap over 35% decrease number rois by 1
                 num_pts = adjust_num_pts(num_pts - 1)
                 is_overlap_excessive = True
                 # print(f"num_pts decreased to: {num_pts}")
         if not do_all_ROI_overlap:
-            # If not all the rois overlap increase number of rois by 1
+            # If not all rois overlap increase number rois by 1
             num_pts = adjust_num_pts(num_pts + 1)
             # print(f"num_pts increased to: {num_pts}")
-# Keep looping while not all the rois overlap and the average overlap is
+# Keep looping while not all rois overlap and average overlap is
 # more than 80%
     while do_all_ROI_overlap is False and is_overlap_excessive:
         multipoint_list = interpolate_points(line, num_pts)
         tuples_list = convert_multipoints_to_tuples(multipoint_list)
-        geojson_polygons = create_reactangles(tuples_list)
+        geojson_polygons = create_rectangles(tuples_list)
         end_id = write_to_geojson_file(
             filename,
             geojson_polygons,

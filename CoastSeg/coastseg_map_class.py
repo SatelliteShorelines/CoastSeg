@@ -1,12 +1,9 @@
 import os
-from typing import Set
 from ipyleaflet import DrawControl, GeoJSON, LayersControl
 import leafmap
 from CoastSeg import download_roi
 from CoastSeg import bbox
 from CoastSeg import make_overlapping_roi
-# from CoastSeg import zoo_model_module
-# from CoastSeg import file_functions
 from ipywidgets import Layout
 import ipywidgets as widgets
 
@@ -22,7 +19,7 @@ class CoastSeg_Map:
         # selected_set : ids of the selected rois
         self.selected_set=set()
         # geojson_layer : layer with all rois
-        self.geojson_layer=None
+        self.geojson_layer = None
         # selected layer :  layer containing all selected rois
         self.selected_layer = None
         # shapes_list : Empty list to hold all the polygons drawn by the user
@@ -95,18 +92,18 @@ class CoastSeg_Map:
 
     def remove_all_rois(self):
         """Removes all the unselected rois from the map """
-        # Get the geojson from the map
-        geojson_layer = self.get_geojson_layer()
-        if geojson_layer:
+        # Remove the selected rois
+        existing_layer = self.m.find_layer('Selected ROIs')
+        if existing_layer is not None:
+            self.m.remove_layer(existing_layer)
+            self.selected_layer = None
+        existing_layer = self.m.find_layer('GeoJSON data')
+        if existing_layer is not None:
             # Remove the layer from the map
-            self.m.remove_layer(geojson_layer)
+            self.m.remove_layer(existing_layer)
             self.geojson_layer = None
             # clear the stylized geojson
             self.data = None
-        # Remove the selected rois
-        if self.selected_layer:
-            self.m.remove_layer(self.selected_layer)
-            self.selected_layer = None
         self.selected_set = set()
    
     
@@ -184,12 +181,12 @@ class CoastSeg_Map:
         # Make sure your bounding box is within the allowed size
         bbox.validate_bbox_size(self.shapes_list)
         #dictionary containing geojson coastline
-        roi_coastline=bbox.get_coastline(CoastSeg_Map.shoreline_file,self.shapes_list)
-        #coastline styled for the map
+        roi_coastline=bbox.get_coastline(CoastSeg_Map.shoreline_file, self.shapes_list)
+        # #coastline styled for the map
         self.coastline_for_map=self.get_coastline_layer(roi_coastline)
         self.m.add_layer(self.coastline_for_map)
-        #Get the rois using the coastline  within bounding box
-        geojson_polygons=make_overlapping_roi.get_ROIs(roi_coastline,roi_filename,csv_filename)
+        # #Get the rois using the coastline  within bounding box
+        make_overlapping_roi.get_ROIs(roi_coastline,roi_filename,csv_filename)
         # Save the data from the ROI file to data
         self.set_data(roi_filename)
         # overlap_btw_vectors_df=make_overlapping_roi.min_overlap_btw_vectors(roi_filename,csv_filename, overlap_percent)
