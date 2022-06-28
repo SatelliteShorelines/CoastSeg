@@ -7,6 +7,11 @@ from CoastSeg import make_overlapping_roi
 from ipywidgets import Layout
 import ipywidgets as widgets
 
+import json
+import geopandas as gpd
+from ipyleaflet import GeoJSON
+from shapely import geometry
+
 debug_map_view = widgets.Output(layout={'border': '1px solid black'})
 class CoastSeg_Map:
     
@@ -152,7 +157,50 @@ class CoastSeg_Map:
         if self.draw_control.last_action == 'deleted':
             self.shapes_list.remove(self.draw_control.last_draw['geometry'])
     
+
+    def fishnet_intersection(fishnet:"geopandas.geodataframe.GeoDataFrame",data: "geopandas.geodataframe.GeoDataFrame")->"geopandas.geodataframe.GeoDataFrame":
+        """Returns fishnet where it intersects with data
+        Args:
+            fishnet (geopandas.geodataframe.GeoDataFrame): geodataframe consisting of equal sized squares
+            data (geopandas.geodataframe.GeoDataFrame): a vector or polygon for the fishnet to intersect
+
+        Returns:
+            geopandas.geodataframe.GeoDataFrame: intersection of fishnet and data
+        """    
+        intersection_gpd=gpd.sjoin(fishnet, data, op='intersects')
+        intersection_gpd.drop(columns=['index_right','soc','exs','f_code','id','acc'],inplace=True)
+        return intersection_gpd
     
+
+    def fishnet(data:"geopandas.geodataframe.GeoDataFrame", square_size :int=1000) -> "geopandas.geodataframe.GeoDataFrame":
+        """Returns a fishnet that intersects data where each square is square_size
+        Args:
+            data (geopandas.geodataframe.GeoDataFrame): Bounding box that fishnet intersects.
+            square_size (int, optional): _description_. Size of each square in fishnet. Defaults to 1000.
+
+        Returns:
+            geopandas.geodataframe.GeoDataFrame: Fishnet that intersects data
+        """    
+        # Reproject to projected coordinate system so that map is in meters
+        data = data.to_crs('EPSG:3857')
+        # Get minX, minY, maxX, maxY from the extent of the geodataframe
+        minX, minY, maxX, maxY = data.total_bounds
+        # Create a fishnet
+        x, y = (minX, minY)
+        geom_array = []
+        while y <= maxY:
+            while x <= maxX:
+                geom = geometry.Polygon([(x,y), (x, y+square_size), (x+square_size, y+square_size), (x+square_size, y), (x, y)])
+                geom_array.append(geom)
+                x += square_size
+            x = minX
+            y += square_size
+    
+        fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs('EPSG:3857')
+        fishnet=fishnet.to_crs('EPSG:4326')
+        return fishnet 
+
+
     def set_data(self, roi_filename:str):
         """Creates styled geojson for rois generated based on geojson read in from roi_filename  
         Args:
@@ -169,7 +217,42 @@ class CoastSeg_Map:
                 "fillColor": "grey",
                 "fillOpacity": 0.2,
             }
-    
+
+
+    def generate_ROIS_fishnet(self ):
+        """Generates  series of overlapping ROIS along the coastline on the map using the fishnet method
+        """
+        # Make sure your bounding box is within the allowed size
+        bbox.validate_bbox_size(self.shapes_list)
+        #dictionary containing geojson coastline
+        roi_coastline=bbox.get_coastline(CoastSeg_Map.shoreline_file, self.shapes_list)
+        # coastline geojson styled for the map
+        self.coastline_for_map=self.get_coastline_layer(roi_coastline)
+        self.m.add_layer(self.coastline_for_map)
+        # Get the geodataframe for the coastline
+        roi_coastline=bbox.get_coastline_gpd(self.shoreline_file, self.shapes_list)
+        # Get the geodataframe for the bbox
+        gpd_bbox=bbox.create_geodataframe_from_bbox(self.shapes_list)
+        # Get the geodataframe for the fishnet within the bbox
+        fishnet_gpd=bbox.fishnet(gpd_bbox)
+        # Get the geodataframe for the fishnet intersecting the coastline 
+        fishnet_intersect_gpd=bbox.fishnet_intersection(fishnet_gpd,roi_coastline)
+        # Save the fishnet intersection with coastline to json
+        fishnet_geojson=fishnet_intersect_gpd.to_json()
+        fishnet_dict=json.loads(fishnet_geojson)
+        # Convert the json to stylized geojson
+        # fishnet_for_map =GeoJSON(data=json.loads(fishnet_geojson), name="fishnet", hover_style={"fillColor": "red"})
+        # Add style to each feature in the geojson
+        for feature in fishnet_dict["features"]:
+            feature["properties"]["style"] = {
+                "color": "grey",
+                "weight": 1,
+                "fillColor": "grey",
+                "fillOpacity": 0.2,
+            }
+        # Save the data
+        self.data=fishnet_dict
+
     
     def generate_ROIS(self, roi_filename :str, csv_filename: str, overlap_percent:float = None ):
         """Generates  series of overlapping ROIS along the coastline on the map
@@ -202,7 +285,7 @@ class CoastSeg_Map:
 
         self.selected_ROI=download_roi.save_roi(roi_filename, selected_roi_file, self.selected_set)
   
-#   
+ 
     def get_coastline_layer(self,roi_coastline: dict):
         """get_coastline_layer _summary_
 

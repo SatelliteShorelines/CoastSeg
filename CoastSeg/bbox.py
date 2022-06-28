@@ -98,15 +98,16 @@ def fishnet(data:"geopandas.geodataframe.GeoDataFrame", square_size :int=1000) -
     # Create a fishnet
     x, y = (minX, minY)
     geom_array = []
-    while y < maxY:
-        while x < maxX:
+    while y <= maxY:
+        while x <= maxX:
             geom = geometry.Polygon([(x,y), (x, y+square_size), (x+square_size, y+square_size), (x+square_size, y), (x, y)])
             geom_array.append(geom)
             x += square_size
         x = minX
         y += square_size
  
-    fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs('EPSG:4326')
+    fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs('EPSG:3857')
+    fishnet=fishnet.to_crs('EPSG:4326')
     return fishnet 
 
 
