@@ -68,49 +68,6 @@ def create_geodataframe_from_bbox(
     return geojson_bbox
 
 
-def fishnet_intersection(fishnet:"geopandas.geodataframe.GeoDataFrame",data: "geopandas.geodataframe.GeoDataFrame")->"geopandas.geodataframe.GeoDataFrame":
-    """Returns fishnet where it intersects with data
-    Args:
-        fishnet (geopandas.geodataframe.GeoDataFrame): geodataframe consisting of equal sized squares
-        data (geopandas.geodataframe.GeoDataFrame): a vector or polygon for the fishnet to intersect
-
-    Returns:
-        geopandas.geodataframe.GeoDataFrame: intersection of fishnet and data
-    """    
-    intersection_gpd=gpd.sjoin(fishnet, data, op='intersects')
-    intersection_gpd.drop(columns=['index_right','soc','exs','f_code','id','acc'],inplace=True)
-    return intersection_gpd
-
-
-def fishnet(data:"geopandas.geodataframe.GeoDataFrame", square_size :int=1000) -> "geopandas.geodataframe.GeoDataFrame":
-    """Returns a fishnet that intersects data where each square is square_size
-    Args:
-        data (geopandas.geodataframe.GeoDataFrame): Bounding box that fishnet intersects.
-        square_size (int, optional): _description_. Size of each square in fishnet. Defaults to 1000.
-
-    Returns:
-        geopandas.geodataframe.GeoDataFrame: Fishnet that intersects data
-    """    
-    # Reproject to projected coordinate system so that map is in meters
-    data = data.to_crs('EPSG:3857')
-    # Get minX, minY, maxX, maxY from the extent of the geodataframe
-    minX, minY, maxX, maxY = data.total_bounds
-    # Create a fishnet
-    x, y = (minX, minY)
-    geom_array = []
-    while y <= maxY:
-        while x <= maxX:
-            geom = geometry.Polygon([(x,y), (x, y+square_size), (x+square_size, y+square_size), (x+square_size, y), (x, y)])
-            geom_array.append(geom)
-            x += square_size
-        x = minX
-        y += square_size
- 
-    fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs('EPSG:3857')
-    fishnet=fishnet.to_crs('EPSG:4326')
-    return fishnet 
-
-
 def clip_coastline_to_bbox(
         coastline_vector: "geopandas.geodataframe.GeoDataFrame",
         geojson_bbox: "geopandas.geodataframe.GeoDataFrame") -> "geopandas.geodataframe.GeoDataFrame":

@@ -7,6 +7,9 @@ from CoastSeg import make_overlapping_roi
 from ipywidgets import Layout
 import ipywidgets as widgets
 
+
+import pandas as pd
+import numpy as np
 import json
 import geopandas as gpd
 from ipyleaflet import GeoJSON
@@ -158,7 +161,7 @@ class CoastSeg_Map:
             self.shapes_list.remove(self.draw_control.last_draw['geometry'])
     
 
-    def fishnet_intersection(fishnet:"geopandas.geodataframe.GeoDataFrame",data: "geopandas.geodataframe.GeoDataFrame")->"geopandas.geodataframe.GeoDataFrame":
+    def fishnet_intersection(self,fishnet:"geopandas.geodataframe.GeoDataFrame",data: "geopandas.geodataframe.GeoDataFrame")->"geopandas.geodataframe.GeoDataFrame":
         """Returns fishnet where it intersects with data
         Args:
             fishnet (geopandas.geodataframe.GeoDataFrame): geodataframe consisting of equal sized squares
@@ -172,7 +175,7 @@ class CoastSeg_Map:
         return intersection_gpd
     
 
-    def fishnet(data:"geopandas.geodataframe.GeoDataFrame", square_size :int=1000) -> "geopandas.geodataframe.GeoDataFrame":
+    def fishnet(self,data:"geopandas.geodataframe.GeoDataFrame", square_size :int =1000) -> "geopandas.geodataframe.GeoDataFrame":
         """Returns a fishnet that intersects data where each square is square_size
         Args:
             data (geopandas.geodataframe.GeoDataFrame): Bounding box that fishnet intersects.
@@ -219,6 +222,14 @@ class CoastSeg_Map:
             }
 
 
+    def fishnet_gpd(self,gpd_bbox: "GeoDataFrame", coastline_gpd : "GeoDataFrame", square_size :int=1000 )->"GeoDataFrame":
+        # Get the geodataframe for the fishnet within the bbox
+        fishnet_gpd=self.fishnet(gpd_bbox,square_size)
+        # Get the geodataframe for the fishnet intersecting the coastline 
+        fishnet_intersect_gpd=self.fishnet_intersection(fishnet_gpd,coastline_gpd)
+        return fishnet_intersect_gpd
+
+
     def generate_ROIS_fishnet(self ):
         """Generates  series of overlapping ROIS along the coastline on the map using the fishnet method
         """
@@ -229,14 +240,30 @@ class CoastSeg_Map:
         # coastline geojson styled for the map
         self.coastline_for_map=self.get_coastline_layer(roi_coastline)
         self.m.add_layer(self.coastline_for_map)
+
         # Get the geodataframe for the coastline
-        roi_coastline=bbox.get_coastline_gpd(self.shoreline_file, self.shapes_list)
+        coastline_gpd=bbox.get_coastline_gpd(self.shoreline_file, self.shapes_list)
         # Get the geodataframe for the bbox
         gpd_bbox=bbox.create_geodataframe_from_bbox(self.shapes_list)
-        # Get the geodataframe for the fishnet within the bbox
-        fishnet_gpd=bbox.fishnet(gpd_bbox)
-        # Get the geodataframe for the fishnet intersecting the coastline 
-        fishnet_intersect_gpd=bbox.fishnet_intersection(fishnet_gpd,roi_coastline)
+        # Create two fishnets, one big (1000m) and one small(500m) so they overlap each other
+        fishnet_gpd_large=self.fishnet_gpd(gpd_bbox,coastline_gpd)
+        print(fishnet_gpd_large)
+        fishnet_gpd_small=self.fishnet_gpd(gpd_bbox,coastline_gpd,500)
+        # print(fishnet_gpd_small)
+
+        # # Get the geodataframe for the fishnet within the bbox
+        # fishnet_gpd=bbox.fishnet(gpd_bbox)
+        # # Get the geodataframe for the fishnet intersecting the coastline 
+        # fishnet_intersect_gpd=bbox.fishnet_intersection(fishnet_gpd,coastline_gpd)
+
+        # Concat the fishnets together to create one overlapping set of rois
+        fishnet_intersect_gpd = gpd.GeoDataFrame( pd.concat([fishnet_gpd_large,fishnet_gpd_small],ignore_index=True))
+
+        # Add an id column
+        num_roi=int(fishnet_intersect_gpd.count())
+        fishnet_intersect_gpd['id']=np.arange(0,num_roi)
+        # print(fishnet_intersect_gpd['id'])
+
         # Save the fishnet intersection with coastline to json
         fishnet_geojson=fishnet_intersect_gpd.to_json()
         fishnet_dict=json.loads(fishnet_geojson)
@@ -275,6 +302,7 @@ class CoastSeg_Map:
         # overlap_btw_vectors_df=make_overlapping_roi.min_overlap_btw_vectors(roi_filename,csv_filename, overlap_percent)
 
 
+# @todo  make a version for the fishnet roi
     def save_roi_to_file(self, selected_roi_file : str, roi_filename :str):
         """saves the selected roi to a geojson file with the name selected_roi_file
 
