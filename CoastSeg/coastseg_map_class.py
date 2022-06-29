@@ -223,6 +223,16 @@ class CoastSeg_Map:
 
 
     def fishnet_gpd(self,gpd_bbox: "GeoDataFrame", coastline_gpd : "GeoDataFrame", square_size :int=1000 )->"GeoDataFrame":
+        """_summary_
+
+        Args:
+            gpd_bbox (GeoDataFrame): bounding box (bbox) areound coastline
+            coastline_gpd (GeoDataFrame): coastline in the bbox
+            square_size (int, optional): size of each square in the fishnet. Defaults to 1000.
+
+        Returns:
+            GeoDataFrame: intersection of coastline_gpd and fishnet. Only squares that intersect coastline are kept
+        """
         # Get the geodataframe for the fishnet within the bbox
         fishnet_gpd=self.fishnet(gpd_bbox,square_size)
         # Get the geodataframe for the fishnet intersecting the coastline 
@@ -230,7 +240,7 @@ class CoastSeg_Map:
         return fishnet_intersect_gpd
 
 
-    def generate_ROIS_fishnet(self ):
+    def generate_ROIS_fishnet(self):
         """Generates  series of overlapping ROIS along the coastline on the map using the fishnet method
         """
         # Make sure your bounding box is within the allowed size
