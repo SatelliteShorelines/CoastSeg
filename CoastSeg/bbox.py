@@ -2,8 +2,6 @@
 import json
 import os
 
-
-
 # External dependencies imports
 from area import area
 import geopandas as gpd
@@ -145,7 +143,6 @@ def get_coastline(shoreline_file: str, bbox: list):
     return roi_coast
 
 
-# Added to 
 def get_coastline_for_map(coast_geojson: dict):
     """Returns a GeoJSON object that can be added to the map """
     assert coast_geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"

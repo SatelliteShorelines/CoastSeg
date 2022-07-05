@@ -3,7 +3,6 @@ from ipyleaflet import DrawControl, GeoJSON, LayersControl
 import leafmap
 from CoastSeg import download_roi
 from CoastSeg import bbox
-from CoastSeg import make_overlapping_roi
 from ipywidgets import Layout
 import ipywidgets as widgets
 
@@ -143,7 +142,8 @@ class CoastSeg_Map:
         }
         return  draw_control 
     
-
+    
+    # @TODO can I remove this debug_map_view?
     @debug_map_view.capture(clear_output=True)
     def handle_draw(self,target: 'ipyleaflet.leaflet.DrawControl', action :str, geo_json :dict):
         """Adds or removes the bounding box from shapes_list when drawn/deleted from map
@@ -204,24 +204,8 @@ class CoastSeg_Map:
         return fishnet 
 
 
-    def set_data(self, roi_filename:str):
-        """Creates styled geojson for rois generated based on geojson read in from roi_filename  
-        Args:
-            roi_filename (str): name of the geojson file containing the geojson
-            of all the rois generated
-        """
-        # Read the geojson for all the ROIs generated
-        self.data=download_roi.read_geojson_file(roi_filename)
-        # Add style to each feature in the geojson
-        for feature in self.data["features"]:
-            feature["properties"]["style"] = {
-                "color": "grey",
-                "weight": 1,
-                "fillColor": "grey",
-                "fillOpacity": 0.2,
-            }
 
-
+#  @TODO add documentation
     def fishnet_gpd(self,gpd_bbox: "GeoDataFrame", coastline_gpd : "GeoDataFrame", square_size :int=1000 )->"GeoDataFrame":
         """_summary_
 
@@ -240,6 +224,7 @@ class CoastSeg_Map:
         return fishnet_intersect_gpd
 
 
+#  @TODO add documentation
     def generate_ROIS_fishnet(self):
         """Generates  series of overlapping ROIS along the coastline on the map using the fishnet method
         """
@@ -281,50 +266,15 @@ class CoastSeg_Map:
         # Save the data
         self.data=fishnet_dict
 
-    
-    def generate_ROIS(self, roi_filename :str, csv_filename: str, overlap_percent:float = None ):
-        """Generates  series of overlapping ROIS along the coastline on the map
-        Args:
-            roi_filename (str): name of the geojson file containing the geojson
-            of all the rois generated
-            csv_filename (str): name of csv file containing overlap
-        """
-        # Make sure your bounding box is within the allowed size
-        bbox.validate_bbox_size(self.shapes_list)
-        #dictionary containing geojson coastline
-        roi_coastline=bbox.get_coastline(CoastSeg_Map.shoreline_file, self.shapes_list)
-        # #coastline styled for the map
-        self.coastline_for_map=self.get_coastline_layer(roi_coastline)
-        self.m.add_layer(self.coastline_for_map)
-        # #Get the rois using the coastline  within bounding box
-        make_overlapping_roi.get_ROIs(roi_coastline,roi_filename,csv_filename)
-        # Save the data from the ROI file to data
-        self.set_data(roi_filename)
-        # overlap_btw_vectors_df=make_overlapping_roi.min_overlap_btw_vectors(roi_filename,csv_filename, overlap_percent)
 
-
-# @todo  make a version for the fishnet roi
-    def save_roi_to_file(self, selected_roi_file : str, roi_filename :str):
-        """saves the selected roi to a geojson file with the name selected_roi_file
+    def get_coastline_layer(self,roi_coastline: dict) -> "ipyleaflet.GeoJSON":
+        """get_coastline_layer returns the  coastline as GeoJson object.
 
         Args:
-            selected_roi_file (str):  The name of the geojson file to save the ROI selected
-            roi_filename (str):The filename of the geojson file containing all the ROI
-        """
-
-        self.selected_ROI=download_roi.save_roi(roi_filename, selected_roi_file, self.selected_set)
-  
- 
-    def get_coastline_layer(self,roi_coastline: dict):
-        """get_coastline_layer _summary_
-
-        _extended_summary_
-
-        Args:
-            roi_coastline (dict): _description_
+            roi_coastline (dict): geojson dictionary for portion of coastline in bbox
 
         Returns:
-            _type_: _description_
+            "ipyleaflet.GeoJSON": coastline as GeoJson object styled with yellow dashes
         """
         assert roi_coastline != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
         return GeoJSON(

@@ -52,7 +52,6 @@ def generate_datestring()-> str:
     EX: "ID02022-01-31__13_hr_19_min"
     """
     date = datetime.now()
-    print(date)
     return date.strftime('%Y-%m-%d__%H_hr_%M_min%S')
 
 
