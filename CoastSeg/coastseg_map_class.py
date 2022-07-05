@@ -135,8 +135,7 @@ class CoastSeg_Map:
             "transform": True
         }
         return draw_control
-
-    # @TODO can I remove this debug_map_view?
+    
 
     @debug_map_view.capture(clear_output=True)
     def handle_draw(self, target: 'ipyleaflet.leaflet.DrawControl', action: str, geo_json: dict):
@@ -199,17 +198,16 @@ class CoastSeg_Map:
         return fishnet
 
 
-#  @TODO add documentation
-
     def fishnet_gpd(
             self,
             gpd_bbox: "GeoDataFrame",
             coastline_gpd: "GeoDataFrame",
             square_size: int = 1000) -> "GeoDataFrame":
-        """_summary_
-
+        """
+        Returns fishnet where it intersects the coastline
+        
         Args:
-            gpd_bbox (GeoDataFrame): bounding box (bbox) areound coastline
+            gpd_bbox (GeoDataFrame): bounding box (bbox) around coastline
             coastline_gpd (GeoDataFrame): coastline in the bbox
             square_size (int, optional): size of each square in the fishnet. Defaults to 1000.
 
@@ -223,11 +221,8 @@ class CoastSeg_Map:
         return fishnet_intersect_gpd
 
 
-#  @TODO add documentation
-
     def generate_ROIS_fishnet(self):
-        """Generates  series of overlapping ROIS along the coastline on the map using the fishnet method
-        """
+        """Generates series of overlapping ROIS along coastline on map using fishnet method"""
         # Make sure your bounding box is within the allowed size
         bbox.validate_bbox_size(self.shapes_list)
         # dictionary containing geojson coastline
@@ -240,9 +235,9 @@ class CoastSeg_Map:
         coastline_gpd = bbox.get_coastline_gpd(self.shoreline_file, self.shapes_list)
         # Get the geodataframe for the bbox
         gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
-        # Create two fishnets, one big (1000m) and one small(500m) so they overlap each other
-        fishnet_gpd_large = self.fishnet_gpd(gpd_bbox, coastline_gpd)
-        fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, coastline_gpd, 500)
+        # Create two fishnets, one big (2000m) and one small(1500m) so they overlap each other
+        fishnet_gpd_large = self.fishnet_gpd(gpd_bbox, coastline_gpd,2000)
+        fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, coastline_gpd, 1500)
 
         # Concat the fishnets together to create one overlapping set of rois
         fishnet_intersect_gpd = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
@@ -265,6 +260,7 @@ class CoastSeg_Map:
             }
         # Save the data
         self.data = fishnet_dict
+
 
     def get_coastline_layer(self, roi_coastline: dict) -> "ipyleaflet.GeoJSON":
         """get_coastline_layer returns the  coastline as GeoJson object.
@@ -292,6 +288,7 @@ class CoastSeg_Map:
                 'fillOpacity': 0.7},
         )
 
+
     def get_geojson_layer(self) -> "'ipyleaflet.leaflet.GeoJSON'":
         """Returns GeoJSON for generated ROIs
         Returns:
@@ -300,6 +297,7 @@ class CoastSeg_Map:
         if self.geojson_layer is None and self.data:
             self.geojson_layer = GeoJSON(data=self.data, name="GeoJSON data", hover_style={"fillColor": "red"})
         return self.geojson_layer
+
 
     def geojson_onclick_handler(self, event: str = None, id: 'NoneType' = None, properties: dict = None, **args):
         """On click handler for when unselected geojson is clicked.
