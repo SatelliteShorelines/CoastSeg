@@ -7,7 +7,7 @@ from CoastSeg import make_overlapping_roi
 from ipywidgets import Layout
 import ipywidgets as widgets
 
-
+from typing import Tuple
 import pandas as pd
 import numpy as np
 import json
@@ -417,16 +417,45 @@ class CoastSeg_Map:
         geojson_layer.on_click(self.geojson_onclick_handler)
         self.m.add_layer(geojson_layer)
         
+        
+    def save_roi_fishnet(self, filename:str) -> None:
+        """ Saves the selected roi to a geojson file called ""
+        """
+        # Saves the selected roi to a geojson file
+        # returns the selected set as geojson
+        selected_geojson=self.convert_selected_set_to_geojson(self.selected_set)
+        filepath = os.path.join(os.getcwd(), filename)
+        self.save_to_geojson_file( filepath ,selected_geojson)
+        self.selected_ROI = selected_geojson
+        
+    
+    def save_to_geojson_file(self, out_file:str, geojson:dict, **kwargs)-> None:
+        """save_to_geojson_file Saves given geojson to a geojson file at outfile
+
+        Args:
+            out_file (str): The output file path
+            geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
+        """
+        # Save the geojson to a file
+        out_file = leafmap.check_file_path(out_file)
+        ext = os.path.splitext(out_file)[1].lower()
+        if ext == ".geojson":
+            out_geojson = out_file
+        else:
+            out_geojson = os.path.splitext(out_file)[1] + ".geojson"
+
+        with open(out_geojson, "w") as f:
+                json.dump(geojson, f, **kwargs)
+     
             
     def convert_selected_set_to_geojson(self,selected_set: set) -> dict:
         """Returns a geojson dict containing a FeatureCollection for all the geojson objects in the
         selected_set
         Args:
-            selected_set (set): ids of the selected geojson
+            selected_set (set): ids of the selected geojson 
 
         Returns:
-            dict: geojson dict containing a FeatureCollection for all the geojson objects in the
-        selected_set
+           dict: geojson dict containing FeatureCollection for all geojson objects in selected_set
         """
         geojson = {"type": "FeatureCollection", "features": []}
         # Select the geojson in the selected layer
