@@ -3,19 +3,20 @@ import glob
 import shutil
 from datetime import datetime
 
+
 def get_jpgs_from_data() -> str:
-    """Returns the folder where all jpgs were copied from the data folder in CoastSeg. 
+    """Returns the folder where all jpgs were copied from the data folder in CoastSeg.
     This is where the model will save the computed segmentations."""
-    # Data folder location 
-    src_path=os.getcwd()+os.sep+"data"
+    # Data folder location
+    src_path = os.getcwd() + os.sep + "data"
     if os.path.exists(src_path):
         rename_jpgs(src_path)
         # Create a new folder to hold all the data
-        location=os.getcwd()
-        name="segmentation_data"
-        new_folder=mk_new_dir(name,location)
+        location = os.getcwd()
+        name = "segmentation_data"
+        new_folder = mk_new_dir(name, location)
         glob_str = src_path + str(os.sep + "**" + os.sep) * 3 + "*jpg"
-        copy_files_to_dst(src_path,new_folder, glob_str)
+        copy_files_to_dst(src_path, new_folder, glob_str)
         return new_folder
     else:
         print("ERROR: Cannot find the data directory in CoastSeg")
@@ -47,7 +48,7 @@ def rename_jpgs(src_path: str) -> None:
             print(f"Renamed files in {src_path} ")
 
 
-def generate_datestring()-> str:
+def generate_datestring() -> str:
     """"Returns a datetime string in the following format %Y-%m-%d__%H_hr_%M_min.
     EX: "ID02022-01-31__13_hr_19_min"
     """
@@ -55,20 +56,20 @@ def generate_datestring()-> str:
     return date.strftime('%Y-%m-%d__%H_hr_%M_min%S')
 
 
-def mk_new_dir(name:str,location:str):
+def mk_new_dir(name: str, location: str):
     """Create new folder with  datetime stamp at location
     Args:
         name (str): name of folder to create
         location (str): location to create folder
     """
     if os.path.exists(location):
-        new_folder=location+os.sep+name+"_"+generate_datestring()
+        new_folder = location + os.sep + name + "_" + generate_datestring()
         os.mkdir(new_folder)
         return new_folder
     else:
         raise Exception("Location provided does not exist.")
-    
-    
+
+
 def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
     """Copies all files from src_path to dest_path
     Args:

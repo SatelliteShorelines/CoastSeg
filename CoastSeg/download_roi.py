@@ -43,14 +43,14 @@ def download_imagery(
 
     dates: list
         A list of length two that contains a valid start and end date
-        
-    collection : str 
-     whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`). 
-     Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+
+    collection : str
+     whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`).
+     Note that after 2022/01/01, Landsat images are only available in Collection 2.
      Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
-     images prior to 2022/01/01 will be downloaded from Collection 1, 
-     while images captured after that date will be automatically taken from `C02`.    
-    
+     images prior to 2022/01/01 will be downloaded from Collection 1,
+     while images captured after that date will be automatically taken from `C02`.
+
     sat_list: list
         A list of strings containing the names of the satellite
     """
@@ -58,7 +58,7 @@ def download_imagery(
     try:
         inputs_list = check_images_available_selected_ROI(
             selected_roi_geojson, dates, collection, sat_list)
-        print("Images available: \n",inputs_list)
+        print("Images available: \n", inputs_list)
     except ee.EEException as exception:
         print(exception)
         handle_AuthenticationError()
@@ -109,7 +109,6 @@ def get_selected_roi_geojson(selected_set: set(), roi_data: dict) -> dict:
     return selected_ROI
 
 
-
 def handle_AuthenticationError():
     ee.Authenticate()
     ee.Initialize()
@@ -118,7 +117,7 @@ def handle_AuthenticationError():
 def check_images_available_selected_ROI(
         selected_roi_geojson: dict,
         dates: list,
-        collection:str,
+        collection: str,
         sat_list: list) -> list:
     """"
 
@@ -134,10 +133,10 @@ def check_images_available_selected_ROI(
     sat_list: list
         A list of strings containing the names of the satellite
     collection : str
-     whether to use LandSat Collection 1 (`C01`) 
-     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+     whether to use LandSat Collection 1 (`C01`)
+     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2.
      Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
-     images prior to 2022/01/01 will be downloaded from Collection 1, 
+     images prior to 2022/01/01 will be downloaded from Collection 1,
      while images captured after that date will be automatically taken from `C02`.
 
    Returns:

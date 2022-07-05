@@ -82,7 +82,7 @@ def clip_coastline_to_bbox(
     roi_coast : "geopandas.geodataframe.GeoDataFrame"
         roi_coast a GeoDataFrame that holds the clipped portion of the coastline_vector within geojson_bbox
     """
-    assert coastline_vector.empty != True, "ERROR: Empty shoreline dataframe" 
+    assert coastline_vector.empty != True, "ERROR: Empty shoreline dataframe"
     # clip coastal polyline
     roi_coast = gpd.clip(coastline_vector, geojson_bbox)
     roi_coast = roi_coast.to_crs('EPSG:4326')
