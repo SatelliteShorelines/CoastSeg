@@ -64,6 +64,12 @@ def download_imagery(
         handle_AuthenticationError()
         inputs_list = check_images_available_selected_ROI(
             selected_roi_geojson, dates, collection, sat_list)
+    except Exception as general_exception:
+        print(general_exception)
+        if type(general_exception).__name__ == 'RefreshError':
+            handle_AuthenticationError()
+            inputs_list = check_images_available_selected_ROI(
+            selected_roi_geojson, dates, collection, sat_list)
 # Check if inputs for downloading imagery exist then download imagery
     assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
     for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
