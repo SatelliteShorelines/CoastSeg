@@ -6,6 +6,7 @@ import os
 from area import area
 import geopandas as gpd
 from shapely.geometry import shape
+from shapely import geometry
 from ipyleaflet import GeoJSON
 
 # Internal dependencies imports
@@ -20,7 +21,7 @@ def calculate_area_bbox(bbox: dict):
 
 def read_gpd_file(filename: str) -> "geopandas.geodataframe.GeoDataFrame":
     """
-    Read from a geopandas geodataframe file
+    Returns geodataframe from geopandas geodataframe file
     """
     if os.path.exists(filename):
         with open(filename, 'r') as f:
@@ -81,13 +82,14 @@ def clip_coastline_to_bbox(
     roi_coast : "geopandas.geodataframe.GeoDataFrame"
         roi_coast a GeoDataFrame that holds the clipped portion of the coastline_vector within geojson_bbox
     """
+    assert coastline_vector.empty != True, "ERROR: Empty shoreline dataframe"
     # clip coastal polyline
     roi_coast = gpd.clip(coastline_vector, geojson_bbox)
     roi_coast = roi_coast.to_crs('EPSG:4326')
     return roi_coast
 
 
-def get_coastline(shoreline_file: str, bbox: dict):
+def get_coastline_gpd(shoreline_file: str, bbox: list):
     """
          geojson containing the clipped portion of the coastline in bounding box
 
@@ -96,7 +98,33 @@ def get_coastline(shoreline_file: str, bbox: dict):
     shoreline_file: str
         location of geojson file containing shoreline data
     bbox: dict
-        dict containing geojson of the bouding box drawn by the user
+        dict containing geojson of the bounding box drawn by the user
+
+    Returns:
+    --------
+    roi_coast: dict
+        contains the clipped portion of the coastline in bounding box
+
+    """
+    # Read the coastline vector from a geopandas geodataframe file
+    shoreline = read_gpd_file(shoreline_file)
+    # Convert bbox to GDP
+    geojson_bbox = create_geodataframe_from_bbox(bbox)
+    # Clip coastline to bbox
+    roi_coast_gdp = clip_coastline_to_bbox(shoreline, geojson_bbox)
+    return roi_coast_gdp
+
+
+def get_coastline(shoreline_file: str, bbox: list):
+    """
+         geojson containing the clipped portion of the coastline in bounding box
+
+     Arguments:
+    -----------
+    shoreline_file: str
+        location of geojson file containing shoreline data
+    bbox: dict
+        dict containing geojson of the bounding box drawn by the user
 
     Returns:
     --------
@@ -117,6 +145,7 @@ def get_coastline(shoreline_file: str, bbox: dict):
 
 def get_coastline_for_map(coast_geojson: dict):
     """Returns a GeoJSON object that can be added to the map """
+    assert coast_geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
     return GeoJSON(
         data=coast_geojson,
         style={

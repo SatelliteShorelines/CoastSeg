@@ -1,5 +1,5 @@
-##conda env create --file new_coastseg.yml
-name: new_coastseg
+##conda env create --file coastseg.yml
+name: coastseg
 channels:
   - conda-forge
   - defaults
@@ -18,7 +18,10 @@ dependencies:
   - cartopy
   - simplekml
   - leafmap
+  - tensorflow
   - tqdm
   - pip
   - pip:
       - area
+      - ipyfilechooser
+      - doodleverse_utils
