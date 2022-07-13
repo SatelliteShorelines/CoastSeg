@@ -40,6 +40,26 @@ In a nutshell, CoastSeg will provide an alternative workflow in a web browser th
 ![](https://user-images.githubusercontent.com/3596509/153467309-1583e449-1930-462b-815b-2bd37ee68928.png)
 
 
+
+## ⬇️ Installation
+
+We advise creating a new conda environment to run the program.
+
+1. Clone the repo:
+
+```
+git clone --depth 1 https://github.com/dbuscombe-usgs/CoastSeg.git
+```
+
+(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
+
+2. Create a conda environment called `coastseg`
+
+```
+conda env create --file install/coastseg.yml
+conda activate coastseg
+```
+
 ## :earth_americas: Workflow
 
 ### :new_moon: Module 1: ROI creation and image retrieval. 
