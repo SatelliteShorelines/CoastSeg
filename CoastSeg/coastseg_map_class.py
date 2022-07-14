@@ -36,7 +36,9 @@ class CoastSeg_Map:
         self.coastline_for_map = None
         # selected_ROI : Geojson for all the ROIs selected by the user
         self.selected_ROI = None
-        self.collection = None
+        # self.transect_names : list of transect names on map
+        self.transect_names = []
+        
         CoastSeg_Map.check_shoreline_file_exists()
         # If map_settings is not provided use default settings
         if not map_settings:
@@ -63,6 +65,122 @@ class CoastSeg_Map:
         self.m.add_control(self.draw_control)
         layer_control = LayersControl(position='topright')
         self.m.add_control(layer_control)
+        
+     
+    def load_transects_bbox_df(self) -> "pandas.core.frame.DataFrame":
+        """Returns dataframe containing total bounds for each set of transects in the csv file,
+        transects_bounding_boxes.csv.
+        
+        Returns:
+            pandas.core.frame.DataFrame : Returns dataframe containing total bounds for each set of transects
+        """        
+        # Load in the total bounding box for each transects file
+        transects_df=pd.read_csv("transects_bounding_boxes.csv")
+        transects_df.index=transects_df["filename"]
+        if 'filename' in transects_df.columns:
+            transects_df.drop("filename",axis=1, inplace=True)
+        return transects_df 
+    
+    
+    def get_transect_filenames(self, gpd_bbox):
+        # dataframe containig total bounding box for each transects file
+        transects_df=self.load_transects_bbox_df()
+        # filenames where transects'bbox intersect bounding box drawn by user
+        intersecting_transect_files=[]
+        for transect_file in transects_df.index:
+            minx, miny, maxx, maxy=transects_df.loc[transect_file]
+            transects_intersection = gpd_bbox.cx[minx:maxx, miny:maxy]
+            gpd_bbox.cx[minx:maxx, miny:maxy].plot()
+            # save transect filenames where gpd_bbox & bounding box for set of transects intersect
+            if transects_intersection.empty == False:
+                intersecting_transect_files.append(transect_file)
+        return intersecting_transect_files
+    
+    
+    def load_transect(self, filename :str)->'geopandas.geodataframe.GeoDataFrame':
+        """Load transect as a geodataframe from geojson file containing transects called filename
+
+        Args:
+            filename (str): geojson file containing transects
+
+        Returns:
+            'geopandas.geodataframe.GeoDataFrame': (transects_gpd) transects from geojson file in geodataframe
+            str : (transects_layer_name) name of transect file to be used as layer name
+        """        
+        # full path to transect file
+        transect_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"transects"+os.sep+filename
+        # Loads transect file
+        transects_gpd=bbox.read_gpd_file(transect_path)
+        transects_layer_name=os.path.splitext(os.path.basename(transect_path))[0]
+        return transects_gpd,transects_layer_name
+    
+
+    def clip_transect(self, transects_gdf:'geopandas.geodataframe.GeoDataFrame', bbox_gdf:'geopandas.geodataframe.GeoDataFrame')->'geopandas.geodataframe.GeoDataFrame':        
+        """Clip transects_gdf to bbox_gdf. Only transects within bbox will be kept.
+
+        Args:
+            transects_gdf (geopandas.geodataframe.GeoDataFrame): transects read from geojson file
+            bbox_gdf (geopandas.geodataframe.GeoDataFrame): drawn bbox
+
+        Returns:
+            geopandas.geodataframe.GeoDataFrame: clipped transects within bbox
+        """        
+        transects_in_bbox = gpd.clip(transects_gdf, bbox_gdf)
+        transects_in_bbox = transects_in_bbox.to_crs('EPSG:4326')
+        return transects_in_bbox
+
+
+    def style_transect(self, transect_gdf:'geopandas.geodataframe.GeoDataFrame')->dict:
+        """Converts transect_gdf to json and adds style to its properties
+
+        Converts transect_gdf to json and adds an object called 'style' containing the styled
+        json for the map.
+        Args:
+            transect_gdf (geopandas.geodataframe.GeoDataFrame): clipped transects loaded from geojson file
+
+        Returns:
+            dict: clipped transects with style properties
+        """        
+        # Save the fishnet intersection with coastline to json
+        transect_dict = json.loads(transect_gdf.to_json())
+        # Add style to each feature in the geojson
+        for feature in transect_dict["features"]:
+            feature["properties"]["style"] = {
+                "color": "grey",
+                "weight": 1,
+                "fillColor": "grey",
+                "fillOpacity": 0.2,
+            }
+        return transect_dict
+        
+
+    def load_transects_on_map(self) -> None:
+        """Adds transects within the drawn bbox onto the map
+        """        
+        # ensure drawn bbox(bounding box) within allowed size
+        bbox.validate_bbox_size(self.shapes_list)
+        # load user drawn bbox as gdf(geodataframe)
+        gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
+        # list of all the transects files bbox intersects
+        intersecting_transect_files = self.get_transect_filenames(gpd_bbox)
+        # for each transect file clip it to the bbox and add to map
+        for transect_file in intersecting_transect_files:
+            print("Loading ",transect_file)
+            data,transects_layer_name=self.load_transect(transect_file)
+            transects_in_bbox=self.clip_transect(data, gpd_bbox)
+            if transects_in_bbox.empty:
+                print("Skipping ",transects_layer_name)
+            else:
+                print("Adding transects from ",transects_layer_name)
+                # add transect's name to array transect_name 
+                self.transect_names.append(transects_layer_name)
+                # style and add the transect to the map 
+                transect_layer=self.style_transect(transects_in_bbox)
+                self.m.add_geojson(
+                transect_layer, layer_name=transects_layer_name)
+        if self.transect_names == []:
+            print("No transects were found in this region. Draw a new bounding box.")
+
 
     def check_shoreline_file_exists():
         """ Prints an error message if the shoreline file does not exist"""
@@ -70,12 +188,23 @@ class CoastSeg_Map:
             print("\n The geojson shoreline file does not exist.")
             print("Please ensure the shoreline file is the directory 'third_party_data' ")
 
+
     def remove_all(self):
         """Remove the bbox, coastline, all rois from the map"""
         self.remove_bbox()
+        self.remove_transects()
         self.remove_coastline()
         self.remove_all_rois()
         self.remove_saved_roi()
+
+    def remove_transects(self):
+        """Removes all the transects from the map.
+        Removes each layer with its name in self.transect_names"""
+        for transect_name in self.transect_names:
+            existing_layer=self.m.find_layer(transect_name)
+            if existing_layer is not None:
+                self.m.remove_layer(existing_layer)
+        self.transect_names=[]
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
@@ -223,7 +352,7 @@ class CoastSeg_Map:
 
     def generate_ROIS_fishnet(self):
         """Generates series of overlapping ROIS along coastline on map using fishnet method"""
-        # Make sure your bounding box is within the allowed size
+        # Ensure drawn bbox(bounding box) within allowed size
         bbox.validate_bbox_size(self.shapes_list)
         # dictionary containing geojson coastline
         roi_coastline = bbox.get_coastline(CoastSeg_Map.shoreline_file, self.shapes_list)
