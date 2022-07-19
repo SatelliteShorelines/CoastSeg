@@ -22,11 +22,44 @@ debug_map_view = widgets.Output(layout={'border': '1px solid black'})
 html = HTML("Hover Over coastline")
 html.layout.margin = "0px 20px 20px 20px"
 
+csu_descriptor_html = HTML("")
+csu_descriptor_html.layout.margin = "0px 20px 20px 20px"
+
+sub_accordion = widgets.Accordion(children=[csu_descriptor_html], titles=('CSU_descriptor'))
+sub_accordion.set_title(0,'CSU_descriptor')
+
+accordion_box = widgets.VBox([html, sub_accordion])
+
+main_accordion = widgets.Accordion(children=[accordion_box], titles=('Shoreline Data'))
+main_accordion.set_title(0,'Shoreline Data')
+
+
 def update_html(feature, **kwargs):
-    # html.value = """<h3>Tidal Range</h3>"""
-    html.value = """<p>Tidal Range: {}</p><p>Erodibility:{}</p>""".format(
+    # Modifies main html body of Shoreline Data Accordion
+    main_accordion.children[0].children[0].value="""
+    <p>Mean Sig Waveheight: {}</p>
+    <p>Tidal Range: {}</p>
+    <p>Erodibility: {}</p>
+    <p>River: {}</p>
+    <p>Sinuosity: {}</p>
+    <p>Slope: {}</p>
+    <p>Turbid: {}</p>
+    <p>CSU_ID: {}</p>
+    """.format(
+        feature['properties']['MEAN_SIG_WAVEHEIGHT'],
         feature['properties']['TIDAL_RANGE'],
-        feature['properties']['ERODIBILITY'])
+        feature['properties']['ERODIBILITY'],
+        feature['properties']['river_label'],
+        feature['properties']['sinuosity_label'],
+        feature['properties']['slope_label'],
+        feature['properties']['turbid_label'],
+        feature['properties']['CSU_ID'])
+    
+    # Modifies html of sub accordion 'CSU_descriptor' of Shoreline Data Accordion
+    main_accordion.children[0].children[1].children[0].value="""
+    <p>CSU_Descriptor: {}</p>""".format(feature['properties']['CSU_Descriptor'])
+        
+    
     
 class CoastSeg_Map:
 
@@ -75,7 +108,7 @@ class CoastSeg_Map:
         self.m.add_control(self.draw_control)
         layer_control = LayersControl(position='topright')
         self.m.add_control(layer_control)
-        hover_shoreline_control = WidgetControl(widget=html, position="topright")
+        hover_shoreline_control = WidgetControl(widget=main_accordion, position="topright")
         self.m.add_control(hover_shoreline_control)
         
      
