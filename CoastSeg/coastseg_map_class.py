@@ -1,66 +1,17 @@
 import os
 from ipyleaflet import DrawControl, GeoJSON, LayersControl,  WidgetControl
 import leafmap
-from CoastSeg import download_roi
 from CoastSeg import bbox
 from ipywidgets import Layout, HTML, Text
 import ipywidgets as widgets
 import requests
-import zipfile
-
-from typing import Tuple
 import pandas as pd
 import numpy as np
 import json
 import geopandas as gpd
 from ipyleaflet import GeoJSON
 from shapely import geometry
-
-debug_map_view = widgets.Output(layout={'border': '1px solid black'})
-
-# Temporary Code until GeoJSON parameters are verified
-html = HTML("Hover Over coastline")
-html.layout.margin = "0px 20px 20px 20px"
-
-csu_descriptor_html = HTML("")
-csu_descriptor_html.layout.margin = "0px 20px 20px 20px"
-
-sub_accordion = widgets.Accordion(children=[csu_descriptor_html], titles=('CSU_descriptor'))
-sub_accordion.set_title(0,'CSU_descriptor')
-
-accordion_box = widgets.VBox([html, sub_accordion])
-
-main_accordion = widgets.Accordion(children=[accordion_box], titles=('Shoreline Data'))
-main_accordion.set_title(0,'Shoreline Data')
-
-
-def update_html(feature, **kwargs):
-    # Modifies main html body of Shoreline Data Accordion
-    main_accordion.children[0].children[0].value="""
-    <p>Mean Sig Waveheight: {}</p>
-    <p>Tidal Range: {}</p>
-    <p>Erodibility: {}</p>
-    <p>River: {}</p>
-    <p>Sinuosity: {}</p>
-    <p>Slope: {}</p>
-    <p>Turbid: {}</p>
-    <p>CSU_ID: {}</p>
-    """.format(
-        feature['properties']['MEAN_SIG_WAVEHEIGHT'],
-        feature['properties']['TIDAL_RANGE'],
-        feature['properties']['ERODIBILITY'],
-        feature['properties']['river_label'],
-        feature['properties']['sinuosity_label'],
-        feature['properties']['slope_label'],
-        feature['properties']['turbid_label'],
-        feature['properties']['CSU_ID'])
-    
-    # Modifies html of sub accordion 'CSU_descriptor' of Shoreline Data Accordion
-    main_accordion.children[0].children[1].children[0].value="""
-    <p>CSU_Descriptor: {}</p>""".format(feature['properties']['CSU_Descriptor'])
-        
-    
-    
+ 
 class CoastSeg_Map:
 
     def __init__(self, map_settings: dict = None):
@@ -74,14 +25,14 @@ class CoastSeg_Map:
         self.selected_layer = None
         # shapes_list : Empty list to hold all the polygons drawn by the user
         self.shapes_list = []
-        # coastline_for_map : coastline vector geojson for map layer
-        self.coastline_for_map = None
         # selected_ROI : Geojson for all the ROIs selected by the user
         self.selected_ROI = None
         # self.transect_names : list of transect names on map
         self.transect_names = []
-        # self.coastline_names
-        self.coastline_names = []
+        # self.shoreline_names
+        self.shoreline_names = []
+        # self.shorelines_gdf
+        self.shorelines_gdf = gpd.GeoDataFrame()
         
         # If map_settings is not provided use default settings
         if not map_settings:
@@ -108,23 +59,51 @@ class CoastSeg_Map:
         self.m.add_control(self.draw_control)
         layer_control = LayersControl(position='topright')
         self.m.add_control(layer_control)
-        hover_shoreline_control = WidgetControl(widget=main_accordion, position="topright")
-        self.m.add_control(hover_shoreline_control)
         
+        # html accordion containing shoreline data on hover
+        html = HTML("Hover over shoreline")
+        html.layout.margin = "0px 20px 20px 20px"
+
+        self.main_accordion = widgets.Accordion(children=[html], titles=('Shoreline Data'))
+        self.main_accordion.set_title(0,'Shoreline Data')
+        
+        hover_shoreline_control = WidgetControl(widget=self.main_accordion, position="topright")
+        self.m.add_control(hover_shoreline_control)
+
+    def update_shoreline_html(self, feature, **kwargs):
+        # Modifies main html body of Shoreline Data Accordion
+        self.main_accordion.children[0].value="""
+        <p>Mean Sig Waveheight: {}</p>
+        <p>Tidal Range: {}</p>
+        <p>Erodibility: {}</p>
+        <p>River: {}</p>
+        <p>Sinuosity: {}</p>
+        <p>Slope: {}</p>
+        <p>Turbid: {}</p>
+        <p>CSU_ID: {}</p>
+        """.format(
+            feature['properties']['MEAN_SIG_WAVEHEIGHT'],
+            feature['properties']['TIDAL_RANGE'],
+            feature['properties']['ERODIBILITY'],
+            feature['properties']['river_label'],
+            feature['properties']['sinuosity_label'],
+            feature['properties']['slope_label'],
+            feature['properties']['turbid_label'],
+            feature['properties']['CSU_ID'])        
      
     def load_total_bounds_df(self,type:str) -> "pandas.core.frame.DataFrame":
-        """Returns dataframe containing total bounds for each set of either coastlines or transects in the csv file.
+        """Returns dataframe containing total bounds for each set of either shorelines or transects in the csv file.
         
         Args:
-            type: Either "transects" or "coastlines" determines which csv is loaded
+            type: Either "transects" or "shorelines" determines which csv is loaded
         
         Returns:
-            pandas.core.frame.DataFrame : Returns dataframe containing total bounds for each set of coastlines or transects
+            pandas.core.frame.DataFrame : Returns dataframe containing total bounds for each set of shorelines or transects
         """ 
         # Load in the total bounding box from csv
         if type.lower() == 'transects':
            total_bounds_df=pd.read_csv("transects_bounding_boxes.csv")
-        elif type.lower() == 'coastlines':
+        elif type.lower() == 'shorelines':
             total_bounds_df=pd.read_csv("shorelines_bounding_boxes.csv")
         total_bounds_df.index=total_bounds_df["filename"]
         if 'filename' in total_bounds_df.columns:
@@ -133,15 +112,15 @@ class CoastSeg_Map:
     
     
     def get_intersecting_files(self, gpd_bbox : 'geopandas.geodataframe.GeoDataFrame', type : str):
-        # dataframe containing total bounding box for each transects or coastline file
+        # dataframe containing total bounding box for each transects or shoreline file
         total_bounds_df=self.load_total_bounds_df(type)
-        # filenames where transects/coastline'bbox intersect bounding box drawn by user
+        # filenames where transects/shoreline'bbox intersect bounding box drawn by user
         intersecting_files=[]
         for filename in total_bounds_df.index:
             minx, miny, maxx, maxy=total_bounds_df.loc[filename]
             intersection_df = gpd_bbox.cx[minx:maxx, miny:maxy]
             gpd_bbox.cx[minx:maxx, miny:maxy].plot()
-            # save filenames where gpd_bbox & bounding box for set of transects or coastlines intersect
+            # save filenames where gpd_bbox & bounding box for set of transects or shorelines intersect
             if intersection_df.empty == False:
                 intersecting_files.append(filename)
         return intersecting_files
@@ -187,7 +166,7 @@ class CoastSeg_Map:
         Returns:
             dict: clipped transects with style properties
         """        
-        # Save the fishnet intersection with coastline to json
+        # Save the fishnet intersection with shoreline to json
         transect_dict = json.loads(transect_gdf.to_json())
         # Add style to each feature in the geojson
         for feature in transect_dict["features"]:
@@ -261,12 +240,13 @@ class CoastSeg_Map:
 
 
     def remove_all(self):
-        """Remove the bbox, coastline, all rois from the map"""
+        """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()
         self.remove_transects()
-        self.remove_coastline()
+        self.remove_shoreline()
         self.remove_all_rois()
         self.remove_saved_roi()
+        self.remove_shoreline_html()
 
     def remove_transects(self):
         """Removes all the transects from the map.
@@ -283,17 +263,28 @@ class CoastSeg_Map:
         self.shapes_list = []
 
 
-    def remove_coastline(self):
-        """Removes the coastline from the map"""
-        for shoreline_name in self.coastline_names:
+    def remove_shoreline(self):
+        """Removes the shoreline from the map"""
+        for shoreline_name in self.shoreline_names:
             existing_layer=self.m.find_layer(shoreline_name)
             if existing_layer is not None:
                 self.m.remove_layer(existing_layer)
-        self.coastline_names = []
+        self.shoreline_names = []
+        self.shorelines_gdf = gpd.GeoDataFrame()
+
+    def remove_shoreline_html(self):
+        """Clear the shoreline html accoridon """
+        self.main_accordion.children[0].value ="Hover over the shoreline."
 
     def remove_saved_roi(self):
         """Removes all the saved ROI"""
         self.selected_ROI = None
+         # Remove the selected rois
+        existing_layer = self.m.find_layer('Selected ROIs')
+        if existing_layer is not None:
+            self.m.remove_layer(existing_layer)
+            self.selected_layer = None
+            self.selected_set = set()
 
     def remove_all_rois(self):
         """Removes all the unselected rois from the map """
@@ -340,7 +331,6 @@ class CoastSeg_Map:
         return draw_control
     
 
-    @debug_map_view.capture(clear_output=True)
     def handle_draw(self, target: 'ipyleaflet.leaflet.DrawControl', action: str, geo_json: dict):
         """Adds or removes the bounding box from shapes_list when drawn/deleted from map
         Args:
@@ -367,7 +357,7 @@ class CoastSeg_Map:
             geopandas.geodataframe.GeoDataFrame: intersection of fishnet and data
         """
         intersection_gpd = gpd.sjoin(fishnet, data, op='intersects')
-        intersection_gpd.drop(columns=['index_right', 'soc', 'exs', 'f_code', 'id', 'acc'], inplace=True)
+        # intersection_gpd.drop(columns=['index_right', 'soc', 'exs', 'f_code', 'id', 'acc'], inplace=True)
         return intersection_gpd
 
     def fishnet(self, data: "geopandas.geodataframe.GeoDataFrame",
@@ -400,47 +390,46 @@ class CoastSeg_Map:
         fishnet = fishnet.to_crs('EPSG:4326')
         return fishnet
 
-
     def fishnet_gpd(
             self,
             gpd_bbox: "GeoDataFrame",
-            coastline_gpd: "GeoDataFrame",
+            shoreline_gdf: "GeoDataFrame",
             square_size: int = 1000) -> "GeoDataFrame":
         """
-        Returns fishnet where it intersects the coastline
+        Returns fishnet where it intersects the shoreline
         
         Args:
-            gpd_bbox (GeoDataFrame): bounding box (bbox) around coastline
-            coastline_gpd (GeoDataFrame): coastline in the bbox
+            gpd_bbox (GeoDataFrame): bounding box (bbox) around shoreline
+            shoreline_gdf (GeoDataFrame): shoreline in the bbox
             square_size (int, optional): size of each square in the fishnet. Defaults to 1000.
 
         Returns:
-            GeoDataFrame: intersection of coastline_gpd and fishnet. Only squares that intersect coastline are kept
+            GeoDataFrame: intersection of shoreline_gdf and fishnet. Only squares that intersect shoreline are kept
         """
         # Get the geodataframe for the fishnet within the bbox
         fishnet_gpd = self.fishnet(gpd_bbox, square_size)
-        # Get the geodataframe for the fishnet intersecting the coastline
-        fishnet_intersect_gpd = self.fishnet_intersection(fishnet_gpd, coastline_gpd)
+        # Get the geodataframe for the fishnet intersecting the shoreline
+        fishnet_intersect_gpd = self.fishnet_intersection(fishnet_gpd, shoreline_gdf)
         return fishnet_intersect_gpd
 
 
-    def load_coastline_on_map(self) -> None:
-        """Adds coastline within the drawn bbox onto the map"""
+    def load_shoreline_on_map(self) -> None:
+        """Adds shoreline within the drawn bbox onto the map"""
+        # geodataframe to hold all shorelines in bbox
+        shorelines_in_bbox_gdf = gpd.GeoDataFrame()
         # ensure drawn bbox(bounding box) within allowed size
         bbox.validate_bbox_size(self.shapes_list)
         # load user drawn bbox as gdf(geodataframe)
         gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
-        # list of all the coastline files that bbox intersects
-        intersecting_shoreline_files = self.get_intersecting_files(gpd_bbox,'coastlines')
+        # list of all the shoreline files that bbox intersects
+        intersecting_shoreline_files = self.get_intersecting_files(gpd_bbox,'shorelines')
         # for each transect file clip it to the bbox and add to map
         for file in intersecting_shoreline_files:
-            print("Loading ",file)
-            layer_name=self.get_layer_name(file)
             shoreline_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"shorelines"+os.sep+file
             # Check if the shoreline exists if it doesn't download it
             if  os.path.exists(shoreline_path):
                 print("\n Loading the file now.")
-                data=bbox.read_gpd_file(shoreline_path)
+                shoreline=bbox.read_gpd_file(shoreline_path)
             else:
                 print("\n The geojson shoreline file does not exist. Downloading it now.")
                 # Download shoreline geojson from Zenodo
@@ -448,50 +437,59 @@ class CoastSeg_Map:
                 # ADD filename parameter and list of zendodo ids
                 self.download_shoreline()
                 
-            coastline_in_bbox=self.clip_to_bbox(data, gpd_bbox)
-            if coastline_in_bbox.empty:
-                print("Skipping ",layer_name)
-            else:
-                print("Adding coastlines from ",layer_name)
-                # add coastline's name to array coastline_name 
-                self.coastline_names.append(layer_name)
-                # style and add the coastline to the map 
-                coastline_in_bbox_geojson = coastline_in_bbox.to_json()
-                coastline_in_bbox_geojson_dict = json.loads(coastline_in_bbox_geojson)
-                coastline_layer=self.get_coastline_layer(coastline_in_bbox_geojson_dict, layer_name)
-                coastline_layer.on_hover(update_html)
-                self.m.add_layer(coastline_layer)
-        if self.coastline_names == []:
-            print("No coastlines were found in this region. Draw a new bounding box.")
+            # Create a single dataframe to hold all shorelines from all files
+            shoreline_in_bbox=self.clip_to_bbox(shoreline, gpd_bbox)
+            if shorelines_in_bbox_gdf.empty:
+                shorelines_in_bbox_gdf = shoreline_in_bbox
+            elif not shorelines_in_bbox_gdf.empty:
+                # Combine shorelines from different files into single geodataframe 
+                shorelines_in_bbox_gdf = gpd.GeoDataFrame(pd.concat([shorelines_in_bbox_gdf, shoreline_in_bbox], ignore_index=True))
+            
+        if shorelines_in_bbox_gdf.empty:
+            print("No shoreline found here.")
+        else:
+            # Create layer name from  shoreline geojson filenames
+            filenames=list(map(self.get_layer_name,intersecting_shoreline_files))
+            layer_name=""
+            for file in filenames:
+                layer_name+=file+'_'
+            layer_name = layer_name[:-1]
+            
+            # Save new shoreline name and gdf  
+            self.remove_shoreline()
+            self.shoreline_names.append(layer_name)
+            self.shorelines_gdf = shorelines_in_bbox_gdf
+            
+            # style and add the shoreline to the map 
+            shorelines_gdf_geojson = self.shorelines_gdf.to_json()
+            shorelines_gdf_geojson_dict = json.loads(shorelines_gdf_geojson)
+            shoreline_layer=self.get_shoreline_layer(shorelines_gdf_geojson_dict, layer_name)
+            shoreline_layer.on_hover(self.update_shoreline_html)
+            self.m.add_layer(shoreline_layer)
+        if self.shoreline_names == []:
+            print("No shorelines were found in this region. Draw a new bounding box.")
 
-           
 
     def generate_ROIS_fishnet(self):
-        """Generates series of overlapping ROIS along coastline on map using fishnet method"""
+        """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
         # Ensure drawn bbox(bounding box) within allowed size
         bbox.validate_bbox_size(self.shapes_list)
         # Get the geodataframe for the bbox
         gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
-        # dictionary containing geojson coastline
-        roi_coastline = bbox.get_coastline(CoastSeg_Map.shoreline_file, self.shapes_list)
-        # coastline geojson styled for the map
-        self.coastline_for_map = self.get_coastline_layer(roi_coastline)
-        self.m.add_layer(self.coastline_for_map)
-
-        # Get the geodataframe for the coastline
-        coastline_gpd = bbox.get_coastline_gpd(self.shoreline_file, self.shapes_list)
+        if self.shorelines_gdf.empty:
+            self.load_shoreline_on_map()
         # Create two fishnets, one big (2000m) and one small(1500m) so they overlap each other
-        fishnet_gpd_large = self.fishnet_gpd(gpd_bbox, coastline_gpd,2000)
-        fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, coastline_gpd, 1500)
+        fishnet_gpd_large = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf,2000)
+        fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf, 1500)
 
         # Concat the fishnets together to create one overlapping set of rois
         fishnet_intersect_gpd = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
         # Add an id column
-        num_roi = int(fishnet_intersect_gpd.count())
+        num_roi = len(fishnet_intersect_gpd)
         fishnet_intersect_gpd['id'] = np.arange(0, num_roi)
 
-        # Save the fishnet intersection with coastline to json
+        # Save the fishnet intersection with shoreline to json
         fishnet_geojson = fishnet_intersect_gpd.to_json()
         fishnet_dict = json.loads(fishnet_geojson)
 
@@ -505,20 +503,20 @@ class CoastSeg_Map:
             }
         # Save the data
         self.data = fishnet_dict
+           
 
-
-    def get_coastline_layer(self, roi_coastline: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
-        """get_coastline_layer returns the  coastline as GeoJson object.
+    def get_shoreline_layer(self, roi_shoreline: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
+        """get_shoreline_layer returns the  shoreline as GeoJson object.
 
         Args:
-            roi_coastline (dict): geojson dictionary for portion of coastline in bbox
+            roi_shoreline (dict): geojson dictionary for portion of shoreline in bbox
 
         Returns:
-            "ipyleaflet.GeoJSON": coastline as GeoJson object styled with yellow dashes
+            "ipyleaflet.GeoJSON": shoreline as GeoJson object styled with yellow dashes
         """
-        assert roi_coastline != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+        assert roi_shoreline != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
         return GeoJSON(
-            data=roi_coastline,
+            data=roi_shoreline,
             name=layer_name,
             style={
                 'color': 'yellow',
@@ -606,8 +604,7 @@ class CoastSeg_Map:
         self.m.add_layer(geojson_layer)
 
     def save_roi_fishnet(self, filename: str) -> None:
-        """ Saves the selected roi to a geojson file called ""
-        """
+        """ Saves the selected roi to a geojson file called """
         # Saves the selected roi to a geojson file
         # returns the selected set as geojson
         selected_geojson = self.convert_selected_set_to_geojson(self.selected_set)
