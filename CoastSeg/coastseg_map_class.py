@@ -1,16 +1,14 @@
 import os
-from ipyleaflet import DrawControl, GeoJSON, LayersControl,  WidgetControl
-import leafmap
+from ipyleaflet import DrawControl, GeoJSON, LayersControl,  WidgetControl, GeoJSON
+from shapely import geometry
+from leafmap import Map, check_file_path
 from CoastSeg import bbox
-from ipywidgets import Layout, HTML, Text
-import ipywidgets as widgets
-import requests
-import pandas as pd
-import numpy as np
+from ipywidgets import Layout, HTML, Accordion
+from  requests import get
+from pandas import read_csv, concat
+from numpy import arange
 import json
 import geopandas as gpd
-from ipyleaflet import GeoJSON
-from shapely import geometry
  
 class CoastSeg_Map:
 
@@ -45,7 +43,7 @@ class CoastSeg_Map:
                 "attribution_control": True,
                 "Layout": Layout(width='100%', height='100px')
             }
-        self.m = leafmap.Map(
+        self.m = Map(
             draw_control=map_settings["draw_control"],
             measure_control=map_settings["measure_control"],
             fullscreen_control=map_settings["fullscreen_control"],
@@ -64,7 +62,7 @@ class CoastSeg_Map:
         html = HTML("Hover over shoreline")
         html.layout.margin = "0px 20px 20px 20px"
 
-        self.main_accordion = widgets.Accordion(children=[html], titles=('Shoreline Data'))
+        self.main_accordion = Accordion(children=[html], titles=('Shoreline Data'))
         self.main_accordion.set_title(0,'Shoreline Data')
         
         hover_shoreline_control = WidgetControl(widget=self.main_accordion, position="topright")
@@ -102,9 +100,9 @@ class CoastSeg_Map:
         """ 
         # Load in the total bounding box from csv
         if type.lower() == 'transects':
-           total_bounds_df=pd.read_csv("transects_bounding_boxes.csv")
+           total_bounds_df=read_csv("transects_bounding_boxes.csv")
         elif type.lower() == 'shorelines':
-            total_bounds_df=pd.read_csv("shorelines_bounding_boxes.csv")
+            total_bounds_df=read_csv("shorelines_bounding_boxes.csv")
         total_bounds_df.index=total_bounds_df["filename"]
         if 'filename' in total_bounds_df.columns:
             total_bounds_df.drop("filename",axis=1, inplace=True)
@@ -139,21 +137,6 @@ class CoastSeg_Map:
         layer_name=os.path.splitext(filename)[0]
         return layer_name
     
-
-    def clip_to_bbox(self, gdf_to_clip:'geopandas.geodataframe.GeoDataFrame', bbox_gdf:'geopandas.geodataframe.GeoDataFrame')->'geopandas.geodataframe.GeoDataFrame':        
-        """Clip gdf_to_clip to bbox_gdf. Only data within bbox will be kept.
-
-        Args:
-            gdf_to_clip (geopandas.geodataframe.GeoDataFrame): geodataframe to be clipped to bbox
-            bbox_gdf (geopandas.geodataframe.GeoDataFrame): drawn bbox
-
-        Returns:
-            geopandas.geodataframe.GeoDataFrame: clipped geodata within bbox
-        """        
-        transects_in_bbox = gpd.clip(gdf_to_clip, bbox_gdf)
-        transects_in_bbox = transects_in_bbox.to_crs('EPSG:4326')
-        return transects_in_bbox
-
 
     def style_transect(self, transect_gdf:'geopandas.geodataframe.GeoDataFrame')->dict:
         """Converts transect_gdf to json and adds style to its properties
@@ -194,7 +177,7 @@ class CoastSeg_Map:
             transects_layer_name=self.get_layer_name(transect_file)
             transect_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"transects"+os.sep+transect_file
             data=bbox.read_gpd_file(transect_path)
-            transects_in_bbox=self.clip_to_bbox(data, gpd_bbox)
+            transects_in_bbox=bbox.clip_to_bbox(data, gpd_bbox)
             if transects_in_bbox.empty:
                 print("Skipping ",transects_layer_name)
             else:
@@ -233,7 +216,7 @@ class CoastSeg_Map:
             save_path (str): directory to save model
             chunk_size (int, optional):  Defaults to 128.
         """
-        r = requests.get(url, stream=True)
+        r = get(url, stream=True)
         with open(save_path, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 fd.write(chunk)
@@ -438,12 +421,12 @@ class CoastSeg_Map:
                 self.download_shoreline()
                 
             # Create a single dataframe to hold all shorelines from all files
-            shoreline_in_bbox=self.clip_to_bbox(shoreline, gpd_bbox)
+            shoreline_in_bbox=bbox.clip_to_bbox(shoreline, gpd_bbox)
             if shorelines_in_bbox_gdf.empty:
                 shorelines_in_bbox_gdf = shoreline_in_bbox
             elif not shorelines_in_bbox_gdf.empty:
                 # Combine shorelines from different files into single geodataframe 
-                shorelines_in_bbox_gdf = gpd.GeoDataFrame(pd.concat([shorelines_in_bbox_gdf, shoreline_in_bbox], ignore_index=True))
+                shorelines_in_bbox_gdf = gpd.GeoDataFrame(concat([shorelines_in_bbox_gdf, shoreline_in_bbox], ignore_index=True))
             
         if shorelines_in_bbox_gdf.empty:
             print("No shoreline found here.")
@@ -483,11 +466,11 @@ class CoastSeg_Map:
         fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf, 1500)
 
         # Concat the fishnets together to create one overlapping set of rois
-        fishnet_intersect_gpd = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
+        fishnet_intersect_gpd = gpd.GeoDataFrame(concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
         # Add an id column
         num_roi = len(fishnet_intersect_gpd)
-        fishnet_intersect_gpd['id'] = np.arange(0, num_roi)
+        fishnet_intersect_gpd['id'] = arange(0, num_roi)
 
         # Save the fishnet intersection with shoreline to json
         fishnet_geojson = fishnet_intersect_gpd.to_json()
@@ -620,7 +603,7 @@ class CoastSeg_Map:
             geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
         """
         # Save the geojson to a file
-        out_file = leafmap.check_file_path(out_file)
+        out_file = check_file_path(out_file)
         ext = os.path.splitext(out_file)[1].lower()
         if ext == ".geojson":
             out_geojson = out_file
