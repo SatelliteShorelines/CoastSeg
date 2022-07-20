@@ -9,6 +9,9 @@ from pandas import read_csv, concat
 from numpy import arange
 import json
 import geopandas as gpd
+# new imports
+from skimage.io import imread, imsave
+import numpy as np
  
 class CoastSeg_Map:
 
@@ -88,6 +91,56 @@ class CoastSeg_Map:
             feature['properties']['slope_label'],
             feature['properties']['turbid_label'],
             feature['properties']['CSU_ID'])        
+    
+    def rescale_array(self, dat, mn, mx):
+        """
+        rescales an input dat between mn and mx
+        Code from doodleverse_utils by Daniel Buscombe
+        source: https://github.com/Doodleverse/doodleverse_utils
+        """
+        m = min(dat.flatten())
+        M = max(dat.flatten())
+        return (mx - mn) * (dat - m) / (M - m) + mn
+
+# Work in progress
+    def RGB_to_MNDWI(self, files):
+        """
+        Converts RGB imagery to MNDWI imagery
+        Original Code from doodleverse_utils by Daniel Buscombe
+        source: https://github.com/Doodleverse/doodleverse_utils
+        """
+        # files : 
+        # output_path: directory to store MNDWI imagery
+        output_path = os.getcwd()
+        for counter,f in enumerate(files):
+            datadict={}
+            # Read green band from RGB image and cast to float
+            green_band = imread(f[0])[:,:,1].astype('float')
+            # Read SWIR and cast to float
+            swir = imread(f[1]).astype('float')
+            # Transform 0 to np.NAN 
+            green_band[green_band==0]=np.nan
+            swir[swir==0]=np.nan
+            # Mask out the NaNs
+            green_band = np.ma.filled(green_band)
+            swir = np.ma.filled(swir)
+            
+            # MNDWI imagery formula (Green – SWIR) / (Green + SWIR)
+            mndwi = np.divide(swir - green_band, swir + green_band)
+            # Convert the NaNs to -1
+            mndwi[np.isnan(mndwi)]=-1
+            # Rescale to be between 0 - 255
+            mndwi = self.rescale_array(mndwi,0,255)
+            # Save meta data for savez_compressed()
+            datadict['arr_0'] = mndwi.astype(np.uint8)
+            datadict['num_bands'] = 1
+            datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
+            # Remove the file extension from the name
+            ROOT_STRING = f[0].split(os.sep)[-1].split('.')[0]
+            #print(ROOT_STRING)
+            segfile = output_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
+            np.savez_compressed(segfile, **datadict)
+            del datadict, mndwi, green_band, swir
      
     def load_total_bounds_df(self,type:str) -> "pandas.core.frame.DataFrame":
         """Returns dataframe containing total bounds for each set of either shorelines or transects in the csv file.
