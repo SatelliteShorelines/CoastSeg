@@ -106,7 +106,7 @@ class CoastSeg_Map:
 
 
 # Work in progress
-    def RGB_to_MNDWI(self, RGB_dir_path:str, NIR_dir_path :str)->None:
+    def RGB_to_MNDWI(self, RGB_dir_path:str, NIR_dir_path :str, output_path:str)->None:
         """Converts two directories of RGB and NIR imagery to MNDWI imagery in a directory named
          'MNDWI_outputs'.
 
@@ -133,7 +133,7 @@ class CoastSeg_Map:
         files = np.vstack(files).T
 
         # output_path: directory to store MNDWI outputs
-        output_path = os.getcwd() +os.sep+ 'MNDWI_outputs'
+        output_path += os.sep+ 'MNDWI_outputs'
         if not os.path.exists(output_path):
             os.mkdir(output_path)
         # Create subfolder to hold MNDWI ouputs in
@@ -169,6 +169,8 @@ class CoastSeg_Map:
             segfile = output_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
             np.savez_compressed(segfile, **datadict)
             del datadict, mndwi, green_band, swir
+            
+        return output_path
      
     def load_total_bounds_df(self,type:str) -> "pandas.core.frame.DataFrame":
         """Returns dataframe containing total bounds for each set of either shorelines or transects in the csv file.
@@ -499,8 +501,19 @@ class CoastSeg_Map:
                 # Download shoreline geojson from Zenodo
                 #@todo replace this with download function
                 # ADD filename parameter and list of zendodo ids
-                self.download_shoreline()
-                # self.download_shoreline(file,)
+                # self.download_shoreline()
+                zenodo_id_mapping={
+                    'E_USA_SouthCarolina_NorthCarolina_ref_shoreline.geojson':'6824465',
+                    'NE_USA_Delaware_Maine_ref_shoreline.geojson':'6824429',
+                    'SE_USA_Louisiana_Georgia_ref_shoreline.geojson':'6824473',
+                    'S_USA_Texas_Louisiana_ref_shoreline.geojson':'6824487',
+                    'W_USA_California_ref_shoreline.geojson':'6824504',
+                    'W_USA_Oregon_Washington_ref_shoreline.geojson':'6824510',
+                    'USA_Alaska_ref_shoreline.geojson':'6836629'
+                }
+                self.download_shoreline(file, zenodo_id_mapping[file])
+                shoreline_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"shorelines"+os.sep+file
+                shoreline=bbox.read_gpd_file(shoreline_path)
                 
             # Create a single dataframe to hold all shorelines from all files
             shoreline_in_bbox=bbox.clip_to_bbox(shoreline, gpd_bbox)

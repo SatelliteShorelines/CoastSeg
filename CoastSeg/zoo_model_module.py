@@ -197,6 +197,9 @@ class Zoo_Model:
         if dataset == 'RGB':
             filename = 'rgb.zip'
             self.weights_direc = model_direc + os.sep + 'rgb'
+        elif dataset=='MNDWI':
+            filename='mndwi.zip'
+            self.weights_direc = model_direc + os.sep + 'mndwi'
         # outfile : location where  model id saved
         outfile = model_direc + os.sep + filename
         # Download the model from Zenodo
