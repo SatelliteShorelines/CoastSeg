@@ -8,10 +8,12 @@ from  requests import get
 from pandas import read_csv, concat
 from numpy import arange
 import json
+from glob import glob
 import geopandas as gpd
 # new imports
 from skimage.io import imread, imsave
 import numpy as np
+from CoastSeg.file_functions import mk_new_dir
  
 class CoastSeg_Map:
 
@@ -102,16 +104,42 @@ class CoastSeg_Map:
         M = max(dat.flatten())
         return (mx - mn) * (dat - m) / (M - m) + mn
 
+
 # Work in progress
-    def RGB_to_MNDWI(self, files):
-        """
-        Converts RGB imagery to MNDWI imagery
+    def RGB_to_MNDWI(self, RGB_dir_path:str, NIR_dir_path :str)->None:
+        """Converts two directories of RGB and NIR imagery to MNDWI imagery in a directory named
+         'MNDWI_outputs'.
+
+        Args:
+            RGB_dir_path (str): full path to directory containing RGB images
+            NIR_dir_path (str): full path to directory containing NIR images
+        
         Original Code from doodleverse_utils by Daniel Buscombe
         source: https://github.com/Doodleverse/doodleverse_utils
-        """
-        # files : 
-        # output_path: directory to store MNDWI imagery
-        output_path = os.getcwd()
+        """        
+        paths=[RGB_dir_path,NIR_dir_path]
+        files=[]
+        for data_path in paths:
+            if not os.path.exists(data_path):
+                raise FileNotFoundError(f"{data_path} not found")
+            f = sorted(glob(data_path+os.sep+'*.jpg'))
+            if len(f)<1:
+                f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
+            files.append(f)
+
+        # creates matrix:  bands(RGB) x number of samples(NIR)
+        # files=[['full_RGB_path.jpg','full_NIR_path.jpg'],
+        # ['full_jpg_path.jpg','full_NIR_path.jpg']....]
+        files = np.vstack(files).T
+
+        # output_path: directory to store MNDWI outputs
+        output_path = os.getcwd() +os.sep+ 'MNDWI_outputs'
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+        # Create subfolder to hold MNDWI ouputs in
+        output_path=mk_new_dir('MNDWI_ouputs',output_path )
+        
+
         for counter,f in enumerate(files):
             datadict={}
             # Read green band from RGB image and cast to float
@@ -137,7 +165,7 @@ class CoastSeg_Map:
             datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
             # Remove the file extension from the name
             ROOT_STRING = f[0].split(os.sep)[-1].split('.')[0]
-            #print(ROOT_STRING)
+            # save MNDWI as .npz file 
             segfile = output_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
             np.savez_compressed(segfile, **datadict)
             del datadict, mndwi, green_band, swir
@@ -472,6 +500,7 @@ class CoastSeg_Map:
                 #@todo replace this with download function
                 # ADD filename parameter and list of zendodo ids
                 self.download_shoreline()
+                # self.download_shoreline(file,)
                 
             # Create a single dataframe to hold all shorelines from all files
             shoreline_in_bbox=bbox.clip_to_bbox(shoreline, gpd_bbox)
