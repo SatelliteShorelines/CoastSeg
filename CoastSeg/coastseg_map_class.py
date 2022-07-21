@@ -105,7 +105,7 @@ class CoastSeg_Map:
         return (mx - mn) * (dat - m) / (M - m) + mn
 
 
-# Work in progress
+
     def RGB_to_MNDWI(self, RGB_dir_path:str, NIR_dir_path :str, output_path:str)->None:
         """Converts two directories of RGB and NIR imagery to MNDWI imagery in a directory named
          'MNDWI_outputs'.
@@ -478,74 +478,70 @@ class CoastSeg_Map:
         fishnet_intersect_gpd = self.fishnet_intersection(fishnet_gpd, shoreline_gdf)
         return fishnet_intersect_gpd
 
-
     def load_shoreline_on_map(self) -> None:
-        """Adds shoreline within the drawn bbox onto the map"""
-        # geodataframe to hold all shorelines in bbox
-        shorelines_in_bbox_gdf = gpd.GeoDataFrame()
-        # ensure drawn bbox(bounding box) within allowed size
-        bbox.validate_bbox_size(self.shapes_list)
-        # load user drawn bbox as gdf(geodataframe)
-        gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
-        # list of all the shoreline files that bbox intersects
-        intersecting_shoreline_files = self.get_intersecting_files(gpd_bbox,'shorelines')
-        # for each transect file clip it to the bbox and add to map
-        for file in intersecting_shoreline_files:
-            shoreline_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"shorelines"+os.sep+file
-            # Check if the shoreline exists if it doesn't download it
-            if  os.path.exists(shoreline_path):
-                print("\n Loading the file now.")
-                shoreline=bbox.read_gpd_file(shoreline_path)
-            else:
-                print("\n The geojson shoreline file does not exist. Downloading it now.")
-                # Download shoreline geojson from Zenodo
-                #@todo replace this with download function
-                # ADD filename parameter and list of zendodo ids
-                # self.download_shoreline()
-                zenodo_id_mapping={
-                    'E_USA_SouthCarolina_NorthCarolina_ref_shoreline.geojson':'6824465',
-                    'NE_USA_Delaware_Maine_ref_shoreline.geojson':'6824429',
-                    'SE_USA_Louisiana_Georgia_ref_shoreline.geojson':'6824473',
-                    'S_USA_Texas_Louisiana_ref_shoreline.geojson':'6824487',
-                    'W_USA_California_ref_shoreline.geojson':'6824504',
-                    'W_USA_Oregon_Washington_ref_shoreline.geojson':'6824510',
-                    'USA_Alaska_ref_shoreline.geojson':'6836629'
-                }
-                self.download_shoreline(file, zenodo_id_mapping[file])
+            """Adds shoreline within the drawn bbox onto the map"""
+            # geodataframe to hold all shorelines in bbox
+            shorelines_in_bbox_gdf = gpd.GeoDataFrame()
+            # ensure drawn bbox(bounding box) within allowed size
+            bbox.validate_bbox_size(self.shapes_list)
+            # load user drawn bbox as gdf(geodataframe)
+            gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
+            # list of all the shoreline files that bbox intersects
+            intersecting_shoreline_files = self.get_intersecting_files(gpd_bbox,'shorelines')
+            # for each transect file clip it to the bbox and add to map
+            for file in intersecting_shoreline_files:
                 shoreline_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"shorelines"+os.sep+file
-                shoreline=bbox.read_gpd_file(shoreline_path)
+                # Check if the shoreline exists if it doesn't download it
+                if  os.path.exists(shoreline_path):
+                    print("\n Loading the file now.")
+                    shoreline=bbox.read_gpd_file(shoreline_path)
+                else:
+                    print("\n The geojson shoreline file does not exist. Downloading it now.")
+                    # Download shoreline geojson from Zenodo
+                    zenodo_id_mapping={
+                        'E_USA_SouthCarolina_NorthCarolina_ref_shoreline.geojson':'6824465',
+                        'NE_USA_Delaware_Maine_ref_shoreline.geojson':'6824429',
+                        'SE_USA_Louisiana_Georgia_ref_shoreline.geojson':'6824473',
+                        'S_USA_Texas_Louisiana_ref_shoreline.geojson':'6824487',
+                        'W_USA_California_ref_shoreline.geojson':'6824504',
+                        'W_USA_Oregon_Washington_ref_shoreline.geojson':'6824510',
+                        'USA_Alaska_ref_shoreline.geojson':'6836629'
+                    }
+                    self.download_shoreline(file, zenodo_id_mapping[file])
+                    shoreline_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"shorelines"+os.sep+file
+                    shoreline=bbox.read_gpd_file(shoreline_path)
+                    
+                # Create a single dataframe to hold all shodwonlrelines from all files
+                shoreline_in_bbox=bbox.clip_to_bbox(shoreline, gpd_bbox)
+                if shorelines_in_bbox_gdf.empty:
+                        shorelines_in_bbox_gdf = shoreline_in_bbox
+                elif not shorelines_in_bbox_gdf.empty:
+                        # Combine shorelines from different files into single geodataframe 
+                        shorelines_in_bbox_gdf = gpd.GeoDataFrame(concat([shorelines_in_bbox_gdf, shoreline_in_bbox], ignore_index=True))
                 
-            # Create a single dataframe to hold all shorelines from all files
-            shoreline_in_bbox=bbox.clip_to_bbox(shoreline, gpd_bbox)
             if shorelines_in_bbox_gdf.empty:
-                shorelines_in_bbox_gdf = shoreline_in_bbox
-            elif not shorelines_in_bbox_gdf.empty:
-                # Combine shorelines from different files into single geodataframe 
-                shorelines_in_bbox_gdf = gpd.GeoDataFrame(concat([shorelines_in_bbox_gdf, shoreline_in_bbox], ignore_index=True))
-            
-        if shorelines_in_bbox_gdf.empty:
-            print("No shoreline found here.")
-        else:
-            # Create layer name from  shoreline geojson filenames
-            filenames=list(map(self.get_layer_name,intersecting_shoreline_files))
-            layer_name=""
-            for file in filenames:
-                layer_name+=file+'_'
-            layer_name = layer_name[:-1]
-            
-            # Save new shoreline name and gdf  
-            self.remove_shoreline()
-            self.shoreline_names.append(layer_name)
-            self.shorelines_gdf = shorelines_in_bbox_gdf
-            
-            # style and add the shoreline to the map 
-            shorelines_gdf_geojson = self.shorelines_gdf.to_json()
-            shorelines_gdf_geojson_dict = json.loads(shorelines_gdf_geojson)
-            shoreline_layer=self.get_shoreline_layer(shorelines_gdf_geojson_dict, layer_name)
-            shoreline_layer.on_hover(self.update_shoreline_html)
-            self.m.add_layer(shoreline_layer)
-        if self.shoreline_names == []:
-            print("No shorelines were found in this region. Draw a new bounding box.")
+                print("No shoreline found here.")
+            else:
+                # Create layer name from  shoreline geojson filenames
+                filenames=list(map(self.get_layer_name,intersecting_shoreline_files))
+                layer_name=""
+                for file in filenames:
+                    layer_name+=file+'_'
+                layer_name = layer_name[:-1]
+                
+                # Save new shoreline name and gdf  
+                self.remove_shoreline()
+                self.shoreline_names.append(layer_name)
+                self.shorelines_gdf = shorelines_in_bbox_gdf
+                
+                # style and add the shoreline to the map 
+                shorelines_gdf_geojson = self.shorelines_gdf.to_json()
+                shorelines_gdf_geojson_dict = json.loads(shorelines_gdf_geojson)
+                shoreline_layer=self.get_shoreline_layer(shorelines_gdf_geojson_dict, layer_name)
+                shoreline_layer.on_hover(self.update_shoreline_html)
+                self.m.add_layer(shoreline_layer)
+            if self.shoreline_names == []:
+                print("No shorelines were found in this region. Draw a new bounding box.")
 
 
     def generate_ROIS_fishnet(self):
