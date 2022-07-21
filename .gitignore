@@ -1,3 +1,6 @@
+# VScode files
+*.vscode
+
 ## db: data downloaded by notebooks
 notebooks/data/*
 notebooks/roi.geojson
