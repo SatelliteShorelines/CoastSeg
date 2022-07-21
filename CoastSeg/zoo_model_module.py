@@ -189,9 +189,9 @@ class Zoo_Model:
         zenodo_id = dataset_id.split('_')[-1]
         root_url = 'https://zenodo.org/record/' + zenodo_id + '/files/'
         # Create the directory to hold the downloaded models from Zenodo
-        model_direc = '../downloaded_models/' + dataset_id
-        if not os.path.exists('../downloaded_models'):
-            os.mkdir('../downloaded_models')
+        model_direc = './CoastSeg/downloaded_models/' + dataset_id
+        if not os.path.exists('./CoastSeg/downloaded_models'):
+            os.mkdir('./CoastSeg/downloaded_models')
         if not os.path.exists(model_direc):
             os.mkdir(model_direc)
         if dataset == 'RGB':
