@@ -1,50 +1,14 @@
 """"Module for downloading selected rois using Coastsat"""
+
 from CoastSeg import SDS_tools, SDS_download, SDS_preprocess
-from CoastSeg import make_overlapping_roi
 import json
-from datetime import datetime
-from tqdm.notebook import tqdm_notebook
+from tqdm import tqdm
 import ee
 import geojson
-# import matplotlib.pyplot as plt
-# import matplotlib
 import os
 import warnings
+from .file_functions import generate_datestring
 warnings.filterwarnings("ignore")
-# # from matplotlib import gridspec
-# matplotlib.use('Qt5Agg')
-# plt.ion()
-
-
-def download_imagery_with_metadata(
-        inputs_file: str,
-        pre_process_settings: dict):
-    """
-     Download imagery using CoastSat with the inputs in a given inputs file. Bypasses coastsat's retrieve_imagery.
-
-    Arguments:
-    -----------
-    inputs_file:str
-        A json file containing all the inputs from a previous download session
-
-    pre_process_settings:dict
-        Dictionary containing the preprocessing settings used for quality control by CoastSat
-    """
-    assert os.path.exists(
-        inputs_file), "Path to inputs_file {inputs_file} did not exist"
-    # Read the inputs dict from file and get the list of inputs
-    inputs_dict = read_json_file(inputs_file)
-    inputs_list = inputs_dict['inputs_list']
-
-    for inputs in tqdm_notebook(inputs_list,
-                                desc="Downloading ROIs with metadata"):
-        print("\ninputs: ", inputs, "\n")
-        # Alternative method to get metadata if you already have the images
-        # saved
-        metadata = SDS_download.get_metadata(inputs)
-        # Add the inputs to the pre_process_settings
-        pre_process_settings['inputs'] = inputs
-        SDS_preprocess.save_jpg(metadata, pre_process_settings)
 
 
 def read_json_file(filename: str):
@@ -59,23 +23,15 @@ def write_preprocess_settings_file(settings_file: str, settings: dict):
         json.dump(settings, output_file)
 
 
-def write_inputs_file(inputs_file: str, inputs_list: list,):
-    """ Write the inputs_list to a json file """
-    dict_inputs = {"inputs_list": inputs_list}
-    with open(inputs_file, 'w', encoding='utf-8') as output_file:
-        json.dump(dict_inputs, output_file)
-
-
 def download_imagery(
         selected_roi_geojson: dict,
         pre_process_settings: dict,
         dates: list,
         sat_list: list,
-        collection: str,
-        inputs_filename="inputs.json") -> None:
+        collection: str) -> None:
     """
      Checks if the images exist with check_images_available(), downloads them with retrieve_images(), and
-     transformes images to jpgs with save_jpg()
+     transforms images to jpgs with save_jpg()
 
     Arguments:
     -----------
@@ -87,14 +43,14 @@ def download_imagery(
 
     dates: list
         A list of length two that contains a valid start and end date
-        
-    collection : str 
-     whether to use LandSat Collection 1 (`C01`) 
-     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+
+    collection : str
+     whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`).
+     Note that after 2022/01/01, Landsat images are only available in Collection 2.
      Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
-     images prior to 2022/01/01 will be downloaded from Collection 1, 
-     while images captured after that date will be automatically taken from `C02`.    
-    
+     images prior to 2022/01/01 will be downloaded from Collection 1,
+     while images captured after that date will be automatically taken from `C02`.
+
     sat_list: list
         A list of strings containing the names of the satellite
     """
@@ -102,53 +58,25 @@ def download_imagery(
     try:
         inputs_list = check_images_available_selected_ROI(
             selected_roi_geojson, dates, collection, sat_list)
-        print("Images available: \n",inputs_list)
+        print("Images available: \n", inputs_list)
     except ee.EEException as exception:
         print(exception)
         handle_AuthenticationError()
         inputs_list = check_images_available_selected_ROI(
             selected_roi_geojson, dates, collection, sat_list)
+    except Exception as general_exception:
+        print(general_exception)
+        if type(general_exception).__name__ == 'RefreshError':
+            handle_AuthenticationError()
+            inputs_list = check_images_available_selected_ROI(
+            selected_roi_geojson, dates, collection, sat_list)
 # Check if inputs for downloading imagery exist then download imagery
     assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
-    write_inputs_file(inputs_filename, inputs_list)
-    for inputs in tqdm_notebook(inputs_list, desc="Downloading ROIs"):
-        print("\ninputs: ", inputs, "\n")
+    for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
         metadata = SDS_download.retrieve_images(inputs)
         # Add the inputs to the pre_process_settings
         pre_process_settings['inputs'] = inputs
         SDS_preprocess.save_jpg(metadata, pre_process_settings)
-
-
-def save_roi(
-        geojson_file: str,
-        selected_roi_file: str,
-        selected_roi_set: set) -> dict:
-    """
-     Returns the geojson of the selected ROIs from the file specified by selected_roi_file
-
-    Arguments:
-    -----------
-    geojson_file: strdump
-        The filename of the geojson file containing all the ROI
-
-    selected_roi_file: str
-        The name of the geojson file to save the ROI selected
-    selected_roi_set: set
-        The set of the selected rois' ids
-    Returns:
-    -----------
-    selected_ROI_geojson: dict
-        geojson of the selected ROIs
-    """
-    # 1. Open the geojson file containing all the ROIs on the map
-    geojson_data = read_geojson_file(geojson_file)
-    # 2. Get the selected rois geojson from the map
-    selected_ROI_geojson = get_selected_roi_geojson(
-        selected_roi_set, geojson_data)
-    # 3. Save the rois' geojson data to a file named selected_roi_file
-    make_overlapping_roi.write_to_geojson_file(
-        selected_roi_file, selected_ROI_geojson, perserve_id=True)
-    return selected_ROI_geojson
 
 
 def read_geojson_file(geojson_file: str) -> dict:
@@ -187,15 +115,6 @@ def get_selected_roi_geojson(selected_set: set(), roi_data: dict) -> dict:
     return selected_ROI
 
 
-def generate_datestring():
-    """"
-    Returns a string in the following format %Y-%m-%d__%H_hr_%M_min.
-    EX: "ID02022-01-31__13_hr_19_min"
-    """
-    date = datetime.now()
-    return date.strftime('%Y-%m-%d__%H_hr_%M_min')
-
-
 def handle_AuthenticationError():
     ee.Authenticate()
     ee.Initialize()
@@ -204,7 +123,7 @@ def handle_AuthenticationError():
 def check_images_available_selected_ROI(
         selected_roi_geojson: dict,
         dates: list,
-        collection:str,
+        collection: str,
         sat_list: list) -> list:
     """"
 
@@ -220,10 +139,10 @@ def check_images_available_selected_ROI(
     sat_list: list
         A list of strings containing the names of the satellite
     collection : str
-     whether to use LandSat Collection 1 (`C01`) 
-     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2. 
+     whether to use LandSat Collection 1 (`C01`)
+     or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2.
      Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
-     images prior to 2022/01/01 will be downloaded from Collection 1, 
+     images prior to 2022/01/01 will be downloaded from Collection 1,
      while images captured after that date will be automatically taken from `C02`.
 
    Returns:
