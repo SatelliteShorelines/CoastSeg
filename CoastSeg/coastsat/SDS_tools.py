@@ -610,11 +610,13 @@ def output_to_gdf(output, geomtype):
     -----------
     gdf_all: gpd.GeoDataFrame
         contains the shorelines + attirbutes
+    if no shorelines exist then gdf returns None
   
     """    
      
     # loop through the mapped shorelines
     counter = 0
+    gdf_all=None
     for i in range(len(output['shorelines'])):
         # skip if there shoreline is empty 
         if len(output['shorelines'][i]) == 0:
