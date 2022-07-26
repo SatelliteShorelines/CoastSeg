@@ -31,6 +31,9 @@ def get_jpgs_from_data(file_ext:str='RGB') -> str:
             if not os.path.exists(NIR_path):
                 os.mkdir(NIR_path)
             copy_files_to_dst(src_path, NIR_path, glob_str)
+        elif file_ext is None:
+            glob_str = src_path + str(os.sep + "**" + os.sep) * 3 + "*.jpg"
+            copy_files_to_dst(src_path, new_folder, glob_str)
         return new_folder
     else:
         print("ERROR: Cannot find the data directory in CoastSeg")

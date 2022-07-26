@@ -116,6 +116,13 @@ def download_imagery(
         # Add the inputs to the pre_process_settings
         pre_process_settings['inputs'] = inputs
         SDS_preprocess.save_jpg(metadata, pre_process_settings)
+    # Return the inputs used to download data with CoastSat
+    # Transform into inputs dict for use later
+    inputs_dict={}
+    for input in inputs_list:
+        inputs_dict[int(input['roi_id'])]=input
+    return inputs_dict
+    
 
 
 def get_metadata( 
@@ -223,6 +230,7 @@ def check_images_available_selected_ROI(
                 'sat_list': sat_list,
                 'sitename': sitename,
                 'filepath': filepath,
+                'roi_id':roi['id'],
                 'landsat_collection': collection}
             # before downloading the images, check how many images are
             # available for your inputs

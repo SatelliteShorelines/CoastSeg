@@ -4,8 +4,6 @@ from the Google Earth Engine server
 
 Author: Kilian Vos, Water Research Laboratory, University of New South Wales
 """
-
-
 # load basic modules
 import os
 import numpy as np
