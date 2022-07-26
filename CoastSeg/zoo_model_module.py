@@ -56,6 +56,8 @@ class Zoo_Model:
         model_list = []
         config_files = []
         model_types = []
+        if Ww == []:
+            raise Exception("No Model Info Passed")
         for weights in Ww:
             configfile = weights.replace('.h5', '.json').replace('weights', 'config')
             if 'fullmodel' in configfile:
