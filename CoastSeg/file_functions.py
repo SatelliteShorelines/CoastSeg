@@ -16,23 +16,22 @@ def get_jpgs_from_data(file_ext:str='RGB') -> str:
         name = "segmentation_data"
         new_folder = mk_new_dir(name, location)
         if file_ext == 'RGB':
-            glob_str = src_path + str(os.sep + "**" + os.sep) * 3 +'RGB'+ os.sep + "*.jpg"
+            glob_str = src_path + str(os.sep + "**" + os.sep) * 2 +'preprocessed'+os.sep+'RGB'+ os.sep + "*.jpg"
             copy_files_to_dst(src_path, new_folder, glob_str)
         elif file_ext == 'MNDWI':
-            # Copy the RGB images to the destination
-            glob_str = src_path + str(os.sep + "**" + os.sep) * 3 +'RGB'+ os.sep + "*RGB*.jpg"
+            glob_str = src_path + str(os.sep + "**" + os.sep) * 2 +'preprocessed'+os.sep+'RGB'+ os.sep + "*RGB*.jpg"
             RGB_path=new_folder+os.sep+'RGB'
             if not os.path.exists(RGB_path):
                 os.mkdir(RGB_path)
             copy_files_to_dst(src_path, RGB_path, glob_str)
             # Copy the NIR images to the destination
-            glob_str = src_path + str(os.sep + "**" + os.sep) * 3 +'NIR'+ os.sep + "*NIR*.jpg"
+            glob_str = src_path + str(os.sep + "**" + os.sep) * 2+'preprocessed'+os.sep +'NIR'+ os.sep + "*NIR*.jpg"
             NIR_path=new_folder+os.sep+'NIR'
             if not os.path.exists(NIR_path):
                 os.mkdir(NIR_path)
             copy_files_to_dst(src_path, NIR_path, glob_str)
         elif file_ext is None:
-            glob_str = src_path + str(os.sep + "**" + os.sep) * 3 + "*.jpg"
+            glob_str = src_path + str(os.sep + "**" + os.sep) * 2 +'preprocessed'+os.sep + "*.jpg"
             copy_files_to_dst(src_path, new_folder, glob_str)
         return new_folder
     else:
