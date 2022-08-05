@@ -307,7 +307,6 @@ class CoastSeg_Map:
         # shorelines = array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
         return shorelines
 
-
     def extract_shorelines_from_rois(self, selected_rois:dict,inputs_dict:dict, pre_process_settings: dict, shorelines_gdf: gpd.geodataframe)->dict:
         """Returns a dictionary containing the extracted shorelines for each roi
         Args:
@@ -853,7 +852,7 @@ class CoastSeg_Map:
                 print("No shorelines were found in this region. Draw a new bounding box.")
 
 
-    def generate_ROIS_fishnet(self):
+    def generate_ROIS_fishnet(self,large_fishnet=7500,small_fishnet=5000):
         """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
         # Ensure drawn bbox(bounding box) within allowed size
         bbox.validate_bbox_size(self.shapes_list)
@@ -861,12 +860,20 @@ class CoastSeg_Map:
         gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
         if self.shorelines_gdf.empty:
             self.load_shoreline_on_map()
+            
+        # Large fishnet cannot be 0. Throw an error
+        if large_fishnet == 0:
+            raise Exception("Large fishnet size must be greater than 0")
         # Create two fishnets, one big (2000m) and one small(1500m) so they overlap each other
-        fishnet_gpd_large = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf,2000)
-        fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf, 1500)
+        fishnet_gpd_large = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf,large_fishnet)
 
-        # Concat the fishnets together to create one overlapping set of rois
-        fishnet_intersect_gpd = gpd.GeoDataFrame(concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
+        if small_fishnet == 0:
+            # If small fishnet is 0 it means only the large fishnet should exist
+            fishnet_intersect_gpd=fishnet_gpd_large
+        else:
+            fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf, small_fishnet)
+            # Concat the fishnets together to create one overlapping set of rois
+            fishnet_intersect_gpd = gpd.GeoDataFrame(concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
         # Add an id column
         num_roi = len(fishnet_intersect_gpd)
@@ -880,10 +887,10 @@ class CoastSeg_Map:
         # Add style to each feature in the geojson
         for feature in fishnet_dict["features"]:
             feature["properties"]["style"] = {
-                "color": "grey",
-                "weight": 1,
+                "color": "black",
+                "weight": 3,
                 "fillColor": "grey",
-                "fillOpacity": 0.2,
+                "fillOpacity": 0.1,
             }
         # Save the data
         self.data = fishnet_dict
@@ -922,7 +929,7 @@ class CoastSeg_Map:
             GeoJSON: geojson object that can be added to the map
         """
         if self.geojson_layer is None and self.data:
-            self.geojson_layer = GeoJSON(data=self.data, name="GeoJSON data", hover_style={"fillColor": "red"})
+            self.geojson_layer = GeoJSON(data=self.data, name="GeoJSON data", hover_style={"fillColor": "red","color":"crimson"})
         return self.geojson_layer
 
 
@@ -947,7 +954,7 @@ class CoastSeg_Map:
         self.selected_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(self.selected_set),
             name="Selected ROIs",
-            hover_style={"fillColor": "blue"},
+            hover_style={"fillColor": "blue","color": "aqua"},
         )
         self.selected_layer.on_click(self.selected_onclick_handler)
         self.m.add_layer(self.selected_layer)
@@ -974,7 +981,7 @@ class CoastSeg_Map:
         self.selected_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(self.selected_set),
             name="Selected ROIs",
-            hover_style={"fillColor": "blue"},
+            hover_style={"fillColor": "blue","color": "aqua"},
         )
         # Recreate the onclick handler for the selected layers
         self.selected_layer.on_click(self.selected_onclick_handler)
@@ -1034,8 +1041,8 @@ class CoastSeg_Map:
         for feature in self.data["features"]:
             feature["properties"]["style"] = {
                 "color": "blue",
-                "weight": 2,
+                "weight": 3,
                 "fillColor": "grey",
-                "fillOpacity": 0.2,
+                "fillOpacity": 0.1,
             }
         return geojson
