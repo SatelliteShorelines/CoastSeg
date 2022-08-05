@@ -56,6 +56,8 @@ class Zoo_Model:
         model_list = []
         config_files = []
         model_types = []
+        if Ww == []:
+            raise Exception("No Model Info Passed")
         for weights in Ww:
             configfile = weights.replace('.h5', '.json').replace('weights', 'config')
             if 'fullmodel' in configfile:
@@ -189,14 +191,17 @@ class Zoo_Model:
         zenodo_id = dataset_id.split('_')[-1]
         root_url = 'https://zenodo.org/record/' + zenodo_id + '/files/'
         # Create the directory to hold the downloaded models from Zenodo
-        model_direc = '../downloaded_models/' + dataset_id
-        if not os.path.exists('../downloaded_models'):
-            os.mkdir('../downloaded_models')
+        model_direc = './CoastSeg/downloaded_models/' + dataset_id
+        if not os.path.exists('./CoastSeg/downloaded_models'):
+            os.mkdir('./CoastSeg/downloaded_models')
         if not os.path.exists(model_direc):
             os.mkdir(model_direc)
         if dataset == 'RGB':
             filename = 'rgb.zip'
             self.weights_direc = model_direc + os.sep + 'rgb'
+        elif dataset=='MNDWI':
+            filename='mndwi.zip'
+            self.weights_direc = model_direc + os.sep + 'mndwi'
         # outfile : location where  model id saved
         outfile = model_direc + os.sep + filename
         # Download the model from Zenodo
