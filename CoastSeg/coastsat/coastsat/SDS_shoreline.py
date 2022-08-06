@@ -34,7 +34,7 @@ from datetime import datetime
 from pylab import ginput
 
 # CoastSat modules
-from CoastSeg.coastsat import SDS_tools, SDS_preprocess
+from CoastSeg.CoastSat.coastsat import SDS_tools, SDS_preprocess
 
 np.seterr(all='ignore') # raise/ignore divisions by 0 and nans
 
@@ -1097,41 +1097,41 @@ def adjust_detection(im_ms, cloud_mask, im_labels, im_ref_buffer, image_epsg, ge
     # set a key event to accept/reject the detections (see https://stackoverflow.com/a/15033071)
     # this variable needs to be immuatable so we can access it after the keypress event
     key_event = {}
-    # def press(event):
-    #     # store what key was pressed in the dictionary
-    #     key_event['pressed'] = event.key
-    # # let the user press a key, right arrow to keep the image, left arrow to skip it
-    # # to break the loop the user can press 'escape'
-    # while True:
-    #     btn_keep = plt.text(1.1, 0.9, 'keep ⇨', size=12, ha="right", va="top",
-    #                         transform=ax1.transAxes,
-    #                         bbox=dict(boxstyle="square", ec='k',fc='w'))
-    #     btn_skip = plt.text(-0.1, 0.9, '⇦ skip', size=12, ha="left", va="top",
-    #                         transform=ax1.transAxes,
-    #                         bbox=dict(boxstyle="square", ec='k',fc='w'))
-    #     btn_esc = plt.text(0.5, 0, '<esc> to quit', size=12, ha="center", va="top",
-    #                         transform=ax1.transAxes,
-    #                         bbox=dict(boxstyle="square", ec='k',fc='w'))
-    #     plt.draw()
-    #     fig.canvas.mpl_connect('key_press_event', press)
-    #     plt.waitforbuttonpress()
-    #     # after button is pressed, remove the buttons
-    #     btn_skip.remove()
-    #     btn_keep.remove()
-    #     btn_esc.remove()
+    def press(event):
+        # store what key was pressed in the dictionary
+        key_event['pressed'] = event.key
+    # let the user press a key, right arrow to keep the image, left arrow to skip it
+    # to break the loop the user can press 'escape'
+    while True:
+        btn_keep = plt.text(1.1, 0.9, 'keep ⇨', size=12, ha="right", va="top",
+                            transform=ax1.transAxes,
+                            bbox=dict(boxstyle="square", ec='k',fc='w'))
+        btn_skip = plt.text(-0.1, 0.9, '⇦ skip', size=12, ha="left", va="top",
+                            transform=ax1.transAxes,
+                            bbox=dict(boxstyle="square", ec='k',fc='w'))
+        btn_esc = plt.text(0.5, 0, '<esc> to quit', size=12, ha="center", va="top",
+                            transform=ax1.transAxes,
+                            bbox=dict(boxstyle="square", ec='k',fc='w'))
+        plt.draw()
+        fig.canvas.mpl_connect('key_press_event', press)
+        plt.waitforbuttonpress()
+        # after button is pressed, remove the buttons
+        btn_skip.remove()
+        btn_keep.remove()
+        btn_esc.remove()
 
-    #     # keep/skip image according to the pressed key, 'escape' to break the loop
-    #     if key_event.get('pressed') == 'right':
-    #         skip_image = False
-    #         break
-    #     elif key_event.get('pressed') == 'left':
-    #         skip_image = True
-    #         break
-    #     elif key_event.get('pressed') == 'escape':
-    #         plt.close()
-    #         raise StopIteration('User cancelled checking shoreline detection')
-    #     else:
-    #         plt.waitforbuttonpress()
+        # keep/skip image according to the pressed key, 'escape' to break the loop
+        if key_event.get('pressed') == 'right':
+            skip_image = False
+            break
+        elif key_event.get('pressed') == 'left':
+            skip_image = True
+            break
+        elif key_event.get('pressed') == 'escape':
+            plt.close()
+            raise StopIteration('User cancelled checking shoreline detection')
+        else:
+            plt.waitforbuttonpress()
 
     # if save_figure is True, save a .jpg under /jpg_files/detection
     if settings['save_figure'] and not skip_image:

@@ -28,7 +28,7 @@ import geopandas as gpd
 from shapely import geometry
 
 # CoastSat modules
-from CoastSeg.coastsat import SDS_tools
+from CoastSeg.CoastSat.coastsat import SDS_tools
 
 np.seterr(all='ignore') # raise/ignore divisions by 0 and nans
 
@@ -555,10 +555,33 @@ def create_jpg(im_ms, cloud_mask, date, satname, filepath):
     """
     # rescale image intensity for display purposes
     im_RGB = rescale_image_intensity(im_ms[:,:,[2,1,0]], cloud_mask, 99.9)
+    im_NIR = rescale_image_intensity(im_ms[:,:,3], cloud_mask, 99.9)
+    im_SWIR = rescale_image_intensity(im_ms[:,:,4], cloud_mask, 99.9)
+    
     im_RGB = img_as_ubyte(im_RGB)
+    im_NIR = img_as_ubyte(im_NIR)
+    im_SWIR = img_as_ubyte(im_SWIR)
+ 
     # Save the image with skimage.io
-    fname=os.path.join(filepath, date + '_' + satname + '.jpg')
-    imsave(fname, im_RGB)
+    file_types=["RGB","SWIR","NIR"]
+    for ext in file_types:
+        
+        ext_filepath=filepath+os.sep+ext
+        if not os.path.exists(ext_filepath):
+            os.mkdir(ext_filepath)
+        fname=os.path.join(ext_filepath, date + '_'+ext+'_' + satname + '.jpg')
+        if ext == "RGB":
+            imsave(fname, im_RGB)
+        if ext == "SWIR":
+            imsave(fname, im_SWIR)
+        if ext == "NIR":
+            imsave(fname, im_NIR)
+    # # Save swir image with skimage.io
+    # fname=os.path.join(filepath, date + '_SWIR_' + satname + '.jpg')
+    # imsave(fname, im_SWIR)
+    # # Save nir image with skimage.io
+    # fname=os.path.join(filepath, date + '_NIR_' + satname + '.jpg')
+    # imsave(fname, im_NIR)
 
 
 def save_jpg(metadata, settings, **kwargs):
@@ -690,7 +713,7 @@ def get_reference_sl(metadata, settings):
             raise Exception('You cannot digitize the shoreline on L7 images (because of gaps in the images), add another L8, S2 or L5 to your dataset.')
     filepath = SDS_tools.get_filepath(settings['inputs'],satname)
     filenames = metadata[satname]['filenames']
-    fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
+
     # create figure
     fig, ax = plt.subplots(1,1, figsize=[18,9], tight_layout=True)
     mng = plt.get_current_fig_manager()
