@@ -26,6 +26,7 @@ from pylab import ginput
 import pickle
 import geopandas as gpd
 from shapely import geometry
+import re
 
 # CoastSat modules
 from CoastSeg.CoastSat.coastsat import SDS_tools
@@ -74,8 +75,16 @@ def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection):
         2D array with True where no data values (-inf) are located
     """
     
+    if isinstance(fn, list):
+        fn_to_split=fn[0]
+    elif isinstance(fn, str):
+        fn_to_split=fn
+    # split by os.sep and only get the filename at the end then split again to remove file extension
+    fn_to_split=fn_to_split.split(os.sep)[-1].split('.')[0]
+    # search for the year the tif was taken with regex and convert to int
+    year = int(re.search('[0-9]+',fn_to_split).group(0))
     # after 2022 everything is automatically from Collection 2
-    if collection == 'C01' and int(fn[:4]) >= 2022:
+    if collection == 'C01' and year >= 2022:
         collection = 'C02'
         
     #=============================================================================================#
@@ -577,6 +586,7 @@ def save_jpg(metadata, settings, **kwargs):
             print('\r%d%%' %int((i+1)/len(filenames)*100), end='')
             # image filename
             fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
+            print("\nfn",fn)
             # read and preprocess image
             im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = preprocess_single(fn, satname, settings['cloud_mask_issue'],
                                                                                       settings['pan_off'], collection)
