@@ -586,7 +586,6 @@ def save_jpg(metadata, settings, **kwargs):
             print('\r%d%%' %int((i+1)/len(filenames)*100), end='')
             # image filename
             fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
-            print("\nfn",fn)
             # read and preprocess image
             im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = preprocess_single(fn, satname, settings['cloud_mask_issue'],
                                                                                       settings['pan_off'], collection)
