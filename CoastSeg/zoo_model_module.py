@@ -7,6 +7,8 @@ from tqdm import tqdm
 from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.imports import simple_resunet, simple_unet, simple_satunet, custom_resunet, custom_unet, mean_iou, dice_coef
 import tensorflow as tf
+import shutil
+from tqdm.auto import tqdm
 
 
 class Zoo_Model:
@@ -196,14 +198,15 @@ class Zoo_Model:
             os.mkdir('./CoastSeg/downloaded_models')
         if not os.path.exists(model_direc):
             os.mkdir(model_direc)
+        # By default set the model_direc to the dataset_id folder
+        self.weights_direc = model_direc
         if dataset == 'RGB':
             filename = 'rgb.zip'
-            self.weights_direc = model_direc + os.sep + 'rgb'
         elif dataset=='MNDWI':
             filename='mndwi.zip'
-            self.weights_direc = model_direc + os.sep + 'mndwi'
         # outfile : location where  model id saved
         outfile = model_direc + os.sep + filename
+        # outfile = self.weights_direc
         # Download the model from Zenodo
         if not os.path.exists(outfile):
             url = (root_url + filename)
@@ -212,7 +215,18 @@ class Zoo_Model:
             print('Unzipping model to {} ...'.format(model_direc))
             with zipfile.ZipFile(outfile, 'r') as zip_ref:
                 zip_ref.extractall(model_direc)
-
+                
+        # Set the self.weights_direc to the correct location
+        sub_dirs=os.listdir(self.weights_direc)
+        # There should be no more than 1 sub directory
+        if len(sub_dirs)>=0:
+            for folder in sub_dirs:
+                folder_path=os.path.join(self.weights_direc,folder)
+                if os.path.isdir(folder_path) and not folder_path.endswith('.zip'):
+                    self.weights_direc=folder_path
+                    break
+            
+            
     def download_url(self, url: str, save_path: str, chunk_size: int = 128):
         """Downloads the model from the given url to the save_path location.
         Args:
@@ -220,7 +234,12 @@ class Zoo_Model:
             save_path (str): directory to save model
             chunk_size (int, optional):  Defaults to 128.
         """
-        r = requests.get(url, stream=True)
-        with open(save_path, 'wb') as fd:
-            for chunk in r.iter_content(chunk_size=chunk_size):
-                fd.write(chunk)
+        # make an HTTP request within a context manager
+        with requests.get(url, stream=True) as r:
+            # check header to get content length, in bytes
+            total_length = int(r.headers.get("Content-Length"))
+            with open(save_path, 'wb') as fd:
+                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc="Downloading Model",initial=0, ascii=True) as pbar:
+                        for chunk in r.iter_content(chunk_size=chunk_size):
+                            fd.write(chunk)
+                            pbar.update(len(chunk))
