@@ -7,9 +7,7 @@ from tqdm import tqdm
 from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.imports import simple_resunet, simple_unet, simple_satunet, custom_resunet, custom_unet, mean_iou, dice_coef
 import tensorflow as tf
-import shutil
 from tqdm.auto import tqdm
-
 
 class Zoo_Model:
     def __init__(self):
