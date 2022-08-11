@@ -4,7 +4,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.7
+  - python=3.10
   - earthengine-api
   - google-api-python-client
   - gdal
@@ -14,14 +14,12 @@ dependencies:
   - scipy
   - astropy
   - jupyter
-  - ipython
   - cartopy
   - simplekml
   - leafmap
-  - tensorflow
   - tqdm
   - pip
   - pip:
+      - tensorflow
       - area
-      - ipyfilechooser
       - doodleverse_utils

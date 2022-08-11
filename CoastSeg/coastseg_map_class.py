@@ -11,7 +11,7 @@ import json
 from glob import glob
 import geopandas as gpd
 # new imports
-from skimage.io import imread, imsave
+from skimage.io import imread
 import numpy as np
 
 from CoastSeg import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline
@@ -21,6 +21,8 @@ from pyproj import Proj, transform
 import matplotlib
 matplotlib.use("Qt5Agg")
 
+# Internal dependencies imports
+from .exceptions import DownloadError
 
 class CoastSeg_Map:
 
@@ -179,7 +181,7 @@ class CoastSeg_Map:
             
         return output_path
      
-    def load_total_bounds_df(self,type:str) -> "pandas.core.frame.DataFrame":
+    def load_total_bounds_df(self,type:str,location : str ='usa') -> "pandas.core.frame.DataFrame":
         """Returns dataframe containing total bounds for each set of either shorelines or transects in the csv file.
         
         Args:
@@ -189,10 +191,36 @@ class CoastSeg_Map:
             pandas.core.frame.DataFrame : Returns dataframe containing total bounds for each set of shorelines or transects
         """ 
         # Load in the total bounding box from csv
+        # Create the directory to hold the downloaded shorelines from Zenodo
+        bounding_box_direc = './CoastSeg/bounding_boxes/'
+        if not os.path.exists(bounding_box_direc):
+            os.mkdir(bounding_box_direc)
+        
         if type.lower() == 'transects':
-           total_bounds_df=read_csv("transects_bounding_boxes.csv")
+            transects_csv= os.path.join(bounding_box_direc,"transects_bounding_boxes.csv")
+            if not os.path.exists(transects_csv):
+                print("Did not find transects csv at ",transects_csv)
+                #download transects csv from github
+            else:
+                total_bounds_df=read_csv(transects_csv)
         elif type.lower() == 'shorelines':
-            total_bounds_df=read_csv("shorelines_bounding_boxes.csv")
+            if location == 'usa':
+                csv_file='usa_shorelines_bounding_boxes.csv'
+            elif location == 'world':
+                csv_file='world_shorelines_bounding_boxes.csv'
+            # @todo remove this when zenodo releases are fixed
+            elif location == 'test':
+                csv_file='shorelines_bounding_boxes.csv'
+            # Create full path to csv file    
+            shoreline_csv= os.path.join(bounding_box_direc,csv_file)
+            # Check if it collides with US bounding box (-171.791110603, 18.91619, -66.96466, 71.3577635769)
+            # if it does then check if us file exists then download it
+            # check the rest of the world
+            # if it does then check if us file exists then download it
+            
+            total_bounds_df=read_csv(shoreline_csv)
+            # print("total_bounds_df",total_bounds_df)
+        
         total_bounds_df.index=total_bounds_df["filename"]
         if 'filename' in total_bounds_df.columns:
             total_bounds_df.drop("filename",axis=1, inplace=True)
@@ -210,17 +238,58 @@ class CoastSeg_Map:
             list: intersecting_files containing filenames whose contents intersect with bbox_gdf
         """
         # dataframe containing total bounding box for each transects or shoreline file
-        total_bounds_df=self.load_total_bounds_df(type)
-        # filenames where transects/shoreline'bbox intersect bounding box drawn by user
-        intersecting_files=[]
-        for filename in total_bounds_df.index:
-            minx, miny, maxx, maxy=total_bounds_df.loc[filename]
-            intersection_df = bbox_gdf.cx[minx:maxx, miny:maxy]
-            bbox_gdf.cx[minx:maxx, miny:maxy].plot()
-            # save filenames where gpd_bbox & bounding box for set of transects or shorelines intersect
-            if intersection_df.empty == False:
-                intersecting_files.append(filename)
-        return intersecting_files
+        
+        # filenames where transects/shoreline's bbox intersect bounding box drawn by user
+        if type.lower() == 'transects':
+            # dataframe containing total bounding box for each transects or shoreline file
+            total_bounds_df=self.load_total_bounds_df(type)
+            intersecting_files=[]
+            for filename in total_bounds_df.index:
+                minx, miny, maxx, maxy=total_bounds_df.loc[filename]
+                intersection_df = bbox_gdf.cx[minx:maxx, miny:maxy]
+                # save filenames where gpd_bbox & bounding box for set of transects or shorelines intersect
+                if intersection_df.empty == False:
+                    intersecting_files.append(filename)
+            return intersecting_files
+        elif type.lower() == 'shorelines':
+            world_dataset_ID = '6917963'
+            usa_dataset_ID = '6917358'
+            # @todo remove this when zenodo releases are fixed
+            zenodo_id_mapping={
+                'E_USA_SouthCarolina_NorthCarolina_ref_shoreline.geojson':'6824465',
+                'NE_USA_Delaware_Maine_ref_shoreline.geojson':'6824429',
+                'SE_USA_Louisiana_Georgia_ref_shoreline.geojson':'6824473',
+                'S_USA_Texas_Louisiana_ref_shoreline.geojson':'6824487',
+                'W_USA_California_ref_shoreline.geojson':'6824504',
+                'W_USA_Oregon_Washington_ref_shoreline.geojson':'6824510',
+                'USA_Alaska_ref_shoreline.geojson':'6836629'
+            }
+            # dataframe containing total bounding box for each transects or shoreline file
+            usa_total_bounds_df=self.load_total_bounds_df(type,'usa')
+            world_total_bounds_df=self.load_total_bounds_df(type,'world')
+            # @todo remove test_df when zenodo releases are fixed
+            test_df=self.load_total_bounds_df(type,'test')
+            # filenames where transects/shoreline's bbox intersect bounding box drawn by user
+            intersecting_files={}
+            # @todo remove test_df when zenodo releases are fixed
+            total_bounds=[usa_total_bounds_df,world_total_bounds_df,test_df]
+            # for the usa and world shorelines check for intersections
+            for count,bounds_df in enumerate(total_bounds):
+                for filename in bounds_df.index:
+                    minx, miny, maxx, maxy=bounds_df.loc[filename]
+                    intersection_df = bbox_gdf.cx[minx:maxx, miny:maxy]
+                    # save filenames where gpd_bbox & bounding box for set of transects or shorelines intersect
+                    if intersection_df.empty == False and count == 0:
+                        intersecting_files[filename]=usa_dataset_ID
+                        
+                    if intersection_df.empty == False and count == 1:
+                        intersecting_files[filename] = world_dataset_ID 
+                        
+                    # @todo remove test_df when zenodo releases are fixed
+                    if intersection_df.empty == False and count == 2:
+                         intersecting_files[filename] = zenodo_id_mapping[filename]
+                        
+            return intersecting_files
     
     
     def get_layer_name(self, filename :str)->str:
@@ -581,9 +650,8 @@ class CoastSeg_Map:
             print("No transects were found in this region. Draw a new bounding box.")
 
 
-    def download_shoreline(self, filename='NE_USA_Delaware_Maine_ref_shoreline.geojson',dataset_id: str = '6824429'):
-        zenodo_id = dataset_id.split('_')[-1]
-        root_url = 'https://zenodo.org/record/' + zenodo_id + '/files/'
+    def download_shoreline(self, filename : str ,dataset_id : str = '6917358'):
+        root_url = 'https://zenodo.org/record/' + dataset_id + '/files/'
         # Create the directory to hold the downloaded shorelines from Zenodo
         shoreline_direc = './CoastSeg/shorelines/'
         if not os.path.exists('./CoastSeg/shorelines'):
@@ -592,10 +660,11 @@ class CoastSeg_Map:
         outfile = shoreline_direc + os.sep + filename
         # Download the model from Zenodo
         if not os.path.exists(outfile):
-            url = (root_url + filename)
-            print('Retrieving model {} ...'.format(url))
-            print("Saving to {}".format(outfile))
+            url = (root_url + filename+"?download=1")
+            print('Retrieving {} ...'.format(url))
+            print("Retrieving file: {}".format(outfile))
             self.download_url(url, outfile)
+
                 
                 
     def download_url(self, url: str, save_path: str, chunk_size: int = 128):
@@ -606,6 +675,9 @@ class CoastSeg_Map:
             chunk_size (int, optional):  Defaults to 128.
         """
         r = get(url, stream=True)
+        if r.status_code == 404:
+            raise DownloadError(os.path.basename(save_path))
+
         with open(save_path, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 fd.write(chunk)
@@ -787,6 +859,7 @@ class CoastSeg_Map:
 
     def load_shoreline_on_map(self) -> None:
             """Adds shoreline within the drawn bbox onto the map"""
+            shoreline=None
             # geodataframe to hold all shorelines in bbox
             shorelines_in_bbox_gdf = gpd.GeoDataFrame()
             # ensure drawn bbox(bounding box) within allowed size
@@ -796,25 +869,23 @@ class CoastSeg_Map:
             # list of all the shoreline files that bbox intersects
             intersecting_shoreline_files = self.get_intersecting_files(gpd_bbox,'shorelines')
             # for each transect file clip it to the bbox and add to map
-            for file in intersecting_shoreline_files:
+            for file in list(intersecting_shoreline_files.keys()):
                 shoreline_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"shorelines"+os.sep+file
                 # Check if the shoreline exists if it doesn't download it
                 if  os.path.exists(shoreline_path):
-                    print("\n Loading the file now.")
+                    print(f"\n Loading the file {os.path.basename(shoreline_path)} now.")
                     shoreline=bbox.read_gpd_file(shoreline_path)
                 else:
                     print("\n The geojson shoreline file does not exist. Downloading it now.")
                     # Download shoreline geojson from Zenodo
-                    zenodo_id_mapping={
-                        'E_USA_SouthCarolina_NorthCarolina_ref_shoreline.geojson':'6824465',
-                        'NE_USA_Delaware_Maine_ref_shoreline.geojson':'6824429',
-                        'SE_USA_Louisiana_Georgia_ref_shoreline.geojson':'6824473',
-                        'S_USA_Texas_Louisiana_ref_shoreline.geojson':'6824487',
-                        'W_USA_California_ref_shoreline.geojson':'6824504',
-                        'W_USA_Oregon_Washington_ref_shoreline.geojson':'6824510',
-                        'USA_Alaska_ref_shoreline.geojson':'6836629'
-                    }
-                    self.download_shoreline(file, zenodo_id_mapping[file])
+                    dataset_id=intersecting_shoreline_files[file]
+                    try:
+                        self.download_shoreline(file, dataset_id)
+                    # If a file is not online skip it and print error message
+                    # error message tells user to submit an issue
+                    except DownloadError as download_exception:
+                        print(download_exception)
+                        continue
                     shoreline_path=os.path.abspath(os.getcwd())+os.sep+"Coastseg"+os.sep+"shorelines"+os.sep+file
                     shoreline=bbox.read_gpd_file(shoreline_path)
                     
@@ -849,7 +920,7 @@ class CoastSeg_Map:
                 self.m.add_layer(shoreline_layer)
             if self.shoreline_names == []:
                 print("No shorelines were found in this region. Draw a new bounding box.")
-
+                raise Exception("No shorelines were found in this region.")
 
     def generate_ROIS_fishnet(self,large_fishnet=7500,small_fishnet=5000):
         """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
@@ -877,8 +948,6 @@ class CoastSeg_Map:
         # Add an id column
         num_roi = len(fishnet_intersect_gpd)
         fishnet_intersect_gpd['id'] = arange(0, num_roi)
-        # @todo remove this test code
-        self.fishnet_intersect_gpd=fishnet_intersect_gpd
         # Save the fishnet intersection with shoreline to json
         fishnet_geojson = fishnet_intersect_gpd.to_json()
         fishnet_dict = json.loads(fishnet_geojson)

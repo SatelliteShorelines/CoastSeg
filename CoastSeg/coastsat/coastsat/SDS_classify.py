@@ -1,7 +1,6 @@
 """
 This module contains functions to label satellite images, use the labels to 
 train a pixel-wise classifier and evaluate the classifier
-
 Author: Kilian Vos, Water Research Laboratory, University of New South Wales
 """
 
@@ -25,7 +24,7 @@ from sklearn.metrics import confusion_matrix
 np.set_printoptions(precision=2)
 
 # CoastSat modules
-from CoastSeg.coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
+from CoastSeg.CoastSat.coastsat import  SDS_preprocess, SDS_shoreline, SDS_tools
 
 class SelectFromImage(object):
     """
@@ -71,9 +70,7 @@ class SelectFromImage(object):
 def label_images(metadata,settings):
     """
     Load satellite images and interactively label different classes (hard-coded)
-
     KV WRL 2019
-
     Arguments:
     -----------
     metadata: dict
@@ -99,10 +96,11 @@ def label_images(metadata,settings):
     Returns:
     -----------
     Stores the labelled data in the specified directory
-
     """
     
     filepath_train = settings['filepath_train']
+    collection = settings['inputs']['landsat_collection']
+
     # initialize figure
     fig,ax = plt.subplots(1,1,figsize=[17,10], tight_layout=True,sharex=True,
                           sharey=True)
@@ -118,7 +116,10 @@ def label_images(metadata,settings):
             # image filename
             fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
             # read and preprocess image
-            im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, settings['cloud_mask_issue'])
+            im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, 
+                                                                                                     settings['cloud_mask_issue'],
+                                                                                                     settings['pan_off'],
+                                                                                                     collection)
 
             # compute cloud_cover percentage (with no data pixels)
             cloud_cover_combined = np.divide(sum(sum(cloud_mask.astype(int))),
@@ -353,9 +354,7 @@ def label_images(metadata,settings):
 def load_labels(train_sites, settings):
     """
     Load the labelled data from the different training sites
-
     KV WRL 2019
-
     Arguments:
     -----------
     train_sites: list of str
@@ -415,9 +414,7 @@ def format_training_data(features, classes, labels):
     """
     Format the labelled data in an X features matrix and a y labels vector, so
     that it can be used for training an ML model.
-
     KV WRL 2019
-
     Arguments:
     -----------
     features: dict
@@ -495,9 +492,7 @@ def plot_confusion_matrix(y_true,y_pred,classes,normalize=False,cmap=plt.cm.Blue
 def evaluate_classifier(classifier, metadata, settings):
     """
     Apply the image classifier to all the images and save the classified images.
-
     KV WRL 2019
-
     Arguments:
     -----------
     classifier: joblib object
@@ -523,13 +518,12 @@ def evaluate_classifier(classifier, metadata, settings):
             the area is converted to number of connected pixels
         'min_length_sl': int
             minimum length (in metres) of shoreline contour to be valid
-
     Returns:
     -----------
     Saves .jpg images with the output of the classification in the folder ./detection
     
     """  
-    
+    collection = settings['inputs']['landsat_collection']
     # create folder called evaluation
     fp = os.path.join(os.getcwd(), 'evaluation')
     if not os.path.exists(fp):
@@ -566,7 +560,10 @@ def evaluate_classifier(classifier, metadata, settings):
             # image filename
             fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
             # read and preprocess image
-            im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, settings['cloud_mask_issue'])
+            im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, 
+                                                                                                     settings['cloud_mask_issue'],
+                                                                                                     settings['pan_off'],
+                                                                                                     collection)
             image_epsg = metadata[satname]['epsg'][i]
 
             # compute cloud_cover percentage (with no data pixels)
