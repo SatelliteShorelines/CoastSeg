@@ -23,5 +23,4 @@ dependencies:
   - pip
   - pip:
       - area
-      - ipyfilechooser
       - doodleverse_utils
