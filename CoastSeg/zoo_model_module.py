@@ -33,6 +33,7 @@ class Zoo_Model:
 
     def compute_segmentation(self, sample_direc: str, model_list: list, metadatadict: dict):
         # look for TTA config
+        do_crf=True
         if 'TESTTIMEAUG' not in locals():
             TESTTIMEAUG = False
         WRITE_MODELMETADATA = False
@@ -50,7 +51,8 @@ class Zoo_Model:
                 self.N_DATA_BANDS,
                 self.TARGET_SIZE,
                 TESTTIMEAUG,
-                WRITE_MODELMETADATA)
+                WRITE_MODELMETADATA,
+                do_crf)
 
     def get_model(self, Ww: list):
         model_list = []
