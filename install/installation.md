@@ -11,9 +11,9 @@ Create a new environment named `coastseg` with all the required packages by ente
 ```
 conda create -n coastseg python=3.10
 conda activate coastseg
-conda install -c conda-forge geopandas earthengine-api scikit-image matplotlib astropy notebook tqdm -y
-conda install -c conda-forge leafmap pydensecrf -y
-pip install pyqt5 area doodleverse_utils tensorflow
+conda install -c conda-forge earthengine-api  jupyter -y
+conda install -c conda-forge matplotlib=3.5.2 scikit-image=0.19.3 geopandas=0.11.1  astropy=5.1 tqdm=4.64.0 leafmap=0.10.3 pydensecrf=1.0rc3 -y
+pip install pyqt5==5.15.7 area==1.1.1 doodleverse_utils==0.0.3 tensorflow==2.9.1
 ```
 
 ### Notes on `pip install tensorflow`

@@ -14,13 +14,12 @@ dependencies:
   - scipy
   - astropy
   - jupyter
-  - ipython
   - cartopy
   - simplekml
   - leafmap
-  - tensorflow
   - tqdm
   - pip
   - pip:
+      - tensorflow
       - area
       - doodleverse_utils
