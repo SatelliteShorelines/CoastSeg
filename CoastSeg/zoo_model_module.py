@@ -36,7 +36,6 @@ class Zoo_Model:
         do_crf=True
 
         # look for TTA config
-        do_crf=True
         if 'TESTTIMEAUG' not in locals():
             TESTTIMEAUG = False
         WRITE_MODELMETADATA = False
