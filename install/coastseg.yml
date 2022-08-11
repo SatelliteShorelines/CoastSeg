@@ -6,16 +6,11 @@ channels:
 dependencies:
   - python=3.10
   - earthengine-api
-  - google-api-python-client
   - gdal
   - geopandas
   - scikit-image
-  - scikit-learn
-  - scipy
   - astropy
   - jupyter
-  - cartopy
-  - simplekml
   - leafmap
   - tqdm
   - pip
