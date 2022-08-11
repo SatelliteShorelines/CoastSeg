@@ -348,8 +348,7 @@ class CoastSeg_Map:
         polygons=[]
         for roi in selected_roi["features"]:
             polygons.append( Polygon(roi['geometry']['coordinates'][0]))
-        gdf = gpd.GeoDataFrame(selected_roi["features"], crs="EPSG:4326")
-        gdf.set_geometry(polygons,inplace=True)
+        gdf = gpd.GeoDataFrame(selected_roi["features"],geometry= polygons, crs="EPSG:4326")
         return gdf 
 
     def make_coastsat_compatible(self, shoreline_in_roi:gpd.geodataframe)->np.ndarray:

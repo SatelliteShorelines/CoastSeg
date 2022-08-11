@@ -32,6 +32,9 @@ class Zoo_Model:
         return sample_filenames
 
     def compute_segmentation(self, sample_direc: str, model_list: list, metadatadict: dict):
+        # default to do_crf being true
+        do_crf=True
+
         # look for TTA config
         do_crf=True
         if 'TESTTIMEAUG' not in locals():
