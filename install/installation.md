@@ -27,6 +27,9 @@ All the required packages have now been installed in an environment called coast
 `conda activate coastseg`
 To confirm that you have successfully activated coastseg, your terminal command line prompt should now start with (coastseg).
 
+<img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
+     alt="coastseg activated in anaconda prompt" width="250" height="150">
+
 ## ⚠️Installation Errors ⚠️
 
 Use the command `conda clean --all` to clean old packages from your anaconda base environment. Ensure you are not in your coastseg environment or any other environment by running `conda deactivate`, to deactivate any environment you're in before running `conda clean --all`. It is recommended that you have Anaconda prompt (terminal for Mac and Linux) open as an administrator before you attempt to install `coastseg` again.
