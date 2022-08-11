@@ -279,11 +279,7 @@ class CoastSeg_Map:
         polygons=[]
         for roi in selected_roi["features"]:
             polygons.append( Polygon(roi['geometry']['coordinates'][0]))
-        # Assigning CRS to a GeoDataFrame without a geometry column is not supported. Supply geometry using the 'geometry=' keyword 
-        # argument, or by providing a DataFrame with column name 'geometry'
-
         gdf = gpd.GeoDataFrame(selected_roi["features"],geometry= polygons, crs="EPSG:4326")
-        # gdf.set_geometry(polygons,inplace=True)
         return gdf 
 
     def make_coastsat_compatible(self, shoreline_in_roi:gpd.geodataframe)->np.ndarray:
