@@ -59,21 +59,12 @@ def get_inputs_list(
         A list of strings containing the names of the satellite
     """
 #     1. Check imagery available and check for ee credentials
-    try:
-        inputs_list = check_images_available_selected_ROI(
+    inputs_list = check_images_available_selected_ROI(
             selected_roi_geojson, dates, collection, sat_list)
-        print("Images available: \n", inputs_list)
-    except ee.EEException as exception:
-        print(exception)
-        handle_AuthenticationError()
-        inputs_list = check_images_available_selected_ROI(
+    print("Images available: \n", inputs_list)
+    inputs_list = check_images_available_selected_ROI(
             selected_roi_geojson, dates, collection, sat_list)
-    except Exception as general_exception:
-        print(general_exception)
-        if type(general_exception).__name__ == 'RefreshError':
-            handle_AuthenticationError()
-            inputs_list = check_images_available_selected_ROI(
-            selected_roi_geojson, dates, collection, sat_list)
+
 # Check if inputs for downloading imagery exist then download imagery
     assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
     return inputs_list
@@ -173,11 +164,6 @@ def get_selected_roi_geojson(selected_set: set(), roi_data: dict) -> dict:
         if feature["properties"]["id"] in selected_set
     ]
     return selected_ROI
-
-
-def handle_AuthenticationError():
-    ee.Authenticate()
-    ee.Initialize()
 
 
 def check_images_available_selected_ROI(
