@@ -3,10 +3,6 @@
 classification/*
 CoastSeg/shorelines/*
 ## db: data downloaded by notebooks
-notebooks/data/*
-notebooks/roi.geojson
-notebooks/selected_roi.geojson
-notebooks/.ipynb_checkpoints/*
 data/*
 segmentation_data*/*
 CoastSeg/downloaded_models/*
