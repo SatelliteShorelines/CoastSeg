@@ -534,44 +534,56 @@ def create_jpg(im_ms, cloud_mask, date, satname, filepath):
         Saves a .jpg image corresponding to the preprocessed satellite image
 
     """
+def create_jpg(im_ms, cloud_mask, date, satname, filepath):
+    """
+    Saves a .jpg file with the RGB image as well as the NIR and SWIR1 grayscale images.
+    This functions can be modified to obtain different visualisations of the
+    multispectral images.
+    KV WRL 2018
+    Arguments:
+    -----------
+    im_ms: np.array
+        3D array containing the pansharpened/down-sampled bands (B,G,R,NIR,SWIR1)
+    cloud_mask: np.array
+        2D cloud mask with True where cloud pixels are
+    date: str
+        string containing the date at which the image was acquired
+    satname: str
+        name of the satellite mission (e.g., 'L5')
+    Returns:
+    -----------
+        Saves a .jpg image corresponding to the preprocessed satellite image
+    """
+
     # rescale image intensity for display purposes
     im_RGB = rescale_image_intensity(im_ms[:,:,[2,1,0]], cloud_mask, 99.9)
-#    im_NIR = rescale_image_intensity(im_ms[:,:,3], cloud_mask, 99.9)
-#    im_SWIR = rescale_image_intensity(im_ms[:,:,4], cloud_mask, 99.9)
+    im_NIR = rescale_image_intensity(im_ms[:,:,3], cloud_mask, 99.9)
+    im_SWIR = rescale_image_intensity(im_ms[:,:,4], cloud_mask, 99.9)
 
-    # make figure (just RGB)
-    fig = plt.figure()
-    fig.set_size_inches([18,9])
-    fig.set_tight_layout(True)
-    ax1 = fig.add_subplot(111)
-    ax1.axis('off')
-    ax1.imshow(im_RGB)
-    ax1.set_title(date + '   ' + satname, fontsize=16)
+    im_RGB = img_as_ubyte(im_RGB)
+    im_NIR = img_as_ubyte(im_NIR)
+    im_SWIR = img_as_ubyte(im_SWIR)
 
-#    if im_RGB.shape[1] > 2*im_RGB.shape[0]:
-#        ax1 = fig.add_subplot(311)
-#        ax2 = fig.add_subplot(312)
-#        ax3 = fig.add_subplot(313)
-#    else:
-#        ax1 = fig.add_subplot(131)
-#        ax2 = fig.add_subplot(132)
-#        ax3 = fig.add_subplot(133)
-#    # RGB
-#    ax1.axis('off')
-#    ax1.imshow(im_RGB)
-#    ax1.set_title(date + '   ' + satname, fontsize=16)
-#    # NIR
-#    ax2.axis('off')
-#    ax2.imshow(im_NIR, cmap='seismic')
-#    ax2.set_title('Near Infrared', fontsize=16)
-#    # SWIR
-#    ax3.axis('off')
-#    ax3.imshow(im_SWIR, cmap='seismic')
-#    ax3.set_title('Short-wave Infrared', fontsize=16)
+    # Save the image with skimage.io
+    file_types=["RGB","SWIR","NIR"]
+    for ext in file_types:
 
-    # save figure
-    fig.savefig(os.path.join(filepath, date + '_' + satname + '.jpg'), dpi=150)
-    plt.close()
+        ext_filepath=filepath+os.sep+ext
+        if not os.path.exists(ext_filepath):
+            os.mkdir(ext_filepath)
+        fname=os.path.join(ext_filepath, date + '_'+ext+'_' + satname + '.jpg')
+        if ext == "RGB":
+            imsave(fname, im_RGB)
+        if ext == "SWIR":
+            imsave(fname, im_SWIR)
+        if ext == "NIR":
+            imsave(fname, im_NIR)
+    # # Save swir image with skimage.io
+    # fname=os.path.join(filepath, date + '_SWIR_' + satname + '.jpg')
+    # imsave(fname, im_SWIR)
+    # # Save nir image with skimage.io
+    # fname=os.path.join(filepath, date + '_NIR_' + satname + '.jpg')
+    # imsave(fname, im_NIR)
 
 def save_jpg(metadata, settings, **kwargs):
     """
