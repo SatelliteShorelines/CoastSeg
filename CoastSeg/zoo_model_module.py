@@ -195,30 +195,35 @@ class Zoo_Model:
         zenodo_id = dataset_id.split('_')[-1]
         root_url = 'https://zenodo.org/record/' + zenodo_id + '/files/'
         # Create the directory to hold the downloaded models from Zenodo
-        model_direc = './CoastSeg/downloaded_models/' + dataset_id
+        self.weights_direc = './CoastSeg/downloaded_models/' + dataset_id
         if not os.path.exists('./CoastSeg/downloaded_models'):
             os.mkdir('./CoastSeg/downloaded_models')
-        if not os.path.exists(model_direc):
-            os.mkdir(model_direc)
-        # By default set the model_direc to the dataset_id folder
-        self.weights_direc = model_direc
+        if not os.path.exists(self.weights_direc):
+            os.mkdir(self.weights_direc)
         if dataset == 'RGB':
-            filename = 'rgb.zip'
+            # filename = 'rgb.zip'
+            filename = 'rgb'
         elif dataset=='MNDWI':
-            filename='mndwi.zip'
-        # outfile : location where  model id saved
-        outfile = model_direc + os.sep + filename
-        # outfile = self.weights_direc
+            # filename='mndwi.zip'
+            filename='mndwi'
+        # outfile: where zip folder model is downloaded 
+        outfile = self.weights_direc + os.sep + filename
+        print(f'\n outfile: {outfile}')
         # Download the model from Zenodo
         if not os.path.exists(outfile):
-            url = (root_url + filename)
+            zip_file=filename+'.zip'
+            zip_folder = self.weights_direc + os.sep + zip_file
+            print(f'\n zip_folder: {zip_folder}')
+            url = (root_url + zip_file)
             print('Retrieving model {} ...'.format(url))
-            self.download_url(url, outfile)
-            print('Unzipping model to {} ...'.format(model_direc))
-            with zipfile.ZipFile(outfile, 'r') as zip_ref:
-                zip_ref.extractall(model_direc)
+            self.download_url(url, zip_folder)
+            print('Unzipping model to {} ...'.format(self.weights_direc))
+            with zipfile.ZipFile(zip_folder, 'r') as zip_ref:
+                zip_ref.extractall(self.weights_direc)
+            print(f'Removing {zip_folder}')
+            os.remove(zip_folder)
                 
-        # Set the self.weights_direc to the correct location
+        # if model in subfolder set self.weights_direc to valid subdirectory
         sub_dirs=os.listdir(self.weights_direc)
         # There should be no more than 1 sub directory
         if len(sub_dirs)>=0:
@@ -227,6 +232,14 @@ class Zoo_Model:
                 if os.path.isdir(folder_path) and not folder_path.endswith('.zip'):
                     self.weights_direc=folder_path
                     break
+                
+        # Ensure all files are unzipped
+        with os.scandir(self.weights_direc) as it:
+            for entry in it:
+                if entry.name.endswith('.zip'):
+                    with zipfile.ZipFile(entry, 'r') as zip_ref:
+                        zip_ref.extractall(self.weights_direc)
+                    os.remove(entry)
             
             
     def download_url(self, url: str, save_path: str, chunk_size: int = 128):
