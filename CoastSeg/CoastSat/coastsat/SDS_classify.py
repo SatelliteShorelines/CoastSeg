@@ -1,6 +1,7 @@
 """
 This module contains functions to label satellite images, use the labels to 
 train a pixel-wise classifier and evaluate the classifier
+
 Author: Kilian Vos, Water Research Laboratory, University of New South Wales
 """
 
@@ -24,7 +25,7 @@ from sklearn.metrics import confusion_matrix
 np.set_printoptions(precision=2)
 
 # CoastSat modules
-from CoastSeg.CoastSat.coastsat import  SDS_preprocess, SDS_shoreline, SDS_tools
+from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
 
 class SelectFromImage(object):
     """
@@ -70,7 +71,9 @@ class SelectFromImage(object):
 def label_images(metadata,settings):
     """
     Load satellite images and interactively label different classes (hard-coded)
+
     KV WRL 2019
+
     Arguments:
     -----------
     metadata: dict
@@ -96,6 +99,7 @@ def label_images(metadata,settings):
     Returns:
     -----------
     Stores the labelled data in the specified directory
+
     """
     
     filepath_train = settings['filepath_train']
@@ -354,7 +358,9 @@ def label_images(metadata,settings):
 def load_labels(train_sites, settings):
     """
     Load the labelled data from the different training sites
+
     KV WRL 2019
+
     Arguments:
     -----------
     train_sites: list of str
@@ -414,7 +420,9 @@ def format_training_data(features, classes, labels):
     """
     Format the labelled data in an X features matrix and a y labels vector, so
     that it can be used for training an ML model.
+
     KV WRL 2019
+
     Arguments:
     -----------
     features: dict
@@ -492,7 +500,9 @@ def plot_confusion_matrix(y_true,y_pred,classes,normalize=False,cmap=plt.cm.Blue
 def evaluate_classifier(classifier, metadata, settings):
     """
     Apply the image classifier to all the images and save the classified images.
+
     KV WRL 2019
+
     Arguments:
     -----------
     classifier: joblib object
@@ -518,6 +528,7 @@ def evaluate_classifier(classifier, metadata, settings):
             the area is converted to number of connected pixels
         'min_length_sl': int
             minimum length (in metres) of shoreline contour to be valid
+
     Returns:
     -----------
     Saves .jpg images with the output of the classification in the folder ./detection

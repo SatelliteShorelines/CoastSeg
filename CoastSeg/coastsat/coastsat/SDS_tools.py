@@ -19,6 +19,8 @@ from astropy.convolution import convolve
 import pytz
 from datetime import datetime, timedelta
 
+# np.seterr(all='ignore') # raise/ignore divisions by 0 and nans
+
 ###################################################################################################
 # COORDINATES CONVERSION FUNCTIONS
 ###################################################################################################
@@ -29,6 +31,7 @@ def convert_pix2world(points, georef):
     coordinates performing an affine transformation.
     
     KV WRL 2018
+
     Arguments:
     -----------
     points: np.array or list of np.array
@@ -74,6 +77,7 @@ def convert_world2pix(points, georef):
     (pixel row and column) performing an affine transformation.
     
     KV WRL 2018
+
     Arguments:
     -----------
     points: np.array or list of np.array
@@ -112,11 +116,13 @@ def convert_world2pix(points, georef):
         
     return points_converted
 
+
 def convert_epsg(points, epsg_in, epsg_out):
     """
     Converts from one spatial reference to another using the epsg codes
     
     KV WRL 2018
+
     Arguments:
     -----------
     points: np.array or list of np.ndarray
@@ -161,7 +167,9 @@ def convert_epsg(points, epsg_in, epsg_out):
 def nd_index(im1, im2, cloud_mask):
     """
     Computes normalised difference index on 2 images (2D), given a cloud mask (2D).
+
     KV WRL 2018
+
     Arguments:
     -----------
     im1: np.array
@@ -170,13 +178,14 @@ def nd_index(im1, im2, cloud_mask):
         second image (2D) with which to calculate the ND index
     cloud_mask: np.array
         2D cloud mask with True where cloud pixels are
+
     Returns:    
     -----------
     im_nd: np.array
         Image (2D) containing the ND index
         
     """
-
+    
     # reshape the cloud mask
     vec_mask = cloud_mask.reshape(im1.shape[0] * im1.shape[1])
     # initialise with NaNs
@@ -261,6 +270,7 @@ def mask_raster(fn, mask):
     # close dataset and flush cache
     raster = None
 
+
 ###################################################################################################
 # UTILITIES
 ###################################################################################################
@@ -268,13 +278,16 @@ def mask_raster(fn, mask):
 def create_folder_structure(im_folder, satname):
     """
     Create the structure of subfolders for each satellite mission
+
     KV WRL 2018
+
     Arguments:
     -----------
     im_folder: str
         folder where the images are to be downloaded
     satname:
         name of the satellite mission
+
     Returns:
     -----------
     filepaths: list of str
@@ -306,6 +319,7 @@ def get_filepath(inputs,satname):
     Create filepath to the different folders containing the satellite images.
     
     KV WRL 2018
+
     Arguments:
     -----------
     inputs: dict with the following keys
@@ -370,6 +384,7 @@ def get_filenames(filename, filepath, satname):
     Creates filepath + filename for all the bands belonging to the same image.
     
     KV WRL 2018
+
     Arguments:
     -----------
     filename: str
@@ -517,16 +532,19 @@ def remove_inaccurate_georef(output, accuracy):
     that were mapped on images with inaccurate georeferencing:
         - RMSE > accuracy for Landsat images
         - failed geometric test for Sentinel images (flagged with -1)
+
     Arguments:
     -----------
         output: dict
             contains the extracted shorelines and corresponding metadata
         accuracy: int
             minimum horizontal georeferencing accuracy (metres) for a shoreline to be accepted
+
     Returns:
     -----------
         output_filtered: dict
             contains the updated dictionnary
+
     """
 
     # find indices of shorelines to be removed
@@ -547,6 +565,7 @@ def get_closest_datapoint(dates, dates_ts, values_ts):
     Make sure that dates and dates_ts are in the same timezone (also aware or naive)
     
     KV WRL 2020
+
     Arguments:
     -----------
     dates: list of datetimes
@@ -589,6 +608,7 @@ def polygon_from_kml(fn):
     Extracts coordinates from a .kml file.
     
     KV WRL 2018
+
     Arguments:
     -----------
     fn: str
@@ -646,6 +666,7 @@ def output_to_gdf(output, geomtype):
     Saves the mapped shorelines as a gpd.GeoDataFrame    
     
     KV WRL 2018
+
     Arguments:
     -----------
     output: dict
@@ -696,6 +717,7 @@ def transects_to_gdf(transects):
     Saves the shore-normal transects as a gpd.GeoDataFrame    
     
     KV WRL 2018
+
     Arguments:
     -----------
     transects: dict
@@ -704,6 +726,7 @@ def transects_to_gdf(transects):
     Returns:    
     -----------
     gdf_all: gpd.GeoDataFrame
+
         
     """  
        
@@ -727,6 +750,7 @@ def get_image_bounds(fn):
     Returns a polygon with the bounds of the image in the .tif file
      
     KV WRL 2020
+
     Arguments:
     -----------
     fn: str
@@ -777,6 +801,7 @@ def smallest_rectangle(polygon):
     to coordinate axes.
      
     KV WRL 2020
+
     Arguments:
     -----------
     polygon: list of coordinates 
