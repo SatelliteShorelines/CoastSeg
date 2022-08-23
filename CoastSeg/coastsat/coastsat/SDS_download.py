@@ -4,6 +4,7 @@ from the Google Earth Engine server
 
 Author: Kilian Vos, Water Research Laboratory, University of New South Wales
 """
+
 # load basic modules
 import os
 import numpy as np
@@ -30,10 +31,10 @@ from scipy import ndimage
 # CoastSat modules
 from CoastSeg.CoastSat.coastsat import SDS_preprocess, SDS_tools, gdal_merge
 
+
 np.seterr(all='ignore') # raise/ignore divisions by 0 and nans
 gdal.PushErrorHandler('CPLQuietErrorHandler')
 
-# Main function to download images from the EarthEngine server
 def retrieve_images(inputs):
     """
     Downloads all images from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2
@@ -69,11 +70,13 @@ def retrieve_images(inputs):
             ```
         'filepath_data': str
             filepath to the directory where the images are downloaded
+
     Returns:
     -----------
     metadata: dict
         contains the information about the satellite images that were downloaded:
         date, filename, georeferencing accuracy and image coordinate reference system
+
     """
     
     # initialise connection with GEE server
@@ -138,7 +141,7 @@ def retrieve_images(inputs):
             im_epsg.append(int(im_meta['bands'][0]['crs'][5:]))
 
             # get geometric accuracy
-            if satname in ['L5','L7','L8','L9']:
+            if satname in ['L5','L7','L8']:
                 if 'GEOMETRIC_RMSE_MODEL' in im_meta['properties'].keys():
                     acc_georef = im_meta['properties']['GEOMETRIC_RMSE_MODEL']
                 else:
@@ -178,8 +181,19 @@ def retrieve_images(inputs):
                 proj = image_ee.select('B1').projection()
                 ee_region = adjust_polygon(inputs['polygon'],proj)
                 # download .tif from EE (one file with ms bands and one file with QA band)
-                fn_ms, fn_QA = download_tif(image_ee,ee_region,bands['ms'],fp_ms)
-                
+                count = 0
+                while True:
+                    try:    
+                        fn_ms, fn_QA = download_tif(image_ee,ee_region,bands['ms'],fp_ms) 
+                        break
+                    except:
+                        print('\nDownload failed, trying again...')
+                        count += 1
+                        if count > 100:
+                            raise Exception('Too many attempts, crashed while downloading image %s'%im_meta['id'])
+                        else:
+                            continue
+                        
                 # create filename for image
                 for key in bands.keys():
                     im_fn[key] = im_date + '_' + satname + '_' + inputs['sitename'] + '_' + key + suffix
@@ -233,8 +247,19 @@ def retrieve_images(inputs):
                 ee_region_pan = adjust_polygon(inputs['polygon'],proj_pan)
 
                 # download both ms and pan bands from EE
-                fn_ms, fn_QA = download_tif(image_ee,ee_region_ms,bands['ms'],fp_ms)
-                fn_pan = download_tif(image_ee,ee_region_pan,bands['pan'],fp_pan)
+                count = 0
+                while True:
+                    try:    
+                        fn_ms, fn_QA = download_tif(image_ee,ee_region_ms,bands['ms'],fp_ms)
+                        fn_pan = download_tif(image_ee,ee_region_pan,bands['pan'],fp_pan)
+                        break
+                    except:
+                        print('\nDownload failed, trying again...')
+                        count += 1
+                        if count > 100:
+                            raise Exception('Too many attempts, crashed while downloading image %s'%im_meta['id'])
+                        else:
+                            continue
                 
                 # create filename for both images (ms and pan)
                 for key in bands.keys():
@@ -336,15 +361,16 @@ def retrieve_images(inputs):
 
     # once all images have been downloaded, load metadata from .txt files
     metadata = get_metadata(inputs)
+# Comment these lines out to get merge_overlapping to not run
     # merge overlapping images (necessary only if the polygon is at the boundary of an image)
-    if 'S2' in metadata.keys():
-        print("\n Called merge_overlapping_images\n")
-        try:
-            metadata = merge_overlapping_images(metadata,inputs)
-        except:
-            print('WARNING: there was an error while merging overlapping S2 images,'+
-                  ' please open an issue on Github at https://github.com/kvos/CoastSat/issues'+
-                  ' and include your script so we can find out what happened.')
+    # if 'S2' in metadata.keys():
+    #     print("\n Called merge_overlapping_images\n")
+    #     try:
+    #         metadata = merge_overlapping_images(metadata,inputs)
+    #     except:
+    #         print('WARNING: there was an error while merging overlapping S2 images,'+
+    #               ' please open an issue on Github at https://github.com/kvos/CoastSat/issues'+
+    #               ' and include your script so we can find out what happened.')
 
     # save metadata dict
     with open(os.path.join(im_folder, inputs['sitename'] + '_metadata' + '.pkl'), 'wb') as f:
@@ -352,12 +378,13 @@ def retrieve_images(inputs):
     print('Satellite images downloaded from GEE and save in %s'%im_folder)
     return metadata
 
-# function to load the metadata if images have already been downloaded
 def get_metadata(inputs):
     """
     Gets the metadata from the downloaded images by parsing .txt files located
-    in the \meta subfolder.
+    in the meta subfolder.
+
     KV WRL 2018
+
     Arguments:
     -----------
     inputs: dict with the following fields
@@ -365,18 +392,20 @@ def get_metadata(inputs):
             name of the site
         'filepath_data': str
             filepath to the directory where the images are downloaded
+
     Returns:
     -----------
     metadata: dict
         contains the information about the satellite images that were downloaded:
         date, filename, georeferencing accuracy and image coordinate reference system
+
     """
     # directory containing the images
     filepath = os.path.join(inputs['filepath'],inputs['sitename'])
     # initialize metadata dict
     metadata = dict([])
     # loop through the satellite missions
-    for satname in ['L5','L7','L8','L9','S2']:
+    for satname in ['L5','L7','L8','S2']:
         # if a folder has been created for the given satellite mission
         if satname in os.listdir(filepath):
             # update the metadata dict
@@ -409,7 +438,6 @@ def get_metadata(inputs):
         pickle.dump(metadata, f)
 
     return metadata
-
 
 ###################################################################################################
 # AUXILIARY FUNCTIONS
@@ -516,7 +544,9 @@ def check_images_available(inputs):
 def get_image_info(collection,satname,polygon,dates):
     """
     Reads info about EE images for the specified collection, satellite and dates
+
     KV WRL 2022
+
     Arguments:
     -----------
     collection: str
@@ -527,6 +557,7 @@ def get_image_info(collection,satname,polygon,dates):
         coordinates of the polygon in lat/lon
     dates: list of str
         start and end dates (e.g. '2022-01-01')
+
     Returns:
     -----------
     im_list: list of ee.Image objects
@@ -549,7 +580,9 @@ def get_image_info(collection,satname,polygon,dates):
 def remove_cloudy_images(im_list, satname, prc_cloud_cover=95):
     """
     Removes from the EE collection very cloudy images (>95% cloud cover)
+
     KV WRL 2018
+
     Arguments:
     -----------
     im_list: list
@@ -558,6 +591,7 @@ def remove_cloudy_images(im_list, satname, prc_cloud_cover=95):
         name of the satellite mission
     prc_cloud_cover: int
         percentage of cloud cover acceptable on the images
+
     Returns:
     -----------
     im_list_upt: list
@@ -581,7 +615,9 @@ def remove_cloudy_images(im_list, satname, prc_cloud_cover=95):
 def adjust_polygon(polygon,proj):
     """
     Adjust polygon of ROI to fit exactly with the pixels of the underlying tile
+
     KV WRL 2022
+
     Arguments:
     -----------
     polygon: list
@@ -594,6 +630,7 @@ def adjust_polygon(polygon,proj):
         ```
     proj: ee.Proj
         projection of the underlying tile
+
     Returns:
     -----------
     ee_region: ee
@@ -621,7 +658,9 @@ def download_tif(image, polygon, bands, filepath):
     Downloads a .TIF image from the ee server. The image is downloaded as a
     zip file then moved to the working directory, unzipped and stacked into a
     single .TIF file.
+
     KV WRL 2018
+
     Arguments:
     -----------
     image: ee.Image
@@ -632,9 +671,11 @@ def download_tif(image, polygon, bands, filepath):
     bands: list of dict
         list of bands to be downloaded
     filepath: location where the temporary file should be saved
+
     Returns:
     -----------
     Downloads an image in a file named data.tif
+
     """
 
     # for the old version of ee raise an exception
@@ -685,7 +726,9 @@ def warp_image_to_target(fn_in,fn_out,fn_target,double_res=True,resampling_metho
     """
     Resample an image on a new pixel grid based on a target image using gdal_warp.
     This is used to align the multispectral and panchromatic bands, as well as just downsample certain bands.
+
     KV WRL 2022
+
     Arguments:
     -----------
     fn_in: str
@@ -701,9 +744,11 @@ def warp_image_to_target(fn_in,fn_out,fn_target,double_res=True,resampling_metho
     resampling_method: str
         method using to resample the image on the new pixel grid. See gdal_warp documentation
         for options (https://gdal.org/programs/gdalwarp.html)
+
     Returns:
     -----------
     Creates a new .tif file (fn_out)
+
     """    
     # get output extent from target image
     im_target = gdal.Open(fn_target, gdal.GA_ReadOnly)
@@ -751,9 +796,12 @@ def download_tif_S2(image, polygon, bandsId, filepath):
     S2 workflow in a similar manner as the Landsat workflow (gdal_warp on the bands of different resolution).
     The image is downloaded as a zip file then moved to the working directory, unzipped and stacked into a
     single .TIF file.
+
     Two different codes based on which version of the earth-engine-api is being
     used.
+
     KV WRL 2018
+
     Arguments:
     -----------
     image: ee.Image
@@ -764,9 +812,11 @@ def download_tif_S2(image, polygon, bandsId, filepath):
     bandsId: list of dict
         list of bands to be downloaded
     filepath: location where the temporary file should be saved
+
     Returns:
     -----------
     Downloads an image in a file named data.tif
+
     """
 
     # for the old version of ee only
@@ -821,11 +871,14 @@ def filter_S2_collection(im_list):
     """
     Removes duplicates from the EE collection of Sentinel-2 images (many duplicates)
     Finds the images that were acquired at the same time but have different utm zones.
+
     KV WRL 2018
+
     Arguments:
     -----------
     im_list: list
         list of images in the collection
+
     Returns:
     -----------
     im_list_flt: list
@@ -869,6 +922,7 @@ def filter_S2_collection(im_list):
 
     return im_list_flt
 
+
 def merge_overlapping_images(metadata,inputs):
     """
     Merge simultaneous overlapping images that cover the area of interest.
@@ -876,7 +930,9 @@ def merge_overlapping_images(metadata,inputs):
     will be overlap between the 2 images and both will be downloaded from Google
     Earth Engine. This function merges the 2 images, so that the area of interest
     is covered by only 1 image.
+
     KV WRL 2018
+
     Arguments:
     -----------
     metadata: dict
@@ -905,10 +961,12 @@ def merge_overlapping_images(metadata,inputs):
             ```
         'filepath_data': str
             filepath to the directory where the images are downloaded
+
     Returns:
     -----------
     metadata_updated: dict
         updated metadata
+
     """
 
     # only for Sentinel-2 at this stage (not sure if this is needed for Landsat images)
@@ -923,7 +981,7 @@ def merge_overlapping_images(metadata,inputs):
                 return [i for i, x in enumerate(lst) if x == item]
 
         return dict((x, duplicates(lst, x)) for x in set(lst) if lst.count(x) > 1)    
-
+      
     # first pass on images that have the exact same timestamp
     duplicates = duplicates_dict([_.split('_')[0] for _ in filenames])
     # {"S2-2029-2020": [0,1,2,3]}
@@ -1011,22 +1069,19 @@ def merge_overlapping_images(metadata,inputs):
     pair_first = [_[0] for _ in pairs]
     idx_remove_pair = []
     for idx in np.unique(pair_first):
-        # calculate the number of duplicates
-        n_duplicates = sum(pair_first == idx)
-        # if more than 3 duplicates, delete the other images so that a max of 3 duplicates are handled
-        if n_duplicates > 2:
-            for i in range(2,n_duplicates):
-                # remove the last image: 3 .tif files + the .txt file
-                idx_last = [pairs[_] for _ in np.where(pair_first == idx)[0]][i][-1]
-                fn_im = [os.path.join(filepath, 'S2', '10m', filenames[idx_last]),
-                        os.path.join(filepath, 'S2', '20m',  filenames[idx_last].replace('10m','20m')),
-                        os.path.join(filepath, 'S2', '60m',  filenames[idx_last].replace('10m','60m')),
-                        os.path.join(filepath, 'S2', 'meta', filenames[idx_last].replace('_10m','').replace('.tif','.txt'))]
-                for k in range(4):  
-                    os.chmod(fn_im[k], 0o777)
-                    os.remove(fn_im[k]) 
-                # store the index of the pair to remove it outside the loop
-                idx_remove_pair.append(np.where(pair_first == idx)[0][i])
+        # quadruplicate if trying to merge 3 times the same image with a successive image
+        if sum(pair_first == idx) == 3: 
+            # remove the last image: 3 .tif files + the .txt file
+            idx_last = [pairs[_] for _ in np.where(pair_first == idx)[0]][-1][-1]
+            fn_im = [os.path.join(filepath, 'S2', '10m', filenames[idx_last]),
+                     os.path.join(filepath, 'S2', '20m',  filenames[idx_last].replace('10m','20m')),
+                     os.path.join(filepath, 'S2', '60m',  filenames[idx_last].replace('10m','60m')),
+                     os.path.join(filepath, 'S2', 'meta', filenames[idx_last].replace('_10m','').replace('.tif','.txt'))]
+            for k in range(4):  
+                os.chmod(fn_im[k], 0o777)
+                os.remove(fn_im[k]) 
+            # store the index of the pair to remove it outside the loop
+            idx_remove_pair.append(np.where(pair_first == idx)[0][-1])
     # remove quadruplicates from list of pairs
     pairs = [i for j, i in enumerate(pairs) if j not in idx_remove_pair]
     
@@ -1041,25 +1096,11 @@ def merge_overlapping_images(metadata,inputs):
                   os.path.join(filepath, 'S2', '60m',  filenames[pair[index]].replace('10m','60m')),
                   os.path.join(filepath, 'S2', 'meta', filenames[pair[index]].replace('_10m','').replace('.tif','.txt'))])
         # get polygon for first image
-        try: 
-            polygon0 = SDS_tools.get_image_bounds(fn_im[0][0])
-            im_epsg0 = metadata[sat]['epsg'][pair[0]]
-        except AttributeError:
-            print("\n Error getting the TIF. Skipping this iteration of the loop")    
-            continue
-        except FileNotFoundError:
-            print(f"\n The file {fn_im[index][0]} did not exist")    
-            continue
+        polygon0 = SDS_tools.get_image_bounds(fn_im[0][0])
+        im_epsg0 = metadata[sat]['epsg'][pair[0]]
         # get polygon for second image
-        try: 
-            polygon1 = SDS_tools.get_image_bounds(fn_im[1][0])
-            im_epsg1 = metadata[sat]['epsg'][pair[1]] 
-        except AttributeError:
-            print("\n Error getting the TIF. Skipping this iteration of the loop")    
-            continue
-        except FileNotFoundError:
-                print(f"\n The file {fn_im[index][0]} did not exist")    
-                continue  
+        polygon1 = SDS_tools.get_image_bounds(fn_im[1][0])
+        im_epsg1 = metadata[sat]['epsg'][pair[1]]  
         # check if epsg are the same
         if not im_epsg0 == im_epsg1:
             print('WARNING: there was an error as two S2 images do not have the same epsg,'+
