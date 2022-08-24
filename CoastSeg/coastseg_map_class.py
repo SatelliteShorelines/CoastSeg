@@ -47,6 +47,8 @@ class CoastSeg_Map:
         self.shorelines_gdf = gpd.GeoDataFrame()
         # Stores all the transects on the map
         self.transects_in_bbox_list=[]
+        # Bbox saved by the user
+        self.bbox = None
         
         # If map_settings is not provided use default settings
         if not map_settings:
@@ -922,15 +924,25 @@ class CoastSeg_Map:
                 print("No shorelines were found in this region. Draw a new bounding box.")
                 raise Exception("No shorelines were found in this region.")
 
+    def save_bbox_to_file(self):
+        # Ensure drawn bbox(bounding box) within allowed size
+        bbox.validate_bbox_size(self.shapes_list)
+        # Get the geodataframe for the bbox
+        self.bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
+        self.bbox.to_file("bbox.geojson", driver='GeoJSON')
+        print("Saved bbox to bbox.geojson")
+    
+
     def generate_ROIS_fishnet(self,large_fishnet=7500,small_fishnet=5000):
         """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
         # Ensure drawn bbox(bounding box) within allowed size
         bbox.validate_bbox_size(self.shapes_list)
         # Get the geodataframe for the bbox
         gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
+        # save bbox 
+        # self.bbox=gpd_bbox
         if self.shorelines_gdf.empty:
             self.load_shoreline_on_map()
-            
         # Large fishnet cannot be 0. Throw an error
         if large_fishnet == 0:
             raise Exception("Large fishnet size must be greater than 0")
