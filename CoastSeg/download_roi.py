@@ -113,7 +113,6 @@ def download_imagery(
     for input in inputs_list:
         inputs_dict[int(input['roi_id'])]=input
     return inputs_dict
-    
 
 
 def get_metadata( 

@@ -1,5 +1,5 @@
 import os
-from ipyleaflet import DrawControl, GeoJSON, LayersControl,  WidgetControl, GeoJSON
+from ipyleaflet import DrawControl, LayersControl,  WidgetControl, GeoJSON
 from shapely import geometry
 from leafmap import Map, check_file_path
 from CoastSeg import bbox
@@ -707,6 +707,9 @@ class CoastSeg_Map:
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
         self.draw_control.clear()
+        existing_layer=self.m.find_layer('Bbox')
+        if existing_layer is not None:
+                self.m.remove_layer(existing_layer)
         self.shapes_list = []
 
 
@@ -932,6 +935,27 @@ class CoastSeg_Map:
         self.bbox.to_file("bbox.geojson", driver='GeoJSON')
         print("Saved bbox to bbox.geojson")
     
+    def style_rois(self, df: gpd.geodataframe):
+        """converts a geodataframe to a json dict and styles it as a fishnet grid
+
+        Args:
+            df (gpd.geodataframe): fishnet dataframe
+
+        Returns:
+            dict: fishnet grid styled as a black grid
+        """
+        fishnet_geojson = df.to_json()
+        fishnet_dict = json.loads(fishnet_geojson)
+
+        # Add style to each feature in the geojson
+        for feature in fishnet_dict["features"]:
+            feature["properties"]["style"] = {
+                "color": "black",
+                "weight": 3,
+                "fillColor": "grey",
+                "fillOpacity": 0.1,
+            }
+        return fishnet_dict
 
     def generate_ROIS_fishnet(self,large_fishnet=7500,small_fishnet=5000):
         """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
@@ -940,7 +964,6 @@ class CoastSeg_Map:
         # Get the geodataframe for the bbox
         gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
         # save bbox 
-        # self.bbox=gpd_bbox
         if self.shorelines_gdf.empty:
             self.load_shoreline_on_map()
         # Large fishnet cannot be 0. Throw an error
@@ -957,22 +980,14 @@ class CoastSeg_Map:
             # Concat the fishnets together to create one overlapping set of rois
             fishnet_intersect_gpd = gpd.GeoDataFrame(concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
-        # Add an id column
+        # Add an id column to fishnet dataframe
         num_roi = len(fishnet_intersect_gpd)
         fishnet_intersect_gpd['id'] = arange(0, num_roi)
-        # Save the fishnet intersection with shoreline to json
-        fishnet_geojson = fishnet_intersect_gpd.to_json()
-        fishnet_dict = json.loads(fishnet_geojson)
+        
+        # style fishnet and convert to dictionary to be added to map
+        fishnet_dict = self.style_rois(fishnet_intersect_gpd)
 
-        # Add style to each feature in the geojson
-        for feature in fishnet_dict["features"]:
-            feature["properties"]["style"] = {
-                "color": "black",
-                "weight": 3,
-                "fillColor": "grey",
-                "fillOpacity": 0.1,
-            }
-        # Save the data
+        # Save the styled fishnet to data for interactivity to be added later
         self.data = fishnet_dict
            
 

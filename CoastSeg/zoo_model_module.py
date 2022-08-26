@@ -208,7 +208,7 @@ class Zoo_Model:
             filename='mndwi'
         # outfile: where zip folder model is downloaded 
         outfile = self.weights_direc + os.sep + filename
-        print(f'\n outfile: {outfile}')
+        print(f'\n outfile: {os.path.abspath(outfile)}')
         # Download the model from Zenodo
         if not os.path.exists(outfile):
             zip_file=filename+'.zip'
