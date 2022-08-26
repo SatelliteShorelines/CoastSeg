@@ -691,7 +691,6 @@ class CoastSeg_Map:
         self.remove_transects()
         self.remove_shoreline()
         self.remove_all_rois()
-        self.remove_saved_roi()
         self.remove_shoreline_html()
 
     def remove_transects(self):
@@ -726,18 +725,10 @@ class CoastSeg_Map:
         """Clear the shoreline html accoridon """
         self.main_accordion.children[0].value ="Hover over the shoreline."
 
-    def remove_saved_roi(self):
-        """Removes all the saved ROI"""
-        self.selected_ROI = None
-         # Remove the selected rois
-        existing_layer = self.m.find_layer('Selected ROIs')
-        if existing_layer is not None:
-            self.m.remove_layer(existing_layer)
-            self.selected_layer = None
-            self.selected_set = set()
 
     def remove_all_rois(self):
         """Removes all the unselected rois from the map """
+        self.selected_ROI = None
         # Remove the selected rois
         existing_layer = self.m.find_layer('Selected ROIs')
         if existing_layer is not None:
