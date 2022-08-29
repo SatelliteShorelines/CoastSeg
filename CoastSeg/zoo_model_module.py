@@ -7,7 +7,7 @@ from tqdm import tqdm
 from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.imports import simple_resunet, simple_unet, simple_satunet, custom_resunet, custom_unet, mean_iou, dice_coef
 import tensorflow as tf
-
+from tqdm.auto import tqdm
 
 class Zoo_Model:
     def __init__(self):
@@ -32,6 +32,9 @@ class Zoo_Model:
         return sample_filenames
 
     def compute_segmentation(self, sample_direc: str, model_list: list, metadatadict: dict):
+        # default to do_crf being true
+        do_crf=True
+
         # look for TTA config
         if 'TESTTIMEAUG' not in locals():
             TESTTIMEAUG = False
@@ -50,12 +53,15 @@ class Zoo_Model:
                 self.N_DATA_BANDS,
                 self.TARGET_SIZE,
                 TESTTIMEAUG,
-                WRITE_MODELMETADATA)
+                WRITE_MODELMETADATA,
+                do_crf)
 
     def get_model(self, Ww: list):
         model_list = []
         config_files = []
         model_types = []
+        if Ww == []:
+            raise Exception("No Model Info Passed")
         for weights in Ww:
             configfile = weights.replace('.h5', '.json').replace('weights', 'config')
             if 'fullmodel' in configfile:
@@ -189,25 +195,53 @@ class Zoo_Model:
         zenodo_id = dataset_id.split('_')[-1]
         root_url = 'https://zenodo.org/record/' + zenodo_id + '/files/'
         # Create the directory to hold the downloaded models from Zenodo
-        model_direc = '../downloaded_models/' + dataset_id
-        if not os.path.exists('../downloaded_models'):
-            os.mkdir('../downloaded_models')
-        if not os.path.exists(model_direc):
-            os.mkdir(model_direc)
+        self.weights_direc = './CoastSeg/downloaded_models/' + dataset_id
+        if not os.path.exists('./CoastSeg/downloaded_models'):
+            os.mkdir('./CoastSeg/downloaded_models')
+        if not os.path.exists(self.weights_direc):
+            os.mkdir(self.weights_direc)
         if dataset == 'RGB':
-            filename = 'rgb.zip'
-            self.weights_direc = model_direc + os.sep + 'rgb'
-        # outfile : location where  model id saved
-        outfile = model_direc + os.sep + filename
+            # filename = 'rgb.zip'
+            filename = 'rgb'
+        elif dataset=='MNDWI':
+            # filename='mndwi.zip'
+            filename='mndwi'
+        # outfile: where zip folder model is downloaded 
+        outfile = self.weights_direc + os.sep + filename
+        print(f'\n outfile: {os.path.abspath(outfile)}')
         # Download the model from Zenodo
         if not os.path.exists(outfile):
-            url = (root_url + filename)
+            zip_file=filename+'.zip'
+            zip_folder = self.weights_direc + os.sep + zip_file
+            print(f'\n zip_folder: {zip_folder}')
+            url = (root_url + zip_file)
             print('Retrieving model {} ...'.format(url))
-            self.download_url(url, outfile)
-            print('Unzipping model to {} ...'.format(model_direc))
-            with zipfile.ZipFile(outfile, 'r') as zip_ref:
-                zip_ref.extractall(model_direc)
-
+            self.download_url(url, zip_folder)
+            print('Unzipping model to {} ...'.format(self.weights_direc))
+            with zipfile.ZipFile(zip_folder, 'r') as zip_ref:
+                zip_ref.extractall(self.weights_direc)
+            print(f'Removing {zip_folder}')
+            os.remove(zip_folder)
+                
+        # if model in subfolder set self.weights_direc to valid subdirectory
+        sub_dirs=os.listdir(self.weights_direc)
+        # There should be no more than 1 sub directory
+        if len(sub_dirs)>=0:
+            for folder in sub_dirs:
+                folder_path=os.path.join(self.weights_direc,folder)
+                if os.path.isdir(folder_path) and not folder_path.endswith('.zip'):
+                    self.weights_direc=folder_path
+                    break
+                
+        # Ensure all files are unzipped
+        with os.scandir(self.weights_direc) as it:
+            for entry in it:
+                if entry.name.endswith('.zip'):
+                    with zipfile.ZipFile(entry, 'r') as zip_ref:
+                        zip_ref.extractall(self.weights_direc)
+                    os.remove(entry)
+            
+            
     def download_url(self, url: str, save_path: str, chunk_size: int = 128):
         """Downloads the model from the given url to the save_path location.
         Args:
@@ -215,7 +249,12 @@ class Zoo_Model:
             save_path (str): directory to save model
             chunk_size (int, optional):  Defaults to 128.
         """
-        r = requests.get(url, stream=True)
-        with open(save_path, 'wb') as fd:
-            for chunk in r.iter_content(chunk_size=chunk_size):
-                fd.write(chunk)
+        # make an HTTP request within a context manager
+        with requests.get(url, stream=True) as r:
+            # check header to get content length, in bytes
+            total_length = int(r.headers.get("Content-Length"))
+            with open(save_path, 'wb') as fd:
+                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc="Downloading Model",initial=0, ascii=True) as pbar:
+                        for chunk in r.iter_content(chunk_size=chunk_size):
+                            fd.write(chunk)
+                            pbar.update(len(chunk))
