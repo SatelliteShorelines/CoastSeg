@@ -2,6 +2,7 @@
 
 A mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo) models
 
+## :warning: NOT A FINISHED PRODUCT :warning:
 Please note that we're in the planning stages only - please check back later, or use our [Discussions tab](https://github.com/dbuscombe-usgs/CoastSeg/discussions) to provide feedback or offer help - thanks!
 
 ## 🌟 Highlights
