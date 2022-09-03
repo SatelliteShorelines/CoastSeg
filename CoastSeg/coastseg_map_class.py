@@ -10,6 +10,8 @@ from numpy import arange
 import json
 from glob import glob
 import geopandas as gpd
+import requests
+from tqdm.auto import tqdm
 # new imports
 from skimage.io import imread
 import numpy as np
@@ -661,13 +663,24 @@ class CoastSeg_Map:
             save_path (str): directory to save model
             chunk_size (int, optional):  Defaults to 128.
         """
-        r = get(url, stream=True)
-        if r.status_code == 404:
-            raise DownloadError(os.path.basename(save_path))
+        with requests.get(url, stream=True) as r:
+            if r.status_code == 404:
+                raise DownloadError(os.path.basename(save_path))
 
-        with open(save_path, 'wb') as fd:
-            for chunk in r.iter_content(chunk_size=chunk_size):
-                fd.write(chunk)
+            # check header to get content length, in bytes
+            total_length = int(r.headers.get("Content-Length"))
+            with open(save_path, 'wb') as fd:
+                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc="Downloading Model",initial=0, ascii=True) as pbar:
+                        for chunk in r.iter_content(chunk_size=chunk_size):
+                            fd.write(chunk)
+                            pbar.update(len(chunk))
+        # r = get(url, stream=True)
+        # if r.status_code == 404:
+        #     raise DownloadError(os.path.basename(save_path))
+
+        # with open(save_path, 'wb') as fd:
+        #     for chunk in r.iter_content(chunk_size=chunk_size):
+        #         fd.write(chunk)
 
 
     def remove_all(self):
