@@ -646,21 +646,21 @@ class CoastSeg_Map:
         if not os.path.exists('./CoastSeg/shorelines'):
             os.mkdir('./CoastSeg/shorelines')
         # outfile : location where  model id saved
-        outfile = shoreline_direc + os.sep + filename
+        outfile = os.path.abspath(shoreline_direc + os.sep + filename)
         # Download the model from Zenodo
         if not os.path.exists(outfile):
             url = (root_url + filename+"?download=1")
-            print('Retrieving {} ...'.format(url))
+            print('Retrieving: {}'.format(url))
             print("Retrieving file: {}".format(outfile))
-            self.download_url(url, outfile)
+            self.download_url(url, outfile,filename=filename)
 
                 
                 
-    def download_url(self, url: str, save_path: str, chunk_size: int = 128):
-        """Downloads the model from the given url to the save_path location.
+    def download_url(self, url: str, save_path: str, filename:str=None, chunk_size: int = 128):
+        """Downloads the data from the given url to the save_path location.
         Args:
-            url (str): url to model to download
-            save_path (str): directory to save model
+            url (str): url to data to download
+            save_path (str): directory to save data
             chunk_size (int, optional):  Defaults to 128.
         """
         with requests.get(url, stream=True) as r:
@@ -670,17 +670,10 @@ class CoastSeg_Map:
             # check header to get content length, in bytes
             total_length = int(r.headers.get("Content-Length"))
             with open(save_path, 'wb') as fd:
-                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc="Downloading Model",initial=0, ascii=True) as pbar:
+                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc=f"Downloading {filename}",initial=0, ascii=True) as pbar:
                         for chunk in r.iter_content(chunk_size=chunk_size):
                             fd.write(chunk)
                             pbar.update(len(chunk))
-        # r = get(url, stream=True)
-        # if r.status_code == 404:
-        #     raise DownloadError(os.path.basename(save_path))
-
-        # with open(save_path, 'wb') as fd:
-        #     for chunk in r.iter_content(chunk_size=chunk_size):
-        #         fd.write(chunk)
 
 
     def remove_all(self):
