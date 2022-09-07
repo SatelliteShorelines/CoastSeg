@@ -9,11 +9,20 @@ Create a new environment named `coastseg` with all the required packages by ente
 ## Install Coastseg
 
 ```
-conda create -n coastseg python=3.10
-conda activate coastseg
-conda install -c conda-forge earthengine-api  jupyter -y
-conda install -c conda-forge matplotlib=3.5.2 scikit-image=0.19.3 geopandas=0.11.1  astropy=5.1 tqdm=4.64.0 leafmap=0.10.3 pydensecrf=1.0rc3 -y
-pip install pyqt5==5.15.7 area==1.1.1 doodleverse_utils==0.0.3 tensorflow==2.9.1
+conda create -n coastseg python=3.8
+conda activate coastseg_test
+
+## coastsat dependencies
+conda install -c conda-forge earthengine-api astropy -y
+conda install gdal geopandas scikit-image notebook pyqt -y #will installing gdal cause problems???
+conda install -c conda-forge “numpy>=1.16.5, <=1.23.0" -y
+
+
+## additional coastseg dependencies
+conda install ipython cartopy  tqdm  -y    ## pip no!
+conda install -c conda-forge simplekml leafmap pydensecrf h5py -y
+pip install area doodleverse_utils tensorflow
+conda install -c conda-forge tensorflow-gpu
 ```
 
 ### Notes on `pip install tensorflow`
