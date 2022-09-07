@@ -14,20 +14,16 @@ conda activate coastseg_test
 
 ## coastsat dependencies
 conda install -c conda-forge earthengine-api astropy -y
-conda install gdal geopandas scikit-image notebook pyqt -y #will installing gdal cause problems???
+conda install gdal geopandas scikit-image notebook pyqt -y
 conda install -c conda-forge “numpy>=1.16.5, <=1.23.0" -y
 
 
 ## additional coastseg dependencies
 conda install ipython cartopy  tqdm  -y    ## pip no!
 conda install -c conda-forge simplekml leafmap pydensecrf h5py -y
-pip install area doodleverse_utils tensorflow
+pip install area doodleverse_utils
 conda install -c conda-forge tensorflow-gpu
 ```
-
-### Notes on `pip install tensorflow`
-
-Windows users must use `pip` to install `tensorflow` because the conda version of tensorflow for windows is out of date as of 8/11/2022. The windows version is stuck on v1.14 on [conda-forge](https://anaconda.org/conda-forge/tensorflow).
 
 ## Activate Coastseg Environment
 
