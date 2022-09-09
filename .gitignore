@@ -1,6 +1,5 @@
 # VScode files
 *.vscode
-classification/*
 CoastSeg/shorelines/*
 ## db: data downloaded by notebooks
 data/*

@@ -31,15 +31,11 @@ class Zoo_Model:
                 sample_filenames = sorted(glob.glob(sample_direc + os.sep + '*.png'))
         return sample_filenames
 
-    def compute_segmentation(self, sample_direc: str, model_list: list, metadatadict: dict):
-        # default to do_crf being true
-        do_crf=True
-
+    def compute_segmentation(self, sample_direc: str, model_list: list, metadatadict: dict, do_crf:bool=False):
         # look for TTA config
         if 'TESTTIMEAUG' not in locals():
             TESTTIMEAUG = False
         WRITE_MODELMETADATA = False
-
         # Read in the image filenames as either .npz,.jpg, or .png
         sample_filenames = self.get_files_for_seg(sample_direc)
         # Compute the segmentation for each of the files

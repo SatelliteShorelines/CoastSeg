@@ -10,9 +10,12 @@ from numpy import arange
 import json
 from glob import glob
 import geopandas as gpd
+import requests
+from tqdm.auto import tqdm
 # new imports
 from skimage.io import imread
 import numpy as np
+from fiona.errors import DriverError
 
 from CoastSeg import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline
 from CoastSeg.file_functions import mk_new_dir
@@ -210,9 +213,6 @@ class CoastSeg_Map:
                 csv_file='usa_shorelines_bounding_boxes.csv'
             elif location == 'world':
                 csv_file='world_shorelines_bounding_boxes.csv'
-            # @todo remove this when zenodo releases are fixed
-            elif location == 'test':
-                csv_file='shorelines_bounding_boxes.csv'
             # Create full path to csv file    
             shoreline_csv= os.path.join(bounding_box_direc,csv_file)
             # Check if it collides with US bounding box (-171.791110603, 18.91619, -66.96466, 71.3577635769)
@@ -255,26 +255,13 @@ class CoastSeg_Map:
             return intersecting_files
         elif type.lower() == 'shorelines':
             world_dataset_ID = '6917963'
-            usa_dataset_ID = '6917358'
-            # @todo remove this when zenodo releases are fixed
-            zenodo_id_mapping={
-                'E_USA_SouthCarolina_NorthCarolina_ref_shoreline.geojson':'6824465',
-                'NE_USA_Delaware_Maine_ref_shoreline.geojson':'6824429',
-                'SE_USA_Louisiana_Georgia_ref_shoreline.geojson':'6824473',
-                'S_USA_Texas_Louisiana_ref_shoreline.geojson':'6824487',
-                'W_USA_California_ref_shoreline.geojson':'6824504',
-                'W_USA_Oregon_Washington_ref_shoreline.geojson':'6824510',
-                'USA_Alaska_ref_shoreline.geojson':'6836629'
-            }
+            usa_dataset_ID = '7033367'
             # dataframe containing total bounding box for each transects or shoreline file
             usa_total_bounds_df=self.load_total_bounds_df(type,'usa')
             world_total_bounds_df=self.load_total_bounds_df(type,'world')
-            # @todo remove test_df when zenodo releases are fixed
-            test_df=self.load_total_bounds_df(type,'test')
             # filenames where transects/shoreline's bbox intersect bounding box drawn by user
             intersecting_files={}
-            # @todo remove test_df when zenodo releases are fixed
-            total_bounds=[usa_total_bounds_df,world_total_bounds_df,test_df]
+            total_bounds=[usa_total_bounds_df,world_total_bounds_df]
             # for the usa and world shorelines check for intersections
             for count,bounds_df in enumerate(total_bounds):
                 for filename in bounds_df.index:
@@ -282,14 +269,10 @@ class CoastSeg_Map:
                     intersection_df = bbox_gdf.cx[minx:maxx, miny:maxy]
                     # save filenames where gpd_bbox & bounding box for set of transects or shorelines intersect
                     if intersection_df.empty == False and count == 0:
-                        intersecting_files[filename]=usa_dataset_ID
-                        
+                        intersecting_files[filename]=usa_dataset_ID     
                     if intersection_df.empty == False and count == 1:
                         intersecting_files[filename] = world_dataset_ID 
                         
-                    # @todo remove test_df when zenodo releases are fixed
-                    if intersection_df.empty == False and count == 2:
-                         intersecting_files[filename] = zenodo_id_mapping[filename]
                         
             return intersecting_files
     
@@ -434,6 +417,7 @@ class CoastSeg_Map:
             shoreline_in_roi = gpd.clip(shorelines_gdf, rois_gdf[rois_gdf['id']==roi_id])
     #         shoreline_in_roi = shoreline_in_roi.to_crs('EPSG:4326')
             shorelines=self.make_coastsat_compatible(shoreline_in_roi)
+            print("\nshorelines: ",shorelines)
             # Make a copy of preprocess settings to modify
             tmp_setting=pre_process_settings
             s_proj=self.convert_espg(4326,tmp_setting['output_epsg'],shorelines)
@@ -491,9 +475,12 @@ class CoastSeg_Map:
             input_epsg=4326
         inProj = Proj(init='epsg:'+str(input_epsg))
         outProj = Proj(init='epsg:'+str(output_epsg))
+        print("\ninProj :",inProj)
+        print("\noutProj :",outProj)
         s_proj = []
         # Convert all the lat,ln coords to new espg (operation takes some time....)
         for coord in coastsat_array:
+            # print(f"coord[0]: {coord[0]},coord[1]: {coord[1]}")
             x2,y2 = transform(inProj,outProj,coord[0],coord[1])
             s_proj.append([x2,y2,0.])
         return np.array(s_proj)
@@ -659,30 +646,34 @@ class CoastSeg_Map:
         if not os.path.exists('./CoastSeg/shorelines'):
             os.mkdir('./CoastSeg/shorelines')
         # outfile : location where  model id saved
-        outfile = shoreline_direc + os.sep + filename
+        outfile = os.path.abspath(shoreline_direc + os.sep + filename)
         # Download the model from Zenodo
         if not os.path.exists(outfile):
             url = (root_url + filename+"?download=1")
-            print('Retrieving {} ...'.format(url))
+            print('Retrieving: {}'.format(url))
             print("Retrieving file: {}".format(outfile))
-            self.download_url(url, outfile)
+            self.download_url(url, outfile,filename=filename)
 
                 
                 
-    def download_url(self, url: str, save_path: str, chunk_size: int = 128):
-        """Downloads the model from the given url to the save_path location.
+    def download_url(self, url: str, save_path: str, filename:str=None, chunk_size: int = 128):
+        """Downloads the data from the given url to the save_path location.
         Args:
-            url (str): url to model to download
-            save_path (str): directory to save model
+            url (str): url to data to download
+            save_path (str): directory to save data
             chunk_size (int, optional):  Defaults to 128.
         """
-        r = get(url, stream=True)
-        if r.status_code == 404:
-            raise DownloadError(os.path.basename(save_path))
+        with requests.get(url, stream=True) as r:
+            if r.status_code == 404:
+                raise DownloadError(os.path.basename(save_path))
 
-        with open(save_path, 'wb') as fd:
-            for chunk in r.iter_content(chunk_size=chunk_size):
-                fd.write(chunk)
+            # check header to get content length, in bytes
+            total_length = int(r.headers.get("Content-Length"))
+            with open(save_path, 'wb') as fd:
+                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc=f"Downloading {filename}",initial=0, ascii=True) as pbar:
+                        for chunk in r.iter_content(chunk_size=chunk_size):
+                            fd.write(chunk)
+                            pbar.update(len(chunk))
 
 
     def remove_all(self):
@@ -870,7 +861,13 @@ class CoastSeg_Map:
                 # Check if the shoreline exists if it doesn't download it
                 if  os.path.exists(shoreline_path):
                     print(f"\n Loading the file {os.path.basename(shoreline_path)} now.")
-                    shoreline=bbox.read_gpd_file(shoreline_path)
+                    try:
+                        shoreline=bbox.read_gpd_file(shoreline_path)
+                    except DriverError as driver_error:
+                        print(driver_error)
+                        print(f"\n ERROR!!\n The geojson shoreline file was corrupted\n{shoreline_path}")
+                        print("Please raise an issue on GitHub with the shoreline name.\n https://github.com/dbuscombe-usgs/CoastSeg/issues \n")
+                        continue #if the geojson file cannot be read then skip this file
                 else:
                     print("\n The geojson shoreline file does not exist. Downloading it now.")
                     # Download shoreline geojson from Zenodo
