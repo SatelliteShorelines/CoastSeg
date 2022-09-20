@@ -1,6 +1,6 @@
 """"Module for downloading selected rois using Coastsat"""
 
-from CoastSeg import SDS_tools, SDS_download, SDS_preprocess
+from coastsat import SDS_tools, SDS_download, SDS_preprocess
 import json
 from tqdm import tqdm
 import ee

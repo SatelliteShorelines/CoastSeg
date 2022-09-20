@@ -17,7 +17,8 @@ from skimage.io import imread
 import numpy as np
 from fiona.errors import DriverError
 
-from CoastSeg import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline
+# Try out coastsat package
+from coastsat import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline
 from CoastSeg.file_functions import mk_new_dir
 from shapely.geometry import Polygon
 from pyproj import Proj, transform
