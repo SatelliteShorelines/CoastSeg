@@ -27,6 +27,10 @@ matplotlib.use("Qt5Agg")
 
 # Internal dependencies imports
 from .exceptions import DownloadError
+import logging
+logger = logging.getLogger(__name__)
+logger.info("I am a log from %s",__name__)
+
 
 class CoastSeg_Map:
 
