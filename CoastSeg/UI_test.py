@@ -267,7 +267,7 @@ class UI:
                 print(exception2)
         else:
             UI.debug_view.append_stdout("No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
-        self.download_button_clicked.disabled=False
+        self.download_button.disabled=False
         self.coastseg_map.m.default_style = {'cursor': 'default'}
 
     @debug_view.capture(clear_output=True)
