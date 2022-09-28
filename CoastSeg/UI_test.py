@@ -76,7 +76,9 @@ class UI:
         self.remove_coastline_button.on_click(self.remove_coastline_from_map)
         self.remove_rois_button = Button(description="Remove ROIs",style=self.remove_style)
         self.remove_rois_button.on_click(self.remove_all_rois_from_map)
-
+        # create the HTML widgets containing the instructions
+        self._create_HTML_widgets()
+        # define slider widgets that control ROI size
         slider_style = {'description_width': 'initial'}
         self.small_fishnet_slider=ipywidgets.IntSlider(
             value=small_roi_size,
@@ -110,6 +112,35 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change,'value')
         self.large_fishnet_slider.observe(self.handle_large_slider_change,'value')
 
+    def _create_HTML_widgets(self):
+        """ create HTML widgets that display the instructions.
+        widgets created: instr_create_ro, instr_save_roi, instr_download_roi
+        """
+        self.instr_create_roi=HTML(
+            value="<h2><b>Generate ROIs</b></h2> \
+                Use the two sliders to control the size of the ROIs generated.<br>\
+                    <li> No Overlap: Set small slider to 0 and large slider to desired ROI size.</li>\
+                    <li>Overlap: Set small slider to a value and large slider to desired ROI size.</li>\
+                    <b>How it Works</b><br> \
+                    Two fishnets (grids) are created out of ROIs (squares) and placed <br> \
+                    within the bounding box.You control the size of the individual ROIs <br> \
+                    that compose the small and large fishnets.<br>\
+                    The ROIs are measured in meters squared.",layout=Layout(margin='0px 5px 0px 0px'))
+
+        self.instr_save_roi=HTML(
+            value="<h2><b>Save ROIs</b></h2> \
+                You must click save ROI before you can download ROIs\
+                <br> Use the save buttons to save the ROIs you selected <br>\
+                <li> Save BBox: Save the bounding box to a geojson file called 'bbox.geojson'</li>\
+                    <li> Save ROIs: Save the selected ROI to a geojson file called 'rois.geojson'</li>\
+                    ",layout=Layout(margin='0px 5px 0px 5px')) #top right bottom left
+
+        self.instr_download_roi=HTML(
+            value="<h2><b>Download ROIs</b></h2> \
+                <b> You must click 'Save ROI' before you can download ROIs</b> \
+                </br> Scroll past the map to see the download progress \
+                    <li> The data you downloaded will be in the 'data' folder</li> \
+                    ",layout=Layout(margin='0px 0px 0px 5px'))
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes['small']=change['new']
