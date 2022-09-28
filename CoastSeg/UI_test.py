@@ -7,6 +7,7 @@ from CoastSeg import download_roi
 import ipywidgets
 import geopandas as gpd
 from ipyleaflet import GeoJSON
+from IPython.display import display, clear_output
 from google.auth import exceptions as google_auth_exceptions
 from tkinter import Tk,filedialog
 from ipywidgets import Button
@@ -28,7 +29,7 @@ class UI:
     # Output wdiget used to print messages and exceptions created by CoastSeg_Map
     debug_view = Output(layout={'border': '1px solid black'})
     # Output wdiget used to print messages and exceptions created by download progress
-    download_view = Output(layout={'border': '1px solid black'})
+    download_view = Output(layout={'border': '4px solid black'})
 
     def __init__(self, coastseg_map):
          # save an instance of coastseg_map
@@ -114,7 +115,8 @@ class UI:
 
     def _create_HTML_widgets(self):
         """ create HTML widgets that display the instructions.
-        widgets created: instr_create_ro, instr_save_roi, instr_download_roi
+        widgets created: instr_create_ro, instr_save_roi, instr_load_btns
+         instr_download_roi
         """
         self.instr_create_roi=HTML(
             value="<h2><b>Generate ROIs</b></h2> \
@@ -141,6 +143,37 @@ class UI:
                 </br> Scroll past the map to see the download progress \
                     <li> The data you downloaded will be in the 'data' folder</li> \
                     ",layout=Layout(margin='0px 0px 0px 5px'))
+
+        self.instr_load_btns=HTML(
+            value="<h2><b>Load ROIs/BBox</b></h2>\
+                You can upload ROIs or Bbox geojson file.\
+                    <li> Load BBox: Load bounding box from geojson file (ex. 'bbox.geojson')</li>\
+                <li> Load ROIs: Load ROIs from geojson file (ex. 'rois.geojson')</li>\
+                    ",layout=Layout(margin='0px 5px 0px 5px')) #top right bottom left
+
+    def create_dashboard(self):
+        """creates a dashboard containing all the buttons, instructions and widgets organized together.
+        """
+        save_vbox = VBox([self.instr_save_roi,self.save_button,self.save_bbox_button, self.instr_load_btns, self.load_rois_button, self.load_bbox_button])
+        download_vbox = VBox([self.instr_download_roi,self.download_button])
+
+        slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
+        slider_btn_box = HBox([slider_v_box, self.gen_button])
+        roi_controls_box = VBox([self.instr_create_roi, slider_btn_box],layout=Layout(margin='0px 5px 5px 0px'))
+
+        action_buttons =  HBox([self.clear_debug_button])
+        load_buttons = HBox([self.transects_button, self.shoreline_button])
+        erase_buttons = HBox([self.remove_all_button, self.remove_transects_button, self.remove_bbox_button, self.remove_coastline_button, self.remove_rois_button])
+
+
+        row_1 = HBox([roi_controls_box,save_vbox,download_vbox])
+        row_2 = HBox([load_buttons])
+        row_3 = HBox([erase_buttons])
+        row_4 = HBox([self.clear_debug_button, UI.debug_view])
+        row_5 = HBox([self.coastseg_map.m])
+        row_6 = HBox([UI.download_view])
+
+        return display(row_1,row_2, row_3, row_4,row_6, row_5)
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes['small']=change['new']
@@ -222,10 +255,16 @@ class UI:
             UI.debug_view.append_stdout("Scroll down past map to see download progress.")
             try:
                 self.download_button_clicked.disabled=True
-                # download_roi.download_imagery(self.coastseg_map.selected_ROI,pre_process_settings,dates,sat_list,collection)
+                download_roi.download_imagery(self.coastseg_map.selected_ROI,
+                                                self.coastseg_map.pre_process_settings,
+                                                self.coastseg_map.dates,
+                                                self.coastseg_map.sat_list,
+                                                self.coastseg_map.collection)
             except google_auth_exceptions.RefreshError as exception:
                 print(exception)
                 print("Please authenticate with Google using the cell above: \n  'Authenticate and Initialize with Google Earth Engine (GEE)'")
+            except Exception as exception2:
+                print(exception2)
         else:
             UI.debug_view.append_stdout("No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
         self.download_button_clicked.disabled=False
@@ -304,7 +343,6 @@ class UI:
         else:
             print("Draw a bounding box on the coast first")
 
-
     @debug_view.capture(clear_output=True)
     def on_save_button_clicked(self, btn):
         if self.coastseg_map.selected_set:
@@ -318,7 +356,6 @@ class UI:
                 print("ROIs have been saved. Now click Download ROI to download the ROIs using CoastSat")
         else:
             print("No ROIs were selected.")
-
 
     def remove_all_from_map(self, btn):
         self.coastseg_map.remove_all()
