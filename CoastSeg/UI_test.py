@@ -254,7 +254,7 @@ class UI:
             self.coastseg_map.m.default_style = {'cursor': 'wait'}
             UI.debug_view.append_stdout("Scroll down past map to see download progress.")
             try:
-                self.download_button_clicked.disabled=True
+                self.download_button.disabled=True
                 download_roi.download_imagery(self.coastseg_map.selected_ROI,
                                                 self.coastseg_map.pre_process_settings,
                                                 self.coastseg_map.dates,
