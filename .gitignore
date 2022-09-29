@@ -1,6 +1,11 @@
+# coastseg files
+bbox.geojson
+fishnet_rois.geojson
+rois.geojson
+src/coastseg/shorelines/*
+CoastSeg/shorelines/*
 # VScode files
 *.vscode
-CoastSeg/shorelines/*
 ## db: data downloaded by notebooks
 data/*
 segmentation_data*/*
