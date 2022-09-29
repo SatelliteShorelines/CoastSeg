@@ -3,6 +3,7 @@ import os
 import json
 #internal python imports
 from CoastSeg import download_roi
+from CoastSeg.tkinter_window_creator import Tkinter_Window_Creator
 # external python imports
 import ipywidgets
 import geopandas as gpd
@@ -21,20 +22,6 @@ from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Checkbox
 from tkinter import messagebox
-
-class Tkinter_Window_Creator:
-    """A context manager that creates a root window for tkinter and destroys it when exited.
-    The window created is withdrawn so the user does not see it and placed above all other windows."""
-    def __init__(self):
-        self.root = Tk()
-        self.root.withdraw()                                        # Hide the main window.
-        self.root.call('wm', 'attributes', '.', '-topmost', True)   # Raise the self.root to the top of all windows.
-   
-    def __enter__(self):
-        return self.root
-  
-    def __exit__(self, type, value, traceback):
-        self.root.destroy()
 
 class UI:
     # all instances of UI will share the same debug_view
@@ -190,7 +177,7 @@ class UI:
         row_5 = HBox([self.coastseg_map.m])
         row_6 = HBox([UI.download_view])
 
-        return display(row_1,row_2, row_3, row_4,row_6, row_5)
+        return display(row_1,row_2, row_3, row_4, row_5, row_6)
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes['small']=change['new']
