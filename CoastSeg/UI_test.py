@@ -29,7 +29,7 @@ class UI:
     # Output wdiget used to print messages and exceptions created by CoastSeg_Map
     debug_view = Output(layout={'border': '1px solid black'})
     # Output wdiget used to print messages and exceptions created by download progress
-    download_view = Output(layout={'border': '4px solid black'})
+    download_view = Output(layout={'border': '1px solid black'})
 
     def __init__(self, coastseg_map):
          # save an instance of coastseg_map
@@ -112,11 +112,6 @@ class UI:
         # widget handlers
         self.small_fishnet_slider.observe(self.handle_small_slider_change,'value')
         self.large_fishnet_slider.observe(self.handle_large_slider_change,'value')
-
-    def _create_tk_root(self):
-        self.root = Tk()
-        self.root.withdraw()                                        # Hide the main window.
-        self.root.call('wm', 'attributes', '.', '-topmost', True)   # Raise the self.root to the top of all windows.
 
     def _create_HTML_widgets(self):
         """ create HTML widgets that display the instructions.
