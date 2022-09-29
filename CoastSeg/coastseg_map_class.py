@@ -867,7 +867,8 @@ class CoastSeg_Map:
         
         # create geodataframe to hold all the (rois)squares
         fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs(input_espg)
-        print(f"\n ROIs area before conversion to {output_espg}:\n {fishnet.area}")
+        # @ todo log this
+        # print(f"\n ROIs area before conversion to {output_espg}:\n {fishnet.area}")
         fishnet = fishnet.to_crs(output_espg)
         return fishnet
 
