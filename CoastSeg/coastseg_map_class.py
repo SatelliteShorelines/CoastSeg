@@ -261,7 +261,7 @@ class CoastSeg_Map:
     
     
     def get_intersecting_files(self, bbox_gdf : gpd.geodataframe, type : str)-> list:
-        """Returns a list of filesnames that intersect with bbox_gdf
+        """Returns a list of filenames that intersect with bbox_gdf
 
         Args:
             gpd_bbox (geopandas.geodataframe.GeoDataFrame): bbox containing ROIs
