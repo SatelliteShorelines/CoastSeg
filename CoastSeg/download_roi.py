@@ -102,6 +102,7 @@ def download_imagery(
     """
 #     1. Check imagery available and check for ee credentials
     inputs_list=get_inputs_list(selected_roi_geojson,dates,sat_list, collection)
+    print("Download in process")
     for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
         metadata = SDS_download.retrieve_images(inputs)
         # Add the inputs to the pre_process_settings

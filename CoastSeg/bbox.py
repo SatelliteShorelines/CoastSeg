@@ -1,9 +1,16 @@
 # Standard library imports
 import os
+from datetime import datetime
+import logging
 # External dependencies imports
 from area import area
 import geopandas as gpd
 from shapely.geometry import shape
+# from CoastSeg.coastseg_logs import log_file
+
+
+logger = logging.getLogger(__name__)
+logger.info("I am a log from %s",__name__)
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
@@ -19,6 +26,7 @@ def read_gpd_file(filename: str) -> "geopandas.geodataframe.GeoDataFrame":
     """
     Returns geodataframe from geopandas geodataframe file
     """
+    logger.info("read_gpd_file")
     if os.path.exists(filename):
         with open(filename, 'r') as f:
             gpd_data = gpd.read_file(f)

@@ -30,6 +30,10 @@ matplotlib.use("Qt5Agg")
 
 # Internal dependencies imports
 from .exceptions import DownloadError
+import logging
+logger = logging.getLogger(__name__)
+logger.info("I am a log from %s",__name__)
+
 
 class CoastSeg_Map:
 
@@ -56,7 +60,14 @@ class CoastSeg_Map:
         self.transects_in_bbox_list=[]
         # Bbox saved by the user
         self.bbox = None
-        
+        # dates: range of dates from start - finish to download satellite data from ex: ['2018-12-01', '2019-03-01']
+        self.dates = []
+        # collection : GEE collection 'C01' or 'C02'
+        self.collection = None
+        # sat_list : list of satellites to download data from ex: ['L8']
+        self.sat_list = []
+        # preprocess_settings : dictionary of settings used by coastsat to download imagery
+        self.preprocess_settings = {}
         # If map_settings is not provided use default settings
         if not map_settings:
             map_settings = {
@@ -92,6 +103,22 @@ class CoastSeg_Map:
         
         hover_shoreline_control = WidgetControl(widget=self.main_accordion, position="topright")
         self.m.add_control(hover_shoreline_control)
+
+    def set_dates(self, dates):
+        self.dates = dates
+    
+    def set_collection(self, collection):
+        self.collection = collection
+
+    def set_sat_list(self, sat_list):
+        self.sat_list = sat_list
+
+    def set_collection(self, collection):
+        self.collection = collection
+
+    def set_preprocess_settings(self, preprocess_settings):
+        self.preprocess_settings = preprocess_settings
+
 
     def update_shoreline_html(self, feature, **kwargs):
         # Modifies main html body of Shoreline Data Accordion
