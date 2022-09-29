@@ -256,7 +256,7 @@ class UI:
             try:
                 self.download_button.disabled=True
                 download_roi.download_imagery(self.coastseg_map.selected_ROI,
-                                                self.coastseg_map.pre_process_settings,
+                                                self.coastseg_map.preprocess_settings,
                                                 self.coastseg_map.dates,
                                                 self.coastseg_map.sat_list,
                                                 self.coastseg_map.collection)
