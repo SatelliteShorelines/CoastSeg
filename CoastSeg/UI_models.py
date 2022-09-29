@@ -28,7 +28,7 @@ class UI_Models:
     run_model_view = Output(layout={'border': '1px solid black'})
     GPU_view = Output()
 
-    def __init__(self, ):
+    def __init__(self):
         # Controls size of ROIs generated on map
         self.model_dict={'sample_direc':None,'use_GPU':False,'use_CRF':False, 'implementation':'ENSEMBLE','model_type':'landsat_6229071'}
         # list of RGB and MNDWI models available
