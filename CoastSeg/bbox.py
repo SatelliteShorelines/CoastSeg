@@ -6,7 +6,6 @@ import logging
 from area import area
 import geopandas as gpd
 from shapely.geometry import shape
-# from CoastSeg.coastseg_logs import log_file
 
 
 logger = logging.getLogger(__name__)
@@ -26,11 +25,12 @@ def read_gpd_file(filename: str) -> "geopandas.geodataframe.GeoDataFrame":
     """
     Returns geodataframe from geopandas geodataframe file
     """
-    logger.info("read_gpd_file")
     if os.path.exists(filename):
+        logger.info(f"Opening \n {filename}")
         with open(filename, 'r') as f:
             gpd_data = gpd.read_file(f)
     else:
+        logger.error(f"Geodataframe file does not exist \n {filename}")
         print('File does not exist. Please download the coastline_vector necessary here: https://geodata.lib.berkeley.edu/catalog/stanford-xv279yj9196 ')
         raise FileNotFoundError
     return gpd_data
