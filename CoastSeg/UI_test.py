@@ -22,6 +22,19 @@ from ipywidgets import Output
 from ipywidgets import Checkbox
 from tkinter import messagebox
 
+class Tkinter_Window_Creator:
+    """A context manager that creates a root window for tkinter and destroys it when exited.
+    The window created is withdrawn so the user does not see it and placed above all other windows."""
+    def __init__(self):
+        self.root = Tk()
+        self.root.withdraw()                                        # Hide the main window.
+        self.root.call('wm', 'attributes', '.', '-topmost', True)   # Raise the self.root to the top of all windows.
+   
+    def __enter__(self):
+        return self.root
+  
+    def __exit__(self, type, value, traceback):
+        self.root.destroy()
 
 class UI:
     # all instances of UI will share the same debug_view
@@ -113,6 +126,11 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change,'value')
         self.large_fishnet_slider.observe(self.handle_large_slider_change,'value')
 
+    def _create_tk_root(self):
+        self.root = Tk()
+        self.root.withdraw()                                        # Hide the main window.
+        self.root.call('wm', 'attributes', '.', '-topmost', True)   # Raise the self.root to the top of all windows.
+
     def _create_HTML_widgets(self):
         """ create HTML widgets that display the instructions.
         widgets created: instr_create_ro, instr_save_roi, instr_load_btns
@@ -161,7 +179,6 @@ class UI:
         slider_btn_box = HBox([slider_v_box, self.gen_button])
         roi_controls_box = VBox([self.instr_create_roi, slider_btn_box],layout=Layout(margin='0px 5px 5px 0px'))
 
-        action_buttons =  HBox([self.clear_debug_button])
         load_buttons = HBox([self.transects_button, self.shoreline_button])
         erase_buttons = HBox([self.remove_all_button, self.remove_transects_button, self.remove_bbox_button, self.remove_coastline_button, self.remove_rois_button])
 
@@ -184,7 +201,8 @@ class UI:
     @debug_view.capture(clear_output=True)
     def on_gen_button_clicked(self, btn):
         if self.coastseg_map.shapes_list == [] :
-            print("Draw a bounding box on the coast first, then click Generate ROI.")
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Bounding Box Error", "Draw a bounding box on the coast first, then click Generate ROI.")
         else:
             UI.debug_view.clear_output(wait=True)
             self.coastseg_map.m.default_style = {'cursor': 'wait'}
@@ -199,7 +217,8 @@ class UI:
     @debug_view.capture(clear_output=True)
     def on_transects_button_clicked(self,btn):
         if self.coastseg_map.shapes_list == [] :
-            print("Draw a bounding box on the coast first, then click Load Transects.")
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Bounding Box Error","Draw a bounding box on the coast first, then click Load Transects.")
         else:
             UI.debug_view.clear_output(wait=True)
             self.coastseg_map.m.default_style = {'cursor': 'wait'}
@@ -209,34 +228,34 @@ class UI:
             print("Transects Loaded.")
             self.coastseg_map.m.default_style = {'cursor': 'default'}
 
+
     @debug_view.capture(clear_output=True)
     def on_load_rois_clicked(self, button):
         # Prompt the user to select a directory of images
-        self.root = Tk()
-        self.root.withdraw()                                        # Hide the main window.
-        self.root.call('wm', 'attributes', '.', '-topmost', True)   # Raise the self.root to the top of all windows.
-        self.root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
-                                                    filetypes=[('geojson','*.geojson')],
-                                                    title = "Select a geojson file containing rois")
-        # Save the filename as an attribute of the button
-        if self.root.filename:
-            roi_file= self.root.filename
-            rois = gpd.read_file(roi_file)
-            # style fishnet and convert to dictionary to be added to map
-            rois_dict = self.coastseg_map.style_rois(rois)
-            # Save the styled fishnet to data for interactivity to be added later
-            self.coastseg_map.data = rois_dict
-            # Add the Clickable ROIs to the map
-            self.coastseg_map.add_geojson_layer_to_map()
-            print(f"Loaded the rois from the file :\n{roi_file} ")
-        else:
-            messagebox.showerror("ROI Selection Error", "You must select a valid geojson file first!")
-        self.root.destroy()
+        with Tkinter_Window_Creator() as tk_root:
+            tk_root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
+                filetypes=[('geojson','*.geojson')],
+                title = "Select a geojson file containing rois")
+            # Save the filename as an attribute of the button
+            if tk_root.filename:
+                roi_file= tk_root.filename
+                rois = gpd.read_file(roi_file)
+                # style fishnet and convert to dictionary to be added to map
+                rois_dict = self.coastseg_map.style_rois(rois)
+                # Save the styled fishnet to data for interactivity to be added later
+                self.coastseg_map.data = rois_dict
+                # Add the Clickable ROIs to the map
+                self.coastseg_map.add_geojson_layer_to_map()
+                print(f"Loaded the rois from the file :\n{roi_file} ")
+            else:
+                messagebox.showerror("ROI Selection Error", "You must select a valid geojson file first!")
+
 
     @debug_view.capture(clear_output=True)
     def on_shoreline_button_clicked(self,btn):
         if self.coastseg_map.shapes_list == [] :
-            print("Draw a bounding box on the coast first, then click Load Transects.")
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Bounding Box Error", "Draw a bounding box on the coast first, then click Load Transects.")
         else:
             self.coastseg_map.m.default_style = {'cursor': 'wait'}
             UI.debug_view.clear_output(wait=True)
@@ -262,11 +281,14 @@ class UI:
                                                 self.coastseg_map.collection)
             except google_auth_exceptions.RefreshError as exception:
                 print(exception)
-                print("Please authenticate with Google using the cell above: \n  'Authenticate and Initialize with Google Earth Engine (GEE)'")
+                with Tkinter_Window_Creator():
+                    messagebox.showerror("Authentication Error", "Please authenticate with Google using the cell above: \n  'Authenticate and Initialize with Google Earth Engine (GEE)'")
             except Exception as exception2:
                 print(exception2)
         else:
             UI.debug_view.append_stdout("No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
+            with Tkinter_Window_Creator():
+                messagebox.showerror("ROI Selection Error", "No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
         self.download_button.disabled=False
         self.coastseg_map.m.default_style = {'cursor': 'default'}
 
@@ -279,13 +301,15 @@ class UI:
             UI.debug_view.clear_output(wait=True)
             print("BBox have been saved. Saved to bbox.geojson")
         else:
-            print("Draw a bounding box on the coast first")
+            with Tkinter_Window_Creator():
+                messagebox.showerror("Bounding Box Error", "No bounding box found.\nDraw a bounding box on the coast first")
 
     @debug_view.capture(clear_output=True)
     def on_save_button_clicked(self,btn):
         if self.coastseg_map.selected_set:
             if len(self.coastseg_map.selected_set) == 0:
-                print("Must select at least 1 ROI first before you can save ROIs.")
+                with Tkinter_Window_Creator():
+                    messagebox.showerror("ROI Selection Error", "Must select at least 1 ROI first before you can save ROIs.")
             else:
                 UI.debug_view.clear_output(wait=True)
                 self.coastseg_map.save_roi_fishnet("fishnet_rois.geojson")
@@ -293,61 +317,44 @@ class UI:
                 UI.debug_view.clear_output(wait=True)
                 print("ROIs have been saved. Now click Download ROI to download the ROIs using CoastSat")
         else:
-            self.root = Tk()
-            self.root.withdraw()                                        # Hide the main window.
-            self.root.call('wm', 'attributes', '.', '-topmost', True)   # Raise the self.root to the top of all windows.
-            messagebox.showerror("ROI Selection Error", "No ROIs were selected.")
-            # print("No ROIs were selected.")
-            self.root.destroy()
-
+            with Tkinter_Window_Creator():
+                messagebox.showerror("ROI Selection Error", "No ROIs were selected.")
+            
     @debug_view.capture(clear_output=True)
     def on_load_bbox_clicked(self, button):
         # Prompt the user to select a directory of images
-        self.root = Tk()
-        self.root.withdraw()                                        # Hide the main window.
-        self.root.call('wm', 'attributes', '.', '-topmost', True)   # Raise the self.root to the top of all windows.
-        self.root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
+        with Tkinter_Window_Creator() as tk_root:
+            tk_root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
                                                     filetypes=[('geojson','*.geojson')],
                                                     title = "Select a geojson file containing bbox")
-        # Save the filename as an attribute of the button
-        if self.root.filename:
-            bbox_file= self.root.filename
-            bbox_geodf = gpd.read_file(bbox_file)
-            bbox_geojson = bbox_geodf.to_json()
-            bbox_dict = json.loads(bbox_geojson)
-            self.coastseg_map.shapes_list.append(bbox_dict['features'][0]['geometry'])
-            bbox_layer = GeoJSON(
-                data=bbox_dict,
-                name="Bbox",
-                style={
-                    'color': '#75b671',
-                    'fill_color': '#75b671',
-                    'opacity': 1,
-                    'fillOpacity': 0.2,
-                    'weight': 4},
-            )
-            self.coastseg_map.m.add_layer(bbox_layer)
-            print(f"Loaded the rois from the file :\n{bbox_file} ")
-        else:
-            messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
-        self.root.destroy()
-
-    @debug_view.capture(clear_output=True)
-    def on_save_bbox_button_clicked(self, btn):
-        if self.coastseg_map.shapes_list != [] :
-            UI.debug_view.clear_output(wait=True)
-            # Save selected bbox to a geojson file
-            self.coastseg_map.save_bbox_to_file()
-            UI.debug_view.clear_output(wait=True)
-            print("BBox have been saved. Saved to bbox.geojson")
-        else:
-            print("Draw a bounding box on the coast first")
+            # Save the filename as an attribute of the button
+            if tk_root.filename:
+                bbox_file= tk_root.filename
+                bbox_geodf = gpd.read_file(bbox_file)
+                bbox_geojson = bbox_geodf.to_json()
+                bbox_dict = json.loads(bbox_geojson)
+                self.coastseg_map.shapes_list.append(bbox_dict['features'][0]['geometry'])
+                bbox_layer = GeoJSON(
+                    data=bbox_dict,
+                    name="Bbox",
+                    style={
+                        'color': '#75b671',
+                        'fill_color': '#75b671',
+                        'opacity': 1,
+                        'fillOpacity': 0.2,
+                        'weight': 4},
+                )
+                self.coastseg_map.m.add_layer(bbox_layer)
+                print(f"Loaded the rois from the file :\n{bbox_file} ")
+            else:
+                messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
 
     @debug_view.capture(clear_output=True)
     def on_save_button_clicked(self, btn):
         if self.coastseg_map.selected_set:
             if len(self.coastseg_map.selected_set) == 0:
-                print("Must select at least 1 ROI first before you can save ROIs.")
+                with Tkinter_Window_Creator():
+                    messagebox.showinfo("ROI Selection Error", "Must select at least 1 ROI first before you can save ROIs.")
             else:
                 UI.debug_view.clear_output(wait=True)
                 self.coastseg_map.save_roi_fishnet("fishnet_rois.geojson")
@@ -355,7 +362,8 @@ class UI:
                 UI.debug_view.clear_output(wait=True)
                 print("ROIs have been saved. Now click Download ROI to download the ROIs using CoastSat")
         else:
-            print("No ROIs were selected.")
+            with Tkinter_Window_Creator():
+                messagebox.showerror("ROI Selection Error", "No ROIs were selected.")
 
     def remove_all_from_map(self, btn):
         self.coastseg_map.remove_all()
