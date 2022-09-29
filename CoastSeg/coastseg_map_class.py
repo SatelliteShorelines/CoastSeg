@@ -1,4 +1,5 @@
 import os
+import math
 from ipyleaflet import DrawControl, LayersControl,  WidgetControl, GeoJSON
 from shapely import geometry
 from leafmap import Map, check_file_path
@@ -16,6 +17,8 @@ from tqdm.auto import tqdm
 from skimage.io import imread
 import numpy as np
 from fiona.errors import DriverError
+import pyproj
+import utm
 
 # Try out coastsat package
 from coastsat import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline
@@ -476,12 +479,9 @@ class CoastSeg_Map:
             input_epsg=4326
         inProj = Proj(init='epsg:'+str(input_epsg))
         outProj = Proj(init='epsg:'+str(output_epsg))
-        print("\ninProj :",inProj)
-        print("\noutProj :",outProj)
         s_proj = []
         # Convert all the lat,ln coords to new espg (operation takes some time....)
         for coord in coastsat_array:
-            # print(f"coord[0]: {coord[0]},coord[1]: {coord[1]}")
             x2,y2 = transform(inProj,outProj,coord[0],coord[1])
             s_proj.append([x2,y2,0.])
         return np.array(s_proj)
@@ -536,7 +536,6 @@ class CoastSeg_Map:
         poly_roi=self.convert_roi_to_polygon(rois_gdf,id)
         transect_mask=transect_data.intersects(poly_roi,align=False)
         return transect_data[transect_mask]
-
 
     def compute_transects(self,selected_rois:dict,extracted_shorelines:dict,settings:dict) -> dict:
         """Returns a dict of cross distances for each roi's transects 
@@ -605,7 +604,6 @@ class CoastSeg_Map:
                 
             return cross_distances_rois
 
-
     def load_transects_on_map(self) -> None:
         """Adds transects within the drawn bbox onto the map"""        
         # ensure drawn bbox(bounding box) within allowed size
@@ -639,7 +637,6 @@ class CoastSeg_Map:
         if self.transect_names == []:
             print("No transects were found in this region. Draw a new bounding box.")
 
-
     def download_shoreline(self, filename : str ,dataset_id : str = '6917358'):
         root_url = 'https://zenodo.org/record/' + dataset_id + '/files/'
         # Create the directory to hold the downloaded shorelines from Zenodo
@@ -654,9 +651,7 @@ class CoastSeg_Map:
             print('Retrieving: {}'.format(url))
             print("Retrieving file: {}".format(outfile))
             self.download_url(url, outfile,filename=filename)
-
-                
-                
+              
     def download_url(self, url: str, save_path: str, filename:str=None, chunk_size: int = 128):
         """Downloads the data from the given url to the save_path location.
         Args:
@@ -703,7 +698,6 @@ class CoastSeg_Map:
                 self.m.remove_layer(existing_layer)
         self.shapes_list = []
 
-
     def remove_shoreline(self):
         """Removes the shoreline from the map"""
         for shoreline_name in self.shoreline_names:
@@ -716,7 +710,6 @@ class CoastSeg_Map:
     def remove_shoreline_html(self):
         """Clear the shoreline html accoridon """
         self.main_accordion.children[0].value ="Hover over the shoreline."
-
 
     def remove_all_rois(self):
         """Removes all the unselected rois from the map """
@@ -763,7 +756,6 @@ class CoastSeg_Map:
         }
         return draw_control
     
-
     def handle_draw(self, target: 'ipyleaflet.leaflet.DrawControl', action: str, geo_json: dict):
         """Adds or removes the bounding box from shapes_list when drawn/deleted from map
         Args:
@@ -793,34 +785,63 @@ class CoastSeg_Map:
         # intersection_gpd.drop(columns=['index_right', 'soc', 'exs', 'f_code', 'id', 'acc'], inplace=True)
         return intersection_gpd
 
-    def fishnet(self, data: "geopandas.geodataframe.GeoDataFrame",
-                square_size: int = 1000) -> "geopandas.geodataframe.GeoDataFrame":
-        """Returns a fishnet that intersects data where each square is square_size
+    def create_rois(self, bbox:"geopandas.geodataframe.GeoDataFrame", square_size:float, input_espg="epsg:4326",output_espg="epsg:4326")->gpd.geodataframe:
+        """Creates a fishnet of square shaped ROIs with side lenth= square_size
+
+
         Args:
-            data (geopandas.geodataframe.GeoDataFrame): Bounding box that fishnet intersects.
-            square_size (int, optional): _description_. Size of each square in fishnet. Defaults to 1000.
+            bbox (geopandas.geodataframe.GeoDataFrame): bounding box(bbox) where the ROIs will be generated
+            square_size (float): side length of square ROI in meters
+            input_espg (str, optional): espg code bbox is currently in. Defaults to "epsg:4326".
+            output_espg (str, optional): espg code the ROIs will output to. Defaults to "epsg:4326".
 
         Returns:
-            geopandas.geodataframe.GeoDataFrame: Fishnet that intersects data
+            gpd.geodataframe: geodataframe containing all the ROIs
+        """        
+        # coords : list[tuple] first & last tuple are equal
+        bbox_coords = list(bbox.iloc[0]['geometry'].exterior.coords)
+        # get the utm_code for center of bbox
+        center_x,center_y = self.get_center_rectangle(bbox_coords)
+        utm_code = self.convert_wgs_to_utm(center_x,center_y)
+        projected_espg=f'epsg:{utm_code}'
+        print(f"utm_code: {utm_code}")
+        print(f"projected_espg_code: {projected_espg}")
+        # project geodataframe to new CRS specifed by utm_code
+        projected_bbox_gdf = bbox.to_crs(projected_espg)
+        # create fishnet of rois
+        fishnet = self.fishnet_create(projected_bbox_gdf,projected_espg, output_espg,square_size)
+        return fishnet
+
+    def fishnet_create(self, bbox_gdf:gpd.geodataframe, input_espg:str, output_espg:str,square_size:float = 1000)->gpd.geodataframe:
+        """Returns a fishnet of ROIs that intersects the bouding box specified by bbox_gdf where each ROI(square) has a side length = square size(meters)
+        
+        Args:
+            bbox_gdf (gpd.geodataframe): Bounding box that fishnet intersects.
+            input_espg (str): espg string that bbox_gdf is projected in
+            output_espg (str): espg to convert the fishnet of ROIs to.
+            square_size (int, optional): Size of each square in fishnet(meters). Defaults to 1000.
+
+        Returns:
+            gpd.geodataframe: fishnet of ROIs that intersects bbox_gdf. Each ROI has a side lenth = sqaure_size
         """
-        # Reproject to projected coordinate system so that map is in meters
-        data = data.to_crs('EPSG:3857')
-        # Get minX, minY, maxX, maxY from the extent of the geodataframe
-        minX, minY, maxX, maxY = data.total_bounds
-        # Create a fishnet
+        minX, minY, maxX, maxY = bbox_gdf.total_bounds
+        # Create a fishnet where each square has side length = square size
         x, y = (minX, minY)
         geom_array = []
         while y <= maxY:
             while x <= maxX:
                 geom = geometry.Polygon([(x, y), (x, y + square_size), (x + square_size,
                                         y + square_size), (x + square_size, y), (x, y)])
+                # add each square to geom_array
                 geom_array.append(geom)
                 x += square_size
             x = minX
             y += square_size
-
-        fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs('EPSG:3857')
-        fishnet = fishnet.to_crs('EPSG:4326')
+        
+        # create geodataframe to hold all the (rois)squares
+        fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs(input_espg)
+        print(f"\n ROIs area before conversion to {output_espg}:\n {fishnet.area}")
+        fishnet = fishnet.to_crs(output_espg)
         return fishnet
 
     def fishnet_gpd(
@@ -840,10 +861,48 @@ class CoastSeg_Map:
             GeoDataFrame: intersection of shoreline_gdf and fishnet. Only squares that intersect shoreline are kept
         """
         # Get the geodataframe for the fishnet within the bbox
-        fishnet_gpd = self.fishnet(gpd_bbox, square_size)
+        fishnet_gpd = self.create_rois(gpd_bbox, square_size)
         # Get the geodataframe for the fishnet intersecting the shoreline
         fishnet_intersect_gpd = self.fishnet_intersection(fishnet_gpd, shoreline_gdf)
         return fishnet_intersect_gpd
+
+    def convert_wgs_to_utm(self, lon: float,lat: float)->str:
+        """return most accurate utm epsg-code based on lat and lng
+
+        convert_wgs_to_utm function, see https://stackoverflow.com/a/40140326/4556479
+
+        Args:
+            lon (float): longtitde
+            lat (float): latitude
+
+        Returns:
+            str: new espg code
+        """        
+        # """Based on lat and lng, return best utm epsg-code"""
+        utm_band = str((math.floor((lon + 180) / 6 ) % 60) + 1)
+        if len(utm_band) == 1:
+            utm_band = '0'+utm_band
+        if lat >= 0:
+            epsg_code = '326' + utm_band # North
+            return epsg_code
+        epsg_code = '327' + utm_band #South
+        return epsg_code
+
+    def get_center_rectangle(self, coords:list[float])->tuple[float]:
+        """get_center_rectangle returns the center points of rectangle specified by points coords
+
+        _extended_summary_
+
+        Args:
+            coords (list[float]): 
+
+        Returns:
+            tuple[float]: (center x coordinate, center y coordinate)
+        """        
+        x1,y1 = coords[0][0],coords[0][1]
+        x2,y2 = coords[2][0],coords[2][1] 
+        center_x,center_y = (x1 + x2) / 2, (y1 + y2) / 2 
+        return center_x,center_y
 
     def load_shoreline_on_map(self) -> None:
             """Adds shoreline within the drawn bbox onto the map"""
