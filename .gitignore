@@ -3,13 +3,13 @@ bbox.geojson
 fishnet_rois.geojson
 rois.geojson
 src/coastseg/shorelines/*
-CoastSeg/shorelines/*
+
+
 # VScode files
 *.vscode
 ## db: data downloaded by notebooks
 data/*
 segmentation_data*/*
-CoastSeg/downloaded_models/*
 ## db: checkpoints
 .ipynb_checkpoints/*
 
