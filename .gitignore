@@ -3,7 +3,7 @@ bbox.geojson
 fishnet_rois.geojson
 rois.geojson
 src/coastseg/shorelines/*
-
+src/coastseg/downloaded_models/*
 
 # VScode files
 *.vscode
