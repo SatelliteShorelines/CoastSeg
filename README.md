@@ -1,7 +1,6 @@
 # 📦 CoastSeg
 
-[![Last Commit](https://img.shields.io/github/last-commit/SatelliteShorelines/CoastSeg)](
-https://github.com/Doodleverse/segmentation_gym/commits/main)
+[![Last Commit](https://img.shields.io/github/last-commit/SatelliteShorelines/CoastSeg)](https://github.com/Doodleverse/segmentation_gym/commits/main)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SatelliteShorelines/CoastSeg/graphs/commit-activity)
 [![Wiki](https://img.shields.io/badge/wiki-documentation-forestgreen)](https://github.com/SatelliteShorelines/CoastSeg/wiki)
 ![GitHub](https://img.shields.io/github/license/Doodleverse/segmentation_gym)
@@ -20,7 +19,6 @@ A mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segm
 Please note that we're in the planning stages only - please check back later. Please see our [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki) for further information
 
 We welcome collaboration! Please use our [Discussions tab](https://github.com/dbuscombe-usgs/CoastSeg/discussions) to provide feedback or offer help - thanks!
-
 
 ## ✍️ Authors
 
@@ -49,19 +47,19 @@ Create a new environment named `coastseg` with all the required packages by ente
 
 ```
 conda create -n coastseg python=3.8
-conda activate coastseg_test
+conda activate coastseg
 
 ## coastsat dependencies
-conda install -c conda-forge earthengine-api astropy -y
+conda install -c conda-forge earthengine-api astropy utm -y
 conda install gdal geopandas scikit-image notebook pyqt -y
 conda install -c conda-forge “numpy>=1.16.5, <=1.23.0" -y
-
 
 ## additional coastseg dependencies
 conda install ipython cartopy  tqdm  -y
 conda install -c conda-forge simplekml leafmap pydensecrf h5py -y
 pip install area doodleverse_utils
 conda install -c conda-forge tensorflow-gpu
+pip install coastsat_package
 ```
 
 ### Activate Coastseg Environment
@@ -103,4 +101,3 @@ git clone --depth 1 https://github.com/dbuscombe-usgs/CoastSeg.git
 conda env create --file install/coastseg.yml
 conda activate coastseg
 ```
-
