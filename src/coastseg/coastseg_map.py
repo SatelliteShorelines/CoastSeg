@@ -1,16 +1,14 @@
 import os
-import math
 import json
 import logging
 from glob import glob
 
 from src.coastseg import bbox
-from src.coastseg.common import mk_new_dir
+from src.coastseg import bbox_class
+from src.coastseg import common
 from src.coastseg.exceptions import DownloadError
 
 import requests
-import pyproj
-import utm
 import geopandas as gpd
 import numpy as np
 from pandas import read_csv, concat
@@ -138,174 +136,7 @@ class CoastSeg_Map:
             feature['properties']['turbid_label'],
             feature['properties']['CSU_ID'])        
     
-    def rescale_array(self, dat, mn, mx):
-        """
-        rescales an input dat between mn and mx
-        Code from doodleverse_utils by Daniel Buscombe
-        source: https://github.com/Doodleverse/doodleverse_utils
-        """
-        m = min(dat.flatten())
-        M = max(dat.flatten())
-        return (mx - mn) * (dat - m) / (M - m) + mn
 
-    def RGB_to_MNDWI(self, RGB_dir_path:str, NIR_dir_path :str, output_path:str)->None:
-        """Converts two directories of RGB and NIR imagery to MNDWI imagery in a directory named
-         'MNDWI_outputs'.
-
-        Args:
-            RGB_dir_path (str): full path to directory containing RGB images
-            NIR_dir_path (str): full path to directory containing NIR images
-        
-        Original Code from doodleverse_utils by Daniel Buscombe
-        source: https://github.com/Doodleverse/doodleverse_utils
-        """        
-        paths=[RGB_dir_path,NIR_dir_path]
-        files=[]
-        for data_path in paths:
-            if not os.path.exists(data_path):
-                raise FileNotFoundError(f"{data_path} not found")
-            f = sorted(glob(data_path+os.sep+'*.jpg'))
-            if len(f)<1:
-                f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
-            files.append(f)
-
-        # creates matrix:  bands(RGB) x number of samples(NIR)
-        # files=[['full_RGB_path.jpg','full_NIR_path.jpg'],
-        # ['full_jpg_path.jpg','full_NIR_path.jpg']....]
-        files = np.vstack(files).T
-
-        # output_path: directory to store MNDWI outputs
-        output_path += os.sep+ 'MNDWI_outputs'
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
-        # Create subfolder to hold MNDWI ouputs in
-        output_path=mk_new_dir('MNDWI_ouputs',output_path )
-        
-
-        for counter,f in enumerate(files):
-            datadict={}
-            # Read green band from RGB image and cast to float
-            green_band = imread(f[0])[:,:,1].astype('float')
-            # Read SWIR and cast to float
-            swir = imread(f[1]).astype('float')
-            # Transform 0 to np.NAN 
-            green_band[green_band==0]=np.nan
-            swir[swir==0]=np.nan
-            # Mask out the NaNs
-            green_band = np.ma.filled(green_band)
-            swir = np.ma.filled(swir)
-            
-            # MNDWI imagery formula (Green – SWIR) / (Green + SWIR)
-            mndwi = np.divide(swir - green_band, swir + green_band)
-            # Convert the NaNs to -1
-            mndwi[np.isnan(mndwi)]=-1
-            # Rescale to be between 0 - 255
-            mndwi = self.rescale_array(mndwi,0,255)
-            # Save meta data for savez_compressed()
-            datadict['arr_0'] = mndwi.astype(np.uint8)
-            datadict['num_bands'] = 1
-            datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
-            # Remove the file extension from the name
-            ROOT_STRING = f[0].split(os.sep)[-1].split('.')[0]
-            # save MNDWI as .npz file 
-            segfile = output_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
-            np.savez_compressed(segfile, **datadict)
-            del datadict, mndwi, green_band, swir
-            
-        return output_path
-     
-    def load_total_bounds_df(self,type:str,location : str ='usa') -> "pandas.core.frame.DataFrame":
-        """Returns dataframe containing total bounds for each set of either shorelines or transects in the csv file.
-        
-        Args:
-            type: Either "transects" or "shorelines" determines which csv is loaded
-        
-        Returns:
-            pandas.core.frame.DataFrame : Returns dataframe containing total bounds for each set of shorelines or transects
-        """ 
-        # Load in the total bounding box from csv
-        # Create the directory to hold the downloaded shorelines from Zenodo
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        bounding_box_dir =os.path.abspath(os.path.join(script_dir,"bounding_boxes"))
-        if not os.path.exists(bounding_box_dir):
-            os.mkdir(bounding_box_dir)
-        
-        if type.lower() == 'transects':
-            transects_csv= os.path.join(bounding_box_dir,"transects_bounding_boxes.csv")
-            if not os.path.exists(transects_csv):
-                print("Did not find transects csv at ",transects_csv)
-                #download transects csv from github
-            else:
-                total_bounds_df=read_csv(transects_csv)
-        elif type.lower() == 'shorelines':
-            if location == 'usa':
-                csv_file='usa_shorelines_bounding_boxes.csv'
-            elif location == 'world':
-                csv_file='world_shorelines_bounding_boxes.csv'
-            # Create full path to csv file    
-            shoreline_csv= os.path.join(bounding_box_dir,csv_file)
-            # Check if it collides with US bounding box (-171.791110603, 18.91619, -66.96466, 71.3577635769)
-            # if it does then check if us file exists then download it
-            # check the rest of the world
-            # if it does then check if us file exists then download it
-            
-            total_bounds_df=read_csv(shoreline_csv)
-            # print("total_bounds_df",total_bounds_df)
-        
-        total_bounds_df.index=total_bounds_df["filename"]
-        if 'filename' in total_bounds_df.columns:
-            total_bounds_df.drop("filename",axis=1, inplace=True)
-        return total_bounds_df 
-    
-    
-    def get_intersecting_files(self, bbox_gdf : gpd.geodataframe, type : str)-> list:
-        """Returns a list of filenames that intersect with bbox_gdf
-
-        Args:
-            gpd_bbox (geopandas.geodataframe.GeoDataFrame): bbox containing ROIs
-            type (str): to be used later
-
-        Returns:
-            list: intersecting_files containing filenames whose contents intersect with bbox_gdf
-        """
-        # dataframe containing total bounding box for each transects or shoreline file
-        
-        # filenames where transects/shoreline's bbox intersect bounding box drawn by user
-        if type.lower() == 'transects':
-            # dataframe containing total bounding box for each transects or shoreline file
-            total_bounds_df=self.load_total_bounds_df(type)
-            intersecting_files=[]
-            for filename in total_bounds_df.index:
-                minx, miny, maxx, maxy=total_bounds_df.loc[filename]
-                intersection_df = bbox_gdf.cx[minx:maxx, miny:maxy]
-                # save filenames where gpd_bbox & bounding box for set of transects or shorelines intersect
-                if intersection_df.empty == False:
-                    intersecting_files.append(filename)
-            return intersecting_files
-        elif type.lower() == 'shorelines':
-            world_dataset_ID = '6917963'
-            usa_dataset_ID = '7033367'
-            # dataframe containing total bounding box for each transects or shoreline file
-            usa_total_bounds_df=self.load_total_bounds_df(type,'usa')
-            world_total_bounds_df=self.load_total_bounds_df(type,'world')
-            # filenames where transects/shoreline's bbox intersect bounding box drawn by user
-            intersecting_files={}
-            total_bounds=[usa_total_bounds_df,world_total_bounds_df]
-            # for the usa and world shorelines check for intersections
-            for count,bounds_df in enumerate(total_bounds):
-                for filename in bounds_df.index:
-                    minx, miny, maxx, maxy=bounds_df.loc[filename]
-                    intersection_df = bbox_gdf.cx[minx:maxx, miny:maxy]
-                    # save filenames where gpd_bbox & bounding box for set of transects or shorelines intersect
-                    if intersection_df.empty == False and count == 0:
-                        intersecting_files[filename]=usa_dataset_ID     
-                    if intersection_df.empty == False and count == 1:
-                        intersecting_files[filename] = world_dataset_ID 
-                        
-                        
-            return intersecting_files
-    
-    
     def get_layer_name(self, filename :str)->str:
         """Returns layer name derived from the filename without the extension
             Ex. "shoreline.geojson" -> shoreline
@@ -319,7 +150,6 @@ class CoastSeg_Map:
         layer_name=os.path.splitext(filename)[0]
         return layer_name
     
-
     def style_transect(self, transect_gdf:gpd.geodataframe)->dict:
         """Converts transect_gdf to json and adds style to its properties
 
@@ -342,7 +172,6 @@ class CoastSeg_Map:
                 "fillOpacity": 0.2,
             }
         return transect_dict
-
 
     def get_rois_gdf(self,selected_roi:dict) -> gpd.geodataframe:
         """ Returns rois as a geodataframe in the espg 4326
@@ -528,26 +357,6 @@ class CoastSeg_Map:
                 return True
         return False
 
-    def convert_roi_to_polygon(self,rois_gdf:gpd.geodataframe,id:str)->Polygon:
-        """Returns the roi with given id as Shapely.Polygon
-
-        Args:
-            rois_gdf (gpd.geodataframe): geodataframe with all rois
-            id (str): roi_id
-
-        Returns:
-            Polygon: roi with the id converted to Shapely.Polygon
-        """
-        if id is None:
-            single_roi=rois_gdf
-        else:
-            # Select a single roi
-            single_roi = rois_gdf[rois_gdf['id']==id]
-        single_roi=single_roi["geometry"].to_json()
-        single_roi = json.loads(single_roi)
-        poly_roi = Polygon(single_roi["features"][0]["geometry"]['coordinates'][0])
-        return poly_roi
-    
     def get_intersecting_transects(self,rois_gdf:gpd.geodataframe,transect_data :gpd.geodataframe,id :str) -> gpd.geodataframe:
         """Returns a transects that intersect with the roi with id provided
         Args:
@@ -662,22 +471,6 @@ class CoastSeg_Map:
                 transect_layer, layer_name=transects_layer_name)
         if self.transect_names == []:
             print("No transects were found in this region. Draw a new bounding box.")
-
-    def download_shoreline(self, filename : str ,dataset_id : str = '6917358'):
-        root_url = 'https://zenodo.org/record/' + dataset_id + '/files/'
-        # Create the directory to hold the downloaded shorelines from Zenodo
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        shoreline_dir = os.path.abspath(os.path.join(script_dir,"shorelines"))
-        if not os.path.exists(shoreline_dir):
-            os.mkdir(shoreline_dir)
-        # outfile : location where  model id saved
-        outfile = os.path.abspath(os.path.join(shoreline_dir, filename))
-        # Download the model from Zenodo
-        if not os.path.exists(outfile):
-            url = (root_url + filename+"?download=1")
-            print('Retrieving: {}'.format(url))
-            print("Retrieving file: {}".format(outfile))
-            self.download_url(url, outfile,filename=filename)
               
     def download_url(self, url: str, save_path: str, filename:str=None, chunk_size: int = 128):
         """Downloads the data from the given url to the save_path location.
@@ -697,7 +490,6 @@ class CoastSeg_Map:
                         for chunk in r.iter_content(chunk_size=chunk_size):
                             fd.write(chunk)
                             pbar.update(len(chunk))
-
 
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
@@ -719,11 +511,13 @@ class CoastSeg_Map:
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
+        if self.bbox:
+            del self.bbox
+            self.bbox = None
         self.draw_control.clear()
         existing_layer=self.m.find_layer('Bbox')
         if existing_layer is not None:
                 self.m.remove_layer(existing_layer)
-        self.shapes_list = []
 
     def remove_shoreline(self):
         """Removes the shoreline from the map"""
@@ -784,154 +578,30 @@ class CoastSeg_Map:
         return draw_control
     
     def handle_draw(self, target: 'ipyleaflet.leaflet.DrawControl', action: str, geo_json: dict):
-        """Adds or removes the bounding box from shapes_list when drawn/deleted from map
+        """Adds or removes the bounding box  when drawn/deleted from map
         Args:
             target (ipyleaflet.leaflet.DrawControl): draw control used
             action (str): name of the most recent action ex. 'created', 'deleted'
-            geo_json (dict): geojson dictionary for bounding box
+            geo_json (dict): geojson dictionary
         """
         self.action = action
         self.geo_json = geo_json
         self.target = target
         if self.draw_control.last_action == 'created' and self.draw_control.last_draw['geometry']['type'] == 'Polygon':
-            self.shapes_list.append(self.draw_control.last_draw['geometry'])
+            # validate the bbox size
+            bbbox_area = common.get_area(self.draw_control.last_draw['geometry'])
+            bbox_class.Bounding_Box.check_bbox_size(bbbox_area)
+            # if a bbox already exists delete it
+            if self.bbox:
+                del self.bbox
+                self.bbox = None
+            # Save new bbox to coastseg_map
+            self.bbox = bbox_class.Bounding_Box(self.draw_control.last_draw['geometry'])
         if self.draw_control.last_action == 'deleted':
-            self.shapes_list.remove(self.draw_control.last_draw['geometry'])
-
-    def fishnet_intersection(self, fishnet: "geopandas.geodataframe.GeoDataFrame",
-                             data: "geopandas.geodataframe.GeoDataFrame") -> "geopandas.geodataframe.GeoDataFrame":
-        """Returns fishnet where it intersects with data
-        Args:
-            fishnet (geopandas.geodataframe.GeoDataFrame): geodataframe consisting of equal sized squares
-            data (geopandas.geodataframe.GeoDataFrame): a vector or polygon for the fishnet to intersect
-
-        Returns:
-            geopandas.geodataframe.GeoDataFrame: intersection of fishnet and data
-        """
-        intersection_gpd = gpd.sjoin(fishnet, data, op='intersects')
-        # intersection_gpd.drop(columns=['index_right', 'soc', 'exs', 'f_code', 'id', 'acc'], inplace=True)
-        return intersection_gpd
-
-    def create_rois(self, bbox:"geopandas.geodataframe.GeoDataFrame", square_size:float, input_espg="epsg:4326",output_espg="epsg:4326")->gpd.geodataframe:
-        """Creates a fishnet of square shaped ROIs with side lenth= square_size
-
-
-        Args:
-            bbox (geopandas.geodataframe.GeoDataFrame): bounding box(bbox) where the ROIs will be generated
-            square_size (float): side length of square ROI in meters
-            input_espg (str, optional): espg code bbox is currently in. Defaults to "epsg:4326".
-            output_espg (str, optional): espg code the ROIs will output to. Defaults to "epsg:4326".
-
-        Returns:
-            gpd.geodataframe: geodataframe containing all the ROIs
-        """        
-        # coords : list[tuple] first & last tuple are equal
-        bbox_coords = list(bbox.iloc[0]['geometry'].exterior.coords)
-        # get the utm_code for center of bbox
-        center_x,center_y = self.get_center_rectangle(bbox_coords)
-        utm_code = self.convert_wgs_to_utm(center_x,center_y)
-        projected_espg=f'epsg:{utm_code}'
-        # print(f"utm_code: {utm_code}")
-        # print(f"projected_espg_code: {projected_espg}")
-        # project geodataframe to new CRS specifed by utm_code
-        projected_bbox_gdf = bbox.to_crs(projected_espg)
-        # create fishnet of rois
-        fishnet = self.fishnet_create(projected_bbox_gdf,projected_espg, output_espg,square_size)
-        return fishnet
-
-    def fishnet_create(self, bbox_gdf:gpd.geodataframe, input_espg:str, output_espg:str,square_size:float = 1000)->gpd.geodataframe:
-        """Returns a fishnet of ROIs that intersects the bouding box specified by bbox_gdf where each ROI(square) has a side length = square size(meters)
-        
-        Args:
-            bbox_gdf (gpd.geodataframe): Bounding box that fishnet intersects.
-            input_espg (str): espg string that bbox_gdf is projected in
-            output_espg (str): espg to convert the fishnet of ROIs to.
-            square_size (int, optional): Size of each square in fishnet(meters). Defaults to 1000.
-
-        Returns:
-            gpd.geodataframe: fishnet of ROIs that intersects bbox_gdf. Each ROI has a side lenth = sqaure_size
-        """
-        minX, minY, maxX, maxY = bbox_gdf.total_bounds
-        # Create a fishnet where each square has side length = square size
-        x, y = (minX, minY)
-        geom_array = []
-        while y <= maxY:
-            while x <= maxX:
-                geom = geometry.Polygon([(x, y), (x, y + square_size), (x + square_size,
-                                        y + square_size), (x + square_size, y), (x, y)])
-                # add each square to geom_array
-                geom_array.append(geom)
-                x += square_size
-            x = minX
-            y += square_size
-        
-        # create geodataframe to hold all the (rois)squares
-        fishnet = gpd.GeoDataFrame(geom_array, columns=['geometry']).set_crs(input_espg)
-        # @ todo log this
-        # print(f"\n ROIs area before conversion to {output_espg}:\n {fishnet.area}")
-        fishnet = fishnet.to_crs(output_espg)
-        return fishnet
-
-    def fishnet_gpd(
-            self,
-            gpd_bbox: "GeoDataFrame",
-            shoreline_gdf: "GeoDataFrame",
-            square_size: int = 1000) -> "GeoDataFrame":
-        """
-        Returns fishnet where it intersects the shoreline
-        
-        Args:
-            gpd_bbox (GeoDataFrame): bounding box (bbox) around shoreline
-            shoreline_gdf (GeoDataFrame): shoreline in the bbox
-            square_size (int, optional): size of each square in the fishnet. Defaults to 1000.
-
-        Returns:
-            GeoDataFrame: intersection of shoreline_gdf and fishnet. Only squares that intersect shoreline are kept
-        """
-        # Get the geodataframe for the fishnet within the bbox
-        fishnet_gpd = self.create_rois(gpd_bbox, square_size)
-        # Get the geodataframe for the fishnet intersecting the shoreline
-        fishnet_intersect_gpd = self.fishnet_intersection(fishnet_gpd, shoreline_gdf)
-        return fishnet_intersect_gpd
-
-    def convert_wgs_to_utm(self, lon: float,lat: float)->str:
-        """return most accurate utm epsg-code based on lat and lng
-
-        convert_wgs_to_utm function, see https://stackoverflow.com/a/40140326/4556479
-
-        Args:
-            lon (float): longtitde
-            lat (float): latitude
-
-        Returns:
-            str: new espg code
-        """        
-        # """Based on lat and lng, return best utm epsg-code"""
-        utm_band = str((math.floor((lon + 180) / 6 ) % 60) + 1)
-        if len(utm_band) == 1:
-            utm_band = '0'+utm_band
-        if lat >= 0:
-            epsg_code = '326' + utm_band # North
-            return epsg_code
-        epsg_code = '327' + utm_band #South
-        return epsg_code
-
-    def get_center_rectangle(self, coords:list[float])->tuple[float]:
-        """get_center_rectangle returns the center points of rectangle specified by points coords
-
-        _extended_summary_
-
-        Args:
-            coords (list[float]): 
-
-        Returns:
-            tuple[float]: (center x coordinate, center y coordinate)
-        """        
-        x1,y1 = coords[0][0],coords[0][1]
-        x2,y2 = coords[2][0],coords[2][1] 
-        center_x,center_y = (x1 + x2) / 2, (y1 + y2) / 2 
-        return center_x,center_y
-
+            if self.bbox:
+                del self.bbox
+                self.bbox = None
+                
     def load_shoreline_on_map(self) -> None:
             """Adds shoreline within the drawn bbox onto the map"""
             shoreline=None
@@ -1067,7 +737,6 @@ class CoastSeg_Map:
         # Save the styled fishnet to data for interactivity to be added later
         self.data = fishnet_dict
            
-
     def get_shoreline_layer(self, roi_shoreline: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
         """get_shoreline_layer returns the  shoreline as GeoJson object.
 
@@ -1094,7 +763,6 @@ class CoastSeg_Map:
                 'fillOpacity': 0.7},
         )
 
-
     def get_geojson_layer(self) -> "'ipyleaflet.leaflet.GeoJSON'":
         """Returns GeoJSON for generated ROIs
         Returns:
@@ -1103,7 +771,6 @@ class CoastSeg_Map:
         if self.geojson_layer is None and self.data:
             self.geojson_layer = GeoJSON(data=self.data, name="GeoJSON data", hover_style={"fillColor": "red","color":"crimson"})
         return self.geojson_layer
-
 
     def geojson_onclick_handler(self, event: str = None, id: 'NoneType' = None, properties: dict = None, **args):
         """On click handler for when unselected geojson is clicked.

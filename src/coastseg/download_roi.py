@@ -7,7 +7,7 @@ import ee
 import geojson
 import os
 import warnings
-from src.coastseg.file_functions import generate_datestring
+from src.coastseg.common import generate_datestring
 warnings.filterwarnings("ignore")
 
 

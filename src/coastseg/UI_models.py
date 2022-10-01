@@ -3,7 +3,7 @@ import os
 import glob
 import json
 #internal python imports
-from src.coastseg import file_functions
+from src.coastseg import common
 from src.coastseg.zoo_model import Zoo_Model
 from src.coastseg.tkinter_window_creator import Tkinter_Window_Creator
 # external python imports
@@ -180,13 +180,13 @@ class UI_Models:
         # Copy the jpgs from data to a new folder called segmentation_data_[datetime]
         if 'MNDWI' in self.model_dropdown.value:
             sample_direc =r'C:\1_USGS\CoastSeg\repos\2_CoastSeg\CoastSeg_fork\Seg2Map\MNDWI_outputs\MNDWI_ouputs_2022-07-21__07_hr_57_min14'
-            # sample_direc = file_functions.get_jpgs_from_data('MNDWI')
+            # sample_direc = common.get_jpgs_from_data('MNDWI')
             # RGB_path=sample_direc+os.sep+'RGB'
             # NIR_path=sample_direc+os.sep+'NIR'
             # sample_direc = coastseg_map.RGB_to_MNDWI(RGB_path,NIR_path,sample_direc)
             self.model_dict["sample_direc"]=sample_direc
         else:
-            sample_direc = file_functions.get_jpgs_from_data('RGB')
+            sample_direc = common.get_jpgs_from_data('RGB')
             jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
             if jpgs == []:
                 with Tkinter_Window_Creator():
