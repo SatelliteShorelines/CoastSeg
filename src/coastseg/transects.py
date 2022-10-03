@@ -45,7 +45,7 @@ class Transects():
             print("Loading ",transect_file)
             transects_name=os.path.splitext(transect_file)[0]
             transect_path=os.path.abspath(os.path.join(script_dir,"transects",transect_file))
-            transects_gdf=bbox.read_gpd_file(transect_path)
+            transects_gdf=common.read_gpd_file(transect_path)
             # Get all the transects that intersect with bbox
             transects_in_bbox=self.get_intersecting_transects(bbox,transects_gdf,None)
             if transects_in_bbox.empty:

@@ -16,10 +16,10 @@ class Shoreline():
     """ Shoreline: contains the shorelines within a region specified by bbox (bounding box)
     """
     def __init__(self,bbox:gpd.GeoDataFrame=None, shoreline: gpd.GeoDataFrame=None, filename:str=None):
-        self.gdf=None
+        self.gdf = gpd.GeoDataFrame()
         self.filename="shoreline.geojson"
         self.shoreline_files = []
-        if bbox:
+        if not bbox.empty and bbox is not None:
             self.gdf = self.create_geodataframe(bbox)
         
         if shoreline:
@@ -49,7 +49,7 @@ class Shoreline():
             if  os.path.exists(shoreline_path):
                 print(f"\n Loading the file {os.path.basename(shoreline_path)} now.")
                 try:
-                    shoreline=bbox.read_gpd_file(shoreline_path)
+                    shoreline=common.read_gpd_file(shoreline_path)
                 except DriverError as driver_error:
                     print(driver_error)
                     print(f"\n ERROR!!\n The geojson shoreline file was corrupted\n{shoreline_path}")
@@ -122,8 +122,8 @@ class Shoreline():
         # filenames where transects/shoreline's bbox intersect bounding box drawn by user
         intersecting_files={}
         # dataframe containing total bounding box for each shoreline file
-        usa_total_bounds_df=self.load_total_bounds_df(type,'usa')
-        world_total_bounds_df=self.load_total_bounds_df(type,'world')
+        usa_total_bounds_df=self.load_total_bounds_df('usa')
+        world_total_bounds_df=self.load_total_bounds_df('world')
         # intersecting_files filenames where transects/shoreline's bbox intersect bounding box drawn by user
         intersecting_files={}
         total_bounds=[usa_total_bounds_df,world_total_bounds_df]

@@ -97,7 +97,7 @@ class Roi():
         projected_espg=f'epsg:{utm_code}'
         logger.info(f"utm_code: {utm_code}")
         logger.info(f"projected_espg_code: {projected_espg}")
-        # project geodataframe to new CRS specifed by utm_code
+        # project geodataframe to new CRS specified by utm_code
         projected_bbox_gdf = bbox.to_crs(projected_espg)
         # create fishnet of rois
         fishnet = self.create_fishnet(projected_bbox_gdf,projected_espg, output_espg,square_size)
