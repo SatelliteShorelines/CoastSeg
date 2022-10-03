@@ -2,6 +2,7 @@
 import logging
 # Internal dependencies imports
 from src.coastseg import common
+from src.coastseg import exceptions
 # External dependencies imports
 import geopandas as gpd
 import pandas as pd
@@ -22,6 +23,11 @@ class Roi():
                  square_len_sm : float=0,
                  filename:str=None):
         self.filename="rois.geojson"
+        
+        if shoreline is None or bbox is None:
+            raise Exception("Invalid shoreline or bbox provided to ROI")
+        elif shoreline.empty or  bbox.empty:
+            raise Exception("Invalid shoreline or bbox provided to ROI")
         
         if rois_gdf:
             self.gdf = rois_gdf
@@ -49,19 +55,19 @@ class Roi():
         if small_length or large_length == 0:
             # create a fishnet geodataframe with square size of either large_length or small_length
             fishnet_size = large_length if large_length!= 0 else small_length
-            fishnet_intersect_gpd = self.fishnet_gpd(bbox, shoreline,fishnet_size)
+            fishnet_intersect_gdf = self.fishnet_gpd(bbox, shoreline,fishnet_size)
         else:
             # Create two fishnets, one big (2000m) and one small(1500m) so they overlap each other
             fishnet_gpd_large = self.fishnet_gpd(bbox, shoreline, large_length)
             fishnet_gpd_small = self.fishnet_gpd(bbox, shoreline, small_length)
             # Concat the fishnets together to create one overlapping set of rois
-            fishnet_intersect_gpd = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
+            fishnet_intersect_gdf = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
         # Assign an id to each ROI square in the fishnet
-        num_roi = len(fishnet_intersect_gpd)
-        fishnet_intersect_gpd['id'] = np.arange(0, num_roi)
+        num_roi = len(fishnet_intersect_gdf)
+        fishnet_intersect_gdf['id'] = np.arange(0, num_roi)
     
-        return fishnet_intersect_gpd
+        return fishnet_intersect_gdf
     
     def fishnet_intersection(self, fishnet: gpd.GeoDataFrame,
                              data: gpd.GeoDataFrame) -> gpd.GeoDataFrame:

@@ -421,6 +421,23 @@ class CoastSeg_Map:
                 
             return cross_distances_rois
 
+    def load_bbox_from_file(self, filename):
+        bbox_gdf = gpd.read_file(bbox_file)
+        bbox_dict = json.loads(bbox_gdf.to_json())
+        bbox_layer = GeoJSON(
+            data=bbox_dict,
+            name="Bbox",
+            style={
+                'color': '#75b671',
+                'fill_color': '#75b671',
+                'opacity': 1,
+                'fillOpacity': 0.2,
+                'weight': 4},
+        )
+        self.coastseg_map.map.add_layer(bbox_layer)
+        print(f"Loaded the rois from the file :\n{bbox_file}")
+        logger.info(f"Loaded the rois from the file :\n{bbox_file}")
+
     def load_transects_on_map(self) -> None:
         """Adds transects within the drawn bbox onto the map"""        
         if self.bbox is None:

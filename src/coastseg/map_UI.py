@@ -323,7 +323,6 @@ class UI:
                 bbox_geodf = gpd.read_file(bbox_file)
                 bbox_geojson = bbox_geodf.to_json()
                 bbox_dict = json.loads(bbox_geojson)
-                self.coastseg_map.shapes_list.append(bbox_dict['features'][0]['geometry'])
                 bbox_layer = GeoJSON(
                     data=bbox_dict,
                     name="Bbox",
