@@ -7,6 +7,7 @@ from src.coastseg import bbox
 from src.coastseg import bbox_class
 from src.coastseg import common
 from src.coastseg.shoreline import Shoreline
+from src.coastseg.transects import Transects
 from src.coastseg import exceptions
 
 import requests
@@ -46,10 +47,8 @@ class CoastSeg_Map:
         self.selected_layer = None
         # selected_ROI : Geojson for all the ROIs selected by the user
         self.selected_ROI = None
-        # self.transect_names : list of transect names on map
-        self.transect_names = []
         # self.transect : transect object containing transects loaded on map
-        self.transect = None
+        self.transects = None
         # self.shoreline : shoreline object containing shoreline loaded on map
         self.shoreline = None
         # self.shorelines_gdf : all the shorelines within the bbox
@@ -156,29 +155,7 @@ class CoastSeg_Map:
         layer_name=os.path.splitext(filename)[0]
         return layer_name
     
-    def style_transect(self, transect_gdf:gpd.geodataframe)->dict:
-        """Converts transect_gdf to json and adds style to its properties
-
-        Converts transect_gdf to json and adds an object called 'style' containing the styled
-        json for the map.
-        Args:
-            transect_gdf (geopandas.geodataframe.GeoDataFrame): clipped transects loaded from geojson file
-
-        Returns:
-            dict: clipped transects with style properties
-        """        
-        # Save the fishnet intersection with shoreline to json
-        transect_dict = json.loads(transect_gdf.to_json())
-        # Add style to each feature in the geojson
-        for feature in transect_dict["features"]:
-            feature["properties"]["style"] = {
-                "color": "grey",
-                "weight": 1,
-                "fillColor": "grey",
-                "fillOpacity": 0.2,
-            }
-        return transect_dict
-
+    
     def get_rois_gdf(self,selected_roi:dict) -> gpd.geodataframe:
         """ Returns rois as a geodataframe in the espg 4326
 
@@ -446,37 +423,27 @@ class CoastSeg_Map:
 
     def load_transects_on_map(self) -> None:
         """Adds transects within the drawn bbox onto the map"""        
-        # ensure drawn bbox(bounding box) within allowed size
-        bbox.validate_bbox_size(self.shapes_list)
-        # load user drawn bbox as gdf(geodataframe)
-        gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
-        # list of all the transects files bbox intersects
-        intersecting_transect_files = self.get_intersecting_files(gpd_bbox,'transects')
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        # for each transect file clip it to the bbox and add to map
-        for transect_file in intersecting_transect_files:
-            print("Loading ",transect_file)
-            transects_layer_name=self.get_layer_name(transect_file)
-            transect_path=os.path.abspath(os.path.join(script_dir,"transects",transect_file))
-            data=common.read_gpd_file(transect_path)
-            # Get all the transects that intersect with bbox
-            # Replace clip with intersects
-            transects_in_bbox=self.get_intersecting_transects(gpd_bbox,data,None)
-            # transects_in_bbox=bbox.clip_to_bbox(data, gpd_bbox)
-            if transects_in_bbox.empty:
-                print("Skipping ",transects_layer_name)
-            else:
-                # Add the transect to list of all transects
-                self.transects_in_bbox_list.append(transects_in_bbox)
-                print("Adding transects from ",transects_layer_name)
-                # add transect's name to array transect_name 
-                self.transect_names.append(transects_layer_name)
-                # style and add the transect to the map 
-                transect_layer=self.style_transect(transects_in_bbox)
-                self.map.add_geojson(
-                transect_layer, layer_name=transects_layer_name)
-        if self.transect_names == []:
-            print("No transects were found in this region. Draw a new bounding box.")
+        if self.bbox is None:
+            raise exceptions.Object_Not_Found()
+        elif self.bbox.gdf.empty:
+            raise exceptions.Object_Not_Found()
+        # if a bounding box exists create a shoreline within it
+        transects = Transects(self.bbox.gdf)
+        if transects.gdf.empty:
+            raise exceptions.Object_Not_Found("Transects Not Found in this region. Draw a new bounding box")
+        else:
+            layer_name = 'transects'
+            # Replace old transect with new one
+            if self.transects:
+                self.remove_layer_by_name(layer_name)
+                del self.transects
+                self.transects=None
+            # style and add the transect to the map 
+            new_layer = self.create_layer(transects, layer_name)
+            self.map.add_layer(new_layer)
+            logger.info(f"Add layer to map: {new_layer}")
+            # Save transect to coastseg_map
+            self.transects=transects
               
     def download_url(self, url: str, save_path: str, filename:str=None, chunk_size: int = 128):
         """Downloads the data from the given url to the save_path location.
@@ -500,20 +467,10 @@ class CoastSeg_Map:
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()
-        self.remove_transects()
+        self.remove_layer_by_name('transects')
         self.remove_layer_by_name('shoreline')
         self.remove_all_rois()
         self.remove_shoreline_html()
-
-    def remove_transects(self):
-        """Removes all the transects from the map.
-        Removes each layer with its name in self.transect_names"""
-        for transect_name in self.transect_names:
-            existing_layer=self.map.find_layer(transect_name)
-            if existing_layer is not None:
-                self.map.remove_layer(existing_layer)
-        self.transect_names=[]
-        self.transects_in_bbox_list=[]
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
@@ -624,7 +581,7 @@ class CoastSeg_Map:
                 del self.shoreline
                 self.shoreline=None
             # style and add the shoreline to the map 
-            new_layer = self.create_layer(shoreline.gdf, layer_name, 'shoreline')
+            new_layer = self.create_layer(shoreline, layer_name)
             # add on_hover handler to update shoreline widget when user hovers over shoreline
             new_layer.on_hover(self.update_shoreline_html)
             self.map.add_layer(new_layer)
@@ -632,10 +589,10 @@ class CoastSeg_Map:
             # Save shoreline to coastseg_map
             self.shoreline=shoreline
 
-    def create_layer(self,layer_gdf:gpd.GeoDataFrame, layer_name:str, layer_type:str):
-        layer_geojson = json.loads(layer_gdf.to_json())
+    def create_layer(self,feature, layer_name:str):
+        layer_geojson = json.loads(feature.gdf.to_json())
         # convert layer to GeoJson and style it accordingly
-        styled_layer = self.style_layer(layer_geojson,layer_name,layer_type)
+        styled_layer = feature.style_layer(layer_geojson, layer_name)
         return styled_layer
 
     def save_bbox_to_file(self):
@@ -700,59 +657,6 @@ class CoastSeg_Map:
 
         # Save the styled fishnet to data for interactivity to be added later
         self.data = fishnet_dict
-    
-    def style_layer(self, geojson: dict, layer_name :str, layer_type:str) -> "ipyleaflet.GeoJSON":
-        """Return styled GeoJson object according to the layer_type specified
-
-        Args:
-            geojson (dict): geojson dictionary to be 
-
-        Returns:
-            "ipyleaflet.GeoJSON": shoreline as GeoJson object styled with yellow dashes
-        """
-        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
-        if layer_type == 'shoreline':
-            return GeoJSON(
-                data=geojson,
-                name=layer_name,
-                style={
-                    'color': 'yellow',
-                    'fill_color': 'yellow',
-                    'opacity': 1,
-                    'dashArray': '5',
-                    'fillOpacity': 0.5,
-                    'weight': 4},
-                hover_style={
-                    'color': 'white',
-                    'dashArray': '4',
-                    'fillOpacity': 0.7},
-            )
-        
-    # def get_shoreline_layer(self, roi_shoreline: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
-    #     """get_shoreline_layer returns the  shoreline as GeoJson object.
-
-    #     Args:
-    #         roi_shoreline (dict): geojson dictionary for portion of shoreline in bbox
-
-    #     Returns:
-    #         "ipyleaflet.GeoJSON": shoreline as GeoJson object styled with yellow dashes
-    #     """
-    #     assert roi_shoreline != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
-    #     return GeoJSON(
-    #         data=roi_shoreline,
-    #         name=layer_name,
-    #         style={
-    #             'color': 'yellow',
-    #             'fill_color': 'yellow',
-    #             'opacity': 1,
-    #             'dashArray': '5',
-    #             'fillOpacity': 0.5,
-    #             'weight': 4},
-    #         hover_style={
-    #             'color': 'white',
-    #             'dashArray': '4',
-    #             'fillOpacity': 0.7},
-    #     )
 
     def get_geojson_layer(self) -> "'ipyleaflet.leaflet.GeoJSON'":
         """Returns GeoJSON for generated ROIs

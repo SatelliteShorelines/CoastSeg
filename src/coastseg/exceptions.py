@@ -1,3 +1,15 @@
+class Object_Not_Found(Exception):
+    """BBox_Not_Found: raised when bounding box does not exist
+    Args:
+        Exception: Inherits from the base exception class
+    """
+    def __init__(self, msg="The bounding box does not exist. Draw a bounding box first"):
+        self.msg = msg
+        super().__init__(self.msg)
+
+    def __str__(self):
+        return (f"{self.msg}")
+
 class BBox_Not_Found(Exception):
     """BBox_Not_Found: raised when bounding box does not exist
     Args:

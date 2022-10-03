@@ -6,6 +6,7 @@ from src.coastseg import common
 # External dependencies imports
 import geopandas as gpd
 import pandas as pd
+from ipyleaflet import GeoJSON
 
 
 logger = logging.getLogger(__name__)
@@ -15,12 +16,12 @@ class Transects():
     """ Transects: contains the transects within a region specified by bbox (bounding box)
     """
     def __init__(self,bbox:gpd.GeoDataFrame=None, transects: gpd.GeoDataFrame=None, filename:str=None):
-        self.gdf=None
+        self.gdf = gpd.GeoDataFrame()
         self.filename="transects.geojson"
         self.transect_names = []
-        if bbox:
+        if not bbox.empty and bbox is not None:
             self.gdf = self.create_geodataframe(bbox)
-        
+        # if a transects geodataframe provided then copy it
         if transects:
             self.gdf = transects
         if filename:
@@ -38,7 +39,7 @@ class Transects():
         """
         # geodataframe to hold all transects in bbox
         all_transects_in_bbox_gdf = gpd.GeoDataFrame()
-        intersecting_transect_files = self.get_intersecting_files(bbox,'transects')
+        intersecting_transect_files = self.get_intersecting_files(bbox)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         # for each transect file clip it to the bbox and add to map
         for transect_file in intersecting_transect_files:
@@ -61,21 +62,44 @@ class Transects():
                     print("Adding transects from ",transects_name)
         
         if all_transects_in_bbox_gdf.empty:
-            print("No transects found here.")
             logger.warning("No transects found here.")
         
         return all_transects_in_bbox_gdf
     
+    def style_layer(self, geojson: dict, layer_name :str)->dict:
+        """Return styled GeoJson object according to the layer_type specified
+
+        Args:
+            geojson (dict): geojson dictionary to be 
+
+        Returns:
+            "ipyleaflet.GeoJSON": shoreline as styled GeoJson object
+        """  
+        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"      
+        # Add style to each feature in the geojson
+        return GeoJSON(
+            data=geojson,
+            name=layer_name,
+            style={
+                'color': 'grey',
+                'fill_color': 'grey',
+                'opacity': 1,
+                'fillOpacity': 0.2,
+                'weight': 2},
+            hover_style={
+                'color': 'blue',
+                'fillOpacity': 0.7},
+        )
     
     def get_intersecting_transects(self,gdf:gpd.geodataframe,transect_gdf :gpd.geodataframe,id :str = None) -> gpd.geodataframe:
         """Returns a transects that intersect with the roi with id provided
         Args:
-            gdf (gpd.geodataframe): rois with geometery, ids and more
-            transect_gdf (gpd.geodataframe): transects geomemtry
+            gdf (gpd.geodataframe): rois with geometry, ids and more
+            transect_gdf (gpd.geodataframe): transects geometry
             id (str): id of roi
 
         Returns:
-            gpd.geodataframe: transects that interected with gdf
+            gpd.geodataframe: transects that intersected with gdf
         """
         polygon = common.convert_gdf_to_polygon(gdf, id)
         transect_mask=transect_gdf.intersects(polygon,align=False)

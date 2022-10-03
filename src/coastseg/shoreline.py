@@ -8,6 +8,7 @@ from src.coastseg import common
 import geopandas as gpd
 import pandas as pd
 from fiona.errors import DriverError
+from ipyleaflet import GeoJSON
 
 logger = logging.getLogger(__name__)
 logger.info("I am a log from %s",__name__)
@@ -84,6 +85,32 @@ class Shoreline():
         # save shoreline files that intersected with bbox
         self.shoreline_files = list(map(lambda x:os.path.splitext(x)[0],intersecting_shoreline_files))
         return shorelines_in_bbox_gdf
+    
+    def style_layer(self, geojson: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
+        """Return styled GeoJson object according to the layer_type specified
+
+        Args:
+            geojson (dict): geojson dictionary to be 
+
+        Returns:
+            "ipyleaflet.GeoJSON": shoreline as GeoJson object styled with yellow dashes
+        """
+        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+        return GeoJSON(
+            data=geojson,
+            name=layer_name,
+            style={
+                'color': 'yellow',
+                'fill_color': 'yellow',
+                'opacity': 1,
+                'dashArray': '5',
+                'fillOpacity': 0.5,
+                'weight': 4},
+            hover_style={
+                'color': 'white',
+                'dashArray': '4',
+                'fillOpacity': 0.7},
+        )
             
     def download_shoreline(self, filename : str ,dataset_id : str = '6917358'):
         """Downloads the shoreline file from zenodo

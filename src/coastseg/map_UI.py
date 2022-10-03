@@ -199,16 +199,17 @@ class UI:
 
     @debug_view.capture(clear_output=True)
     def on_transects_button_clicked(self,btn):
-        if self.coastseg_map.shapes_list == [] :
-            with Tkinter_Window_Creator():
-                messagebox.showinfo("Bounding Box Error","Draw a bounding box on the coast first, then click Load Transects.")
-        else:
-            UI.debug_view.clear_output(wait=True)
-            self.coastseg_map.map.default_style = {'cursor': 'wait'}
+        # UI.debug_view.clear_output(wait=True)
+        try:
             print("Loading transects please wait.")
-            # Add the transects to the map
+            self.coastseg_map.map.default_style = {'cursor': 'wait'}
             self.coastseg_map.load_transects_on_map()
+        except exceptions.Object_Not_Found as not_on_map_error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Bounding Box Error", str(not_on_map_error))    
+        else:
             print("Transects Loaded.")
+        finally:
             self.coastseg_map.map.default_style = {'cursor': 'default'}
 
 
@@ -357,7 +358,7 @@ class UI:
     def remove_all_from_map(self, btn):
         self.coastseg_map.remove_all()
     def remove_transects(self, btn):
-        self.coastseg_map.remove_transects()
+        self.coastseg_map.remove_layer_by_name('transects')
     def remove_bbox_from_map(self, btn):
         self.coastseg_map.remove_bbox()
     def remove_shoreline_from_map(self, btn):
