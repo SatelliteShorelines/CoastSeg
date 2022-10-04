@@ -183,19 +183,24 @@ class UI:
 
     @debug_view.capture(clear_output=True)
     def on_gen_button_clicked(self, btn):
-        if self.coastseg_map.shapes_list == [] :
-            with Tkinter_Window_Creator():
-                messagebox.showinfo("Bounding Box Error", "Draw a bounding box on the coast first, then click Generate ROI.")
-        else:
-            UI.debug_view.clear_output(wait=True)
-            self.coastseg_map.map.default_style = {'cursor': 'wait'}
+        UI.debug_view.clear_output(wait=True)
+        try:
             print("Generating ROIs please wait.")
+            self.coastseg_map.map.default_style = {'cursor': 'wait'}
             # Generate ROIs along the coastline within the bounding box
-            self.coastseg_map.generate_ROIS_fishnet(self.fishnet_sizes['large'],self.fishnet_sizes['small'])
-            # Add the Clickable ROIs to the map
-            self.coastseg_map.add_geojson_layer_to_map()
+            self.coastseg_map.load_rois_on_map(self.fishnet_sizes['large'],self.fishnet_sizes['small'])
+            # self.coastseg_map.generate_ROIS_fishnet(self.fishnet_sizes['large'],self.fishnet_sizes['small'])
+        except exceptions.Object_Not_Found as not_on_map_error:
+            with Tkinter_Window_Creator():
+                messagebox.showwarning("Bounding Box Error", f'{not_on_map_error}')
+        except Exception as exception:
+            with Tkinter_Window_Creator():
+                messagebox.showwarning("Error", f'{exception}')
+        else:
             print("ROIs generated. Please Select at least one ROI and click Save ROI.")
+        finally:
             self.coastseg_map.map.default_style = {'cursor': 'default'}
+        
 
     @debug_view.capture(clear_output=True)
     def on_transects_button_clicked(self,btn):
@@ -222,15 +227,8 @@ class UI:
                 title = "Select a geojson file containing rois")
             # Save the filename as an attribute of the button
             if tk_root.filename:
-                roi_file= tk_root.filename
-                rois = gpd.read_file(roi_file)
-                # style fishnet and convert to dictionary to be added to map
-                rois_dict = self.coastseg_map.style_rois(rois)
-                # Save the styled fishnet to data for interactivity to be added later
-                self.coastseg_map.data = rois_dict
-                # Add the Clickable ROIs to the map
-                self.coastseg_map.add_geojson_layer_to_map()
-                print(f"Loaded the rois from the file :\n{roi_file} ")
+                self.coastseg_map.load_rois_on_map(file=tk_root.filename)
+                # print(f"Loaded the rois from the file :\n{roi_file} ")
             else:
                 messagebox.showerror("ROI Selection Error", "You must select a valid geojson file first!")
 
@@ -243,12 +241,9 @@ class UI:
         # Add the transects to the map
         try:
             self.coastseg_map.load_shoreline_on_map()
-        except exceptions.BBox_Not_Found as bbox_error:
+        except exceptions.Object_Not_Found as not_on_map_error:
             with Tkinter_Window_Creator():
-                messagebox.showinfo("Bounding Box Error", "Draw a bounding box on the coast first, then click Load Transects.")
-        except exceptions.Shoreline_Not_Found as shoreline_error:
-            with Tkinter_Window_Creator():
-                messagebox.showinfo("Bounding Box Error", str(shoreline_error))
+                messagebox.showinfo("Bounding Box Error", str(not_on_map_error))    
         else: 
             print("Shoreline loaded.")
         finally:
@@ -259,37 +254,31 @@ class UI:
     def download_button_clicked(self, btn):
         UI.download_view.clear_output()
         UI.debug_view.clear_output()
-        if self.coastseg_map.selected_ROI:
-            self.coastseg_map.map.default_style = {'cursor': 'wait'}
-            UI.debug_view.append_stdout("Scroll down past map to see download progress.")
-            try:
-                self.download_button.disabled=True
-                download_roi.download_imagery(self.coastseg_map.selected_ROI,
-                                                self.coastseg_map.preprocess_settings,
-                                                self.coastseg_map.dates,
-                                                self.coastseg_map.sat_list,
-                                                self.coastseg_map.collection)
-            except google_auth_exceptions.RefreshError as exception:
-                print(exception)
-                with Tkinter_Window_Creator():
-                    messagebox.showerror("Authentication Error", "Please authenticate with Google using the cell above: \n  'Authenticate and Initialize with Google Earth Engine (GEE)'")
-            except Exception as exception2:
-                print(exception2)
-        else:
-            UI.debug_view.append_stdout("No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
+        self.coastseg_map.map.default_style = {'cursor': 'wait'}
+        UI.debug_view.append_stdout("Scroll down past map to see download progress.")
+        try:
+            self.download_button.disabled=True
+            self.coastseg_map.download_imagery(self.coastseg_map)
+        except google_auth_exceptions.RefreshError as exception:
+            print(exception)
             with Tkinter_Window_Creator():
-                messagebox.showerror("ROI Selection Error", "No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
-        self.download_button.disabled=False
-        self.coastseg_map.map.default_style = {'cursor': 'default'}
+                messagebox.showerror("Authentication Error", "Please authenticate with Google using the cell above: \n  'Authenticate and Initialize with Google Earth Engine (GEE)'")
+        except Exception as exception:
+            messagebox.showerror("Error", f"{exception}" )
+        finally:
+            self.download_button.disabled=False
+            self.coastseg_map.map.default_style = {'cursor': 'default'}
+        # UI.debug_view.append_stdout("No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
+        # with Tkinter_Window_Creator():
+        #     messagebox.showerror("ROI Selection Error", "No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
 
     @debug_view.capture(clear_output=True)
     def on_save_bbox_button_clicked(self, btn):
-        if self.coastseg_map.shapes_list != [] :
+        if  self.coastseg_map.bbox is not None :
             UI.debug_view.clear_output(wait=True)
             # Save selected bbox to a geojson file
-            self.coastseg_map.save_bbox_to_file()
-            UI.debug_view.clear_output(wait=True)
-            print("BBox have been saved. Saved to bbox.geojson")
+            self.coastseg_map.save_feature_to_file(self.coastseg_map.bbox)
+            print("Saved bbox to file")
         else:
             with Tkinter_Window_Creator():
                 messagebox.showerror("Bounding Box Error", "No bounding box found.\nDraw a bounding box on the coast first")
@@ -319,22 +308,7 @@ class UI:
                                                     title = "Select a geojson file containing bbox")
             # Save the filename as an attribute of the button
             if tk_root.filename:
-                bbox_file= tk_root.filename
-                bbox_geodf = gpd.read_file(bbox_file)
-                bbox_geojson = bbox_geodf.to_json()
-                bbox_dict = json.loads(bbox_geojson)
-                bbox_layer = GeoJSON(
-                    data=bbox_dict,
-                    name="Bbox",
-                    style={
-                        'color': '#75b671',
-                        'fill_color': '#75b671',
-                        'opacity': 1,
-                        'fillOpacity': 0.2,
-                        'weight': 4},
-                )
-                self.coastseg_map.map.add_layer(bbox_layer)
-                print(f"Loaded the rois from the file :\n{bbox_file} ")
+                self.coastseg_map.load_bbox_on_map(tk_root.filename)
             else:
                 messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
 
@@ -346,7 +320,8 @@ class UI:
                     messagebox.showinfo("ROI Selection Error", "Must select at least 1 ROI first before you can save ROIs.")
             else:
                 UI.debug_view.clear_output(wait=True)
-                self.coastseg_map.save_roi_fishnet("fishnet_rois.geojson")
+                self.coastseg_map.save_feature_to_file(self.coastseg_map.rois)
+                # self.coastseg_map.save_roi_fishnet("fishnet_rois.geojson")
                 print("Saving ROIs")
                 UI.debug_view.clear_output(wait=True)
                 print("ROIs have been saved. Now click Download ROI to download the ROIs using CoastSat")
@@ -357,11 +332,11 @@ class UI:
     def remove_all_from_map(self, btn):
         self.coastseg_map.remove_all()
     def remove_transects(self, btn):
-        self.coastseg_map.remove_layer_by_name('transects')
+        self.coastseg_map.remove_transects()
     def remove_bbox_from_map(self, btn):
         self.coastseg_map.remove_bbox()
     def remove_shoreline_from_map(self, btn):
-        self.coastseg_map.remove_layer_by_name('shoreline')
+        self.coastseg_map.remove_shoreline()
     def remove_all_rois_from_map(self, btn):
         self.coastseg_map.remove_all_rois()
     def clear_debug_view(self, btn):

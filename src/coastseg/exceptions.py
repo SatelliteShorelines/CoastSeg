@@ -3,8 +3,9 @@ class Object_Not_Found(Exception):
     Args:
         Exception: Inherits from the base exception class
     """
-    def __init__(self, msg="The bounding box does not exist. Draw a bounding box first"):
-        self.msg = msg
+    def __init__(self,feature:str):
+        self.msg = f'No {feature.lower()} were found in this region. Draw a new bounding box'
+        self.feature = feature
         super().__init__(self.msg)
 
     def __str__(self):

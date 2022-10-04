@@ -8,38 +8,47 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from shapely import geometry
+from ipyleaflet import GeoJSON
 
 logger = logging.getLogger(__name__)
 logger.info("I am a log from %s",__name__)
 
-class Roi():
+class ROI():
     """Roi (Region of Interest) a square where data can be downloaded from
     """
-   
-    def __init__(self, bbox: gpd.GeoDataFrame,
-                 shoreline: gpd.GeoDataFrame,
-                 rois_gdf : gpd.GeoDataFrame,
+    LAYER_NAME = 'ROIs'
+    def __init__(self, bbox: gpd.GeoDataFrame = None,
+                 shoreline: gpd.GeoDataFrame = None,
+                 rois_gdf : gpd.GeoDataFrame=None,
                  square_len_lg : float=0,
                  square_len_sm : float=0,
                  filename:str=None):
+        
         self.filename="rois.geojson"
+        if filename:
+            self.filename=filename
         
-        if shoreline is None or bbox is None:
-            raise Exception("Invalid shoreline or bbox provided to ROI")
-        elif shoreline.empty or  bbox.empty:
-            raise Exception("Invalid shoreline or bbox provided to ROI")
         
-        if rois_gdf:
+        if rois_gdf is not None:
             self.gdf = rois_gdf
-        elif rois_gdf == None:
-            self.gdf = self.create_geodataframe(bbox,shoreline,square_len_lg,square_len_sm)
+            return
         
+        if rois_gdf is None:
+            if shoreline is None :
+                raise exceptions.Object_Not_Found('shorelines')
+            if bbox is None:
+                raise exceptions.Object_Not_Found('bounding box')
+            if shoreline.empty:
+                raise exceptions.Object_Not_Found('shorelines')
+            if bbox.empty:
+                raise exceptions.Object_Not_Found('bounding box')
+                
         if square_len_sm == square_len_lg == 0:
             logger.error("Invalid square size for ROI")
             raise Exception("Invalid square size for ROI. Must be greater than 0")
         
-        if filename:
-            self.filename=filename
+        if rois_gdf == None:
+            self.gdf = self.create_geodataframe(bbox,shoreline,square_len_lg,square_len_sm)
             
     def create_geodataframe(self, bbox:gpd.geodataframe, shoreline: gpd.GeoDataFrame, large_length:float=7500,small_length:float=5000,crs:str='EPSG:4326') -> gpd.GeoDataFrame:
         """Generates series of overlapping ROIS along shoreline on map using fishnet method
@@ -49,25 +58,54 @@ class Roi():
             crs (str, optional): coordinate reference system string. Defaults to 'EPSG:4326'.
 
         Returns:
-            gpd.GeoDataFrame: 
+            gpd.GeoDataFrame: a series of ROIs along the shoreline. The ROIs are squares with side lengths of both
+            large_length and small_length
         """
         # Create a single set of fishnets with square size = small and/or large side lengths that overlap each other
-        if small_length or large_length == 0:
+        logger.info(f"Small Length: {small_length}  Large Length: {large_length}")
+        if small_length == 0 or large_length == 0:
+            logger.info("Creating one fishnet")
             # create a fishnet geodataframe with square size of either large_length or small_length
             fishnet_size = large_length if large_length!= 0 else small_length
-            fishnet_intersect_gdf = self.fishnet_gpd(bbox, shoreline,fishnet_size)
+            fishnet_intersect_gdf = self.get_fishnet_gdf(bbox, shoreline,fishnet_size)
         else:
+            logger.info("Creating two fishnets")
             # Create two fishnets, one big (2000m) and one small(1500m) so they overlap each other
-            fishnet_gpd_large = self.fishnet_gpd(bbox, shoreline, large_length)
-            fishnet_gpd_small = self.fishnet_gpd(bbox, shoreline, small_length)
+            fishnet_gpd_large = self.get_fishnet_gdf(bbox, shoreline, large_length)
+            fishnet_gpd_small = self.get_fishnet_gdf(bbox, shoreline, small_length)
+            logger.info(f"fishnet_gpd_large : {fishnet_gpd_large}")
+            logger.info(f"fishnet_gpd_small : {fishnet_gpd_small}")
             # Concat the fishnets together to create one overlapping set of rois
             fishnet_intersect_gdf = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
         # Assign an id to each ROI square in the fishnet
         num_roi = len(fishnet_intersect_gdf)
         fishnet_intersect_gdf['id'] = np.arange(0, num_roi)
-    
+        logger.info(f"Created fishnet_intersect_gdf: {fishnet_intersect_gdf}")
         return fishnet_intersect_gdf
+
+    def style_layer(self, geojson: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
+        """Return styled GeoJson object with layer name
+
+        Args:
+            geojson (dict): geojson dictionary to be styled
+            layer_name(str): name of the GeoJSON layer
+        Returns:
+            "ipyleaflet.GeoJSON": ROIs as GeoJson layer styled with yellow dashes
+        """
+        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+        return GeoJSON(
+            data=geojson,
+            name=layer_name,
+            style={
+                'color': 'black',
+                'fill_color': 'grey',
+                'fillOpacity': 0.1,
+                'weight': 3},
+            hover_style={
+                'color': 'red',
+                "color":"crimson"},
+        )    
     
     def fishnet_intersection(self, fishnet: gpd.GeoDataFrame,
                              data: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -141,16 +179,16 @@ class Roi():
         fishnet = fishnet.to_crs(output_espg)
         return fishnet
 
-    def fishnet_gpd(
+    def get_fishnet_gdf(
                 self,
-                gpd_bbox: gpd.GeoDataFrame,
+                bbox_gdf: gpd.GeoDataFrame,
                 shoreline_gdf: gpd.GeoDataFrame,
                 square_length: int = 1000) -> gpd.GeoDataFrame:
             """
             Returns fishnet where it intersects the shoreline
             
             Args:
-                gpd_bbox (GeoDataFrame): bounding box (bbox) around shoreline
+                bbox_gdf (GeoDataFrame): bounding box (bbox) around shoreline
                 shoreline_gdf (GeoDataFrame): shoreline in the bbox
                 square_size (int, optional): size of each square in the fishnet. Defaults to 1000.
 
@@ -158,7 +196,9 @@ class Roi():
                 GeoDataFrame: intersection of shoreline_gdf and fishnet. Only squares that intersect shoreline are kept
             """
             # Get the geodataframe for the fishnet within the bbox
-            fishnet_gpd = self.create_rois(gpd_bbox, square_length)
+            fishnet_gpd = self.create_rois(bbox_gdf, square_length)
             # Get the geodataframe for the fishnet intersecting the shoreline
             fishnet_intersect_gpd = self.fishnet_intersection(fishnet_gpd, shoreline_gdf)
+            # drop excess columns from intersection with shoreline
+            fishnet_intersect_gpd.drop(fishnet_intersect_gpd.columns.difference(['geometry','id']), 'columns',inplace=True)
             return fishnet_intersect_gpd

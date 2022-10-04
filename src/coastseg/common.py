@@ -2,6 +2,7 @@ import os
 import glob
 import shutil
 import json
+import math
 from datetime import datetime
 import logging
 # Internal dependencies imports
@@ -13,10 +14,29 @@ import geopandas as gpd
 from shapely import geometry
 import leafmap
 import numpy as np
+import geojson
 from skimage.io import imread
+from leafmap import check_file_path
 
 logger = logging.getLogger(__name__)
 logger.info("I am a log from %s",__name__)
+
+def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
+    """save_to_geojson_file Saves given geojson to a geojson file at outfile
+    Args:
+        out_file (str): The output file path
+        geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
+    """
+    # Save the geojson to a file
+    out_file = check_file_path(out_file)
+    ext = os.path.splitext(out_file)[1].lower()
+    if ext == ".geojson":
+        out_geojson = out_file
+    else:
+        out_geojson = os.path.splitext(out_file)[1] + ".geojson"
+    with open(out_geojson, "w") as f:
+        json.dump(geojson, f, **kwargs)
+
 
 def download_url(url: str, save_path: str, filename:str=None, chunk_size: int = 128):
     """Downloads the data from the given url to the save_path location.
@@ -27,6 +47,7 @@ def download_url(url: str, save_path: str, filename:str=None, chunk_size: int = 
     """
     with requests.get(url, stream=True) as r:
         if r.status_code == 404:
+            logger.error(f'DownloadError: {save_path}')
             raise DownloadError(os.path.basename(save_path))
         # check header to get content length, in bytes
         total_length = int(r.headers.get("Content-Length"))
@@ -109,6 +130,25 @@ def convert_gdf_to_polygon(gdf:gpd.geodataframe,id:str=None)->geometry.Polygon:
 def get_area(polygon: dict):
     "Calculates the area of the geojson polygon using the same method as geojson.io"
     return round(area(polygon), 3)
+
+
+def read_json_file(filename: str):
+    with open(filename, 'r', encoding='utf-8') as input_file:
+        data = json.load(input_file)
+    return data
+
+
+def write_preprocess_settings_file(settings_file: str, settings: dict):
+    """"Write the preprocess settings dictionary to json file"""
+    with open(settings_file, 'w', encoding='utf-8') as output_file:
+        json.dump(settings, output_file)
+
+
+def read_geojson_file(geojson_file: str) -> dict:
+    """Returns the geojson of the selected ROIs from the file specified by geojson_file"""
+    with open(geojson_file) as f:
+        data = geojson.load(f)
+    return data
 
 def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
     """

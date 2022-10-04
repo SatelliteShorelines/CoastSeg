@@ -2,24 +2,21 @@ import os
 import json
 import logging
 from glob import glob
+from typing import Union
 
-from src.coastseg import bbox
-from src.coastseg import bbox_class
+from src.coastseg.bbox_class import Bounding_Box
 from src.coastseg import common
 from src.coastseg.shoreline import Shoreline
 from src.coastseg.transects import Transects
+from src.coastseg.roi import ROI
 from src.coastseg import exceptions
 
 import requests
 import geopandas as gpd
 import numpy as np
-from pandas import read_csv, concat
-from shapely import geometry
-from skimage.io import imread
-from fiona.errors import DriverError
 from shapely.geometry import Polygon
 from pyproj import Proj, transform
-from coastsat import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline
+from coastsat import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline, SDS_preprocess
 from ipyleaflet import DrawControl, LayersControl,  WidgetControl, GeoJSON
 from leafmap import Map, check_file_path
 from ipywidgets import Layout, HTML, Accordion
@@ -37,28 +34,29 @@ class CoastSeg_Map:
     def __init__(self, map_settings: dict = None):
         # settings:  used to select data to download and preprocess settings
         self.settings = {}
-        # data : geojson data of the rois generated
-        self.data = None
         # selected_set : ids of the selected rois
         self.selected_set = set()
-        # geojson_layer : layer with all rois
-        self.geojson_layer = None
-        # selected layer :  layer containing all selected rois
-        self.selected_layer = None
-        # selected_ROI : Geojson for all the ROIs selected by the user
-        self.selected_ROI = None
+        # ROI_layer : layer containing all rois
+        self.ROI_layer = None
+        # rois : ROI(Region of Interest)
+        self.rois = None
+        # selected_ROI_layer :  layer containing all selected rois
+        self.selected_ROI_layer = None
         # self.transect : transect object containing transects loaded on map
         self.transects = None
         # self.shoreline : shoreline object containing shoreline loaded on map
         self.shoreline = None
-        # self.shorelines_gdf : all the shorelines within the bbox
-        self.shorelines_gdf = gpd.GeoDataFrame()
-        # Stores all the transects on the map
-        self.transects_in_bbox_list=[]
         # Bbox saved by the user
         self.bbox = None
         # preprocess_settings : dictionary of settings used by coastsat to download imagery
         self.preprocess_settings = {}
+         #-----------------------------------------
+        # @todo remove these
+        # self.shorelines_gdf : all the shorelines within the bbox
+        self.shorelines_gdf = gpd.GeoDataFrame()
+        # Stores all the transects on the map
+        self.transects_in_bbox_list=[]
+        #-----------------------------------------
         # create map if map_settings not provided else use default settings
         self.map = self.create_map(map_settings)
         # create controls and add to map
@@ -112,6 +110,157 @@ class CoastSeg_Map:
         
         return WidgetControl(widget=self.shoreline_accordion, position="topright")
 
+    def get_inputs_list(self,
+        selected_roi_geojson: dict,
+        dates: list,
+        sat_list: list,
+        collection: str) -> None:
+        """
+        Checks if the images exist with check_images_available() and return input_list as
+        as list of dictionaries.
+        Example:
+        [
+            inputs = {
+            'polygon': polygon,
+            'dates': dates,
+            'sat_list': sat_list,
+            'sitename': sitename,
+            'filepath': filepath,
+            'landsat_collection': collection}
+        ]
+        Arguments:
+        -----------
+        selected_roi_geojson:dict
+            A geojson dictionary containing all the ROIs selected by the user
+
+        dates: list
+            A list of length two that contains a valid start and end date
+
+        collection : str
+        whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`).
+        Note that after 2022/01/01, Landsat images are only available in Collection 2.
+        Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
+        images prior to 2022/01/01 will be downloaded from Collection 1,
+        while images captured after that date will be automatically taken from `C02`.
+
+        sat_list: list
+            A list of strings containing the names of the satellite
+        """
+    #     1. Check imagery available and check for ee credentials
+        inputs_list = self.check_images_available_selected_ROI(
+                selected_roi_geojson, dates, collection, sat_list)
+        print("Images available: \n", inputs_list)
+        inputs_list = self.check_images_available_selected_ROI(
+                selected_roi_geojson, dates, collection, sat_list)
+
+    # Check if inputs for downloading imagery exist then download imagery
+        assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
+        return inputs_list
+
+    def check_images_available_selected_ROI(self,
+        selected_roi_geojson: dict,
+        dates: list,
+        collection: str,
+        sat_list: list) -> list:
+        """"
+
+        Return a list of dictionaries containing all the input parameters such as polygon, dates, sat_list, sitename, and filepath. This list can be used
+        to retrieve images using coastsat.
+
+        Arguments:
+        -----------
+        selected_roi_geojson:  dict
+            A geojson dictionary containing all the ROIs selected by the user.
+        dates: list
+            A list of length two that contains a valid start and end date
+        sat_list: list
+            A list of strings containing the names of the satellite
+        collection : str
+        whether to use LandSat Collection 1 (`C01`)
+        or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2.
+        Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
+        images prior to 2022/01/01 will be downloaded from Collection 1,
+        while images captured after that date will be automatically taken from `C02`.
+
+    Returns:
+        -----------
+    inputs_list: list
+            A list of dictionaries containing all the input parameters such as polygon, dates, sat_list, sitename, and filepath
+        """
+        inputs_list = []
+        logger.info(f"Downloading data for selected ROIs:{selected_roi_geojson}")
+        if selected_roi_geojson["features"] != []:
+            date_str = common.generate_datestring()
+            for counter, roi in enumerate(selected_roi_geojson["features"]):
+                polygon = roi["geometry"]["coordinates"]
+                # it's recommended to convert the polygon to the smallest rectangle
+                # (sides parallel to coordinate axes)
+                polygon = SDS_tools.smallest_rectangle(polygon)
+                # name of the site
+                sitename = 'ID' + str(counter) + date_str
+                # filepath: directory where the data will be stored
+                filepath = os.path.join(os.getcwd(), 'data')
+                # put all the inputs into a dictionnary
+                inputs = {
+                    'polygon': polygon,
+                    'dates': dates,
+                    'sat_list': sat_list,
+                    'sitename': sitename,
+                    'filepath': filepath,
+                    'roi_id':roi['id'],
+                    'landsat_collection': collection}
+                inputs_list.append(inputs)
+        return inputs_list
+
+
+    def download_imagery(self) -> None:
+        """
+        Checks if the images exist with check_images_available(), downloads them with retrieve_images(), and
+        transforms images to jpgs with save_jpg()
+
+        Arguments:
+        -----------
+        selected_roi_geojson:dict
+            A geojson dictionary containing all the ROIs selected by the user
+
+        pre_process_settings:dict
+            Dictionary containing the preprocessing settings used for quality control by CoastSat
+
+        dates: list
+            A list of length two that contains a valid start and end date
+
+        collection : str
+        whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`).
+        Note that after 2022/01/01, Landsat images are only available in Collection 2.
+        Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
+        images prior to 2022/01/01 will be downloaded from Collection 1,
+        while images captured after that date will be automatically taken from `C02`.
+
+        sat_list: list
+            A list of strings containing the names of the satellite
+        """
+    #     1. Check imagery available and check for ee credentials
+        if self.settings is None:
+            raise Exception("No settings found. Create settings before downloading")
+        if self.selected_ROI_layer is None:
+            raise Exception("No ROIs were selected. Make sure to click save roi before downloading.")
+        
+        dates=self.settings['dates']
+        sat_list = self.settings['sat_list']
+        collection = self.settings['collection']
+        selected_roi_geojson = self.selected_ROI_layer.data
+        inputs_list=self.get_inputs_list(selected_roi_geojson,dates,sat_list, collection)
+        print("Download in process")
+        for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
+            metadata = SDS_download.retrieve_images(inputs)
+            # @todo remove this
+            # Add the inputs to the pre_process_settings
+            # pre_process_settings['inputs'] = inputs
+            # SDS_preprocess.save_jpg(metadata, pre_process_settings)
+            self.settings['inputs'] = inputs
+            SDS_preprocess.save_jpg(metadata, self.settings)
+    
+    
     def save_settings(self, **kwargs):
         """Saves the settings for downloading data in a dictionary
         Pass in data in the form of 
@@ -141,20 +290,6 @@ class CoastSeg_Map:
             feature['properties']['slope_label'],
             feature['properties']['turbid_label'],
             feature['properties']['CSU_ID'])        
-    
-    def get_layer_name(self, filename :str)->str:
-        """Returns layer name derived from the filename without the extension
-            Ex. "shoreline.geojson" -> shoreline
-
-        Args:
-            filename (str): geojson file associated with layer name 
-
-        Returns:
-            str : (layer_name) name of transect file to be used as layer name
-        """        
-        layer_name=os.path.splitext(filename)[0]
-        return layer_name
-    
     
     def get_rois_gdf(self,selected_roi:dict) -> gpd.geodataframe:
         """ Returns rois as a geodataframe in the espg 4326
@@ -421,23 +556,6 @@ class CoastSeg_Map:
                 
             return cross_distances_rois
 
-    def load_bbox_from_file(self, filename):
-        bbox_gdf = gpd.read_file(bbox_file)
-        bbox_dict = json.loads(bbox_gdf.to_json())
-        bbox_layer = GeoJSON(
-            data=bbox_dict,
-            name="Bbox",
-            style={
-                'color': '#75b671',
-                'fill_color': '#75b671',
-                'opacity': 1,
-                'fillOpacity': 0.2,
-                'weight': 4},
-        )
-        self.coastseg_map.map.add_layer(bbox_layer)
-        print(f"Loaded the rois from the file :\n{bbox_file}")
-        logger.info(f"Loaded the rois from the file :\n{bbox_file}")
-
     def load_transects_on_map(self) -> None:
         """Adds transects within the drawn bbox onto the map"""        
         if self.bbox is None:
@@ -484,18 +602,18 @@ class CoastSeg_Map:
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()
-        self.remove_layer_by_name('transects')
-        self.remove_layer_by_name('shoreline')
+        self.remove_shoreline()
+        self.remove_transects()
         self.remove_all_rois()
         self.remove_shoreline_html()
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
-        if self.bbox:
+        if self.bbox is not None:
             del self.bbox
             self.bbox = None
         self.draw_control.clear()
-        existing_layer=self.map.find_layer('Bbox')
+        existing_layer=self.map.find_layer(Bounding_Box.LAYER_NAME)
         if existing_layer is not None:
                 self.map.remove_layer(existing_layer)
 
@@ -505,26 +623,40 @@ class CoastSeg_Map:
             self.map.remove_layer(existing_layer)
         logger.info(f"Removed layer {layer_name}")
 
-
     def remove_shoreline_html(self):
         """Clear the shoreline html accoridon """
         self.shoreline_accordion.children[0].value ="Hover over the shoreline."
 
+    def remove_shoreline(self):
+
+        del self.shoreline
+        self.remove_layer_by_name(Shoreline.LAYER_NAME)
+        self.shoreline = None
+        
+    def remove_transects(self):
+        del self.transects
+        self.transects = None
+        self.remove_layer_by_name(Transects.LAYER_NAME)
+
     def remove_all_rois(self):
         """Removes all the unselected rois from the map """
-        self.selected_ROI = None
         # Remove the selected rois
+        self.selected_ROI_layer = None
+        # if self.rois is not None:
+        del self.rois
+        self.rois =None
+        # if self.ROI_layer is not None:
+        del self.ROI_layer
+        self.ROI_layer = None
+        # remove both roi layers from map
         existing_layer = self.map.find_layer('Selected ROIs')
         if existing_layer is not None:
             self.map.remove_layer(existing_layer)
-            self.selected_layer = None
-        existing_layer = self.map.find_layer('GeoJSON data')
+            
+        existing_layer = self.map.find_layer(ROI.LAYER_NAME)
         if existing_layer is not None:
             # Remove the layer from the map
             self.map.remove_layer(existing_layer)
-            self.geojson_layer = None
-            # clear the stylized geojson
-            self.data = None
         self.selected_set = set()
 
     def create_DrawControl(self, draw_control : "ipyleaflet.leaflet.DrawControl"):
@@ -567,29 +699,36 @@ class CoastSeg_Map:
         self.target = target
         if self.draw_control.last_action == 'created' and self.draw_control.last_draw['geometry']['type'] == 'Polygon':
             # validate the bbox size
-            bbbox_area = common.get_area(self.draw_control.last_draw['geometry'])
-            bbox_class.Bounding_Box.check_bbox_size(bbbox_area)
+            bbox_area = common.get_area(self.draw_control.last_draw['geometry'])
+            Bounding_Box.check_bbox_size(bbox_area)
             # if a bbox already exists delete it
-            if self.bbox:
-                del self.bbox
-                self.bbox = None
+            self.bbox=None
             # Save new bbox to coastseg_map
-            self.bbox = bbox_class.Bounding_Box(self.draw_control.last_draw['geometry'])
+            self.bbox = Bounding_Box(self.draw_control.last_draw['geometry'])
         if self.draw_control.last_action == 'deleted':
-            if self.bbox:
-                del self.bbox
-                self.bbox = None
-             
+            self.remove_bbox()
+    
+    def load_bbox_on_map(self, file=None):
+        # remove old bbox if it exists
+        self.remove_bbox()
+        if file is not None:
+            gdf = gpd.read_file(file)
+            self.bbox = Bounding_Box(gdf)
+            new_layer = self.create_layer(self.bbox,self.bbox.LAYER_NAME)
+            self.map.add_layer(new_layer)
+            print(f"Loaded the bbox from the file :\n{file}")
+            logger.info(f"Loaded the bbox from the file :\n{file}")
+                 
     def load_shoreline_on_map(self) -> None:
         """Adds shoreline within the drawn bbox onto the map"""
         if self.bbox is None:
-            raise exceptions.BBox_Not_Found()
+            raise exceptions.Object_Not_Found('bounding box')
         elif self.bbox.gdf.empty:
-            raise exceptions.BBox_Not_Found()
+            raise exceptions.Object_Not_Found('bounding box')
         # if a bounding box exists create a shoreline within it
         shoreline = Shoreline(self.bbox.gdf)
         if shoreline.gdf.empty:
-             raise exceptions.Shoreline_Not_Found()
+            raise exceptions.Object_Not_Found('shorelines')
         else:
             layer_name = 'shoreline'
             # Replace old shoreline with new one
@@ -611,14 +750,6 @@ class CoastSeg_Map:
         # convert layer to GeoJson and style it accordingly
         styled_layer = feature.style_layer(layer_geojson, layer_name)
         return styled_layer
-
-    def save_bbox_to_file(self):
-        # Ensure drawn bbox(bounding box) within allowed size
-        bbox.validate_bbox_size(self.shapes_list)
-        # Get the geodataframe for the bbox
-        self.bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
-        self.bbox.to_file("bbox.geojson", driver='GeoJSON')
-        print("Saved bbox to bbox.geojson")
     
     def style_rois(self, df: gpd.geodataframe):
         """converts a geodataframe to a json dict and styles it as a fishnet grid
@@ -642,47 +773,38 @@ class CoastSeg_Map:
             }
         return fishnet_dict
 
-    def generate_ROIS_fishnet(self,large_fishnet=7500,small_fishnet=5000):
-        """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
-        # Ensure drawn bbox(bounding box) within allowed size
-        bbox.validate_bbox_size(self.shapes_list)
-        # Get the geodataframe for the bbox
-        gpd_bbox = bbox.create_geodataframe_from_bbox(self.shapes_list)
-        # save bbox 
-        if self.shorelines_gdf.empty:
-            self.load_shoreline_on_map()
-        # Large fishnet cannot be 0. Throw an error
-        if large_fishnet == 0:
-            raise Exception("Large fishnet size must be greater than 0")
-        # Create two fishnets, one big (2000m) and one small(1500m) so they overlap each other
-        fishnet_gpd_large = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf,large_fishnet)
-
-        if small_fishnet == 0:
-            # If small fishnet is 0 it means only the large fishnet should exist
-            fishnet_intersect_gpd=fishnet_gpd_large
+    def load_rois_on_map(self, large_len=7500, small_len=5000,file:str=None):
+        # Remove old ROI_layers
+        self.remove_all_rois()
+        if file is not None:
+            gdf = gpd.read_file(file)
+            self.rois = ROI(rois_gdf = gdf)
+            # Create new ROI layer
+            self.ROI_layer = self.create_layer(self.rois,ROI.LAYER_NAME)
+            self.ROI_layer.on_click(self.geojson_onclick_handler)
+            self.map.add_layer(self.ROI_layer)
+            print(f"Loaded the rois from the file :\n{file}")
+            logger.info(f"Loaded the rois from the file :\n{file}")
         else:
-            fishnet_gpd_small = self.fishnet_gpd(gpd_bbox, self.shorelines_gdf, small_fishnet)
-            # Concat the fishnets together to create one overlapping set of rois
-            fishnet_intersect_gpd = gpd.GeoDataFrame(concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
+            self.generate_ROIS_fishnet(large_len, small_len)
 
-        # Add an id column to fishnet dataframe
-        num_roi = len(fishnet_intersect_gpd)
-        fishnet_intersect_gpd['id'] = np.arange(0, num_roi)
+    def generate_ROIS_fishnet(self,large_len=7500,small_len=5000):
+        """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
+        if self.bbox is None:
+            raise exceptions.Object_Not_Found('bounding box')
+        print("bbox:",self.bbox.gdf)
+        print("self.shoreline:", self.shoreline)
+        # If no shoreline exists on map then load one in
+        if self.shoreline is None:
+            self.load_shoreline_on_map()
         
-        # style fishnet and convert to dictionary to be added to map
-        fishnet_dict = self.style_rois(fishnet_intersect_gpd)
-
-        # Save the styled fishnet to data for interactivity to be added later
-        self.data = fishnet_dict
-
-    def get_geojson_layer(self) -> "'ipyleaflet.leaflet.GeoJSON'":
-        """Returns GeoJSON for generated ROIs
-        Returns:
-            GeoJSON: geojson object that can be added to the map
-        """
-        if self.geojson_layer is None and self.data:
-            self.geojson_layer = GeoJSON(data=self.data, name="GeoJSON data", hover_style={"fillColor": "red","color":"crimson"})
-        return self.geojson_layer
+        self.rois = None
+        self.rois = ROI(self.bbox.gdf,self.shoreline.gdf,
+                   square_len_lg=large_len,
+                   square_len_sm=small_len)
+        self.ROI_layer = self.create_layer(self.rois,ROI.LAYER_NAME)
+        self.ROI_layer.on_click(self.geojson_onclick_handler)
+        self.map.add_layer(self.ROI_layer)
 
     def geojson_onclick_handler(self, event: str = None, id: 'NoneType' = None, properties: dict = None, **args):
         """On click handler for when unselected geojson is clicked.
@@ -697,18 +819,20 @@ class CoastSeg_Map:
         """
         if properties is None:
             return
-        cid = properties["id"]
-        self.selected_set.add(cid)
-        if self.selected_layer is not None:
-            self.map.remove_layer(self.selected_layer)
+        ROI_id = properties["id"]
+        # Add the id of the clicked ROI to selected_set
+        self.selected_set.add(ROI_id)
+        if self.selected_ROI_layer is not None:
+            self.map.remove_layer(self.selected_ROI_layer)
 
-        self.selected_layer = GeoJSON(
+        self.selected_ROI_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(self.selected_set),
             name="Selected ROIs",
             hover_style={"fillColor": "blue","color": "aqua"},
         )
-        self.selected_layer.on_click(self.selected_onclick_handler)
-        self.map.add_layer(self.selected_layer)
+        
+        self.selected_ROI_layer.on_click(self.selected_onclick_handler)
+        self.map.add_layer(self.selected_ROI_layer)
 
     def selected_onclick_handler(self, event: str = None, id: 'NoneType' = None, properties: dict = None, **args):
         """On click handler for selected geojson layer.
@@ -726,52 +850,29 @@ class CoastSeg_Map:
         # Remove the current layers cid from selected set
         cid = properties["id"]
         self.selected_set.remove(cid)
-        if self.selected_layer is not None:
-            self.map.remove_layer(self.selected_layer)
+        if self.selected_ROI_layer is not None:
+            self.map.remove_layer(self.selected_ROI_layer)
         # Recreate the selected layers wihout the layer that was removed
-        self.selected_layer = GeoJSON(
+        self.selected_ROI_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(self.selected_set),
             name="Selected ROIs",
             hover_style={"fillColor": "blue","color": "aqua"},
         )
         # Recreate the onclick handler for the selected layers
-        self.selected_layer.on_click(self.selected_onclick_handler)
+        self.selected_ROI_layer.on_click(self.selected_onclick_handler)
         # Add selected layer to the map
-        self.map.add_layer(self.selected_layer)
+        self.map.add_layer(self.selected_ROI_layer)
 
-    def add_geojson_layer_to_map(self):
-        """ Add the geojson for the generated roi as a styled layer to the map"""
-        geojson_layer = self.get_geojson_layer()
-        geojson_layer.on_click(self.geojson_onclick_handler)
-        self.map.add_layer(geojson_layer)
-
-    def save_roi_fishnet(self, filename: str) -> None:
-        """ Saves the selected roi to a geojson file called """
-        # Saves the selected roi to a geojson file
-        # returns the selected set as geojson
-        selected_geojson = self.convert_selected_set_to_geojson(self.selected_set)
-        filepath = os.path.join(os.getcwd(), filename)
-        self.save_to_geojson_file(filepath, selected_geojson)
-        self.selected_ROI = selected_geojson
-
-    def save_to_geojson_file(self, out_file: str, geojson: dict, **kwargs) -> None:
-        """save_to_geojson_file Saves given geojson to a geojson file at outfile
-
-        Args:
-            out_file (str): The output file path
-            geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
-        """
-        # Save the geojson to a file
-        out_file = check_file_path(out_file)
-        ext = os.path.splitext(out_file)[1].lower()
-        if ext == ".geojson":
-            out_geojson = out_file
+    def save_feature_to_file(self,feature:Union[Bounding_Box, Shoreline,Transects, ROI]):
+        if feature is None:
+            raise exceptions.Object_Not_Found(feature.LAYER_NAME)
+        elif feature is type(ROI):
+            feature.gdf[feature.gdf['id'].isin(self.selected_set)].to_file(feature.filename, driver='GeoJSON')
         else:
-            out_geojson = os.path.splitext(out_file)[1] + ".geojson"
-
-        with open(out_geojson, "w") as f:
-            json.dump(geojson, f, **kwargs)
-
+            feature.gdf.to_file(feature.filename, driver='GeoJSON')
+        print(f"Save {feature.LAYER_NAME} to {feature.filename}")
+        logger.info(f"Save {feature.LAYER_NAME} to {feature.filename}")
+    
     def convert_selected_set_to_geojson(self, selected_set: set) -> dict:
         """Returns a geojson dict containing a FeatureCollection for all the geojson objects in the
         selected_set
@@ -781,19 +882,21 @@ class CoastSeg_Map:
         Returns:
            dict: geojson dict containing FeatureCollection for all geojson objects in selected_set
         """
-        geojson = {"type": "FeatureCollection", "features": []}
-        # Select the geojson in the selected layer
-        geojson["features"] = [
+        # create a new geojson dictionary to hold the selected ROIs 
+        selected_rois = {"type": "FeatureCollection", "features": []}
+        # Copy only the selected ROIs based on the ids in selected_set from ROI_geojson 
+        selected_rois["features"] = [
             feature
-            for feature in self.data["features"]
+            for feature in self.ROI_layer.data["features"]
             if feature["properties"]["id"] in selected_set
         ]
-        # Modify geojson style for each polygon in the selected layer
-        for feature in self.data["features"]:
+        # Modify change the style of each ROI in the new selected
+        # selected rois will appear blue and unselected rois will appear grey
+        for feature in selected_rois["features"]:
             feature["properties"]["style"] = {
                 "color": "blue",
                 "weight": 3,
                 "fillColor": "grey",
                 "fillOpacity": 0.1,
             }
-        return geojson
+        return selected_rois

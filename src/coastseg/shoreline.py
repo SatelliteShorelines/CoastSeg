@@ -16,11 +16,12 @@ logger.info("I am a log from %s",__name__)
 class Shoreline():
     """ Shoreline: contains the shorelines within a region specified by bbox (bounding box)
     """
+    LAYER_NAME = 'shoreline'
     def __init__(self,bbox:gpd.GeoDataFrame=None, shoreline: gpd.GeoDataFrame=None, filename:str=None):
         self.gdf = gpd.GeoDataFrame()
         self.filename="shoreline.geojson"
-        self.shoreline_files = []
         if not bbox.empty and bbox is not None:
+            logger.info("Creating shoreline geodataframe")
             self.gdf = self.create_geodataframe(bbox)
         
         if shoreline:
@@ -58,6 +59,7 @@ class Shoreline():
                     continue #if the geojson file cannot be read then skip this file
             else:
                 print("\n The geojson shoreline file does not exist. Downloading it now.")
+                logger.info(f"{file} did not exist. Downloading it.")
                 # Download shoreline geojson from Zenodo
                 dataset_id=intersecting_shoreline_files[file]
                 try:
@@ -66,10 +68,19 @@ class Shoreline():
                 # error message tells user to submit an issue
                 except DownloadError as download_exception:
                     print(download_exception)
+                    logger.error(f"{file} was not online.")
                     continue
                 shoreline_path=os.path.abspath(os.path.join(script_dir,"shorelines",file))
                 shoreline=common.read_gpd_file(shoreline_path)
-                
+
+            shoreline.drop(shoreline.columns.difference(['geometry',
+                                                         'river_label',
+                                                         'CSU_ID',
+                                                         'turbid_label',
+                                                         'slope_label',
+                                                         'sinuosity_label',
+                                                         'TIDAL_RANGE',
+                                                         'MEAN_SIG_WAVEHEIGHT']), 'columns',inplace=True)
             # Create a single dataframe to hold all shorelines from all files
             shoreline_in_bbox=common.clip_to_bbox(shoreline, bbox)
             if shorelines_in_bbox_gdf.empty:
@@ -82,18 +93,17 @@ class Shoreline():
             print("No shoreline found here.")
             logger.warning("No shoreline found here.")
         
-        # save shoreline files that intersected with bbox
-        self.shoreline_files = list(map(lambda x:os.path.splitext(x)[0],intersecting_shoreline_files))
         return shorelines_in_bbox_gdf
     
     def style_layer(self, geojson: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
-        """Return styled GeoJson object according to the layer_type specified
+        """Return styled GeoJson object with layer name
 
         Args:
-            geojson (dict): geojson dictionary to be 
+            geojson (dict): geojson dictionary to be styled
+            layer_name(str): name of the GeoJSON layer
 
         Returns:
-            "ipyleaflet.GeoJSON": shoreline as GeoJson object styled with yellow dashes
+            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
         """
         assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
         return GeoJSON(
@@ -125,14 +135,17 @@ class Shoreline():
         shoreline_dir = os.path.abspath(os.path.join(script_dir,"shorelines"))
         if not os.path.exists(shoreline_dir):
             os.mkdir(shoreline_dir)
+            logger.info(f"Created shoreline directory: {shoreline_dir}")
         # outfile : location where  model id saved
         outfile = os.path.abspath(os.path.join(shoreline_dir, filename))
         # Download the model from Zenodo
         if not os.path.exists(outfile):
             url = (root_url + filename+"?download=1")
-            print('Retrieving: {}'.format(url))
-            print("Retrieving file: {}".format(outfile))
-            self.download_url(url, outfile,filename=filename)
+            logger.info(f'Retrieving: {url}')
+            logger.info(f'Retrieving file: {outfile}')
+            print(f'Retrieving: {url}')
+            print(f"Retrieving file: {outfile}")
+            common.download_url(url, outfile,filename=filename)
 
     def get_intersecting_files(self, bbox : gpd.geodataframe)-> dict:
         """Given bounding box (bbox) returns a list of shoreline filenames whose

@@ -15,6 +15,7 @@ logger.info("I am a log from %s",__name__)
 class Transects():
     """ Transects: contains the transects within a region specified by bbox (bounding box)
     """
+    LAYER_NAME = 'transects'
     def __init__(self,bbox:gpd.GeoDataFrame=None, transects: gpd.GeoDataFrame=None, filename:str=None):
         self.gdf = gpd.GeoDataFrame()
         self.filename="transects.geojson"
@@ -67,13 +68,14 @@ class Transects():
         return all_transects_in_bbox_gdf
     
     def style_layer(self, geojson: dict, layer_name :str)->dict:
-        """Return styled GeoJson object according to the layer_type specified
+        """Return styled GeoJson object with layer name
 
         Args:
-            geojson (dict): geojson dictionary to be 
+            geojson (dict): geojson dictionary to be styled
+            layer_name(str): name of the GeoJSON layer
 
         Returns:
-            "ipyleaflet.GeoJSON": shoreline as styled GeoJson object
+            "ipyleaflet.GeoJSON": transects as styled GeoJSON layer
         """  
         assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"      
         # Add style to each feature in the geojson
