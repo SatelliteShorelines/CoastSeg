@@ -6,6 +6,7 @@ from .exceptions import BboxTooLargeError, BboxTooSmallError
 # External dependencies imports
 import geopandas as gpd
 from shapely.geometry import shape
+from ipyleaflet import GeoJSON
 
 
 logger = logging.getLogger(__name__)
@@ -18,18 +19,18 @@ class Bounding_Box():
     """
     MAX_AREA = 3000000000   # UNITS = Sq. Meters
     MIN_AREA = 9000         # UNITS = Sq. Meters
-   
+    LAYER_NAME = 'Bbox'
     def __init__(self, rectangle: Union[dict, gpd.GeoDataFrame], filename:str=None):
         self.gdf=None
         self.filename="bbox.geojson"
-        
         if type(rectangle) == type(gpd.GeoDataFrame()):
             self.gdf = rectangle
         elif type(rectangle) == dict:
             self.gdf = self.create_geodataframe(rectangle)
         if filename:
             self.filename=filename
-            
+
+                
     def create_geodataframe(self, rectangle:dict, crs:str='EPSG:4326') -> gpd.GeoDataFrame:
         """Creates a geodataframe with the crs specified by crs
         Args:
@@ -43,6 +44,26 @@ class Bounding_Box():
         geojson_bbox.crs = crs
         return geojson_bbox
   
+    def style_layer(self, geojson: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
+        """Return styled GeoJson object with layer name
+
+        Args:
+            geojson (dict): geojson dictionary to be styled
+            layer_name(str): name of the GeoJSON layer
+        Returns:
+            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
+        """
+        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+        return GeoJSON(
+            data=geojson,
+            name=layer_name,
+            style={
+                'color': '#75b671',
+                'fill_color': '#75b671',
+                'opacity': 1,
+                'fillOpacity': 0.2,
+                'weight': 4},
+        )
             
     def check_bbox_size(bbox_area: float):
         """"Raises an exception if the size of the bounding box is too large or small."""
