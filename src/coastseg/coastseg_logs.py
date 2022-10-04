@@ -22,7 +22,7 @@ def create_root_logger():
     formatter = logging.Formatter(log_format)
     file_handler.setFormatter(formatter)
     # Have all loggers write to the same log file
-    logging.basicConfig(handlers=[file_handler],format=log_format,level=logging.DEBUG)
+    logging.basicConfig(handlers=[file_handler],format=log_format,level=logging.INFO)
 
 # Prepare and create the logger
 prepare_logging()
