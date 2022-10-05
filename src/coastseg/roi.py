@@ -104,6 +104,7 @@ class ROI():
                 'weight': 3},
             hover_style={
                 'color': 'red',
+                'fillOpacity': 0.1,
                 "color":"crimson"},
         )    
     
