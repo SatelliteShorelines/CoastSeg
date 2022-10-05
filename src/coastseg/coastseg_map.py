@@ -146,18 +146,16 @@ class CoastSeg_Map:
         sat_list: list
             A list of strings containing the names of the satellite
         """
-    #     1. Check imagery available and check for ee credentials
-        inputs_list = self.check_images_available_selected_ROI(
+        # 1. Check imagery available and check for ee credentials
+        inputs_list = self.check_images_available(
                 selected_roi_geojson, dates, collection, sat_list)
+        logger.info(f"Images available: \n {inputs_list}")
         print("Images available: \n", inputs_list)
-        inputs_list = self.check_images_available_selected_ROI(
-                selected_roi_geojson, dates, collection, sat_list)
-
-    # Check if inputs for downloading imagery exist then download imagery
+        # Check if inputs for downloading imagery exist then download imagery
         assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
         return inputs_list
 
-    def check_images_available_selected_ROI(self,
+    def check_images_available(self,
         selected_roi_geojson: dict,
         dates: list,
         collection: str,
@@ -239,26 +237,39 @@ class CoastSeg_Map:
         sat_list: list
             A list of strings containing the names of the satellite
         """
-    #     1. Check imagery available and check for ee credentials
+        # 1. Check imagery available and check for ee credentials
+        print("Download_imagery called")
+        logger.info("Download_imagery called")
         if self.settings is None:
+            logger.error("No settings found.")
             raise Exception("No settings found. Create settings before downloading")
+        if not set(['dates','sat_list','collection']).issubset(set(self.settings.keys())):
+            logger.error(f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
+            raise Exception(f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
         if self.selected_ROI_layer is None:
+            logger.error("No ROIs were selected.")
             raise Exception("No ROIs were selected. Make sure to click save roi before downloading.")
         
+        logger.info(f"self.settings: {self.settings}")
+        logger.info(f"self.selected_ROI_layer: {self.selected_ROI_layer}")
+        logger.info(f"dates: {self.settings['dates']}")
+        logger.info(f"sat_list: {self.settings['sat_list']}")
+        logger.info(f"collection: {self.settings['collection']}")
+        logger.info(f"selected_roi_geojson: {self.settings}")
+
         dates=self.settings['dates']
         sat_list = self.settings['sat_list']
         collection = self.settings['collection']
         selected_roi_geojson = self.selected_ROI_layer.data
         inputs_list=self.get_inputs_list(selected_roi_geojson,dates,sat_list, collection)
         print("Download in process")
+        tmp_settings =  self.settings
         for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
             metadata = SDS_download.retrieve_images(inputs)
-            # @todo remove this
-            # Add the inputs to the pre_process_settings
-            # pre_process_settings['inputs'] = inputs
-            # SDS_preprocess.save_jpg(metadata, pre_process_settings)
-            self.settings['inputs'] = inputs
-            SDS_preprocess.save_jpg(metadata, self.settings)
+            print(f"inputs: {inputs}")
+            logger.info(f"inputs: {inputs}")
+            tmp_settings['inputs'] = inputs
+            SDS_preprocess.save_jpg(metadata, tmp_settings)
     
     
     def save_settings(self, **kwargs):
@@ -792,12 +803,12 @@ class CoastSeg_Map:
         """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
         if self.bbox is None:
             raise exceptions.Object_Not_Found('bounding box')
-        print("bbox:",self.bbox.gdf)
-        print("self.shoreline:", self.shoreline)
+        logger.info("bbox for ROIs: {self.bbox.gdf}")
+        logger.info("self.shoreline before check: {self.shoreline}")
         # If no shoreline exists on map then load one in
         if self.shoreline is None:
             self.load_shoreline_on_map()
-        
+        logger.info("self.shoreline used for ROIs:{ self.shoreline}")
         self.rois = None
         self.rois = ROI(self.bbox.gdf,self.shoreline.gdf,
                    square_len_lg=large_len,
@@ -866,9 +877,13 @@ class CoastSeg_Map:
     def save_feature_to_file(self,feature:Union[Bounding_Box, Shoreline,Transects, ROI]):
         if feature is None:
             raise exceptions.Object_Not_Found(feature.LAYER_NAME)
-        elif feature is type(ROI):
+        elif isinstance(feature,ROI):
+            print(f"Saved feature to file: {feature.filename}")
+            logger.info(f"Saved feature to file: {feature.filename}")
+            logger.info(f"feature: {feature.gdf[feature.gdf['id'].isin(self.selected_set)]}")
             feature.gdf[feature.gdf['id'].isin(self.selected_set)].to_file(feature.filename, driver='GeoJSON')
         else:
+            logger.info(f"type( {feature})")
             feature.gdf.to_file(feature.filename, driver='GeoJSON')
         print(f"Save {feature.LAYER_NAME} to {feature.filename}")
         logger.info(f"Save {feature.LAYER_NAME} to {feature.filename}")

@@ -1,14 +1,10 @@
 # standard python imports
 import os
-import json
 #internal python imports
-from src.coastseg import download_roi
 from src.coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from src.coastseg import exceptions
 # external python imports
 import ipywidgets
-import geopandas as gpd
-from ipyleaflet import GeoJSON
 from IPython.display import display, clear_output
 from google.auth import exceptions as google_auth_exceptions
 from tkinter import Tk,filedialog
@@ -173,7 +169,7 @@ class UI:
         row_5 = HBox([self.coastseg_map.map])
         row_6 = HBox([UI.download_view])
 
-        return display(row_1,row_2, row_3, row_4, row_5, row_6)
+        return display(row_1,row_2, row_3, row_4, row_6, row_5)
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes['small']=change['new']
@@ -258,7 +254,7 @@ class UI:
         UI.debug_view.append_stdout("Scroll down past map to see download progress.")
         try:
             self.download_button.disabled=True
-            self.coastseg_map.download_imagery(self.coastseg_map)
+            self.coastseg_map.download_imagery()
         except google_auth_exceptions.RefreshError as exception:
             print(exception)
             with Tkinter_Window_Creator():

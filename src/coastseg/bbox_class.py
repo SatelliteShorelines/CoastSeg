@@ -23,9 +23,9 @@ class Bounding_Box():
     def __init__(self, rectangle: Union[dict, gpd.GeoDataFrame], filename:str=None):
         self.gdf=None
         self.filename="bbox.geojson"
-        if type(rectangle) == type(gpd.GeoDataFrame()):
+        if isinstance(rectangle, gpd.GeoDataFrame):
             self.gdf = rectangle
-        elif type(rectangle) == dict:
+        elif isinstance(rectangle, dict):
             self.gdf = self.create_geodataframe(rectangle)
         if filename:
             self.filename=filename
