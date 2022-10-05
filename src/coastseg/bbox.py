@@ -1,82 +1,78 @@
 # Standard library imports
-import os
-from datetime import datetime
 import logging
+from typing import Union
+# Internal dependencies imports
+from .exceptions import BboxTooLargeError, BboxTooSmallError
 # External dependencies imports
-from area import area
 import geopandas as gpd
 from shapely.geometry import shape
+from ipyleaflet import GeoJSON
 
 
 logger = logging.getLogger(__name__)
 logger.info("I am a log from %s",__name__)
 
-# Internal dependencies imports
-from .exceptions import BboxTooLargeError, BboxTooSmallError
+class Bounding_Box():
+    """Bounding_Box 
 
-
-def calculate_area_bbox(bbox: dict):
-    "Calculates the area of the geojson polygon using the same method as geojson.io"
-    bbox_area = round(area(bbox), 2)
-    return bbox_area
-
-
-def read_gpd_file(filename: str) -> "geopandas.geodataframe.GeoDataFrame":
+    _extended_summary_
     """
-    Returns geodataframe from geopandas geodataframe file
-    """
-    if os.path.exists(filename):
-        logger.info(f"Opening \n {filename}")
-        with open(filename, 'r') as f:
-            gpd_data = gpd.read_file(f)
-    else:
-        logger.error(f"Geodataframe file does not exist \n {filename}")
-        print('File does not exist. Please download the coastline_vector necessary here: https://geodata.lib.berkeley.edu/catalog/stanford-xv279yj9196 ')
-        raise FileNotFoundError
-    return gpd_data
+    MAX_AREA = 3000000000   # UNITS = Sq. Meters
+    MIN_AREA = 9000         # UNITS = Sq. Meters
+    LAYER_NAME = 'Bbox'
+    def __init__(self, rectangle: Union[dict, gpd.GeoDataFrame], filename:str=None):
+        self.gdf=None
+        self.filename="bbox.geojson"
+        if isinstance(rectangle, gpd.GeoDataFrame):
+            self.gdf = rectangle
+        elif isinstance(rectangle, dict):
+            self.gdf = self.create_geodataframe(rectangle)
+        if filename:
+            self.filename=filename
+
+                
+    def create_geodataframe(self, rectangle:dict, crs:str='EPSG:4326') -> gpd.GeoDataFrame:
+        """Creates a geodataframe with the crs specified by crs
+        Args:
+            rectangle (dict): geojson dictionary
+            crs (str, optional): coordinate reference system string. Defaults to 'EPSG:4326'.
+
+        Returns:
+            gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs"""        
+        geom = [shape(rectangle) ]
+        geojson_bbox = gpd.GeoDataFrame({'geometry': geom})
+        geojson_bbox.crs = crs
+        return geojson_bbox
+  
+    def style_layer(self, geojson: dict, layer_name :str) -> "ipyleaflet.GeoJSON":
+        """Return styled GeoJson object with layer name
+
+        Args:
+            geojson (dict): geojson dictionary to be styled
+            layer_name(str): name of the GeoJSON layer
+        Returns:
+            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
+        """
+        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+        return GeoJSON(
+            data=geojson,
+            name=layer_name,
+            style={
+                'color': '#75b671',
+                'fill_color': '#75b671',
+                'opacity': 1,
+                'fillOpacity': 0.2,
+                'weight': 4},
+        )
+            
+    def check_bbox_size(bbox_area: float):
+        """"Raises an exception if the size of the bounding box is too large or small."""
+        # Check if the size is greater than MAX_BBOX_SIZE
+        if bbox_area > Bounding_Box.MAX_AREA:
+            raise BboxTooLargeError
+        # Check if size smaller than MIN_BBOX_SIZE
+        elif bbox_area < Bounding_Box.MIN_AREA:
+            raise BboxTooSmallError
 
 
-def check_bbox_size(bbox_area: float, shapes_list: list):
-    """"Raises an exception and clears the map if the size of the bounding box is too large or small."""
-    # UNITS = Sq. Meters
-    MAX_BBOX_SIZE = 3000000000
-    MIN_BBOX_SIZE = 9000
-    # Check if the size is greater than MAX_BBOX_SIZE
-    if bbox_area > MAX_BBOX_SIZE:
-        shapes_list = []
-        raise BboxTooLargeError
-    # Check if size smaller than MIN_BBOX_SIZE
-    elif bbox_area < MIN_BBOX_SIZE:
-        shapes_list = []
-        raise BboxTooSmallError
 
-
-def validate_bbox_size(shapes_list: list):
-    assert shapes_list != [], "ERROR.\nYou must draw a bounding box somewhere on the coast first."
-    last_index = len(shapes_list) - 1
-    # The last index in the shapes_list was the last shape drawn
-    bbox_area = calculate_area_bbox(shapes_list[last_index])
-    check_bbox_size(bbox_area, shapes_list)
-    return shapes_list[last_index]
-
-
-def clip_to_bbox( gdf_to_clip:'geopandas.geodataframe.GeoDataFrame', bbox_gdf:'geopandas.geodataframe.GeoDataFrame')->'geopandas.geodataframe.GeoDataFrame':        
-    """Clip gdf_to_clip to bbox_gdf. Only data within bbox will be kept.
-    Args:
-        gdf_to_clip (geopandas.geodataframe.GeoDataFrame): geodataframe to be clipped to bbox
-        bbox_gdf (geopandas.geodataframe.GeoDataFrame): drawn bbox
-    Returns:
-        geopandas.geodataframe.GeoDataFrame: clipped geodata within bbox
-    """        
-    transects_in_bbox = gpd.clip(gdf_to_clip, bbox_gdf)
-    transects_in_bbox = transects_in_bbox.to_crs('EPSG:4326')
-    return transects_in_bbox
-
-def create_geodataframe_from_bbox(
-        shapes_list: list) -> "geopandas.geodataframe.GeoDataFrame":
-    """ Create a geodataframe from the bounding box's geometry"""
-    assert shapes_list != [], "ERROR.\nYou must draw a bounding box somewhere on the coast first."
-    geom = [shape(i) for i in shapes_list]
-    geojson_bbox = gpd.GeoDataFrame({'geometry': geom})
-    geojson_bbox.crs = 'EPSG:4326'
-    return geojson_bbox
