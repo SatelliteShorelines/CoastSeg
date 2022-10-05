@@ -10,7 +10,6 @@ from ipyleaflet import GeoJSON
 
 
 logger = logging.getLogger(__name__)
-logger.info("I am a log from %s",__name__)
 
 class Bounding_Box():
     """Bounding_Box 
@@ -27,10 +26,11 @@ class Bounding_Box():
             self.gdf = rectangle
         elif isinstance(rectangle, dict):
             self.gdf = self.create_geodataframe(rectangle)
+        else:
+            raise Exception("Invalid rectangle provided to BBox must be either a geodataframe or dict")
         if filename:
             self.filename=filename
-
-                
+          
     def create_geodataframe(self, rectangle:dict, crs:str='EPSG:4326') -> gpd.GeoDataFrame:
         """Creates a geodataframe with the crs specified by crs
         Args:
@@ -53,7 +53,8 @@ class Bounding_Box():
         Returns:
             "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
         """
-        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+        if geojson == {}:
+            raise Exception("ERROR.\n Empty geojson cannot be drawn onto map")
         return GeoJSON(
             data=geojson,
             name=layer_name,
@@ -64,7 +65,7 @@ class Bounding_Box():
                 'fillOpacity': 0.2,
                 'weight': 4},
         )
-            
+        
     def check_bbox_size(bbox_area: float):
         """"Raises an exception if the size of the bounding box is too large or small."""
         # Check if the size is greater than MAX_BBOX_SIZE

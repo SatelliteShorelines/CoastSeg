@@ -4,7 +4,7 @@ import logging
 from glob import glob
 from typing import Union
 
-from coastseg.bbox import Bounding_Box
+from src.coastseg.bbox import Bounding_Box
 from src.coastseg import common
 from src.coastseg.shoreline import Shoreline
 from src.coastseg.transects import Transects
