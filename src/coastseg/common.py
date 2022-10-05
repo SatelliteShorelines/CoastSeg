@@ -6,6 +6,8 @@ import math
 from datetime import datetime
 import logging
 # Internal dependencies imports
+
+from coastsat import SDS_tools
 from .exceptions import DownloadError
 from tqdm.auto import tqdm
 import requests
@@ -16,6 +18,7 @@ import leafmap
 import numpy as np
 import geojson
 from skimage.io import imread
+from itertools import starmap
 from leafmap import check_file_path
 
 logger = logging.getLogger(__name__)
@@ -57,6 +60,71 @@ def download_url(url: str, save_path: str, filename:str=None, chunk_size: int = 
                         fd.write(chunk)
                         pbar.update(len(chunk))
 
+
+def combine_inputs(roi:dict,attributes:dict)->dict:
+    """Adds the roi's coordinates and roi_id to attributes 
+    Args:
+        roi (dict): geojson of roi
+        attributes (dict): download settings
+    Returns:
+        dict: dictionary containing attributes and
+        new keys 'polygon':roi coordinates and 'roi_id':roi's id
+    """            
+    polygon = roi["geometry"]["coordinates"]
+    polygon = SDS_tools.smallest_rectangle(polygon)
+    inputs = {
+    'polygon': polygon,
+    'roi_id':roi['id'],
+    **attributes}
+    return inputs
+
+def get_inputs_list(selected_roi_geojson,
+    dates: list,
+    sat_list: list,
+    collection: str)->list[dict]:
+    """get_inputs_list Returns a list of all download settings each of ROI.
+        Sample download settings:
+        {'polygon': roi["geometry"]["coordinates"],
+        'roi_id':roi['id'],
+        'dates': dates,
+        'sat_list': sat_list,
+        'sitename' : 'ID02022-10-04__21_hr_39_min03sec',(ex folder name)
+        'filepath': filepath,
+        'landsat_collection': collection}
+    Args:
+        selected_roi_geojson:dict
+            A geojson dictionary containing all the ROIs selected by the user
+        dates: list
+            A list of length two that contains a valid start and end date
+        collection : str
+        whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`).
+        sat_list: list
+            A list of strings containing the names of the satellite
+    Returns:
+        list[dict]: list of all download settings each of ROI
+    """        
+    date_str = generate_datestring()
+    # filepath: directory where data will be saved
+    filepath = os.path.join(os.getcwd(), 'data')
+    # create unique sitenames using the date and index of ROI
+    # for each site create dictionary with download settings eg. dates,sitename
+    site_ids=np.arange(len(selected_roi_geojson['features']))
+    sitenames=list(map(lambda x:'ID' + str(x) + date_str,site_ids))
+    attributes = list(map(lambda x: { 'dates': dates,
+                                        'sat_list': sat_list,
+                                        'sitename' : x,
+                                        'filepath': filepath,
+                                        'landsat_collection': collection} ,sitenames))
+    logger.info(f"attributes: {attributes}")
+    inputs_list=list(starmap(combine_inputs,(zip(selected_roi_geojson['features'],attributes))))
+    logger.info(f"inputs_list: {inputs_list}")
+    del attributes,sitenames,site_ids
+    if inputs_list == []:
+        logger.error("Error: No ROIs were selected. Please click a valid ROI on the map")
+        raise Exception("Error: No ROIs were selected. Please click a valid ROI on the map\n")
+    logger.info(f"Images available: \n {inputs_list}")
+    print("Images available: \n", inputs_list)
+    return inputs_list
 
 def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
     """save_to_geojson_file Saves given geojson to a geojson file at outfile
@@ -240,7 +308,7 @@ def generate_datestring() -> str:
     EX: "ID02022-01-31__13_hr_19_min"
     """
     date = datetime.now()
-    return date.strftime('%Y-%m-%d__%H_hr_%M_min%S')
+    return date.strftime('%Y-%m-%d__%H_hr_%M_min%Ssec')
 
 
 def mk_new_dir(name: str, location: str):

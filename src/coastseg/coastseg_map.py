@@ -110,133 +110,15 @@ class CoastSeg_Map:
         
         return WidgetControl(widget=self.shoreline_accordion, position="topright")
 
-    def get_inputs_list(self,
-        selected_roi_geojson: dict,
-        dates: list,
-        sat_list: list,
-        collection: str) -> None:
-        """
-        Checks if the images exist with check_images_available() and return input_list as
-        as list of dictionaries.
-        Example:
-        [
-            inputs = {
-            'polygon': polygon,
-            'dates': dates,
-            'sat_list': sat_list,
-            'sitename': sitename,
-            'filepath': filepath,
-            'landsat_collection': collection}
-        ]
-        Arguments:
-        -----------
-        selected_roi_geojson:dict
-            A geojson dictionary containing all the ROIs selected by the user
-
-        dates: list
-            A list of length two that contains a valid start and end date
-
-        collection : str
-        whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`).
-        Note that after 2022/01/01, Landsat images are only available in Collection 2.
-        Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
-        images prior to 2022/01/01 will be downloaded from Collection 1,
-        while images captured after that date will be automatically taken from `C02`.
-
-        sat_list: list
-            A list of strings containing the names of the satellite
-        """
-        # 1. Check imagery available and check for ee credentials
-        inputs_list = self.check_images_available(
-                selected_roi_geojson, dates, collection, sat_list)
-        logger.info(f"Images available: \n {inputs_list}")
-        print("Images available: \n", inputs_list)
-        # Check if inputs for downloading imagery exist then download imagery
-        assert inputs_list != [], "\n Error: No ROIs were selected. Please click a valid ROI on the map\n"
-        return inputs_list
-
-    def check_images_available(self,
-        selected_roi_geojson: dict,
-        dates: list,
-        collection: str,
-        sat_list: list) -> list:
-        """"
-
-        Return a list of dictionaries containing all the input parameters such as polygon, dates, sat_list, sitename, and filepath. This list can be used
-        to retrieve images using coastsat.
-
-        Arguments:
-        -----------
-        selected_roi_geojson:  dict
-            A geojson dictionary containing all the ROIs selected by the user.
-        dates: list
-            A list of length two that contains a valid start and end date
-        sat_list: list
-            A list of strings containing the names of the satellite
-        collection : str
-        whether to use LandSat Collection 1 (`C01`)
-        or Collection 2 (`C02`). Note that after 2022/01/01, Landsat images are only available in Collection 2.
-        Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
-        images prior to 2022/01/01 will be downloaded from Collection 1,
-        while images captured after that date will be automatically taken from `C02`.
-
-    Returns:
-        -----------
-    inputs_list: list
-            A list of dictionaries containing all the input parameters such as polygon, dates, sat_list, sitename, and filepath
-        """
-        inputs_list = []
-        logger.info(f"Downloading data for selected ROIs:{selected_roi_geojson}")
-        if selected_roi_geojson["features"] != []:
-            date_str = common.generate_datestring()
-            for counter, roi in enumerate(selected_roi_geojson["features"]):
-                polygon = roi["geometry"]["coordinates"]
-                # it's recommended to convert the polygon to the smallest rectangle
-                # (sides parallel to coordinate axes)
-                polygon = SDS_tools.smallest_rectangle(polygon)
-                # name of the site
-                sitename = 'ID' + str(counter) + date_str
-                # filepath: directory where the data will be stored
-                filepath = os.path.join(os.getcwd(), 'data')
-                # put all the inputs into a dictionnary
-                inputs = {
-                    'polygon': polygon,
-                    'dates': dates,
-                    'sat_list': sat_list,
-                    'sitename': sitename,
-                    'filepath': filepath,
-                    'roi_id':roi['id'],
-                    'landsat_collection': collection}
-                inputs_list.append(inputs)
-        return inputs_list
-
 
     def download_imagery(self) -> None:
-        """
-        Checks if the images exist with check_images_available(), downloads them with retrieve_images(), and
-        transforms images to jpgs with save_jpg()
+        """download_imagery  downloads selected rois as jpgs
 
-        Arguments:
-        -----------
-        selected_roi_geojson:dict
-            A geojson dictionary containing all the ROIs selected by the user
-
-        pre_process_settings:dict
-            Dictionary containing the preprocessing settings used for quality control by CoastSat
-
-        dates: list
-            A list of length two that contains a valid start and end date
-
-        collection : str
-        whether to use LandSat Collection 1 (`C01`) or Collection 2 (`C02`).
-        Note that after 2022/01/01, Landsat images are only available in Collection 2.
-        Landsat 9 is therefore only available as Collection 2. So if the user has selected `C01`,
-        images prior to 2022/01/01 will be downloaded from Collection 1,
-        while images captured after that date will be automatically taken from `C02`.
-
-        sat_list: list
-            A list of strings containing the names of the satellite
-        """
+        Raises:
+            Exception: raised if settings is missing
+            Exception: raised if 'dates','sat_list', and 'collection' are not in settings
+            Exception: raised if no ROIs have been selected
+        """        
         # 1. Check imagery available and check for ee credentials
         print("Download_imagery called")
         logger.info("Download_imagery called")
@@ -261,7 +143,8 @@ class CoastSeg_Map:
         sat_list = self.settings['sat_list']
         collection = self.settings['collection']
         selected_roi_geojson = self.selected_ROI_layer.data
-        inputs_list=self.get_inputs_list(selected_roi_geojson,dates,sat_list, collection)
+        inputs_list=common.get_inputs_list(selected_roi_geojson,dates,sat_list, collection)
+
         print("Download in process")
         tmp_settings =  self.settings
         for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
