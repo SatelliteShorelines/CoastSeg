@@ -722,7 +722,7 @@ class CoastSeg_Map:
         self.selected_ROI_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(self.selected_set),
             name="Selected ROIs",
-            hover_style={"fillColor": "blue","color": "aqua"},
+            hover_style={"fillColor": "blue",'fillOpacity': 0.1,"color": "aqua"},
         )
         
         self.selected_ROI_layer.on_click(self.selected_onclick_handler)
@@ -750,18 +750,26 @@ class CoastSeg_Map:
         self.selected_ROI_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(self.selected_set),
             name="Selected ROIs",
-            hover_style={"fillColor": "blue","color": "aqua"},
+            hover_style={"fillColor": "blue",'fillOpacity': 0.1,"color": "aqua"},
         )
         # Recreate the onclick handler for the selected layers
         self.selected_ROI_layer.on_click(self.selected_onclick_handler)
         # Add selected layer to the map
         self.map.add_layer(self.selected_ROI_layer)
 
+    def check_selected_set(self):
+        if self.selected_set is None:
+            raise Exception ("Must select at least 1 ROI first before you can save ROIs.")
+        if len(self.selected_set) == 0:
+            raise Exception ("Must select at least 1 ROI first before you can save ROIs.")
+
     def save_feature_to_file(self,feature:Union[Bounding_Box, Shoreline,Transects, ROI]):
         if feature is None:
             raise exceptions.Object_Not_Found(feature.LAYER_NAME)
         elif isinstance(feature,ROI):
-            print(f"Saved feature to file: {feature.filename}")
+            # check if any ROIs were selected by making sure the selected set isn't empty 
+            self.check_selected_set()
+            print(f"Saved {feature.LAYER_NAME} to file: {feature.filename}")
             logger.info(f"Saved feature to file: {feature.filename}")
             logger.info(f"feature: {feature.gdf[feature.gdf['id'].isin(self.selected_set)]}")
             feature.gdf[feature.gdf['id'].isin(self.selected_set)].to_file(feature.filename, driver='GeoJSON')
@@ -794,7 +802,7 @@ class CoastSeg_Map:
             feature["properties"]["style"] = {
                 "color": "blue",
                 "weight": 3,
-                "fillColor": "grey",
+                "fillColor": "blue",
                 "fillOpacity": 0.1,
             }
         return selected_rois

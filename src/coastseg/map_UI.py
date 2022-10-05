@@ -7,7 +7,7 @@ from src.coastseg import exceptions
 import ipywidgets
 from IPython.display import display, clear_output
 from google.auth import exceptions as google_auth_exceptions
-from tkinter import Tk,filedialog
+from tkinter import filedialog
 from ipywidgets import Button
 from ipywidgets import HBox
 from ipywidgets import VBox
@@ -55,8 +55,8 @@ class UI:
         # Save and Generate buttons
         self.gen_button =Button(description="Generate ROI",style=self.action_style)
         self.gen_button.on_click(self.on_gen_button_clicked)
-        self.save_button = Button(description="Save ROI",style=self.save_style)
-        self.save_button.on_click(self.on_save_button_clicked)
+        self.save_roi_button = Button(description="Save ROI",style=self.save_style)
+        self.save_roi_button.on_click(self.save_roi_button_clicked)
         self.save_bbox_button = Button(description="Save Bbox",style=self.save_style)
         self.save_bbox_button.on_click(self.on_save_bbox_button_clicked)
         self.download_button = Button(description="Download ROIs",style=self.action_style)
@@ -151,7 +151,7 @@ class UI:
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together.
         """
-        save_vbox = VBox([self.instr_save_roi,self.save_button,self.save_bbox_button, self.instr_load_btns, self.load_rois_button, self.load_bbox_button])
+        save_vbox = VBox([self.instr_save_roi,self.save_roi_button,self.save_bbox_button, self.instr_load_btns, self.load_rois_button, self.load_bbox_button])
         download_vbox = VBox([self.instr_download_roi,self.download_button])
 
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
@@ -200,7 +200,7 @@ class UI:
 
     @debug_view.capture(clear_output=True)
     def on_transects_button_clicked(self,btn):
-        # UI.debug_view.clear_output(wait=True)
+        UI.debug_view.clear_output(wait=True)
         try:
             print("Loading transects please wait.")
             self.coastseg_map.map.default_style = {'cursor': 'wait'}
@@ -223,8 +223,14 @@ class UI:
                 title = "Select a geojson file containing rois")
             # Save the filename as an attribute of the button
             if tk_root.filename:
-                self.coastseg_map.load_rois_on_map(file=tk_root.filename)
-                # print(f"Loaded the rois from the file :\n{roi_file} ")
+                try:
+                    self.coastseg_map.load_rois_on_map(file=tk_root.filename)
+                except exceptions.Object_Not_Found as not_on_map_error:
+                    with Tkinter_Window_Creator():
+                        messagebox.showinfo("Error", str(not_on_map_error))
+                except Exception as error:
+                    with Tkinter_Window_Creator():
+                        messagebox.showinfo("Error", str(error))        
             else:
                 messagebox.showerror("ROI Selection Error", "You must select a valid geojson file first!")
 
@@ -233,13 +239,15 @@ class UI:
     def on_shoreline_button_clicked(self,btn):
         self.coastseg_map.map.default_style = {'cursor': 'wait'}
         UI.debug_view.clear_output(wait=True)
-        print("Loading shoreline please wait.")
-        # Add the transects to the map
+        print("Loading shoreline please wait...")
         try:
             self.coastseg_map.load_shoreline_on_map()
         except exceptions.Object_Not_Found as not_on_map_error:
             with Tkinter_Window_Creator():
-                messagebox.showinfo("Bounding Box Error", str(not_on_map_error))    
+                messagebox.showinfo("Bounding Box Error", str(not_on_map_error))
+        except Exception as error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Error", str(error))    
         else: 
             print("Shoreline loaded.")
         finally:
@@ -264,37 +272,20 @@ class UI:
         finally:
             self.download_button.disabled=False
             self.coastseg_map.map.default_style = {'cursor': 'default'}
-        # UI.debug_view.append_stdout("No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
-        # with Tkinter_Window_Creator():
-        #     messagebox.showerror("ROI Selection Error", "No ROIs were selected. \nPlease select at least one ROI and click 'Save ROI' to save these ROI for download.")
+
 
     @debug_view.capture(clear_output=True)
     def on_save_bbox_button_clicked(self, btn):
-        if  self.coastseg_map.bbox is not None :
-            UI.debug_view.clear_output(wait=True)
-            # Save selected bbox to a geojson file
+        UI.debug_view.clear_output(wait=True)
+        try:
             self.coastseg_map.save_feature_to_file(self.coastseg_map.bbox)
-            print("Saved bbox to file")
-        else:
+        except exceptions.Object_Not_Found as not_on_map_error:
             with Tkinter_Window_Creator():
-                messagebox.showerror("Bounding Box Error", "No bounding box found.\nDraw a bounding box on the coast first")
+                messagebox.showinfo("Error", str(not_on_map_error))
+        except Exception as error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Error", str(error)) 
 
-    @debug_view.capture(clear_output=True)
-    def on_save_button_clicked(self,btn):
-        if self.coastseg_map.selected_set:
-            if len(self.coastseg_map.selected_set) == 0:
-                with Tkinter_Window_Creator():
-                    messagebox.showerror("ROI Selection Error", "Must select at least 1 ROI first before you can save ROIs.")
-            else:
-                UI.debug_view.clear_output(wait=True)
-                self.coastseg_map.save_roi_fishnet("fishnet_rois.geojson")
-                print("Saving ROIs")
-                UI.debug_view.clear_output(wait=True)
-                print("ROIs have been saved. Now click Download ROI to download the ROIs using CoastSat")
-        else:
-            with Tkinter_Window_Creator():
-                messagebox.showerror("ROI Selection Error", "No ROIs were selected.")
-            
     @debug_view.capture(clear_output=True)
     def on_load_bbox_clicked(self, button):
         # Prompt the user to select a directory of images
@@ -308,23 +299,21 @@ class UI:
             else:
                 messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
 
-    @debug_view.capture(clear_output=True)
-    def on_save_button_clicked(self, btn):
-        if self.coastseg_map.selected_set:
-            if len(self.coastseg_map.selected_set) == 0:
-                with Tkinter_Window_Creator():
-                    messagebox.showinfo("ROI Selection Error", "Must select at least 1 ROI first before you can save ROIs.")
-            else:
-                UI.debug_view.clear_output(wait=True)
-                self.coastseg_map.save_feature_to_file(self.coastseg_map.rois)
-                # self.coastseg_map.save_roi_fishnet("fishnet_rois.geojson")
-                print("Saving ROIs")
-                UI.debug_view.clear_output(wait=True)
-                print("ROIs have been saved. Now click Download ROI to download the ROIs using CoastSat")
-        else:
-            with Tkinter_Window_Creator():
-                messagebox.showerror("ROI Selection Error", "No ROIs were selected.")
 
+    @debug_view.capture(clear_output=True)
+    def save_roi_button_clicked(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        try:
+            self.coastseg_map.save_feature_to_file(self.coastseg_map.rois)
+            # UI.debug_view.clear_output(wait=True)
+            print("ROIs have been saved. Now click Download ROI to download the ROIs using CoastSat")
+        except exceptions.Object_Not_Found as not_on_map_error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Error", str(not_on_map_error))
+        except Exception as error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("ROI Selection Error", str(error))
+                        
     def remove_all_from_map(self, btn):
         self.coastseg_map.remove_all()
     def remove_transects(self, btn):

@@ -123,7 +123,6 @@ def get_inputs_list(selected_roi_geojson,
         logger.error("Error: No ROIs were selected. Please click a valid ROI on the map")
         raise Exception("Error: No ROIs were selected. Please click a valid ROI on the map\n")
     logger.info(f"Images available: \n {inputs_list}")
-    print("Images available: \n", inputs_list)
     return inputs_list
 
 def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
