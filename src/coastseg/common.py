@@ -6,9 +6,8 @@ import math
 from datetime import datetime
 import logging
 # Internal dependencies imports
-
-from coastsat import SDS_tools
 from .exceptions import DownloadError
+from coastsat import SDS_tools
 from tqdm.auto import tqdm
 import requests
 from area import area
@@ -20,6 +19,7 @@ import geojson
 from skimage.io import imread
 from itertools import starmap
 from leafmap import check_file_path
+from pyproj import Proj, transform
 
 logger = logging.getLogger(__name__)
 logger.info("I am a log from %s",__name__)
@@ -142,7 +142,6 @@ def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
         json.dump(geojson, f, **kwargs)
 
 
-
 def get_center_rectangle(coords:list[float])->tuple[float]:
     """returns the center points of rectangle specified by points coords
     Args:
@@ -154,6 +153,28 @@ def get_center_rectangle(coords:list[float])->tuple[float]:
     x2,y2 = coords[2][0],coords[2][1] 
     center_x,center_y = (x1 + x2) / 2, (y1 + y2) / 2 
     return center_x,center_y
+
+
+def convert_espg(input_epsg:int,output_epsg:int,coastsat_array:np.ndarray, is_transects:bool = False)->np.ndarray:
+    """Convert the coastsat_array espg to the output_espg 
+    @ todo add funcionality for is_transects
+    Args:
+        input_epsg (int): input espg
+        output_epsg (int): output espg
+        coastsat_array (np.ndarray): array of coordiinates as [[lat,lon],[lat,lon]....]
+    Returns:
+        np.ndarray: array with output espg in the form [[[lat,lon,0.]]]
+    """
+    if input_epsg is None:
+        input_epsg=4326
+    inProj = Proj(init='epsg:'+str(input_epsg))
+    outProj = Proj(init='epsg:'+str(output_epsg))
+    s_proj = []
+    # Convert all the lat,ln coords to new espg (operation takes some time....)
+    for coord in coastsat_array:
+        x2,y2 = transform(inProj,outProj,coord[0],coord[1])
+        s_proj.append([x2,y2,0.])
+    return np.array(s_proj)
 
 
 def convert_wgs_to_utm(lon: float,lat: float)->str:
@@ -168,7 +189,7 @@ def convert_wgs_to_utm(lon: float,lat: float)->str:
     # """Based on lat and lng, return best utm epsg-code"""
     utm_band = str((math.floor((lon + 180) / 6 ) % 60) + 1)
     if len(utm_band) == 1:
-        utm_band = '0'+utm_band
+        utm_band = '0' + utm_band
     if lat >= 0:
         epsg_code = '326' + utm_band # North
         return epsg_code
@@ -209,9 +230,9 @@ def read_json_file(filename: str):
     return data
 
 
-def write_preprocess_settings_file(settings_file: str, settings: dict):
-    """"Write the preprocess settings dictionary to json file"""
-    with open(settings_file, 'w', encoding='utf-8') as output_file:
+def write_to_json(file_path: str, settings: dict):
+    """"Write the  settings dictionary to json file"""
+    with open(file_path, 'w', encoding='utf-8') as output_file:
         json.dump(settings, output_file)
 
 

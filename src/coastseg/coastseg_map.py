@@ -15,12 +15,13 @@ import requests
 import geopandas as gpd
 import numpy as np
 from shapely.geometry import Polygon
-from pyproj import Proj, transform
+
 from coastsat import SDS_tools, SDS_download, SDS_tools,SDS_transects,SDS_shoreline, SDS_preprocess
 from ipyleaflet import DrawControl, LayersControl,  WidgetControl, GeoJSON
 from leafmap import Map, check_file_path
 from ipywidgets import Layout, HTML, Accordion
 from tqdm.auto import tqdm
+from pyproj import Proj, transform
 import matplotlib
 matplotlib.use("Qt5Agg")
 
@@ -144,7 +145,7 @@ class CoastSeg_Map:
         collection = self.settings['collection']
         selected_roi_geojson = self.selected_ROI_layer.data
         inputs_list=common.get_inputs_list(selected_roi_geojson,dates,sat_list, collection)
-
+        logger.info(f"inputs_list {inputs_list}")
         print("Download in process")
         tmp_settings =  self.settings
         for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
@@ -153,6 +154,20 @@ class CoastSeg_Map:
             logger.info(f"inputs: {inputs}")
             tmp_settings['inputs'] = inputs
             SDS_preprocess.save_jpg(metadata, tmp_settings)
+        
+        # Return the inputs used to download data with CoastSat
+        inputs_dict={}
+        for input in inputs_list:
+            inputs_dict[int(input['roi_id'])]=input
+        
+        # Save the json of the inputs to each sitename directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        for inputs in inputs_list:
+            sitename=str(input['sitename'])
+            filename=sitename+".json"
+            shoreline_path=os.path.abspath(os.path.join(script_dir,"data",sitename,filename))
+            common.write_to_json(shoreline_path,input)
+        return inputs_dict
     
     
     def save_settings(self, **kwargs):
@@ -185,28 +200,7 @@ class CoastSeg_Map:
             feature['properties']['turbid_label'],
             feature['properties']['CSU_ID'])        
     
-    def get_rois_gdf(self,selected_roi:dict) -> gpd.geodataframe:
-        """ Returns rois as a geodataframe in the espg 4326
-
-        Args:
-           selected_rois (dict): rois selected by the user. Must contain the following fields:
-                {'features': [
-                    'id': (str) roi_id 
-                    ''geometry':{
-                        'type':Polygon
-                        'coordinates': list of coordinates that make up polygon
-                    }
-                ],...}
-        Returns:
-            gpd.geodataframe: all selected roi data such as geometery, id and more
-        """
-        polygons=[]
-        for roi in selected_roi["features"]:
-            polygons.append( Polygon(roi['geometry']['coordinates'][0]))
-        gdf = gpd.GeoDataFrame(selected_roi["features"],geometry= polygons, crs="EPSG:4326")
-        return gdf 
-
-    def make_coastsat_compatible(self, shoreline_in_roi:gpd.geodataframe)->np.ndarray:
+    def make_coastsat_compatible(shoreline_in_roi:gpd.geodataframe)->np.ndarray:
         """Return the shoreline_in_roi as an np.array in the form: 
             array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
 
@@ -230,7 +224,82 @@ class CoastSeg_Map:
         # shorelines = array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
         return shorelines
 
-    def extract_shorelines_from_rois(self, selected_rois:dict,inputs_dict:dict, pre_process_settings: dict, shorelines_gdf: gpd.geodataframe)->dict:
+    def get_inputs(settings:dict):
+        # individual Roi polygon
+        polygon=settings['geometry']['coordinates'][0]
+        sitename=settings['sitename']
+        filepath=settings['file_path']
+        sat_list=settings['sat_list']
+        dates=settings['dates']
+        collection=settings['landsat_collection']
+        return {'polygon': polygon, 'dates': dates, 'sat_list': sat_list, 'sitename': sitename,
+                'filepath':filepath,
+                'landsat_collection': collection}
+
+    def extract_shorelines_from_roi(self, rois_gdf:gpd.GeoDataFrame,inputs:dict, settings: dict, shorelines_gdf: gpd.geodataframe, id:int=None)->dict:
+        """Returns a dictionary containing the extracted shorelines for roi specified by rois_gdf
+        """
+        extracted_shorelines={}
+        
+        if id is None:
+            single_roi=rois_gdf
+        else:
+            # Select a single roi by id
+            single_roi = rois_gdf[rois_gdf['id']==id]
+        # if the id was not found in the geodataframe raise an exception
+        if single_roi.empty:
+            logger.error(f"Id: {id} was not found in {rois_gdf}")
+            raise Exception(f"Id: {id} was not found in {rois_gdf}")
+        
+        if not set(['dates','sat_list','collection']).issubset(set(settings.keys())):
+            logger.error(f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
+            raise Exception(f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
+        
+        # Clip shoreline to specific roi
+        shoreline_in_roi = gpd.clip(shorelines_gdf, single_roi)
+        logger.info(f"clipped shorelines{shoreline_in_roi}")
+        shorelines=self.make_coastsat_compatible(shoreline_in_roi)
+        logger.info(f"coastsat shorelines{shorelines}")
+        
+        s_proj=common.convert_espg(4326,settings['output_epsg'],shorelines)
+        logger.info(f"s_proj: {s_proj}")
+        # copy settings to shoreline_settings so it can be modified
+        shoreline_settings=settings
+        # Add reference shoreline and shoreline buffer distance for this specific ROI
+        shoreline_settings['reference_shoreline'] = s_proj
+        # DO NOT have user adjust shorelines manually
+        shoreline_settings['adjust_detection']=False
+        # DO NOT have user check for valid shorelines
+        shoreline_settings['check_detection']=False
+        # copy inputs for this specific roi
+        shoreline_settings['inputs']=inputs
+        # get the metadata used to extract the shoreline
+        metadata = SDS_download.get_metadata(inputs) 
+        output = SDS_shoreline.extract_shorelines(metadata, shoreline_settings)
+        # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
+        output = SDS_tools.remove_duplicates(output) # removes duplicates (images taken on the same date by the same satellite)
+        output = SDS_tools.remove_inaccurate_georef(output, 10) # remove inaccurate georeferencing (set threshold to 10 m)
+        
+        # Add the extracted shoreline to the extracted shorelines dictionary 
+        # use the roi's id to identify which roi the extract shoreline is associated with
+        extracted_shorelines[settings['roi_id']]=output
+        geomtype = 'lines' # choose 'points' or 'lines' for the layer geometry
+        extract_shoreline_gdf = SDS_tools.output_to_gdf(output, geomtype)
+        # 
+        if extract_shoreline_gdf is None:
+            logger.warn("No shorelines for ROI {roi_id}")
+            raise Exception("No shorelines for ROI {roi_id}")
+        else:
+            extract_shoreline_gdf.to_crs = "epsg:" +4326str(settings['output_epsg']# set layer projection
+            # save GEOJSON layer to file
+            sitename=inputs['sitename']
+            filepath=inputs['filepath']
+            extract_shoreline_gdf.to_file(os.path.join(filepath, sitename, '%s_output_%s_staticref.geojson'%(sitename,geomtype)),
+                                            driver='GeoJSON', encoding='utf-8')
+        return extracted_shorelines
+
+# og func
+    def extract_shorelines_from_rois(self, rois_gdf:gpd.GeoDataFrame,inputs_dict:dict, pre_process_settings: dict, shorelines_gdf: gpd.geodataframe)->dict:
         """Returns a dictionary containing the extracted shorelines for each roi
         Args:
             selected_rois (dict): rois selected by the user. Must contain the following fields:
@@ -238,8 +307,7 @@ class CoastSeg_Map:
                     'id': (str) roi_id 
                     ''geometry':{
                         'type':Polygon
-                        'coordinates': list of coordinates that make up polygon
-                    }
+                        'coordinates': list of coordinates that make up polygon }
                 ]}
             inputs_dict (dict): dictionary containing inputs dict for each roi.
                 {roi_id: 'inputs': dict
@@ -275,8 +343,11 @@ class CoastSeg_Map:
                     shorelines: [array(),array()]    }  
             }
         """
-        rois_gdf=self.get_rois_gdf(selected_rois)
         extracted_shorelines={}
+        if not set(['dates','sat_list','collection']).issubset(set(self.settings.keys())):
+            logger.error(f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
+            raise Exception(f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
+        
         # Extract shorelines after you downloaded them
         for roi in selected_rois["features"]:
             # Choose a SINGLE specific roi by id to start with
@@ -290,7 +361,7 @@ class CoastSeg_Map:
             print("\nshorelines: ",shorelines)
             # Make a copy of preprocess settings to modify
             tmp_setting=pre_process_settings
-            s_proj=self.convert_espg(4326,tmp_setting['output_epsg'],shorelines)
+            s_proj=common.convert_espg(4326,tmp_setting['output_epsg'],shorelines)
             # individual Roi polygon
             polygon=roi['geometry']['coordinates'][0]
             sitename=inputs_dict[int(roi_id)]['sitename']
@@ -329,28 +400,6 @@ class CoastSeg_Map:
                 gdf.to_file(os.path.join(filepath, sitename, '%s_output_%s_staticref.geojson'%(sitename,geomtype)),
                                                 driver='GeoJSON', encoding='utf-8')
         return extracted_shorelines
-
-    def convert_espg(self,input_epsg:int,output_epsg:int,coastsat_array:np.ndarray, is_transects:bool = False)->np.ndarray:
-        """Convert the coastsat_array espg to the output_espg 
-        @ todo add funcionality for is_transects
-        Args:
-            input_epsg (int): input espg
-            output_epsg (int): output espg
-            coastsat_array (np.ndarray): array of coordiinates as [[lat,lon],[lat,lon]....]
-
-        Returns:
-            np.ndarray: array with output espg in the form [[[lat,lon,0.]]]
-        """
-        if input_epsg is None:
-            input_epsg=4326
-        inProj = Proj(init='epsg:'+str(input_epsg))
-        outProj = Proj(init='epsg:'+str(output_epsg))
-        s_proj = []
-        # Convert all the lat,ln coords to new espg (operation takes some time....)
-        for coord in coastsat_array:
-            x2,y2 = transform(inProj,outProj,coord[0],coord[1])
-            s_proj.append([x2,y2,0.])
-        return np.array(s_proj)
 
     def is_shoreline_present(self,extracted_shorelines:dict,roi_id:int) -> bool:
         """Returns true if shoreline array exists for roi_id
@@ -474,25 +523,6 @@ class CoastSeg_Map:
             # Save transect to coastseg_map
             self.transects=transects
               
-    def download_url(self, url: str, save_path: str, filename:str=None, chunk_size: int = 128):
-        """Downloads the data from the given url to the save_path location.
-        Args:
-            url (str): url to data to download
-            save_path (str): directory to save data
-            chunk_size (int, optional):  Defaults to 128.
-        """
-        with requests.get(url, stream=True) as r:
-            if r.status_code == 404:
-                raise exceptions.DownloadError(os.path.basename(save_path))
-
-            # check header to get content length, in bytes
-            total_length = int(r.headers.get("Content-Length"))
-            with open(save_path, 'wb') as fd:
-                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc=f"Downloading {filename}",initial=0, ascii=True) as pbar:
-                        for chunk in r.iter_content(chunk_size=chunk_size):
-                            fd.write(chunk)
-                            pbar.update(len(chunk))
-
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()
@@ -645,28 +675,6 @@ class CoastSeg_Map:
         styled_layer = feature.style_layer(layer_geojson, layer_name)
         return styled_layer
     
-    def style_rois(self, df: gpd.geodataframe):
-        """converts a geodataframe to a json dict and styles it as a fishnet grid
-
-        Args:
-            df (gpd.geodataframe): fishnet dataframe
-
-        Returns:
-            dict: fishnet grid styled as a black grid
-        """
-        fishnet_geojson = df.to_json()
-        fishnet_dict = json.loads(fishnet_geojson)
-
-        # Add style to each feature in the geojson
-        for feature in fishnet_dict["features"]:
-            feature["properties"]["style"] = {
-                "color": "black",
-                "weight": 3,
-                "fillColor": "grey",
-                "fillOpacity": 0.1,
-            }
-        return fishnet_dict
-
     def load_rois_on_map(self, large_len=7500, small_len=5000,file:str=None):
         # Remove old ROI_layers
         self.remove_all_rois()
