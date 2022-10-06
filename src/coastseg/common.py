@@ -176,7 +176,7 @@ def convert_wgs_to_utm(lon: float,lat: float)->str:
     return epsg_code
 
 
-def convert_gdf_to_polygon(gdf:gpd.geodataframe,id:str=None)->geometry.Polygon:
+def convert_gdf_to_polygon(gdf:gpd.geodataframe,id:int=None)->geometry.Polygon:
     """Returns the roi with given id as Shapely.geometry.Polygon
     Args:
         gdf (gpd.geodataframe): geodataframe consisting of rois or a bbox
@@ -189,6 +189,11 @@ def convert_gdf_to_polygon(gdf:gpd.geodataframe,id:str=None)->geometry.Polygon:
     else:
         # Select a single roi by id
         single_roi = gdf[gdf['id']==id]
+    # if the id was not found in the geodataframe raise an exception
+    if single_roi.empty:
+        logger.error(f"Id: {id} was not found in {gdf}")
+        raise Exception(f"Id: {id} was not found in {gdf}")
+    
     single_roi=single_roi["geometry"].to_json()
     single_roi = json.loads(single_roi)
     polygon = geometry.Polygon(single_roi["features"][0]["geometry"]['coordinates'][0])
@@ -197,7 +202,6 @@ def convert_gdf_to_polygon(gdf:gpd.geodataframe,id:str=None)->geometry.Polygon:
 def get_area(polygon: dict):
     "Calculates the area of the geojson polygon using the same method as geojson.io"
     return round(area(polygon), 3)
-
 
 def read_json_file(filename: str):
     with open(filename, 'r', encoding='utf-8') as input_file:
