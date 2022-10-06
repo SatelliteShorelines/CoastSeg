@@ -49,6 +49,8 @@ class CoastSeg_Map:
         self.shoreline = None
         # Bbox saved by the user
         self.bbox = None
+         # inputs_dict: dictionary of inputs used to download data with CoastSat
+        self.inputs_dict={}
         # preprocess_settings : dictionary of settings used by coastsat to download imagery
         self.preprocess_settings = {}
          #-----------------------------------------
@@ -156,9 +158,9 @@ class CoastSeg_Map:
             SDS_preprocess.save_jpg(metadata, tmp_settings)
         
         # Return the inputs used to download data with CoastSat
-        inputs_dict={}
+        self.inputs_dict={}
         for input in inputs_list:
-            inputs_dict[int(input['roi_id'])]=input
+            self.inputs_dict[int(input['roi_id'])]=input
         
         # Save the json of the inputs to each sitename directory
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -290,7 +292,7 @@ class CoastSeg_Map:
             logger.warn("No shorelines for ROI {roi_id}")
             raise Exception("No shorelines for ROI {roi_id}")
         else:
-            extract_shoreline_gdf.to_crs = "epsg:" +4326str(settings['output_epsg']# set layer projection
+            extract_shoreline_gdf.to_crs = "epsg:" +str(settings['output_epsg']) # set layer projection
             # save GEOJSON layer to file
             sitename=inputs['sitename']
             filepath=inputs['filepath']
