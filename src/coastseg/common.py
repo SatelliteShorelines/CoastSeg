@@ -61,6 +61,23 @@ def download_url(url: str, save_path: str, filename:str=None, chunk_size: int = 
                         pbar.update(len(chunk))
 
 
+def make_input(dates:list[str],
+                sat_list:list[str], 
+                collection:str,
+                roi_id:int,
+                polygon:dict,
+                sitename:str,
+                filepath:str,
+                )-> dict:
+    return{'dates': dates,
+        'sat_list': sat_list,
+        'sitename' : sitename,
+        'filepath': filepath,
+        'roi_id': roi_id,
+        'polygon':polygon,
+        'landsat_collection': collection}
+
+
 def combine_inputs(roi:dict,attributes:dict)->dict:
     """Adds the roi's coordinates and roi_id to attributes 
     Args:
@@ -74,18 +91,18 @@ def combine_inputs(roi:dict,attributes:dict)->dict:
     polygon = SDS_tools.smallest_rectangle(polygon)
     inputs = {
     'polygon': polygon,
-    'roi_id':roi['id'],
+    'roi_id':roi['properties']['id'],
     **attributes}
     return inputs
 
-def get_inputs_list(selected_roi_geojson,
+def get_inputs_list(roi_geojson:dict,
     dates: list,
     sat_list: list,
     collection: str)->list[dict]:
     """get_inputs_list Returns a list of all download settings each of ROI.
         Sample download settings:
         {'polygon': roi["geometry"]["coordinates"],
-        'roi_id':roi['id'],
+        'roi_id':roi['properties']['id'],
         'dates': dates,
         'sat_list': sat_list,
         'sitename' : 'ID02022-10-04__21_hr_39_min03sec',(ex folder name)
@@ -108,17 +125,25 @@ def get_inputs_list(selected_roi_geojson,
     filepath = os.path.join(os.getcwd(), 'data')
     # create unique sitenames using the date and index of ROI
     # for each site create dictionary with download settings eg. dates,sitename
-    site_ids=np.arange(len(selected_roi_geojson['features']))
+    site_ids=np.arange(len(roi_geojson['features']))
     sitenames=list(map(lambda x:'ID' + str(x) + date_str,site_ids))
-    attributes = list(map(lambda x: { 'dates': dates,
-                                        'sat_list': sat_list,
-                                        'sitename' : x,
-                                        'filepath': filepath,
-                                        'landsat_collection': collection} ,sitenames))
-    logger.info(f"attributes: {attributes}")
-    inputs_list=list(starmap(combine_inputs,(zip(selected_roi_geojson['features'],attributes))))
+    inputs_list = []
+    for index, roi in enumerate(roi_geojson["features"]):
+        # get the id from ROI's properties
+        roi_id = roi['properties']['id']
+        polygon = roi['geometry']['coordinates']
+        sitename = sitenames[index]
+        inputs=make_input(dates,sat_list,
+                   collection,
+                   roi_id,
+                   polygon,
+                   sitename,
+                   filepath) 
+        # add inputs dictionary to inputs list
+        inputs_list.append(inputs)
+    
     logger.info(f"inputs_list: {inputs_list}")
-    del attributes,sitenames,site_ids
+    del sitenames,site_ids
     if inputs_list == []:
         logger.error("Error: No ROIs were selected. Please click a valid ROI on the map")
         raise Exception("Error: No ROIs were selected. Please click a valid ROI on the map\n")
@@ -140,7 +165,6 @@ def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
         out_geojson = os.path.splitext(out_file)[1] + ".geojson"
     with open(out_geojson, "w") as f:
         json.dump(geojson, f, **kwargs)
-
 
 def get_center_rectangle(coords:list[float])->tuple[float]:
     """returns the center points of rectangle specified by points coords
@@ -170,6 +194,7 @@ def convert_espg(input_epsg:int,output_epsg:int,coastsat_array:np.ndarray, is_tr
     inProj = Proj(init='epsg:'+str(input_epsg))
     outProj = Proj(init='epsg:'+str(output_epsg))
     s_proj = []
+    logger.info(f"convert_espg: coastsat_array {coastsat_array}")
     # Convert all the lat,ln coords to new espg (operation takes some time....)
     for coord in coastsat_array:
         x2,y2 = transform(inProj,outProj,coord[0],coord[1])

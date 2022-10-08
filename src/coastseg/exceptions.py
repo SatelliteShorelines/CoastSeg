@@ -11,6 +11,34 @@ class Object_Not_Found(Exception):
     def __str__(self):
         return (f"{self.msg}")
 
+class No_Extracted_Shoreline(Exception):
+    """No_Extracted_Shoreline: raised when ROI id does not have a shoreline to extract
+    Args:
+        Exception: Inherits from the base exception class
+    """
+    def __init__(self,id:int=None, msg="The ROI id does not have a shoreline to extract."):
+        self.msg = msg
+        if id is not None:
+            self.msg =f"The ROI id {id} does not have a shoreline to extract."
+        super().__init__(self.msg)
+
+    def __str__(self):
+        return (f"{self.msg}")
+
+class Id_Not_Found(Exception):
+    """Id_Not_Found: raised when ROI id does not exist
+    Args:
+        Exception: Inherits from the base exception class
+    """
+    def __init__(self,id:int=None, msg="The ROI id does not exist."):
+        self.msg = msg
+        if id is not None:
+            self.msg =f"The ROI id {id} does not exist."
+        super().__init__(self.msg)
+
+    def __str__(self):
+        return (f"{self.msg}")
+
 class BBox_Not_Found(Exception):
     """BBox_Not_Found: raised when bounding box does not exist
     Args:

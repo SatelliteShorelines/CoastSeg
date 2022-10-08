@@ -18,15 +18,20 @@ class Shoreline():
     """ Shoreline: contains the shorelines within a region specified by bbox (bounding box)
     """
     LAYER_NAME = 'shoreline'
-    def __init__(self,bbox:gpd.GeoDataFrame=None, shoreline: gpd.GeoDataFrame=None, filename:str=None):
+    def __init__(self,bbox:gpd.GeoDataFrame=None,
+                 shoreline: gpd.GeoDataFrame=None,
+                 filename:str=None):
         self.gdf = gpd.GeoDataFrame()
         self.filename="shoreline.geojson"
-        if not bbox.empty and bbox is not None:
-            logger.info("Creating shoreline geodataframe")
-            self.gdf = self.create_geodataframe(bbox)
+        if shoreline is not None:
+            if not shoreline.empty:
+                self.gdf = shoreline
+                
+        if bbox is not None:
+            if not bbox.empty:
+                logger.info("Creating shoreline geodataframe")
+                self.gdf = self.create_geodataframe(bbox)
         
-        if shoreline:
-            self.gdf = shoreline
         if filename:
             self.filename=filename
             
@@ -76,6 +81,7 @@ class Shoreline():
 
             shoreline.drop(shoreline.columns.difference(['geometry',
                                                          'river_label',
+                                                         'ERODIBILITY',
                                                          'CSU_ID',
                                                          'turbid_label',
                                                          'slope_label',

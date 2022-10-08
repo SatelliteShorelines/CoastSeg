@@ -44,3 +44,39 @@ def valid_rois_geojson()->dict:
     with open(file_path, 'r', encoding='utf-8') as input_file:
         data = json.load(input_file)
     return data
+
+@pytest.fixture
+def transect_compatible_rois_gdf()->gpd.GeoDataFrame:
+    """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
+        ROIs with ids:[17,30,35] """
+    file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_rois.geojson'))
+    with open(file_path, 'r') as f:
+        gpd_data = gpd.read_file(f)
+    return gpd_data
+
+@pytest.fixture
+def transect_compatible_shoreline_gdf()->gpd.GeoDataFrame:
+    """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
+        ROIs with ids:[17,30,35] """
+    file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_shoreline.geojson'))
+    with open(file_path, 'r') as f:
+        gpd_data = gpd.read_file(f)
+    return gpd_data
+
+@pytest.fixture
+def transect_compatible_transects_gdf()->gpd.GeoDataFrame:
+    """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
+        ROIs with ids:[17,30,35] """
+    file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_transects.geojson'))
+    with open(file_path, 'r') as f:
+        gpd_data = gpd.read_file(f)
+    return gpd_data
+
+@pytest.fixture
+def transect_compatible_bbox_gdf()->gpd.GeoDataFrame:
+    """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
+        ROIs with ids:[17,30,35] """
+    file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_bbox.geojson'))
+    with open(file_path, 'r') as f:
+        gpd_data = gpd.read_file(f)
+    return gpd_data

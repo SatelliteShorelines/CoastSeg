@@ -43,6 +43,8 @@ class UI:
         large_roi_size = 4000
         self.fishnet_sizes={'small':small_roi_size,'large':large_roi_size}
         # Declare widgets and on click callbacks
+        self.load_gdf_button = Button(description="Load gdf from file",style=self.load_style)
+        self.load_gdf_button.on_click(self.on_load_gdf_clicked)
         self.load_bbox_button = Button(description="Load bbox from file",style=self.load_style)
         self.load_bbox_button.on_click(self.on_load_bbox_clicked)
         # load buttons
@@ -52,15 +54,24 @@ class UI:
         self.shoreline_button.on_click(self.on_shoreline_button_clicked)
         self.load_rois_button = Button(description="Load rois from file",style=self.load_style)
         self.load_rois_button.on_click(self.on_load_rois_clicked)
-        # Save and Generate buttons
-        self.gen_button =Button(description="Generate ROI",style=self.action_style)
-        self.gen_button.on_click(self.on_gen_button_clicked)
+        # Save buttons
+        self.save_shoreline_button = Button(description="Save shorelines",style=self.save_style)
+        self.save_shoreline_button.on_click(self.save_shoreline_button_clicked)
+        self.save_transects_button = Button(description="Save transects",style=self.save_style)
+        self.save_transects_button.on_click(self.save_transects_button_clicked)
         self.save_roi_button = Button(description="Save ROI",style=self.save_style)
         self.save_roi_button.on_click(self.save_roi_button_clicked)
         self.save_bbox_button = Button(description="Save Bbox",style=self.save_style)
         self.save_bbox_button.on_click(self.on_save_bbox_button_clicked)
+        # Generate buttons
+        self.gen_button = Button(description="Generate ROI",style=self.action_style)
+        self.gen_button.on_click(self.on_gen_button_clicked)
         self.download_button = Button(description="Download ROIs",style=self.action_style)
         self.download_button.on_click(self.download_button_clicked)
+        self.extract_shorelines_button = Button(description="Extract Shorelines",style=self.action_style)
+        self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
+        self.compute_transect_button = Button(description="Compute Transects",style=self.action_style)
+        self.compute_transect_button.on_click(self.compute_transect_button_clicked)
         # # Remove buttons
         self.clear_debug_button = Button(description="Clear TextBox", style = self.clear_stlye)
         self.clear_debug_button.on_click(self.clear_debug_view)
@@ -151,8 +162,8 @@ class UI:
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together.
         """
-        save_vbox = VBox([self.instr_save_roi,self.save_roi_button,self.save_bbox_button, self.instr_load_btns, self.load_rois_button, self.load_bbox_button])
-        download_vbox = VBox([self.instr_download_roi,self.download_button])
+        save_vbox = VBox([self.instr_save_roi,self.save_roi_button,self.save_bbox_button,self.save_shoreline_button, self.save_transects_button, self.instr_load_btns, self.load_rois_button, self.load_bbox_button,self.load_gdf_button])
+        download_vbox = VBox([self.instr_download_roi,self.download_button,self.extract_shorelines_button, self.compute_transect_button])
 
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
         slider_btn_box = HBox([slider_v_box, self.gen_button])
@@ -253,6 +264,33 @@ class UI:
         finally:
             self.coastseg_map.map.default_style = {'cursor': 'default'}
 
+    @debug_view.capture(clear_output=True)
+    def extract_shorelines_button_clicked(self,btn):
+        UI.debug_view.clear_output()
+        self.coastseg_map.map.default_style = {'cursor': 'wait'}
+        try:
+            self.extract_shorelines_button.disabled=True
+            self.coastseg_map.extract_all_shorelines()
+        except Exception as exception:
+            with Tkinter_Window_Creator():
+                messagebox.showerror("Error", f"{exception}" )
+        finally:
+            self.extract_shorelines_button.disabled=False
+            self.coastseg_map.map.default_style = {'cursor': 'default'}
+            
+    @debug_view.capture(clear_output=True)
+    def compute_transect_button_clicked(self,btn):
+        UI.debug_view.clear_output()
+        self.coastseg_map.map.default_style = {'cursor': 'wait'}
+        try:
+            self.compute_transect_button.disabled=True
+            self.coastseg_map.compute_transects()
+        except Exception as exception:
+            with Tkinter_Window_Creator():
+                messagebox.showerror("Error", f"{exception}" )
+        finally:
+            self.compute_transect_button.disabled=False
+            self.coastseg_map.map.default_style = {'cursor': 'default'}
 
     @download_view.capture(clear_output=True)
     def download_button_clicked(self, btn):
@@ -268,10 +306,35 @@ class UI:
             with Tkinter_Window_Creator():
                 messagebox.showerror("Authentication Error", "Please authenticate with Google using the cell above: \n  'Authenticate and Initialize with Google Earth Engine (GEE)'")
         except Exception as exception:
-            messagebox.showerror("Error", f"{exception}" )
-        finally:
-            self.download_button.disabled=False
-            self.coastseg_map.map.default_style = {'cursor': 'default'}
+            with Tkinter_Window_Creator():
+                messagebox.showerror("Error", f"{exception}" )
+        
+        self.download_button.disabled=False
+        self.coastseg_map.map.default_style = {'cursor': 'default'}
+    
+    @debug_view.capture(clear_output=True)
+    def save_transects_button_clicked(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        try:
+            self.coastseg_map.save_feature_to_file(self.coastseg_map.transects)
+        except exceptions.Object_Not_Found as not_on_map_error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Error", str(not_on_map_error))
+        except Exception as error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Error", str(error)) 
+
+    @debug_view.capture(clear_output=True)
+    def save_shoreline_button_clicked(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        try:
+            self.coastseg_map.save_feature_to_file(self.coastseg_map.shoreline)
+        except exceptions.Object_Not_Found as not_on_map_error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Error", str(not_on_map_error))
+        except Exception as error:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo("Error", str(error)) 
 
 
     @debug_view.capture(clear_output=True)
@@ -285,6 +348,22 @@ class UI:
         except Exception as error:
             with Tkinter_Window_Creator():
                 messagebox.showinfo("Error", str(error)) 
+
+
+    @debug_view.capture(clear_output=True)
+    def on_load_gdf_clicked(self, button):
+        # Prompt the user to select a directory of images
+        with Tkinter_Window_Creator() as tk_root:
+            tk_root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
+                                                    filetypes=[('geojson','*.geojson')],
+                                                    title = "Select a geojson file")
+            # Save the filename as an attribute of the button
+            if tk_root.filename:
+                self.coastseg_map.load_gdf_on_map(tk_root.filename)
+            else:
+                messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
+
+
 
     @debug_view.capture(clear_output=True)
     def on_load_bbox_clicked(self, button):

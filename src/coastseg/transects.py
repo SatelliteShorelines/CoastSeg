@@ -16,17 +16,25 @@ class Transects():
     """ Transects: contains the transects within a region specified by bbox (bounding box)
     """
     LAYER_NAME = 'transects'
-    def __init__(self,bbox:gpd.GeoDataFrame=None, transects: gpd.GeoDataFrame=None, filename:str=None):
+    def __init__(self,
+                 bbox:gpd.GeoDataFrame=None, 
+                 transects: gpd.GeoDataFrame=None,
+                 filename:str=None):
         self.gdf = gpd.GeoDataFrame()
         self.filename="transects.geojson"
-        self.transect_names = []
-        if not bbox.empty and bbox is not None:
-            self.gdf = self.create_geodataframe(bbox)
         # if a transects geodataframe provided then copy it
-        if transects:
-            self.gdf = transects
+        if transects is not None:
+            if not transects.empty:
+                self.gdf = transects
+        elif bbox is not None:
+            if not bbox.empty:
+                self.gdf = self.create_geodataframe(bbox)
         if filename:
-            self.filename=filename
+            self.filename=filename  
+        
+        
+        
+        
 
                  
     def create_geodataframe(self, bbox:gpd.GeoDataFrame, crs:str='EPSG:4326') -> gpd.GeoDataFrame:
@@ -53,7 +61,6 @@ class Transects():
             if transects_in_bbox.empty:
                 print("Skipping ",transects_name)
             elif not transects_in_bbox.empty:
-                self.transect_names.append(transects_name)
                 # if any transects intersect with bbox add them to all_transects_in_bbox_gdf that holds all the transects
                 if all_transects_in_bbox_gdf.empty:
                     all_transects_in_bbox_gdf = transects_in_bbox

@@ -1,5 +1,7 @@
 # Standard library imports
 import logging
+import os
+import json
 # Internal dependencies imports
 from src.coastseg import common
 from src.coastseg import exceptions
@@ -20,20 +22,24 @@ class ROI():
     def __init__(self, bbox: gpd.GeoDataFrame = None,
                  shoreline: gpd.GeoDataFrame = None,
                  rois_gdf : gpd.GeoDataFrame=None,
-                 square_len_lg : float=0,
-                 square_len_sm : float=0,
+                 square_len_lg : float=None,
+                 square_len_sm : float=None,
                  filename:str=None):
-        
+        # inputs_dict ; after ROIs have been downloaded holds all download settings
+        self.inputs_dict = {}
+        # extract_shorelines : dictionary with ROIs' ids as the keys holding the extracted shorelines
+        self.extracted_shorelines = {}
+        # cross_distance_transects : dictionary with ROIs' ids as the keys holding the transects cross distances
+        self.cross_distance_transects = {}
         self.filename="rois.geojson"
         if filename:
             self.filename=filename
-        
         
         if rois_gdf is not None:
             self.gdf = rois_gdf
             return
         
-        if rois_gdf is None:
+        elif rois_gdf is None:
             if shoreline is None :
                 raise exceptions.Object_Not_Found('shorelines')
             if bbox is None:
@@ -47,8 +53,17 @@ class ROI():
             logger.error("Invalid square size for ROI")
             raise Exception("Invalid square size for ROI. Must be greater than 0")
         
-        if rois_gdf == None:
+        if rois_gdf is None:
             self.gdf = self.create_geodataframe(bbox,shoreline,square_len_lg,square_len_sm)
+    
+    def set_inputs_dict(self,inputs:dict)->None:
+        logger.info(f"Saving inputs_dict {inputs}")
+        self.inputs_dict = inputs
+     
+    def update_extracted_shorelines(self, extract_shoreline:dict):
+        logger.info(f"Before adding {extract_shoreline} \nself.extracted_shorelines : {self.extracted_shorelines}")
+        self.extracted_shorelines.update(extract_shoreline)
+        logger.info(f"After self.extracted_shorelines : {self.extracted_shorelines}")
             
     def create_geodataframe(self, bbox:gpd.geodataframe, shoreline: gpd.GeoDataFrame, large_length:float=7500,small_length:float=5000,crs:str='EPSG:4326') -> gpd.GeoDataFrame:
         """Generates series of overlapping ROIS along shoreline on map using fishnet method
@@ -98,10 +113,10 @@ class ROI():
             data=geojson,
             name=layer_name,
             style={
-                'color': 'black',
-                'fill_color': 'grey',
+                'color': '#555555',
+                'fill_color': '#555555',
                 'fillOpacity': 0.1,
-                'weight': 3},
+                'weight': 1},
             hover_style={
                 'color': 'red',
                 'fillOpacity': 0.1,
@@ -203,3 +218,20 @@ class ROI():
             # drop excess columns from intersection with shoreline
             fishnet_intersect_gpd.drop(fishnet_intersect_gpd.columns.difference(['geometry','id']), 'columns',inplace=True)
             return fishnet_intersect_gpd
+
+def save_transects_to_json(self, roi_id:int, cross_distance:dict):
+    sitename = str(self.inputs_dict[roi_id]['sitename'])
+    logger.info(f"save_transects_to_json:: sitename: {sitename}")
+    filename=f"transects_cross_distances"+str(roi_id)+".json"
+    logger.info(f"save_transects_to_json:: filename: {filename}")
+    save_path=os.path.abspath(os.path.join(os.getcwd(),"data",sitename,filename))
+    logger.info(f"save_transects_to_json:: save_path: {save_path}")
+    for key in cross_distance.keys():
+        tmp = cross_distance[key].tolist()
+        cross_distance[key] =  tmp
+    logger.info(f"save_transects_to_json:: cross_distance: {cross_distance}")
+
+    with open(save_path,'w') as f:
+        json.dump(cross_distance,f)
+    logger.info("Finished writing to transects json")
+        

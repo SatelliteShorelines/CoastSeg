@@ -24,6 +24,7 @@ class Bounding_Box():
         self.filename="bbox.geojson"
         if isinstance(rectangle, gpd.GeoDataFrame):
             self.gdf = rectangle
+            return
         elif isinstance(rectangle, dict):
             self.gdf = self.create_geodataframe(rectangle)
         else:
@@ -62,8 +63,8 @@ class Bounding_Box():
                 'color': '#75b671',
                 'fill_color': '#75b671',
                 'opacity': 1,
-                'fillOpacity': 0.2,
-                'weight': 4},
+                'fillOpacity': 0.1,
+                'weight': 1},
         )
         
     def check_bbox_size(bbox_area: float):
