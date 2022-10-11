@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import copy
 from typing import Union
 
 from src.coastseg.bbox import Bounding_Box
@@ -45,6 +46,8 @@ class CoastSeg_Map:
         self.shoreline = None
         # Bbox saved by the user
         self.bbox = None
+        #  self.config_gdf : a geodataframe containing all the selected rois, shorelines, and transects on the map
+        self.config_gdf = None
         # preprocess_settings : dictionary of settings used by coastsat to download imagery
         self.preprocess_settings = {}
         # create map if map_settings not provided else use default settings
@@ -52,11 +55,11 @@ class CoastSeg_Map:
         # create controls and add to map
         self.draw_control = self.create_DrawControl(DrawControl())
         self.draw_control.on_draw(self.handle_draw)
-        self.map.add_control(self.draw_control)
+        self.map.add(self.draw_control)
         layer_control = LayersControl(position='topright')
-        self.map.add_control(layer_control)
+        self.map.add(layer_control)
         hover_shoreline_control = self.create_shoreline_widget()
-        self.map.add_control(hover_shoreline_control)
+        self.map.add(hover_shoreline_control)
 
     def create_map(self, map_settings:dict):
         """create an interactive map object using the map_settings
@@ -101,7 +104,7 @@ class CoastSeg_Map:
         return WidgetControl(widget=self.shoreline_accordion, position="topright")
 
     def download_imagery(self) -> None:
-        """download_imagery  downloads selected rois as jpgs
+        """ download_imagery  downloads selected rois as jpgs
 
         Raises:
             Exception: raised if settings is missing
@@ -135,7 +138,9 @@ class CoastSeg_Map:
         inputs_list=common.get_inputs_list(selected_roi_geojson,dates,sat_list, collection)
         logger.info(f"inputs_list {inputs_list}")
         print("Download in process")
-        tmp_settings =  self.settings
+        # make a deep copy so settings doesn't get modified by the temp copy
+        tmp_settings =  copy.deepcopy(self.settings)
+        logger.info(f'self.settings: {self.settings}')
         for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
             metadata = SDS_download.retrieve_images(inputs)
             print(f"inputs: {inputs}")
@@ -144,20 +149,46 @@ class CoastSeg_Map:
             logger.info(f"Saving to jpg. Metadata: {metadata}")
             SDS_preprocess.save_jpg(metadata, tmp_settings)
         
-        # Return the inputs used to download data with CoastSat
+        # tmp settings is no longer needed
+        del tmp_settings
+        # Save inputs used to download data with CoastSat
         inputs_dict={}
-        for inputs in inputs_list:
+        # Save the json of the inputs to each sitename directory
+        master_config={}
+        for inputs in tqdm(inputs_list, desc="Saving settings"):
             inputs_dict[int(inputs['roi_id'])]=inputs
-        logger.info(f"inputs_dict: {inputs_dict}")
+            logger.info(f"inputs saved to master config: {inputs}")
+            master_config = common.create_config_dict(master_config,inputs,self.settings)
+        
+        roi_ids=master_config['roi_ids']
+        # Get the selected ROIs
+        selected_rois = self.rois.gdf[self.rois.gdf.isin(roi_ids)]
+        shorelines_gdf =None
+        transects_gdf =None
+        if self.shoreline is not None:
+            shorelines_gdf = self.shoreline.gdf
+        if self.transects is not None:
+            transects_gdf =self.transects.gdf
+        self.config_gdf = common.create_config_gdf(selected_rois,shorelines_gdf,transects_gdf)
+        # save the config geodataframe to geojson file in each ROI directory
+
         # Save inputs_dict to ROI class
         self.rois.set_inputs_dict(inputs_dict)
-        # Save the json of the inputs to each sitename directory
-        for inputs in inputs_list:
-            sitename=str(inputs['sitename'])
-            filename=sitename+".json"
+        logger.info(f"Inputs_dict: {inputs_dict}")
+        logger.info(f"Master config: {master_config} ")
+        # write master config file to each directory where a roi was saved
+        for roi_id in roi_ids:
+            sitename=str(master_config[roi_id]['inputs']['sitename'])
+            filename=f"config_id_{roi_id}.json"
             save_path=os.path.abspath(os.path.join(os.getcwd(),"data",sitename,filename))
-            logger.info(f"inputs written to json: {inputs} \n Saved to {save_path}")
-            common.write_to_json(save_path,inputs)
+            logger.info(f"Saving master config: {master_config} \n Saved to {save_path}")
+            common.write_to_json(save_path,master_config)
+            filename=f"config_gdf_id_{roi_id}.geojson"
+            save_path=os.path.abspath(os.path.join(os.getcwd(),"data",sitename,filename))
+            self.config_gdf.to_file(save_path, driver='GeoJSON')
+        
+        # save the inputs and the settings to the rois master_config dict   
+        self.rois.master_config = master_config
         
         logger.info("Done downloading")
         
@@ -192,7 +223,7 @@ class CoastSeg_Map:
             feature['properties']['CSU_ID'])        
     
     def make_coastsat_compatible(self,shoreline_in_roi:gpd.geodataframe)->np.ndarray:
-        """Return the shoreline_in_roi as an np.array in the form: 
+        """ Return the shoreline_in_roi as an np.array in the form: 
             array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
 
         Args:
@@ -200,8 +231,8 @@ class CoastSeg_Map:
 
         Returns:
             np.ndarray: shorelines in the form: 
-                array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
-        """
+                array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....]) 
+        """    
         # Then convert the shoreline to lat,lon tuples for CoastSat
         shorelines = []
         # Use explode to break multilinestrings in linestrings

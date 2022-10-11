@@ -17,9 +17,9 @@ import leafmap
 import numpy as np
 import geojson
 from skimage.io import imread
-from itertools import starmap
 from leafmap import check_file_path
 from pyproj import Proj, transform
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 logger.info("I am a log from %s",__name__)
@@ -254,6 +254,33 @@ def read_json_file(filename: str):
         data = json.load(input_file)
     return data
 
+def create_config_dict(master_config:dict,inputs:dict,settings:dict)->dict:
+    roi_id = inputs["roi_id"]
+   
+    if master_config == {}:
+        master_config['roi_ids'] = [roi_id] 
+    elif master_config != {}:
+        roi_ids = master_config['roi_ids']
+        roi_ids.append(roi_id)
+        master_config['roi_ids'] = roi_ids
+        
+    master_config[roi_id] = {'inputs':inputs,
+                             'settings':settings}
+    return master_config
+    
+
+def create_config_gdf(rois:gpd.GeoDataFrame,shorelines_gdf:gpd.GeoDataFrame=None,transects_gdf:gpd.GeoDataFrame=None)->gpd.GeoDataFrame():
+    if shorelines_gdf is None:
+        shorelines_gdf =gpd.GeoDataFrame()
+    if transects_gdf is None:
+        transects_gdf =gpd.GeoDataFrame() 
+    # create new column 'type' to indicate object type
+    rois['type']='roi'
+    shorelines_gdf['type']='shoreline'
+    transects_gdf['type']='transect'
+    new_gdf = gpd.GeoDataFrame(pd.concat([rois, shorelines_gdf], ignore_index=True))
+    new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
+    return new_gdf
 
 def write_to_json(file_path: str, settings: dict):
     """"Write the  settings dictionary to json file"""
