@@ -26,7 +26,6 @@ class Shoreline():
         if shoreline is not None:
             if not shoreline.empty:
                 self.gdf = shoreline
-                
         if bbox is not None:
             if not bbox.empty:
                 logger.info("Creating shoreline geodataframe")

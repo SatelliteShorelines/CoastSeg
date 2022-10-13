@@ -32,10 +32,6 @@ class Transects():
         if filename:
             self.filename=filename  
         
-        
-        
-        
-
                  
     def create_geodataframe(self, bbox:gpd.GeoDataFrame, crs:str='EPSG:4326') -> gpd.GeoDataFrame:
         """Creates a geodataframe with the crs specified by crs

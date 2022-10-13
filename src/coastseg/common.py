@@ -24,6 +24,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 logger.info("I am a log from %s",__name__)
 
+
 def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
     """save_to_geojson_file Saves given geojson to a geojson file at outfile
     Args:
@@ -150,21 +151,6 @@ def get_inputs_list(roi_geojson:dict,
     logger.info(f"Images available: \n {inputs_list}")
     return inputs_list
 
-def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
-    """save_to_geojson_file Saves given geojson to a geojson file at outfile
-    Args:
-        out_file (str): The output file path
-        geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
-    """
-    # Save the geojson to a file
-    out_file = leafmap.check_file_path(out_file)
-    ext = os.path.splitext(out_file)[1].lower()
-    if ext == ".geojson":
-        out_geojson = out_file
-    else:
-        out_geojson = os.path.splitext(out_file)[1] + ".geojson"
-    with open(out_geojson, "w") as f:
-        json.dump(geojson, f, **kwargs)
 
 def get_center_rectangle(coords:list[float])->tuple[float]:
     """returns the center points of rectangle specified by points coords
@@ -179,9 +165,8 @@ def get_center_rectangle(coords:list[float])->tuple[float]:
     return center_x,center_y
 
 
-def convert_espg(input_epsg:int,output_epsg:int,coastsat_array:np.ndarray, is_transects:bool = False)->np.ndarray:
+def convert_espg(input_epsg:int,output_epsg:int,coastsat_array:np.ndarray)->np.ndarray:
     """Convert the coastsat_array espg to the output_espg 
-    @ todo add funcionality for is_transects
     Args:
         input_epsg (int): input espg
         output_epsg (int): output espg
@@ -254,37 +239,43 @@ def read_json_file(filename: str):
         data = json.load(input_file)
     return data
 
-def create_config_dict(master_config:dict,inputs:dict,settings:dict)->dict:
-    roi_id = inputs["roi_id"]
-   
-    if master_config == {}:
-        master_config['roi_ids'] = [roi_id] 
-    elif master_config != {}:
-        roi_ids = master_config['roi_ids']
-        roi_ids.append(roi_id)
-        master_config['roi_ids'] = roi_ids
-        
-    master_config[roi_id] = {'inputs':inputs,
-                             'settings':settings}
+def create_json_config(master_config:dict,inputs:dict,settings:dict)->dict:
+    roi_ids = list(inputs.keys())
+    # convert all the ids to ints
+    roi_ids = list(map(lambda x:int(x),roi_ids))
+    if 'roi_ids' in master_config: 
+        roi_ids = [*roi_ids,*master_config['roi_ids']] 
+    master_config['roi_ids'] = roi_ids
+    master_config = {**master_config,**inputs}
+    
+    if 'settings' not in  master_config: 
+        master_config['settings'] = settings
+    
     return master_config
     
 
-def create_config_gdf(rois:gpd.GeoDataFrame,shorelines_gdf:gpd.GeoDataFrame=None,transects_gdf:gpd.GeoDataFrame=None)->gpd.GeoDataFrame():
+def create_config_gdf(rois:gpd.GeoDataFrame,shorelines_gdf:gpd.GeoDataFrame=None,
+                      transects_gdf:gpd.GeoDataFrame=None,
+                      bbox_gdf:gpd.GeoDataFrame=None)->gpd.GeoDataFrame():
     if shorelines_gdf is None:
         shorelines_gdf =gpd.GeoDataFrame()
     if transects_gdf is None:
         transects_gdf =gpd.GeoDataFrame() 
+    if bbox_gdf is None:
+        bbox_gdf =gpd.GeoDataFrame() 
     # create new column 'type' to indicate object type
     rois['type']='roi'
     shorelines_gdf['type']='shoreline'
     transects_gdf['type']='transect'
+    bbox_gdf['type']='bbox'
     new_gdf = gpd.GeoDataFrame(pd.concat([rois, shorelines_gdf], ignore_index=True))
     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
+    new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
     return new_gdf
 
-def write_to_json(file_path: str, settings: dict):
+def write_to_json(filepath: str, settings: dict):
     """"Write the  settings dictionary to json file"""
-    with open(file_path, 'w', encoding='utf-8') as output_file:
+    with open(filepath, 'w', encoding='utf-8') as output_file:
         json.dump(settings, output_file)
 
 

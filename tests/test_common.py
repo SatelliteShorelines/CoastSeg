@@ -34,7 +34,7 @@ def test_create_config_gdf(valid_rois_gdf, transect_compatible_shoreline_gdf, tr
 def test_create_config_dict(valid_inputs, valid_settings)->dict:
     # test adding an ROI's data to an empty config dictionary
     master_config = {}
-    actual_config = common.create_config_dict(master_config, valid_inputs, valid_settings)
+    actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
     assert isinstance(actual_config,dict)
     expected_roi = valid_inputs['roi_id']
     # test the roi id was added as a key to config
@@ -54,7 +54,7 @@ def test_create_config_dict(valid_inputs, valid_settings)->dict:
                             'settings':[],
                             'inputs':[]
                         }}
-    actual_config = common.create_config_dict(master_config, valid_inputs, valid_settings)
+    actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
     assert isinstance(actual_config,dict)
     expected_roi = valid_inputs['roi_id']
     # test the id was added as a key to config

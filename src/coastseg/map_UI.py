@@ -1,5 +1,6 @@
 # standard python imports
 import os
+import logging
 #internal python imports
 from src.coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from src.coastseg import exceptions
@@ -19,6 +20,9 @@ from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Checkbox
 from tkinter import messagebox
+
+logger = logging.getLogger(__name__)
+logger.info("I am a log from %s",__name__)
 
 class UI:
     # all instances of UI will share the same debug_view
@@ -47,6 +51,14 @@ class UI:
         self.load_gdf_button.on_click(self.on_load_gdf_clicked)
         self.load_bbox_button = Button(description="Load bbox from file",style=self.load_style)
         self.load_bbox_button.on_click(self.on_load_bbox_clicked)
+        # buttons to load configuration files
+        self.load_config_json_button = Button(description="Load config.json",style=self.load_style)
+        self.load_config_json_button.on_click(self.on_load_config_json_clicked)
+        self.load_config_json_button.disabled=True
+        self.load_config_geojson_button = Button(description="Load config.geojson",style=self.load_style)
+        self.load_config_geojson_button.on_click(self.on_load_config_geojson_clicked)
+        self.save_config_button = Button(description="Save config files",style=self.save_style)
+        self.save_config_button.on_click(self.on_save_config_clicked)
         # load buttons
         self.transects_button = Button(description="Load Transects",style=self.load_style)
         self.transects_button.on_click(self.on_transects_button_clicked)
@@ -85,6 +97,7 @@ class UI:
         self.remove_shoreline_button.on_click(self.remove_shoreline_from_map)
         self.remove_rois_button = Button(description="Remove ROIs",style=self.remove_style)
         self.remove_rois_button.on_click(self.remove_all_rois_from_map)
+        
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
         # define slider widgets that control ROI size
@@ -158,20 +171,27 @@ class UI:
                     <li> Load BBox: Load bounding box from geojson file (ex. 'bbox.geojson')</li>\
                 <li> Load ROIs: Load ROIs from geojson file (ex. 'rois.geojson')</li>\
                     ",layout=Layout(margin='0px 5px 0px 5px')) #top right bottom left
+        
+        self.instr_config_btns=HTML(
+            value="<h2><b>Load Config Files</b></h2>\
+                You can upload a config json and config geojson file.\
+                    <li> Load Config Json: Load settings from json file (ex. 'config_id_241.json')</li>\
+                <li> Load Config geojson: Load rois, shorelines, and transects from geojson file (ex. 'config_gdf_id_241.geojson')</li>\
+                    ",layout=Layout(margin='0px 5px 0px 5px')) #top right bottom left
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together.
         """
         save_vbox = VBox([self.instr_save_roi,self.save_roi_button,self.save_bbox_button,self.save_shoreline_button, self.save_transects_button, self.instr_load_btns, self.load_rois_button, self.load_bbox_button,self.load_gdf_button])
-        download_vbox = VBox([self.instr_download_roi,self.download_button,self.extract_shorelines_button, self.compute_transect_button])
+        config_vbox = VBox([self.instr_config_btns, self.load_config_geojson_button, self.load_config_json_button, self.save_config_button])
+        download_vbox = VBox([self.instr_download_roi,self.download_button,self.extract_shorelines_button, self.compute_transect_button,config_vbox])
 
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
-        slider_btn_box = HBox([slider_v_box, self.gen_button])
+        slider_btn_box = VBox([slider_v_box, self.gen_button])
         roi_controls_box = VBox([self.instr_create_roi, slider_btn_box],layout=Layout(margin='0px 5px 5px 0px'))
 
         load_buttons = HBox([self.transects_button, self.shoreline_button])
         erase_buttons = HBox([self.remove_all_button, self.remove_transects_button, self.remove_bbox_button, self.remove_shoreline_button, self.remove_rois_button])
-
 
         row_1 = HBox([roi_controls_box,save_vbox,download_vbox])
         row_2 = HBox([load_buttons])
@@ -180,7 +200,7 @@ class UI:
         row_5 = HBox([self.coastseg_map.map])
         row_6 = HBox([UI.download_view])
 
-        return display(row_1,row_2, row_3, row_4, row_6, row_5)
+        return display(row_1,row_2, row_3, row_4, row_5, row_6)
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes['small']=change['new']
@@ -363,6 +383,43 @@ class UI:
             else:
                 messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
 
+
+    @debug_view.capture(clear_output=True)
+    def on_load_config_geojson_clicked(self, button):
+        # Prompt the user to select a directory of images
+        with Tkinter_Window_Creator() as tk_root:
+            tk_root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
+                                                    filetypes=[('geojson','*.geojson')],
+                                                    title = "Select a geojson file")
+            # Save the filename as an attribute of the button
+            if tk_root.filename:
+                self.coastseg_map.load_gdf_config(tk_root.filename)
+                # enable the button to load the config json file
+                self.load_config_json_button.disabled=False
+            else:
+                messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
+                
+    @debug_view.capture(clear_output=True)
+    def on_load_config_json_clicked(self, button):
+        # Prompt the user to select a directory of images
+        with Tkinter_Window_Creator() as tk_root:
+            tk_root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
+                                                    filetypes=[('json','*.json')],
+                                                    title = "Select a json file")
+            # Save the filename as an attribute of the button
+            if tk_root.filename:
+                self.coastseg_map.load_json_config(tk_root.filename)
+            else:
+                messagebox.showerror("File Selection Error", "You must select a valid json file first!")
+
+    @debug_view.capture(clear_output=True)
+    def on_save_config_clicked(self, button):
+        try:
+            self.coastseg_map.save_config(self.coastseg_map.data_downloaded)
+        except Exception as error:
+            with Tkinter_Window_Creator():
+                logger.error(error)
+                messagebox.showinfo("Error", str(error))
 
 
     @debug_view.capture(clear_output=True)

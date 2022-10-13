@@ -24,7 +24,6 @@ class Bounding_Box():
         self.filename="bbox.geojson"
         if isinstance(rectangle, gpd.GeoDataFrame):
             self.gdf = rectangle
-            return
         elif isinstance(rectangle, dict):
             self.gdf = self.create_geodataframe(rectangle)
         else:
