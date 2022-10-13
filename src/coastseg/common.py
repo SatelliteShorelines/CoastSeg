@@ -247,7 +247,7 @@ def create_json_config(master_config:dict,inputs:dict,settings:dict)->dict:
         roi_ids = [*roi_ids,*master_config['roi_ids']] 
     master_config['roi_ids'] = roi_ids
     master_config = {**master_config,**inputs}
-    
+    # master_config's keys are roi ids of type string due to inputs encoding the roi ids as strings
     if 'settings' not in  master_config: 
         master_config['settings'] = settings
     

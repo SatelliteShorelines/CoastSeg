@@ -188,9 +188,6 @@ class CoastSeg_Map:
             print("Transects were loaded on the map")
             self.load_transects_on_map()
 
-        
-        
-
     def download_imagery(self) -> None:
         """ download_imagery  downloads selected rois as jpgs
 
@@ -248,49 +245,26 @@ class CoastSeg_Map:
         
         # Save inputs_dict to ROI class
         self.rois.set_inputs_dict(inputs_dict)
-        # logger.info(f"inputs saved to master config: {inputs}")
         self.save_config(is_downloaded=True)
-        
-        #     master_config = common.create_json_config(master_config,inputs,self.settings)
-        
-        # roi_ids=master_config['roi_ids']
-        # # Get the selected ROIs
-        # selected_rois = self.rois.gdf[self.rois.gdf['id'].isin(roi_ids)]
-        # shorelines_gdf =None
-        # transects_gdf =None
-        # if self.shoreline is not None:
-        #     shorelines_gdf = self.shoreline.gdf
-        # if self.transects is not None:
-        #     transects_gdf =self.transects.gdf
-        # self.config_gdf = common.create_config_gdf(selected_rois,shorelines_gdf,transects_gdf)
-        # # save the config geodataframe to geojson file in each ROI directory
-
-        # # Save inputs_dict to ROI class
-        # self.rois.set_inputs_dict(inputs_dict)
-        # logger.info(f"Inputs_dict: {inputs_dict}")
-        # logger.info(f"Master config: {master_config} ")
-        # # write master config file to each directory where a roi was saved
-        # for roi_id in roi_ids:
-        #     sitename=str(master_config[roi_id]['inputs']['sitename'])
-        #     filename=f"config_id_{roi_id}.json"
-        #     save_path=os.path.abspath(os.path.join(os.getcwd(),"data",sitename,filename))
-        #     logger.info(f"Saving master config: {master_config} \n Saved to {save_path}")
-        #     common.write_to_json(save_path,master_config)
-        #     filename=f"config_gdf_id_{roi_id}.geojson"
-        #     save_path=os.path.abspath(os.path.join(os.getcwd(),"data",sitename,filename))
-        #     self.config_gdf.to_file(save_path, driver='GeoJSON')
-        
-        # # save the inputs and the settings to the rois master_config dict   
-        # self.rois.master_config = master_config
         logger.info("Done downloading")
     
     def load_json_config(self,filepath:str)->None:
         master_config=common.read_json_file(filepath)
-        logger.info(f"master_config: {master_config}")
-        print(f"Loaded json {filepath}")
+        logger.info(f"load_json_config::master_config: {master_config}")
+        print(f" Loaded config.json: {filepath}")
         if self.rois is None:
             raise Exception("Must load ROIs onto the map first")
         self.rois.master_config = master_config
+        self.settings = master_config['settings']
+        logger.info(f"load_json_config::Loaded settings from master_config: {self.settings}")
+        inputs_dict = {} 
+        roi_ids = master_config['roi_ids']
+        logger.info(f"load_json_config:: master_config roi_ids: {roi_ids}")
+        # master_config's keys are roi ids of type string
+        for id in roi_ids:
+            inputs_dict[id]=master_config[str(id)]
+        logger.info(f"load_json_config:: inputs_dict: {inputs_dict}")
+        self.rois.inputs_dict =inputs_dict
 
      
     def save_config(self,is_downloaded:bool = True)->None:
@@ -338,7 +312,7 @@ class CoastSeg_Map:
         master_config = {}
         self.rois.master_config = common.create_json_config(master_config,inputs,settings)
         logger.info(f"save_config :: self.rois.master_config: {self.rois.master_config} ")
-        roi_ids = list(map(lambda x:int(x),master_config['roi_ids']))
+        roi_ids = list(map(lambda x:int(x),master_config['roi_ids']))      
         logger.info(f"save_config :: roi_ids: {roi_ids} ")
         selected_rois = self.rois.gdf[self.rois.gdf['id'].astype(int).isin(roi_ids)]
         logger.info(f"save_config :: selected_rois: {selected_rois} ")
