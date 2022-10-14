@@ -52,11 +52,8 @@ class UI:
         self.load_bbox_button = Button(description="Load bbox from file",style=self.load_style)
         self.load_bbox_button.on_click(self.on_load_bbox_clicked)
         # buttons to load configuration files
-        self.load_config_json_button = Button(description="Load config.json",style=self.load_style)
-        self.load_config_json_button.on_click(self.on_load_config_json_clicked)
-        self.load_config_json_button.disabled=True
-        self.load_config_geojson_button = Button(description="Load config.geojson",style=self.load_style)
-        self.load_config_geojson_button.on_click(self.on_load_config_geojson_clicked)
+        self.load_configs_button = Button(description="Load configs",style=self.load_style)
+        self.load_configs_button.on_click(self.on_load_configs_clicked)
         self.save_config_button = Button(description="Save config files",style=self.save_style)
         self.save_config_button.on_click(self.on_save_config_clicked)
         # load buttons
@@ -174,6 +171,8 @@ class UI:
         
         self.instr_config_btns=HTML(
             value="<h2><b>Load Config Files</b></h2>\
+                Use the load configs button to select a config.geojson file.\
+                Make sure the config.json is in the same directory\
                 You can upload a config json and config geojson file.\
                     <li> Load Config Json: Load settings from json file (ex. 'config_id_241.json')</li>\
                 <li> Load Config geojson: Load rois, shorelines, and transects from geojson file (ex. 'config_gdf_id_241.geojson')</li>\
@@ -183,7 +182,7 @@ class UI:
         """creates a dashboard containing all the buttons, instructions and widgets organized together.
         """
         save_vbox = VBox([self.instr_save_roi,self.save_roi_button,self.save_bbox_button,self.save_shoreline_button, self.save_transects_button, self.instr_load_btns, self.load_rois_button, self.load_bbox_button,self.load_gdf_button])
-        config_vbox = VBox([self.instr_config_btns, self.load_config_geojson_button, self.load_config_json_button, self.save_config_button])
+        config_vbox = VBox([self.instr_config_btns, self.load_configs_button, self.save_config_button])
         download_vbox = VBox([self.instr_download_roi,self.download_button,self.extract_shorelines_button, self.compute_transect_button,config_vbox])
 
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
@@ -385,37 +384,26 @@ class UI:
 
 
     @debug_view.capture(clear_output=True)
-    def on_load_config_geojson_clicked(self, button):
+    def on_load_configs_clicked(self, button):
         # Prompt the user to select a directory of images
         with Tkinter_Window_Creator() as tk_root:
             tk_root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
                                                     filetypes=[('geojson','*.geojson')],
                                                     title = "Select a geojson file")
             # Save the filename as an attribute of the button
-            if tk_root.filename:
-                self.coastseg_map.load_gdf_config(tk_root.filename)
-                # enable the button to load the config json file
-                self.load_config_json_button.disabled=False
-            else:
-                messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
+            try:
+                if tk_root.filename:
+                    self.coastseg_map.load_configs(tk_root.filename)
+                else:
+                    messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
+            except Exception as error:
+                messagebox.showinfo("Error", str(error))
                 
-    @debug_view.capture(clear_output=True)
-    def on_load_config_json_clicked(self, button):
-        # Prompt the user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename =  filedialog.askopenfilename(initialdir = os.getcwd(),
-                                                    filetypes=[('json','*.json')],
-                                                    title = "Select a json file")
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                self.coastseg_map.load_json_config(tk_root.filename)
-            else:
-                messagebox.showerror("File Selection Error", "You must select a valid json file first!")
-
     @debug_view.capture(clear_output=True)
     def on_save_config_clicked(self, button):
         try:
             self.coastseg_map.save_config(self.coastseg_map.data_downloaded)
+            # self.coastseg_map.save_config(self.coastseg_map.data_downloaded, os.getcwd())
         except Exception as error:
             with Tkinter_Window_Creator():
                 logger.error(error)

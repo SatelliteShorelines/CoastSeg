@@ -1,4 +1,5 @@
 import os
+import re
 import glob
 import shutil
 import json
@@ -235,9 +236,23 @@ def get_area(polygon: dict):
     return round(area(polygon), 3)
 
 def read_json_file(filename: str):
+    logger.info(f"read_json_file {filename}")
     with open(filename, 'r', encoding='utf-8') as input_file:
         data = json.load(input_file)
     return data
+
+def find_config_json(dir_path):
+    logger.info(f"searching directory for config.json: {dir_path}")
+    def use_regex(input_text):
+        pattern = re.compile(r"config.*\.json", re.IGNORECASE)
+        if pattern.match(input_text) is not None:
+            return True
+        return False
+    
+    for item in os.listdir(dir_path):
+        if use_regex(item):
+            logger.info(f"{item} matched regex")
+            return item
 
 def create_json_config(master_config:dict,inputs:dict,settings:dict)->dict:
     roi_ids = list(inputs.keys())
@@ -252,7 +267,16 @@ def create_json_config(master_config:dict,inputs:dict,settings:dict)->dict:
         master_config['settings'] = settings
     
     return master_config
-    
+ 
+def does_filepath_exist(dictionary:dict):
+    if 'filepath' not in dictionary:
+        logger.error(f"Cannot extract shorelines because filepath key did not exist in {dictionary}")
+        raise Exception(f"Cannot extract shorelines because filepath key did not exist in {dictionary}")
+    elif not os.path.exists(dictionary['filepath']):
+        logger.error(f"Cannot extract shorelines because location doesn't exist. Download the data first.\n{dictionary['filepath']} ")
+        raise FileNotFoundError(f"Cannot extract shorelines because location doesn't exist. Download the data first.\n{dictionary['filepath']} ")
+   
+       
 
 def create_config_gdf(rois:gpd.GeoDataFrame,shorelines_gdf:gpd.GeoDataFrame=None,
                       transects_gdf:gpd.GeoDataFrame=None,
