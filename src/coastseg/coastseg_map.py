@@ -481,21 +481,25 @@ class CoastSeg_Map:
         if not set(['dates','sat_list','collection']).issubset(set(self.settings.keys())):
             logger.error(f"Missing keys from self.settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
             raise Exception(f"Missing keys from self.settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}")
+        if not self.selected_set.issubset(set(self.rois.inputs_dict.keys())):
+            logger.error(f"self.selected_set: {self.selected_set} was not a subset of self.rois.inputs_dict: {set(self.rois.inputs_dict.keys())}")
+            raise Exception(f"To extract shorelines you must first select ROIs and have the data downloaded.")
         
         settings = self.settings
-        # Use the roi_ids in inputs_dict to select the downloaded rois from the ROI geodataframe
-        roi_ids=list(self.rois.inputs_dict.keys())
+        # get selected ROIs on map and extract shoreline for each of them 
+        roi_ids =  list(self.selected_set)
+       
         logger.info(f"extract_all_shorelines:: roi_ids: {roi_ids}")
         print(f"Extracting shorelines from ROIs: {roi_ids}")
         selected_rois_gdf = self.get_selected_rois(roi_ids)
         # if none of the ids in inputs_dict are in the ROI geodataframe raise an Exception
         if selected_rois_gdf.empty:
-            logger.error("extract_all_shorelines::The ROIs did not match the ids in input settings")
-            raise Exception("The ROIs did not match the ids in input settings")
+            logger.error("extract_all_shorelines::No ROIs selected")
+            raise Exception("No ROIs selected")
         
-        # holds all the extracted shoreline geodataframes associated with each ROI
+        # extracted_shoreline_dict: holds all extracted shoreline geodataframes associated with each ROI
         extracted_shoreline_dict={}
-        for id in roi_ids:
+        for id in tqdm(roi_ids, desc="Extracting Shorelines"):
             try:
                 print(f"Extracting shorelines from ROI with the id:{id}")
                 inputs = self.rois.inputs_dict[id]
@@ -652,8 +656,6 @@ class CoastSeg_Map:
                 transects_coords = []
                 for k in transect_in_roi['geometry'].keys():
                     transects_coords.append(tuple(np.array(transect_in_roi['geometry'][k]).tolist()))
-                # @todo remove this print statement    
-                print(f"transects_coords:{transects_coords}")
                 logger.info(f"compute_transects_from_roi() : transects_coords: {transects_coords}")
                 # convert to dict of numpy arrays of start and end points
                 transects = {}
@@ -719,28 +721,29 @@ class CoastSeg_Map:
                 raise Exception("Missing key 'along_dist' in settings")
         
         settings = self.settings
+        roi_ids = self.rois.extracted_shorelines.keys()
         # Input projection is the map project and user selected output projection
         inProj = Proj(init='epsg:4326') 
         outProj = Proj(init='epsg:'+str(settings['output_epsg']))
     
         logger.info(f"compute_transects:: self.rois.extracted_shorelines.keys(): {list(self.rois.extracted_shorelines.keys())}")
         # Save cross distances for each set of transects intersecting each extracted shoreline for each ROI
-        for roi_id in self.rois.extracted_shorelines.keys():
-            cross_distance_transects ={}
+        cross_distance_transects = {}
+        for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
             cross_distance = 0
             try:
                 cross_distance = self.compute_transects_from_roi(roi_id,inProj, outProj,settings)
                 if cross_distance == 0:
                     print(f"No transects existed for ROI {roi_id}")
                 cross_distance_transects[roi_id] = cross_distance
-                print(f"cross_distance_transects[roi_id]: {cross_distance_transects[roi_id]}")
-                logger.info(f"compute_transects:: cross_distance_transects[roi_id]: {cross_distance_transects[roi_id]}")
+                print(f"\ncross_distance_transects[{roi_id}]: {cross_distance_transects[roi_id]}")
+                logger.info(f"\ncompute_transects:: cross_distance_transects[{roi_id}]: {cross_distance_transects[roi_id]}")
                 self.rois.save_transects_to_json(roi_id,cross_distance)
             except exceptions.No_Extracted_Shoreline:
                 logger.warning(f"ROI id:{roi_id} has no extracted shoreline. No transects computed")
                 print(f"ROI id:{roi_id} has no extracted shoreline. No transects computed")
         
-        
+        # save cross distances for all transects to ROIs
         self.rois.cross_distance_transects = cross_distance_transects
 
     def load_transects_on_map(self) -> None:
