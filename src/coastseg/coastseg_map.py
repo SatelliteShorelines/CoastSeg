@@ -34,6 +34,8 @@ class CoastSeg_Map:
         self.settings = {}
         # selected_set : ids of the selected rois
         self.selected_set = set()
+        # self.extracted_shoreline_layers : names of extracted shorelines vectors on the map
+        self.extracted_shoreline_layers = []
         # ROI_layer : layer containing all rois
         self.ROI_layer = None
         # rois : ROI(Region of Interest)
@@ -121,7 +123,7 @@ class CoastSeg_Map:
         self.load_json_config(config_path)
     
     def load_gdf_config(self,filepath:str):
-        print("Loaded geojson{file_path}")
+        print(f"Loaded geojson{filepath}")
         gdf = common.read_gpd_file(filepath)
         # Extract the ROIs from the gdf and create new dataframe
         roi_gdf = gdf[gdf['type']=='roi'].copy()
@@ -267,7 +269,7 @@ class CoastSeg_Map:
     def load_json_config(self,filepath:str)->None:
         master_config=common.read_json_file(filepath)
         logger.info(f"load_json_config::master_config: {master_config}")
-        print(f" Loaded config.json: {filepath}")
+        print(f" Loaded config.json: {os.path.basename(filepath)}")
         if self.rois is None:
             raise Exception("Must load ROIs onto the map first")
         self.rois.master_config = master_config
@@ -470,33 +472,6 @@ class CoastSeg_Map:
             raise Exception("No Rois on map")
         if self.shoreline is None:
             raise Exception("No Shoreline found. Please load a shoreline on the map first.")
-        
-        # if self.rois.master_config is not None:
-        #     # Use the roi_ids in master_config to select the downloaded rois from the ROI geodataframe
-        #     roi_ids=self.rois.master_config['roi_ids']
-        #     print(f"Extracting shorelines from ROIs: {roi_ids}")
-        #     logger.info(f"Extracting shorelines from ROIs: {roi_ids}")
-        #     selected_rois_gdf = self.rois.gdf[self.rois.gdf['id'].astype(int).isin(roi_ids)]
-        #     # if none of the ids in inputs_dict are in the ROI geodataframe raise an Exception
-        #     if selected_rois_gdf.empty:
-        #         logger.error(f"The ROIs did not match the ids in input settings in config file")
-        #         raise Exception("The ROIs did not match the ids in input settings in config file")
-            
-        #     # holds all the extracted shoreline geodataframes associated with each ROI
-        #     extracted_shoreline_dict={}
-        #     for id in roi_ids:
-        #         try:
-        #             print(f"Extracting shorelines from ROI with the id:{id}")
-        #             inputs = self.rois.master_config[id]
-        #             settings = self.rois.master_config['settings']
-        #             extracted_shoreline_dict[id]=self.extract_shorelines_from_roi(selected_rois_gdf,self.shoreline.gdf,inputs,settings,id=id)
-        #             logger.info(f"extract_all_shorelines : extracted_shoreline_dict[id]: {extracted_shoreline_dict[id]}")
-        #         except exceptions.Id_Not_Found as id_error:
-        #             logger.error(f"exceptions.Id_Not_Found: {id_error}")
-        #             print(f"{id_error}. \n Skipping to next ROI")
-        # else: 
-        # if the master config is None then use the settings and inputs dict  
-        
         if self.settings is None:
             logger.error("extract_all_shorelines::No settings found. Please load settings")
             raise Exception("No settings found. Please load settings")
@@ -525,6 +500,14 @@ class CoastSeg_Map:
                 settings = self.settings
                 extracted_shoreline_dict[id]=self.extract_shorelines_from_roi(selected_rois_gdf,self.shoreline.gdf,inputs,settings,id=id)
                 logger.info(f"extract_all_shorelines : extracted_shoreline_dict[id]: {extracted_shoreline_dict[id]}")
+                # load extracted shorelines onto map
+                if  len(extracted_shoreline_dict[id]['shorelines']) > 0:
+                    print(f"Successfully extracted shoreline for ROI{id}. Loading it onto the map")
+                    extracted_sl_filename= f'shorelines_{id}.geojson'
+                    sitename=inputs['sitename']
+                    filepath=inputs['filepath']
+                    extracted_sl_filepath = os.path.join(filepath, sitename, extracted_sl_filename)
+                    self.load_gdf_on_map(extracted_sl_filename, extracted_sl_filepath)
             except exceptions.Id_Not_Found as id_error:
                 logger.error(f"exceptions.Id_Not_Found {id_error}")
                 print(f"exceptions.Id_Not_Found:{id_error}. \n Skipping to next ROI")
@@ -580,11 +563,10 @@ class CoastSeg_Map:
         metadata = SDS_download.get_metadata(inputs) 
         logger.info(f"metadata: {metadata}")
         extracted_shoreline_dict = SDS_shoreline.extract_shorelines(metadata, shoreline_settings)
-        print(f"extracted_shoreline_dict: {extracted_shoreline_dict}")
         logger.info(f"extracted_shoreline_dict: {extracted_shoreline_dict}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
         extracted_shoreline_dict = SDS_tools.remove_duplicates(extracted_shoreline_dict) # removes duplicates (images taken on the same date by the same satellite)
-        logger.info(f"after remove_duplicates : extracted_shoreline_dict: {extracted_shoreline_dict}")
+        # logger.info(f"after remove_duplicates : extracted_shoreline_dict: {extracted_shoreline_dict}")
         extracted_shoreline_dict = SDS_tools.remove_inaccurate_georef(extracted_shoreline_dict, 10) # remove inaccurate georeferencing (set threshold to 10 m)
         logger.info(f"after remove_inaccurate_georef : extracted_shoreline_dict: {extracted_shoreline_dict}")
         
@@ -603,11 +585,10 @@ class CoastSeg_Map:
             sitename=inputs['sitename']
             filepath=inputs['filepath']
             logger.info(f'Saving shoreline to file{filepath}. \n Extracted Shoreline: {extract_shoreline_gdf}')
-            extract_shoreline_gdf.to_file(os.path.join(filepath, sitename, '%s_output_%s_staticref.geojson'%(sitename,geomtype)),
+            extract_shoreline_gdf.to_file(os.path.join(filepath, sitename, f'shorelines_{id}.geojson'),
                                             driver='GeoJSON', encoding='utf-8')
         
         logger.info(f"Returning extracted shoreline {extracted_shoreline_dict}")
-        print(f"Extracted shoreline: {extracted_shoreline_dict}")
         return extracted_shoreline_dict
 
     def is_shoreline_present(self,extracted_shorelines:dict,roi_id:int) -> bool:
@@ -667,7 +648,7 @@ class CoastSeg_Map:
             logger.info(f"compute_transects_for_roi() :transect_in_roi: {transect_in_roi}")
             # Do not compute the transect if no shoreline exists
             if not self.is_shoreline_present(self.rois.extracted_shorelines,int(roi_id)):
-                raise exceptions.No_Extracted_Shoreline(f"No extracted shoreline at this roi {roi_id}")
+                raise exceptions.No_Extracted_Shoreline(int(roi_id),"No extracted shoreline at this roi")
             else:
                 print("Shoreline present at ROI: ",roi_id)
                 print("Creating transects...")
@@ -751,16 +732,10 @@ class CoastSeg_Map:
         inProj = Proj(init='epsg:4326') 
         logger.info(f"compute_transects:: self.rois.extracted_shorelines.keys(): {list(self.rois.extracted_shorelines.keys())}")
         for roi_id in self.rois.extracted_shorelines.keys():
-            # # if self.rois.master_config is not None:
-            # #     settings = self.rois.master_config[roi_id]['settings']
-            # elif self.settings is not None:
             settings = self.settings
-       
             outProj = Proj(init='epsg:'+str(settings['output_epsg']))
-            
-            print(f"self.rois.extracted_shorelines.keys() : {self.rois.extracted_shorelines.keys()}")
             logger.info(f"compute_transects: self.rois.extracted_shorelines.keys() : {self.rois.extracted_shorelines.keys()}")
-            
+            # Save each of cross distances to intersecting transects for each shoreline in each ROI
             cross_distance_transects ={}
             cross_distance = 0
             try:
@@ -815,6 +790,7 @@ class CoastSeg_Map:
         self.remove_all_rois()
         self.remove_shoreline_html()
         self.remove_layer_by_name('geodataframe')
+        self.remove_extracted_shorelines()
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
@@ -825,6 +801,12 @@ class CoastSeg_Map:
         existing_layer=self.map.find_layer(Bounding_Box.LAYER_NAME)
         if existing_layer is not None:
                 self.map.remove_layer(existing_layer)
+
+    def remove_extracted_shorelines(self):
+        """Remove all the extracted shorelines layers from map"""
+        for layer in self.extracted_shoreline_layers:
+            self.remove_layer_by_name(layer)
+        self.extracted_shoreline_layers = []
 
     def remove_layer_by_name(self, layer_name):
         existing_layer=self.map.find_layer(layer_name)
@@ -920,9 +902,8 @@ class CoastSeg_Map:
         if self.draw_control.last_action == 'deleted':
             self.remove_bbox()
   
-    def load_gdf_on_map(self, file=None):
+    def load_gdf_on_map(self, layer_name:str, file=None):
         # assumes the geodataframe has a crs
-        layer_name = 'geodataframe'
         self.remove_layer_by_name(layer_name)
         if file is not None:
             gdf = gpd.read_file(file)
@@ -945,7 +926,7 @@ class CoastSeg_Map:
             self.map.add_layer(new_layer)
             print(f"Loaded the geodataframe from the file :\n{file}")
             logger.info(f"Loaded the geodataframe from the file :\n{file}") 
-  
+            self.extracted_shoreline_layers.append(layer_name)
     
     def load_bbox_on_map(self, file=None):
         # remove old bbox if it exists
@@ -974,8 +955,7 @@ class CoastSeg_Map:
                 print("Cannot add an empty bbox layer to the map.")
             else:
                 self.map.add_layer(new_layer)
-                print(f"load_bbox_on_map:: Loaded the bbox on map from self.bbox")
-                logger.info(f"load_bbox_on_map:: Loaded the bbox on map from self.bbox")
+                logger.info("load_bbox_on_map:: Loaded the bbox on map from self.bbox")
                 
                  
     def load_shoreline_on_map(self) -> None:

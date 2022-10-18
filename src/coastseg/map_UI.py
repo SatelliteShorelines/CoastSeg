@@ -378,7 +378,7 @@ class UI:
                                                     title = "Select a geojson file")
             # Save the filename as an attribute of the button
             if tk_root.filename:
-                self.coastseg_map.load_gdf_on_map(tk_root.filename)
+                self.coastseg_map.load_gdf_on_map('geodataframe',tk_root.filename)
             else:
                 messagebox.showerror("File Selection Error", "You must select a valid geojson file first!")
 
