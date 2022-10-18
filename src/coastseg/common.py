@@ -7,14 +7,14 @@ import math
 from datetime import datetime
 import logging
 # Internal dependencies imports
-from .exceptions import DownloadError
+from src.coastseg import exceptions
+
 from coastsat import SDS_tools
 from tqdm.auto import tqdm
 import requests
 from area import area
 import geopandas as gpd
 from shapely import geometry
-import leafmap
 import numpy as np
 import geojson
 from skimage.io import imread
@@ -53,7 +53,7 @@ def download_url(url: str, save_path: str, filename:str=None, chunk_size: int = 
     with requests.get(url, stream=True) as r:
         if r.status_code == 404:
             logger.error(f'DownloadError: {save_path}')
-            raise DownloadError(os.path.basename(save_path))
+            raise exceptions.DownloadError(os.path.basename(save_path))
         # check header to get content length, in bytes
         total_length = int(r.headers.get("Content-Length"))
         with open(save_path, 'wb') as fd:
@@ -208,6 +208,30 @@ def convert_wgs_to_utm(lon: float,lat: float)->str:
     return epsg_code
 
 
+def extract_roi_by_id(gdf:gpd.geodataframe, roi_id:int)->gpd.geodataframe:
+    """Returns geodataframe with a single ROI whose id matches roi_id.
+       If roi_id is None returns gdf
+    
+    Args:
+        gdf (gpd.geodataframe): ROI geodataframe to extract ROI with roi_id from
+        roi_id (int): id of the ROI to extract
+    Raises:
+        exceptions.Id_Not_Found: if id doesn't exist in ROI's geodataframe or self.rois.gdf is empty
+    Returns:
+        gpd.geodataframe: ROI with id matching roi_id
+    """        
+    if roi_id is None:
+        single_roi=gdf
+    else:
+        # Select a single roi by id
+        single_roi = gdf[gdf['id'].astype(int)==int(roi_id)]
+        # if the id was not found in the geodataframe raise an exception
+    if single_roi.empty:
+        logger.error(f"Id: {id} was not found in {gdf}")
+        raise exceptions.Id_Not_Found(id)
+    logger.info(f"extract_roi_by_id:: single_roi: {single_roi}")
+    return single_roi
+
 def convert_gdf_to_polygon(gdf:gpd.geodataframe,id:int=None)->geometry.Polygon:
     """Returns the roi with given id as Shapely.geometry.Polygon
     Args:
@@ -216,16 +240,7 @@ def convert_gdf_to_polygon(gdf:gpd.geodataframe,id:int=None)->geometry.Polygon:
     Returns:
         geometry.Polygon: roi with the id converted to Shapely.geometry.Polygon
     """
-    if id is None:
-        single_roi=gdf
-    else:
-        # Select a single roi by id
-        single_roi = gdf[gdf['id']==id]
-    # if the id was not found in the geodataframe raise an exception
-    if single_roi.empty:
-        logger.error(f"Id: {id} was not found in {gdf}")
-        raise Exception(f"Id: {id} was not found in {gdf}")
-    
+    single_roi=extract_roi_by_id(gdf,id)
     single_roi=single_roi["geometry"].to_json()
     single_roi = json.loads(single_roi)
     polygon = geometry.Polygon(single_roi["features"][0]["geometry"]['coordinates'][0])
@@ -255,6 +270,39 @@ def find_config_json(dir_path):
             return item
 
 def create_json_config(master_config:dict,inputs:dict,settings:dict)->dict:
+    """ returns a dictionary with the settings, content of the master_config and
+    each of the inputs specified by roi id.
+    sample master_config:
+    {
+        'roi_ids': [17,20]
+        'settings':{ 'dates': ['2018-12-01', '2019-03-01'],
+                    'cloud_thresh': 0.5,
+                    'dist_clouds': 300,
+                    'output_epsg': 3857,}
+        '17':{
+            'sat_list': ['L8'],
+            'collection': 'C01',
+            'dates': ['2018-12-01', '2019-03-01'],
+            'sitename':'roi_17',
+            'filepath':'C:\\Home'
+        }
+        '20':{
+            'sat_list': ['L8'],
+            'collection': 'C01',
+            'dates': ['2018-12-01', '2019-03-01'],
+            'sitename':'roi_20',
+            'filepath':'C:\\Home'
+        }
+    }
+
+    Args:
+        master_config (dict): json style dictionary containing settings, rois, and inputs
+        inputs (dict): json style dictionary with roi ids at the keys with inputs as values
+        settings (dict):  json style dictionary containing map settings
+
+    Returns:
+        dict: json style dictionary, master_config  
+    """    
     roi_ids = list(inputs.keys())
     # convert all the ids to ints
     roi_ids = list(map(lambda x:int(x),roi_ids))

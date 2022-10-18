@@ -221,19 +221,23 @@ class ROI():
             fishnet_intersect_gpd.drop(fishnet_intersect_gpd.columns.difference(['geometry','id']), 'columns',inplace=True)
             return fishnet_intersect_gpd
 
-def save_transects_to_json(self, roi_id:int, cross_distance:dict):
-    sitename = str(self.inputs_dict[roi_id]['sitename'])
-    logger.info(f"save_transects_to_json:: sitename: {sitename}")
-    filename=f"transects_cross_distances"+str(roi_id)+".json"
-    logger.info(f"save_transects_to_json:: filename: {filename}")
-    save_path=os.path.abspath(os.path.join(os.getcwd(),"data",sitename,filename))
-    logger.info(f"save_transects_to_json:: save_path: {save_path}")
-    for key in cross_distance.keys():
-        tmp = cross_distance[key].tolist()
-        cross_distance[key] =  tmp
-    logger.info(f"save_transects_to_json:: cross_distance: {cross_distance}")
+    def save_transects_to_json(self, roi_id:int, cross_distance:dict):
+        if  cross_distance == 0:
+            print(f"Did not save transects to json for ROI:{roi_id}")
+            logger.info(f"Did not save transects to json for ROI:{roi_id}")
+            return
+        sitename = str(self.inputs_dict[roi_id]['sitename'])
+        logger.info(f"save_transects_to_json:: sitename: {sitename}")
+        filename=f"transects_cross_distances"+str(roi_id)+".json"
+        logger.info(f"save_transects_to_json:: filename: {filename}")
+        save_path=os.path.abspath(os.path.join(os.getcwd(),"data",sitename,filename))
+        logger.info(f"save_transects_to_json:: save_path: {save_path}")
+        for key in cross_distance.keys():
+            tmp = cross_distance[key].tolist()
+            cross_distance[key] =  tmp
+        logger.info(f"save_transects_to_json:: cross_distance: {cross_distance}")
 
-    with open(save_path,'w') as f:
-        json.dump(cross_distance,f)
-    logger.info("Finished writing to transects json")
+        with open(save_path,'w') as f:
+            json.dump(cross_distance,f)
+        logger.info("Finished writing to transects json")
         
