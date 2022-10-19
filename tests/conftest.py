@@ -5,7 +5,6 @@ import json
 import pytest
 import geopandas as gpd
 from shapely.geometry import shape
-import pickle
 from src.coastseg import roi
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -92,7 +91,7 @@ def valid_rois_geojson()->dict:
     return data
 
 @pytest.fixture
-def transect_compatible_rois_gdf()->gpd.GeoDataFrame:
+def valid_roi_gdf()->gpd.GeoDataFrame:
     """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
         ROIs with ids:[17,30,35] """
     file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_rois.geojson'))
@@ -110,7 +109,7 @@ def valid_shoreline_gdf()->gpd.GeoDataFrame:
     return gpd_data
 
 @pytest.fixture
-def transect_compatible_transects_gdf()->gpd.GeoDataFrame:
+def valid_transects_gdf()->gpd.GeoDataFrame:
     """returns the contents of transects.geojson as a gpd.GeoDataFrame
         These transects are compatible with bbox, shorelines and transects
         ROIs with ids:[17,30,35] """
@@ -131,7 +130,7 @@ def valid_bbox_gdf()->gpd.GeoDataFrame:
     return gpd_data
 
 @pytest.fixture
-def valid_ROI(transect_compatible_rois_gdf)->gpd.GeoDataFrame:
+def valid_ROI(valid_roi_gdf)->gpd.GeoDataFrame:
     """returns a valid instance of ROI current espg code : 4326 ROIs with ids:[17,30,35] """
-    return roi.ROI(rois_gdf = transect_compatible_rois_gdf)
+    return roi.ROI(rois_gdf = valid_roi_gdf)
     

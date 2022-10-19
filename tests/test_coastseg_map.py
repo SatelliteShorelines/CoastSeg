@@ -19,32 +19,32 @@ def test_valid_shoreline_gdf(valid_shoreline_gdf:gpd.GeoDataFrame):
     assert expected_shoreline.gdf is not None
     assert expected_shoreline.filename == "shoreline.geojson"
 
-def test_valid_transects_gdf(transect_compatible_transects_gdf:gpd.GeoDataFrame):
+def test_valid_transects_gdf(valid_transects_gdf:gpd.GeoDataFrame):
     """tests if a Transects will be created from a valid transects thats a gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): valid transects as a gpd.GeoDataFrame
     """    
-    expected_transects = transects.Transects(transects = transect_compatible_transects_gdf)
+    expected_transects = transects.Transects(transects = valid_transects_gdf)
     assert isinstance(expected_transects,transects.Transects)
     assert expected_transects.gdf is not None
     assert expected_transects.filename == "transects.geojson"
 
-def test_valid_roi_gdf(transect_compatible_rois_gdf:gpd.GeoDataFrame):
+def test_valid_roi_gdf(valid_roi_gdf:gpd.GeoDataFrame):
     """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """    
-    expected_roi = roi.ROI(rois_gdf = transect_compatible_rois_gdf)
+    expected_roi = roi.ROI(rois_gdf = valid_roi_gdf)
     assert isinstance(expected_roi,roi.ROI)
     assert expected_roi.gdf is not None
     assert expected_roi.filename == "rois.geojson"
     
-def test_valid_roi_gdf(transect_compatible_rois_gdf:gpd.GeoDataFrame):
+def test_valid_roi_gdf(valid_roi_gdf:gpd.GeoDataFrame):
     """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """    
-    expected_roi = roi.ROI(rois_gdf = transect_compatible_rois_gdf)
+    expected_roi = roi.ROI(rois_gdf = valid_roi_gdf)
     assert isinstance(expected_roi,roi.ROI)
     assert expected_roi.gdf is not None
     assert expected_roi.filename == "rois.geojson"

@@ -7,9 +7,9 @@ import geopandas as gpd
 from shapely import geometry
 import pytest
 
-def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, transect_compatible_transects_gdf):
+def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_gdf):
     # test if a gdf is created with all the rois, shorelines and transects
-    actual_gdf=common.create_config_gdf(valid_rois_gdf,valid_shoreline_gdf,transect_compatible_transects_gdf)
+    actual_gdf=common.create_config_gdf(valid_rois_gdf,valid_shoreline_gdf,valid_transects_gdf)
     assert 'type' in actual_gdf.columns
     assert actual_gdf[actual_gdf['type']=='transect'].empty == False
     assert actual_gdf[actual_gdf['type']=='shoreline'].empty == False
@@ -17,7 +17,7 @@ def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, transect_compati
     
     # test if a gdf is created with all the rois, transects if shorelines is None
     shorelines_gdf=None
-    actual_gdf=common.create_config_gdf(valid_rois_gdf,shorelines_gdf,transect_compatible_transects_gdf)
+    actual_gdf=common.create_config_gdf(valid_rois_gdf,shorelines_gdf,valid_transects_gdf)
     assert 'type' in actual_gdf.columns
     assert actual_gdf[actual_gdf['type']=='transect'].empty == False
     assert actual_gdf[actual_gdf['type']=='shoreline'].empty == True
