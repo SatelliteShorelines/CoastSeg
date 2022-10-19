@@ -22,8 +22,8 @@ class ROI():
     def __init__(self, bbox: gpd.GeoDataFrame = None,
                  shoreline: gpd.GeoDataFrame = None,
                  rois_gdf : gpd.GeoDataFrame=None,
-                 square_len_lg : float=None,
-                 square_len_sm : float=None,
+                 square_len_lg : float=0,
+                 square_len_sm : float=0,
                  filename:str=None):
         # inputs_dict ; after ROIs have been downloaded holds all download settings
         self.inputs_dict = {}
@@ -67,7 +67,10 @@ class ROI():
         self.extracted_shorelines.update(extract_shoreline)
         logger.info(f"After self.extracted_shorelines : {self.extracted_shorelines}")
             
-    def create_geodataframe(self, bbox:gpd.geodataframe, shoreline: gpd.GeoDataFrame, large_length:float=7500,small_length:float=5000,crs:str='EPSG:4326') -> gpd.GeoDataFrame:
+    def create_geodataframe(self, bbox:gpd.geodataframe, 
+                            shoreline: gpd.GeoDataFrame, 
+                            large_length:float=7500,small_length:float=5000,
+                            crs:str='EPSG:4326') -> gpd.GeoDataFrame:
         """Generates series of overlapping ROIS along shoreline on map using fishnet method
         with the crs specified by crs
         Args:
@@ -96,8 +99,7 @@ class ROI():
             fishnet_intersect_gdf = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
         # Assign an id to each ROI square in the fishnet
-        num_roi = len(fishnet_intersect_gdf)
-        fishnet_intersect_gdf['id'] = np.arange(0, num_roi)
+        fishnet_intersect_gdf['id'] = np.arange(0, len(fishnet_intersect_gdf),step=1)
         logger.info(f"Created fishnet_intersect_gdf: {fishnet_intersect_gdf}")
         return fishnet_intersect_gdf
 
@@ -135,11 +137,13 @@ class ROI():
         Returns:
             geopandas.geodataframe.GeoDataFrame: intersection of fishnet and data
         """
-        intersection_gpd = gpd.sjoin(fishnet, data, op='intersects')
-        # intersection_gpd.drop(columns=['index_right', 'soc', 'exs', 'f_code', 'id', 'acc'], inplace=True)
-        return intersection_gpd
+        intersection_gdf = fishnet.sjoin(data, how="inner", predicate='intersects')
+        intersection_gdf.drop(intersection_gdf.columns.difference(['geometry']), 'columns',inplace=True)
+        intersection_gdf.drop_duplicates(inplace=True)
+        return intersection_gdf
     
-    def create_rois(self, bbox:gpd.GeoDataFrame, square_size:float, input_espg="epsg:4326",output_espg="epsg:4326")->gpd.geodataframe:
+    def create_rois(self, bbox:gpd.GeoDataFrame, square_size:float,
+                    input_espg="epsg:4326",output_espg="epsg:4326")->gpd.geodataframe:
         """Creates a fishnet of square shaped ROIs with side length= square_size
 
         Args:
@@ -157,7 +161,6 @@ class ROI():
         center_x,center_y = common.get_center_rectangle(bbox_coords)
         utm_code = common.convert_wgs_to_utm(center_x,center_y)
         projected_espg=f'epsg:{utm_code}'
-        logger.info(f"utm_code: {utm_code}")
         logger.info(f"projected_espg_code: {projected_espg}")
         # project geodataframe to new CRS specified by utm_code
         projected_bbox_gdf = bbox.to_crs(projected_espg)
@@ -166,7 +169,7 @@ class ROI():
         return fishnet 
 
     def create_fishnet(self, bbox_gdf:gpd.GeoDataFrame, input_espg:str, output_espg:str,square_size:float = 1000)->gpd.geodataframe:
-        """Returns a fishnet of ROIs that intersects the bouding box specified by bbox_gdf where each ROI(square) has a side length = square size(meters)
+        """Returns a fishnet of ROIs that intersects the bounding box specified by bbox_gdf where each ROI(square) has a side length = square size(meters)
         
         Args:
             bbox_gdf (gpd.geodataframe): Bounding box that fishnet intersects.
@@ -214,12 +217,10 @@ class ROI():
                 GeoDataFrame: intersection of shoreline_gdf and fishnet. Only squares that intersect shoreline are kept
             """
             # Get the geodataframe for the fishnet within the bbox
-            fishnet_gpd = self.create_rois(bbox_gdf, square_length)
+            fishnet = self.create_rois(bbox_gdf, square_length)
             # Get the geodataframe for the fishnet intersecting the shoreline
-            fishnet_intersect_gpd = self.fishnet_intersection(fishnet_gpd, shoreline_gdf)
-            # drop excess columns from intersection with shoreline
-            fishnet_intersect_gpd.drop(fishnet_intersect_gpd.columns.difference(['geometry','id']), 'columns',inplace=True)
-            return fishnet_intersect_gpd
+            fishnet_intersection = self.fishnet_intersection(fishnet, shoreline_gdf)
+            return fishnet_intersection
 
     def save_transects_to_json(self, roi_id:int, cross_distance:dict):
         if  cross_distance == 0:
@@ -239,5 +240,6 @@ class ROI():
 
         with open(save_path,'w') as f:
             json.dump(cross_distance,f)
-        logger.info("Finished writing to transects json")
+        print(f"Saved transects to json for ROI:{roi_id} {save_path}")
+        logger.info(f"Saved transects to json for ROI:{roi_id} {save_path}")
         

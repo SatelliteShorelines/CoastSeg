@@ -11,6 +11,79 @@ import geopandas as gpd
 import pyproj
 from ipyleaflet import GeoJSON
 
+def test_create_geodataframe(valid_bbox_gdf,valid_shoreline_gdf):
+    large_len = 1000
+    small_len = 750
+    input_espg = "epsg:4326"
+    actual_roi = roi.ROI(bbox=valid_bbox_gdf,
+                         shoreline = valid_shoreline_gdf,
+                         square_len_lg =large_len,
+                         square_len_sm = small_len)
+    
+    actual_gdf = actual_roi.create_geodataframe(bbox = valid_bbox_gdf,
+                                   shoreline = valid_shoreline_gdf,
+                                   large_length = large_len,
+                                   small_length= small_len,
+                                   crs= input_espg)
+    
+    assert isinstance(actual_gdf,gpd.GeoDataFrame)
+    assert set(actual_gdf.columns) == set(['geometry', 'id'])
+    assert actual_gdf.dtypes['geometry'] == 'geometry'
+    assert actual_gdf.dtypes['id'] == 'int32'
+    # drop unneeded columns before checking
+    valid_shoreline_gdf = valid_shoreline_gdf.drop(valid_shoreline_gdf.columns.difference(['geometry']), 'columns')
+    # Validate any shorelines intersect any squares in actual_gdf
+    intersection_gdf = valid_shoreline_gdf.sjoin(actual_gdf, how="inner", predicate='intersects')
+    assert intersection_gdf.empty == False
+    
+def test_fishnet_intersection(valid_bbox_gdf,valid_shoreline_gdf):
+    # tests if a valid fishnet geodataframe intersects with given shoreline geodataframe
+    square_size=1000
+    output_espg="epsg:4326"
+    
+    actual_roi = roi.ROI(bbox=valid_bbox_gdf,
+                         shoreline = valid_shoreline_gdf,
+                         square_len_lg =square_size,
+                         square_len_sm = square_size)
+    
+    fishnet_gdf = actual_roi.create_rois(valid_bbox_gdf,square_size)
+    # check if fishnet intersects the shoreline
+    fishnet_gdf = actual_roi.fishnet_intersection(fishnet_gdf,valid_shoreline_gdf)
+    assert isinstance(fishnet_gdf,gpd.GeoDataFrame)
+    assert fishnet_gdf.empty == False
+    assert isinstance(fishnet_gdf.crs,pyproj.CRS)
+    assert fishnet_gdf.crs == output_espg
+    assert set(fishnet_gdf.columns) == set(['geometry'])
+    # drop unneeded columns before checking
+    valid_shoreline_gdf = valid_shoreline_gdf.drop(valid_shoreline_gdf.columns.difference(['geometry']), 'columns')
+    # check if any shorelines intersect any squares in fishnet_gdf
+    intersection_gdf = valid_shoreline_gdf.sjoin(fishnet_gdf, how="inner", predicate='intersects')
+    assert intersection_gdf.empty == False
+
+def test_get_fishnet(valid_bbox_gdf,valid_shoreline_gdf):
+    # tests if a valid fishnet geodataframe intersects with given shoreline geodataframe
+    square_size=1000
+    output_espg="epsg:4326"
+    
+    actual_roi = roi.ROI(bbox=valid_bbox_gdf,
+                         shoreline = valid_shoreline_gdf,
+                         square_len_lg =square_size,
+                         square_len_sm = square_size)
+    
+    # check if fishnet intersects the shoreline
+    fishnet_gdf = actual_roi.get_fishnet_gdf(bbox_gdf = valid_bbox_gdf,
+                               shoreline_gdf = valid_shoreline_gdf,
+                               square_length = square_size ) 
+    assert isinstance(fishnet_gdf,gpd.GeoDataFrame)
+    assert isinstance(fishnet_gdf.crs,pyproj.CRS)
+    assert fishnet_gdf.crs == output_espg
+    assert set(fishnet_gdf.columns) == set(['geometry'])
+    # drop unneeded columns before checking
+    valid_shoreline_gdf = valid_shoreline_gdf.drop(valid_shoreline_gdf.columns.difference(['geometry']), 'columns')
+    # check if any shorelines intersect any squares in fishnet_gdf
+    intersection_gdf = valid_shoreline_gdf.sjoin(fishnet_gdf, how="inner", predicate='intersects')
+    assert intersection_gdf.empty == False
+    
 def test_roi_missing_lengths(valid_bbox_gdf,valid_shoreline_gdf):
     # test with missing square lengths
     with pytest.raises(Exception):
@@ -31,7 +104,7 @@ def test_bad_roi_initialization(valid_bbox_gdf):
     with pytest.raises(exceptions.Object_Not_Found):
             roi.ROI(bbox=valid_bbox_gdf, shoreline=empty_gdf)             
             
-def test_roi_from_bbox__and_shorelines(valid_bbox_gdf,valid_shoreline_gdf):
+def test_roi_from_bbox_and_shorelines(valid_bbox_gdf,valid_shoreline_gdf):
     large_len = 1000
     small_len = 750
     actual_roi = roi.ROI(bbox=valid_bbox_gdf,
@@ -80,11 +153,10 @@ def test_create_fishnet(valid_bbox_gdf,valid_shoreline_gdf):
     # assert all actual lengths are close to square_size length
     assert is_actual_length_correct == True
 
-
 def test_create_rois(valid_bbox_gdf,valid_shoreline_gdf):
     square_size=1000
     # espg code of the valid_bbox_gdf
-    input_espg = 'epsg:32610'
+    input_espg = "epsg:4326"
     output_espg ="epsg:4326"
     actual_roi = roi.ROI(bbox=valid_bbox_gdf,
                          shoreline = valid_shoreline_gdf,
