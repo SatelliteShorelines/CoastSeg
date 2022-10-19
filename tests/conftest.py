@@ -25,7 +25,7 @@ def valid_settings()->dict:
                 'cloud_thresh': 0.5,
                 'dist_clouds': 300,
                 'output_epsg': 3857,
-                'check_detection': True,
+                'check_detection': False,
                 'adjust_detection': False,
                 'save_figure': True,
                 'min_beach_area': 4500,
@@ -35,7 +35,8 @@ def valid_settings()->dict:
                 'sand_color': 'default',
                 'pan_off': 'False',
                 'create_plot': False,
-                'max_dist_ref': 25}
+                'max_dist_ref': 25,
+                'along_dist': 25}
     return settings
 
 @pytest.fixture
@@ -99,7 +100,7 @@ def transect_compatible_rois_gdf()->gpd.GeoDataFrame:
     return gpd_data
 
 @pytest.fixture
-def transect_compatible_shoreline_gdf()->gpd.GeoDataFrame:
+def valid_shoreline_gdf()->gpd.GeoDataFrame:
     """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
         ROIs with ids:[17,30,35] """
     file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_shoreline.geojson'))
@@ -109,7 +110,8 @@ def transect_compatible_shoreline_gdf()->gpd.GeoDataFrame:
 
 @pytest.fixture
 def transect_compatible_transects_gdf()->gpd.GeoDataFrame:
-    """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
+    """returns the contents of transects.geojson as a gpd.GeoDataFrame
+        These transects are compatible with bbox, shorelines and transects
         ROIs with ids:[17,30,35] """
     file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_transects.geojson'))
     with open(file_path, 'r') as f:
@@ -117,8 +119,10 @@ def transect_compatible_transects_gdf()->gpd.GeoDataFrame:
     return gpd_data
 
 @pytest.fixture
-def transect_compatible_bbox_gdf()->gpd.GeoDataFrame:
-    """returns the contents of valid_rois.geojson as a gpd.GeoDataFrame
+def valid_bbox_gdf()->gpd.GeoDataFrame:
+    """returns the contents of bbox.geojson as a gpd.GeoDataFrame
+        current espg code : 4326
+        most accurate espg code: 32610
         ROIs with ids:[17,30,35] """
     file_path=os.path.abspath(os.path.join(script_dir,'test_data','transect_compatible_bbox.geojson'))
     with open(file_path, 'r') as f:
