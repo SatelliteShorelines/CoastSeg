@@ -7,9 +7,9 @@ import geopandas as gpd
 from shapely import geometry
 import pytest
 
-def test_create_config_gdf(valid_rois_gdf, transect_compatible_shoreline_gdf, transect_compatible_transects_gdf):
+def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, transect_compatible_transects_gdf):
     # test if a gdf is created with all the rois, shorelines and transects
-    actual_gdf=common.create_config_gdf(valid_rois_gdf,transect_compatible_shoreline_gdf,transect_compatible_transects_gdf)
+    actual_gdf=common.create_config_gdf(valid_rois_gdf,valid_shoreline_gdf,transect_compatible_transects_gdf)
     assert 'type' in actual_gdf.columns
     assert actual_gdf[actual_gdf['type']=='transect'].empty == False
     assert actual_gdf[actual_gdf['type']=='shoreline'].empty == False
@@ -30,48 +30,76 @@ def test_create_config_gdf(valid_rois_gdf, transect_compatible_shoreline_gdf, tr
     assert actual_gdf[actual_gdf['type']=='shoreline'].empty == True
     assert actual_gdf[actual_gdf['type']=='roi'].empty == False
 
-
-def test_create_config_dict(valid_inputs, valid_settings)->dict:
-    # test adding an ROI's data to an empty config dictionary
-    master_config = {}
-    actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
-    assert isinstance(actual_config,dict)
-    expected_roi = valid_inputs['roi_id']
-    # test the roi id was added as a key to config
-    assert expected_roi in actual_config
-    # test roi id is in the config list of all roi_ids
-    assert actual_config['roi_ids'] == [expected_roi]
-    assert actual_config[expected_roi]['inputs']  == valid_inputs
-    assert actual_config[expected_roi]['settings'] == valid_settings
-    
-    # test adding another ROI's data to a non-empty config dictionary
-    master_config = {'roi_ids':[23,24],
-                        23:{
-                            'settings':[],
-                            'inputs':[]
-                        },
-                            24:{
-                            'settings':[],
-                            'inputs':[]
-                        }}
-    actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
-    assert isinstance(actual_config,dict)
-    expected_roi = valid_inputs['roi_id']
-    # test the id was added as a key to config
-    assert expected_roi in actual_config
-    # test all roi ids are in the config list of all roi_ids
-    assert actual_config['roi_ids'] == [23,24,expected_roi]
-    assert actual_config[expected_roi]['inputs']  == valid_inputs
-    assert actual_config[expected_roi]['settings'] == valid_settings
-    # ensure the other record in config dict were not changed
-    assert actual_config[23]['inputs']  == []
-    assert actual_config[23]['settings'] == []
-    # test that all the roi ids are in config
-    assert 23 in actual_config
-    assert 24 in actual_config
-    
+def test_convert_wgs_to_utm():
+    # tests if valid espg code is returned by lon lat coordinates
+    lon=150
+    lat=100
+    actual_espg = common.convert_wgs_to_utm(lon,lat)
+    assert isinstance(actual_espg,str)
+    assert actual_espg.startswith('326')
+    lat=-20
+    actual_espg = common.convert_wgs_to_utm(lon,lat)
+    assert isinstance(actual_espg,str)
+    assert actual_espg.startswith('327')
     
 
+def test_get_center_rectangle():
+    expected_coords=[(4.0, 5.0), (4.0, 6.0), (8.0, 6.0), (8.0, 5.0), (4.0, 5.0)]
+    center_x,center_y = common.get_center_rectangle(expected_coords)
+    assert center_x == 6
+    assert center_y == 5.5
+    
+# def test_create_json_config():
+
+# def test_create_config_dict(valid_inputs, valid_settings)->dict:
+#     # test adding an ROI's data to an empty config dictionary
+#     master_config = {}
+#     actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
+#     assert isinstance(actual_config,dict)
+#     expected_roi = valid_inputs['roi_id']
+#     # test the roi id was added as a key to config
+#     assert expected_roi in actual_config
+#     # test roi id is in the config list of all roi_ids
+#     assert actual_config['roi_ids'] == [expected_roi]
+#     assert actual_config[expected_roi]['inputs']  == valid_inputs
+#     assert actual_config[expected_roi]['settings'] == valid_settings
+    
+#     # test adding another ROI's data to a non-empty config dictionary
+#     master_config = {'roi_ids':[23,24],
+#                         23:{
+#                             'settings':[],
+#                             'inputs':[]
+#                         },
+#                             24:{
+#                             'settings':[],
+#                             'inputs':[]
+#                         }}
+#     actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
+#     assert isinstance(actual_config,dict)
+#     expected_roi = valid_inputs['roi_id']
+#     # test the id was added as a key to config
+#     assert expected_roi in actual_config
+#     # test all roi ids are in the config list of all roi_ids
+#     assert actual_config['roi_ids'] == [23,24,expected_roi]
+#     assert actual_config[expected_roi]['inputs']  == valid_inputs
+#     assert actual_config[expected_roi]['settings'] == valid_settings
+#     # ensure the other record in config dict were not changed
+#     assert actual_config[23]['inputs']  == []
+#     assert actual_config[23]['settings'] == []
+#     # test that all the roi ids are in config
+#     assert 23 in actual_config
+#     assert 24 in actual_config
+    
+    
+def test_extract_roi_by_id(valid_rois_gdf):
+    # test if valid gdf is returned when id within gdf is given
+    roi_id =  17
+    actual_roi=common.extract_roi_by_id(valid_rois_gdf,roi_id)
+    assert isinstance(actual_roi,gpd.GeoDataFrame)
+    assert actual_roi[actual_roi['id'].astype(int)==roi_id].empty == False
+    expected_roi = valid_rois_gdf[valid_rois_gdf['id'].astype(int)==roi_id]
+    assert actual_roi['geometry'][0] == expected_roi['geometry'][0]
+    assert actual_roi['id'][0] == expected_roi['id'][0]
 
 
 def test_gdf_to_polygon(valid_bbox_gdf,valid_rois_gdf):
