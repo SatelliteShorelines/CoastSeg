@@ -9,12 +9,12 @@ from leafmap import Map
 import geopandas as gpd
 from ipyleaflet import GeoJSON
 
-def test_valid_shoreline_gdf(transect_compatible_shoreline_gdf:gpd.GeoDataFrame):
+def test_valid_shoreline_gdf(valid_shoreline_gdf:gpd.GeoDataFrame):
     """tests if a Shoreline will be created from a valid shoreline thats a gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): a valid shoreline as a gpd.GeoDataFrame
     """    
-    expected_shoreline = shoreline.Shoreline(shoreline = transect_compatible_shoreline_gdf)
+    expected_shoreline = shoreline.Shoreline(shoreline = valid_shoreline_gdf)
     assert isinstance(expected_shoreline,shoreline.Shoreline)
     assert expected_shoreline.gdf is not None
     assert expected_shoreline.filename == "shoreline.geojson"
