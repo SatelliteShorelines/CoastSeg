@@ -1,4 +1,5 @@
 import json
+import math
 import pytest
 from src.coastseg import shoreline
 from src.coastseg import transects
@@ -7,22 +8,114 @@ from src.coastseg import exceptions
 from src.coastseg import coastseg_map
 from leafmap import Map
 import geopandas as gpd
+import pyproj
 from ipyleaflet import GeoJSON
 
+def test_roi_missing_lengths(valid_bbox_gdf,valid_shoreline_gdf):
+    # test with missing square lengths
+    with pytest.raises(Exception):
+        roi.ROI(bbox=valid_bbox_gdf,shoreline = valid_shoreline_gdf)
+
+def test_bad_roi_initialization(valid_bbox_gdf):
+    empty_gdf = gpd.GeoDataFrame()
+    # test with missing shoreline
+    with pytest.raises(exceptions.Object_Not_Found):
+            roi.ROI(bbox=valid_bbox_gdf)
+    # test with missing bbox and shoreline
+    with pytest.raises(exceptions.Object_Not_Found):
+            roi.ROI()
+    # test with empty bbox
+    with pytest.raises(exceptions.Object_Not_Found):
+            roi.ROI(bbox= empty_gdf)    
+    # test with empty shoreline
+    with pytest.raises(exceptions.Object_Not_Found):
+            roi.ROI(bbox=valid_bbox_gdf, shoreline=empty_gdf)             
+            
+def test_roi_from_bbox__and_shorelines(valid_bbox_gdf,valid_shoreline_gdf):
+    large_len = 1000
+    small_len = 750
+    actual_roi = roi.ROI(bbox=valid_bbox_gdf,
+                         shoreline = valid_shoreline_gdf,
+                         square_len_lg =large_len,
+                         square_len_sm = small_len)
+    
+    assert isinstance(actual_roi,roi.ROI)
+    assert isinstance(actual_roi.gdf,gpd.GeoDataFrame)
+    assert set(actual_roi.gdf.columns) == set(['geometry', 'id'])
+    assert actual_roi.filename == "rois.geojson"
+    assert hasattr(actual_roi, "extracted_shorelines")
+    assert hasattr(actual_roi, "cross_distance_transects")
+    assert hasattr(actual_roi, "inputs_dict")
+    assert hasattr(actual_roi, "master_config")
+ 
+def test_create_fishnet(valid_bbox_gdf,valid_shoreline_gdf):
+    # tests if a valid geodataframe is created with square sizes approx. equal to given square_size
+    square_size=1000
+    input_espg = 'epsg:32610'
+    output_espg="epsg:4326"
+    
+    actual_roi = roi.ROI(bbox=valid_bbox_gdf,
+                         shoreline = valid_shoreline_gdf,
+                         square_len_lg =square_size,
+                         square_len_sm = square_size)
+    
+    # convert bbox to input_espg to most accurate espg to create fishnet with
+    valid_bbox_gdf = valid_bbox_gdf.to_crs(input_espg)
+    assert (valid_bbox_gdf.crs == 'epsg:32610')
+    
+    actual_fishnet = actual_roi.create_fishnet(valid_bbox_gdf,
+                                               input_espg=input_espg,
+                                               output_espg=output_espg,
+                                               square_size=square_size)
+    assert isinstance(actual_fishnet,gpd.GeoDataFrame)
+    assert set(actual_fishnet.columns) == set(['geometry'])
+    assert isinstance(actual_fishnet.crs,pyproj.CRS)
+    assert actual_fishnet.crs == output_espg
+    # reproject back to input_espg to check if square sizes are correct
+    actual_fishnet = actual_fishnet.to_crs(input_espg)
+    # pick a square out of the fishnet ensure is approx. equal to square size
+    actual_lengths = tuple(map(lambda x: x.length/4 ,actual_fishnet['geometry']))
+    # check if actual lengths are close to square_size length
+    is_actual_length_correct = all(tuple(map(lambda x: math.isclose(x,square_size,rel_tol=1e-04) ,actual_lengths)))
+    # assert all actual lengths are close to square_size length
+    assert is_actual_length_correct == True
+
+
+def test_create_rois(valid_bbox_gdf,valid_shoreline_gdf):
+    square_size=1000
+    # espg code of the valid_bbox_gdf
+    input_espg = 'epsg:32610'
+    output_espg ="epsg:4326"
+    actual_roi = roi.ROI(bbox=valid_bbox_gdf,
+                         shoreline = valid_shoreline_gdf,
+                         square_len_lg =square_size,
+                         square_len_sm = square_size)
+    
+    actual_roi_gdf=actual_roi.create_rois(bbox=valid_bbox_gdf,
+                                          input_espg =input_espg,
+                                          output_espg=output_espg,
+                                          square_size=square_size)
+    assert isinstance(actual_roi_gdf,gpd.GeoDataFrame)
+    assert isinstance(actual_roi_gdf.crs,pyproj.CRS)
+    assert actual_roi_gdf.crs == output_espg
+    assert set(actual_roi_gdf.columns) == set(['geometry'])    
+
 def test_valid_roi_gdf(transect_compatible_rois_gdf:gpd.GeoDataFrame):
-    """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
+    """tests if a ROI will be created from valid rois of type gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """    
     actual_roi = roi.ROI(rois_gdf = transect_compatible_rois_gdf)
     assert isinstance(actual_roi,roi.ROI)
-    assert actual_roi.gdf is not None
+    assert isinstance(actual_roi.gdf,gpd.GeoDataFrame)
     assert actual_roi.filename == "rois.geojson"
     assert hasattr(actual_roi, "extracted_shorelines")
     assert hasattr(actual_roi, "cross_distance_transects")
+    assert hasattr(actual_roi, "inputs_dict")
+    assert hasattr(actual_roi, "master_config")
 
-def test_valid_roi_gdf(transect_compatible_rois_gdf:gpd.GeoDataFrame):
-    """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
+def test_update_extracted_shorelines(transect_compatible_rois_gdf:gpd.GeoDataFrame):
+    """tests if a ROI will be created from valid rois of type gpd.GeoDataFrame
     Args:
        transect_compatible_rois_gdf (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
     """    
