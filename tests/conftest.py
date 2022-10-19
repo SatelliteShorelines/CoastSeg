@@ -1,11 +1,12 @@
 # This file is meant to hold fixtures that can be used for testing
 # These fixtures set up data that can be used as inputs for the tests, so that no code is repeated
-import pytest
 import os
+import json
+import pytest
 import geopandas as gpd
 from shapely.geometry import shape
-import json
 import pickle
+from src.coastseg import roi
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -128,3 +129,9 @@ def valid_bbox_gdf()->gpd.GeoDataFrame:
     with open(file_path, 'r') as f:
         gpd_data = gpd.read_file(f)
     return gpd_data
+
+@pytest.fixture
+def valid_ROI(transect_compatible_rois_gdf)->gpd.GeoDataFrame:
+    """returns a valid instance of ROI current espg code : 4326 ROIs with ids:[17,30,35] """
+    return roi.ROI(rois_gdf = transect_compatible_rois_gdf)
+    
