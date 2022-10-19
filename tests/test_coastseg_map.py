@@ -29,22 +29,22 @@ def test_valid_transects_gdf(valid_transects_gdf:gpd.GeoDataFrame):
     assert expected_transects.gdf is not None
     assert expected_transects.filename == "transects.geojson"
 
-def test_valid_roi_gdf(valid_roi_gdf:gpd.GeoDataFrame):
+def test_transect_compatible_roi(transect_compatible_roi:gpd.GeoDataFrame):
     """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """    
-    expected_roi = roi.ROI(rois_gdf = valid_roi_gdf)
+    expected_roi = roi.ROI(rois_gdf = transect_compatible_roi)
     assert isinstance(expected_roi,roi.ROI)
     assert expected_roi.gdf is not None
     assert expected_roi.filename == "rois.geojson"
     
-def test_valid_roi_gdf(valid_roi_gdf:gpd.GeoDataFrame):
+def test_transect_compatible_roi(transect_compatible_roi:gpd.GeoDataFrame):
     """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """    
-    expected_roi = roi.ROI(rois_gdf = valid_roi_gdf)
+    expected_roi = roi.ROI(rois_gdf = transect_compatible_roi)
     assert isinstance(expected_roi,roi.ROI)
     assert expected_roi.gdf is not None
     assert expected_roi.filename == "rois.geojson"
