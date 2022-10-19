@@ -32,7 +32,7 @@ class CoastSeg_Map:
     def __init__(self, map_settings: dict = None):
         # settings:  used to select data to download and preprocess settings
         self.settings = {}
-        # selected_set : ids of the selected rois
+        # selected_set set(int): ids of the selected rois
         self.selected_set = set()
         # self.extracted_shoreline_layers : names of extracted shorelines vectors on the map
         self.extracted_shoreline_layers = []
@@ -107,7 +107,6 @@ class CoastSeg_Map:
         
         return WidgetControl(widget=self.shoreline_accordion, position="topright")
     
-      
     def load_configs(self,filepath:str):
         self.load_gdf_config(filepath)
         # remove geojson file from path
@@ -267,30 +266,37 @@ class CoastSeg_Map:
         logger.info("Done downloading")
     
     def load_json_config(self,filepath:str)->None:
-        master_config=common.read_json_file(filepath)
+        json_data=common.read_json_file(filepath)
+        # when config is loaded from json file roi ids are string instead of ints
+        master_config ={}
+        master_config['roi_ids'] = json_data['roi_ids']
+        master_config['settings'] = json_data['settings']
+        for roi_id in master_config['roi_ids']:
+            master_config[int(roi_id)]=json_data[str(roi_id)]
         logger.info(f"load_json_config::master_config: {master_config}")
+        
         print(f" Loaded config.json: {os.path.basename(filepath)}")
         if self.rois is None:
             raise Exception("Must load ROIs onto the map first")
+        # initialize master_config and settings with master_config read from json
         self.rois.master_config = master_config
         self.settings = master_config['settings']
         logger.info(f"load_json_config::Loaded settings from master_config: {self.settings}")
-        inputs_dict = {} 
+        
+        # roi_ids contains list of all roi ids in master_config
         roi_ids = master_config['roi_ids']
+        # for each set of ROI input settings in master config initialize inputs_dict for ROI
+        inputs_dict = {} 
         logger.info(f"load_json_config:: master_config roi_ids: {roi_ids}")
-        # master_config's keys are roi ids of type string
-        all_filepaths_exist=True
+        # Save inputs for each ROI's id
         for id in roi_ids:
-            inputs_dict[id]=master_config[str(id)]
-            logger.info(f"type(id): {type(id)}")
-            logger.info(f"inputs_dict[id]: {inputs_dict[id]}")
-            if "filepath" in inputs_dict[id]:
-                logger.info(f"filepath in inputs_dict[id]: {inputs_dict[id]['filepath']}")
-                if not os.path.exists(inputs_dict[id]['filepath']):
-                    all_filepaths_exist=False
-            else:
-                all_filepaths_exist=False
+            inputs_dict[int(id)]=master_config[int(id)]
+        logger.info(f"load_json_config:: inputs_dict: {inputs_dict}")
+        # Save input dictionaries for all ROIs
+        self.rois.inputs_dict =inputs_dict
+        
         # if the filepaths to the downloaded data exist for each ROI set data_downloaded to True
+        all_filepaths_exist = common.check_filepaths_exist(roi_ids, inputs_dict)
         if all_filepaths_exist:
             # means user already has downloaded ROI data 
             self.data_downloaded = True
@@ -300,10 +306,6 @@ class CoastSeg_Map:
             print("Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI")
             logger.info(f"load_json_config:: Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI")
    
-        logger.info(f"load_json_config:: inputs_dict: {inputs_dict}")
-        self.rois.inputs_dict =inputs_dict
-
-     
     def save_config(self,is_downloaded:bool = True, save_config_path:str=None)->None:
         """ saves the configuration settings of the map into two files
             config.json and config.geojson
@@ -334,14 +336,14 @@ class CoastSeg_Map:
             collection = settings['collection']
             dates =  settings['dates']
             for roi in self.selected_ROI_layer.data["features"]:
-                roi_id = roi['properties']['id']
+                roi_id = int(roi['properties']['id'])
                 polygon = roi['geometry']['coordinates']
                 inputs_dict = {'dates': dates,
                         'sat_list': sat_list,
                         'roi_id': roi_id,
                         'polygon':polygon,
                         'landsat_collection': collection}
-                inputs[int(roi_id)] = inputs_dict
+                inputs[roi_id] = inputs_dict
             # Save inputs to ROI class
             self.rois.set_inputs_dict(inputs)
             logger.info(f"save_config :: Inputs_dict: {self.rois.inputs_dict}")
@@ -437,32 +439,6 @@ class CoastSeg_Map:
             feature['properties']['turbid_label'],
             feature['properties']['CSU_ID'])        
     
-    def make_coastsat_compatible(self,shoreline_in_roi:gpd.geodataframe)->np.ndarray:
-        """ Return the shoreline_in_roi as an np.array in the form: 
-            array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
-
-        Args:
-            shoreline_in_roi (gpd.geodataframe): clipped portion of shoreline within a roi
-
-        Returns:
-            np.ndarray: shorelines in the form: 
-                array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....]) 
-        """    
-        # Then convert the shoreline to lat,lon tuples for CoastSat
-        shorelines = []
-        # Use explode to break multilinestrings in linestrings
-        shoreline_in_roi_exploded = shoreline_in_roi.explode()
-        for k in shoreline_in_roi_exploded['geometry'].keys():
-            #For each linestring portion of shoreline convert to lat,lon tuples
-            shorelines.append(tuple(np.array(shoreline_in_roi_exploded['geometry'][k]).tolist()))
-        # shorelines = [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...]
-        # Stack all the tuples into a single list of n rows X 2 columns
-        shorelines = np.vstack(shorelines)
-        # Add third column of 0s to represent mean sea level
-        shorelines = np.insert(shorelines, 2, np.zeros(len(shorelines)), axis=1)
-        # shorelines = array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
-        return shorelines
-
     def extract_all_shorelines(self)->None:
         """ Use this function when the user interactively downloads rois
         Iterates through all the ROIS downloaded by the user as indicated by the inputs_dict generated by
@@ -505,16 +481,22 @@ class CoastSeg_Map:
                 inputs = self.rois.inputs_dict[id]
                 # raise exception if no files were download to extract shorelines from
                 common.does_filepath_exist(inputs)
-                extracted_shoreline_dict[id]=self.extract_shorelines_from_roi(selected_rois_gdf,self.shoreline.gdf,inputs,settings,id=id)
-                logger.info(f"extract_all_shorelines : extracted_shoreline_dict[id]: {extracted_shoreline_dict[id]}")
+                extracted_shoreline=self.extract_shorelines_from_roi(selected_rois_gdf,self.shoreline.gdf,inputs,settings,id=id)
+                logger.info(f"extract_all_shorelines : ROI: {id} extracted_shoreline: {extracted_shoreline}")
+                extracted_shoreline_dict[id] = extracted_shoreline
+                logger.info(f"extract_all_shorelines : extracted_shoreline_dict[{id}]: {extracted_shoreline_dict[id]}")
                 # load extracted shorelines onto map
                 if  len(extracted_shoreline_dict[id]['shorelines']) > 0:
-                    print(f"Successfully extracted shoreline for ROI: {id}. Loading it onto the map")
-                    extracted_sl_filename= f'shorelines_{id}.geojson'
-                    sitename=inputs['sitename']
-                    filepath=inputs['filepath']
-                    extracted_sl_filepath = os.path.join(filepath, sitename, extracted_sl_filename)
-                    self.load_gdf_on_map(extracted_sl_filename, extracted_sl_filepath)
+                    shorelines = extracted_shoreline_dict[id]['shorelines']
+                    logger.info(f"shorelines: {shorelines}")
+                    # if any of shorelines np.arrays are not empty load them onto map
+                    if any(list(map(lambda x:len(x)>0,shorelines))):    
+                        print(f"Successfully extracted shoreline for ROI: {id}. Loading it onto the map")
+                        extracted_sl_filename= f'shorelines_{id}.geojson'
+                        sitename=inputs['sitename']
+                        filepath=inputs['filepath']
+                        extracted_sl_filepath = os.path.join(filepath, sitename, extracted_sl_filename)
+                        self.load_gdf_on_map(extracted_sl_filename, extracted_sl_filepath)
             except exceptions.Id_Not_Found as id_error:
                 logger.warning(f"exceptions.Id_Not_Found {id_error}")
                 print(f"exceptions.Id_Not_Found:{id_error}. \n Skipping to next ROI")
@@ -547,22 +529,26 @@ class CoastSeg_Map:
             logger.warn(f"No shorelines could be clipped to ROI: {id}")
             return {}
         logger.info(f"clipped shorelines{shoreline_in_roi}")
-        #@todo move this to common or to shoreline
-        shorelines=self.make_coastsat_compatible(shoreline_in_roi)
+        # convert shoreline_in_roi gdf to coastsat compatible format np.array([[lat,lon,0],[lat,lon,0]...])
+        shorelines=common.make_coastsat_compatible(shoreline_in_roi)
+        
         logger.info(f"coastsat shorelines{shorelines}")
-        s_proj=common.convert_espg(4326,settings['output_epsg'],shorelines)
-        logger.info(f"s_proj: {s_proj}")
+        # project shorelines's espg from map's espg to output espg given in settings
+        map_espg = 4326
+        s_proj=common.convert_espg(map_espg,settings['output_epsg'],shorelines)
+        logger.info(f"extract_shorelines_from_roi::s_proj: {s_proj}")
         # deepcopy settings to shoreline_settings so it can be modified
         shoreline_settings=copy.deepcopy(settings)
         # Add reference shoreline and shoreline buffer distance for this specific ROI
         shoreline_settings['reference_shoreline'] = s_proj
+        
         # DO NOT have user adjust shorelines manually
         shoreline_settings['adjust_detection']=False
         # DO NOT have user check for valid shorelines
         shoreline_settings['check_detection']=False
+        
         # copy inputs for this specific roi
         shoreline_settings['inputs']=inputs
-        
         logger.info(f"shoreline_settings: {shoreline_settings}")
         
         # get the metadata used to extract the shoreline
@@ -598,23 +584,6 @@ class CoastSeg_Map:
         logger.info(f"Returning extracted shoreline {extracted_shoreline_dict}")
         return extracted_shoreline_dict
 
-    def is_shoreline_present(self,extracted_shorelines:dict,roi_id:int) -> bool:
-        """Returns true if shoreline array exists for roi_id
-
-        Args:
-            extracted_shorelines (dict): dict in form of :
-                {   roi_id : {dates: [datetime.datetime,datetime.datetime], 
-                    shorelines: [array(),array()]}  } 
-            roi_id (int): id of the roi
-
-        Returns:
-            bool: false if shoreline does not exist at roi_id
-        """
-        logger.info(f"is_shoreline_present() : extracted_shorelines[roi_id]['shorelines']: {extracted_shorelines[roi_id]['shorelines']}")
-        for shoreline in extracted_shorelines[roi_id]['shorelines']:
-            if shoreline.size != 0:
-                return True
-        return False
 
     def get_intersecting_transects(self,rois_gdf:gpd.geodataframe,transect_data :gpd.geodataframe,id :str) -> gpd.geodataframe:
         """Returns a transects that intersect with the roi with id provided
@@ -646,17 +615,17 @@ class CoastSeg_Map:
             # @todo Find which transects intersect extracted shorelines
             
             # Do not compute cross distances of transects if no shoreline exists
-            if not self.is_shoreline_present(self.rois.extracted_shorelines,int(roi_id)):
+            if not common.is_shoreline_present(self.rois.extracted_shorelines,int(roi_id)):
                 raise exceptions.No_Extracted_Shoreline(int(roi_id),"No extracted shoreline at this roi")
             else:
                 print("Extracted shoreline present at ROI: ",roi_id)
-                print("Creating transects...")
                 logger.info(f"compute_transects_from_roi() :Shoreline present at ROI: {roi_id}")
                 # convert transects to lan,lon tuples 
                 transects_coords = []
                 for k in transect_in_roi['geometry'].keys():
                     transects_coords.append(tuple(np.array(transect_in_roi['geometry'][k]).tolist()))
                 logger.info(f"compute_transects_from_roi() : transects_coords: {transects_coords}")
+                
                 # convert to dict of numpy arrays of start and end points
                 transects = {}
                 for counter,i in enumerate(transects_coords):
@@ -721,12 +690,18 @@ class CoastSeg_Map:
                 raise Exception("Missing key 'along_dist' in settings")
         
         settings = self.settings
-        roi_ids = self.rois.extracted_shorelines.keys()
+        extracted_shoreline_ids = set(self.rois.extracted_shorelines.keys())
+        logger.info(f"compute_transects:: self.rois.extracted_shorelines.keys(): {list(self.rois.extracted_shorelines.keys())}")
+        # only get roi ids that are currently selected on map and have had their shorelines extracted
+        roi_ids =  list(extracted_shoreline_ids & self.selected_set)
+        if len(roi_ids) == 0:
+            logger.error(f"self.selected_set: {self.selected_set} was not a subset of extracted_shoreline_ids: {set(extracted_shoreline_ids)}")
+            raise Exception(f"You must select an ROI and extract it shorelines before you can compute transects")
+        
         # Input projection is the map project and user selected output projection
         inProj = Proj(init='epsg:4326') 
         outProj = Proj(init='epsg:'+str(settings['output_epsg']))
     
-        logger.info(f"compute_transects:: self.rois.extracted_shorelines.keys(): {list(self.rois.extracted_shorelines.keys())}")
         # Save cross distances for each set of transects intersecting each extracted shoreline for each ROI
         cross_distance_transects = {}
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
@@ -948,8 +923,7 @@ class CoastSeg_Map:
             else:
                 self.map.add_layer(new_layer)
                 logger.info("load_bbox_on_map:: Loaded the bbox on map from self.bbox")
-                
-                 
+                          
     def load_shoreline_on_map(self) -> None:
         """Adds shoreline within the drawn bbox onto the map"""
         # if no shorelines have been loaded onto the map before create a new shoreline
@@ -1115,8 +1089,7 @@ class CoastSeg_Map:
         elif isinstance(feature,ROI):
             # check if any ROIs were selected by making sure the selected set isn't empty 
             self.check_selected_set()
-            print(f"Saved {feature.LAYER_NAME} to file: {feature.filename}")
-            logger.info(f"Saved feature to file: {feature.filename}")
+            # @ todo replace this with get selected rois
             logger.info(f"feature: {feature.gdf[feature.gdf['id'].isin(self.selected_set)]}")
             feature.gdf[feature.gdf['id'].isin(self.selected_set)].to_file(feature.filename, driver='GeoJSON')
         else:
