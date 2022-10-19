@@ -1,15 +1,10 @@
-import json
 import math
 import pytest
-from src.coastseg import shoreline
-from src.coastseg import transects
 from src.coastseg import roi
 from src.coastseg import exceptions
-from src.coastseg import coastseg_map
-from leafmap import Map
 import geopandas as gpd
 import pyproj
-from ipyleaflet import GeoJSON
+
 
 def test_create_geodataframe(valid_bbox_gdf:gpd.GeoDataFrame,valid_shoreline_gdf:gpd.GeoDataFrame, valid_ROI:roi.ROI):
     large_len = 1000
@@ -146,12 +141,12 @@ def test_create_rois(valid_ROI:roi.ROI,valid_bbox_gdf:gpd.GeoDataFrame):
     assert actual_roi_gdf.crs == output_espg
     assert set(actual_roi_gdf.columns) == set(['geometry'])    
 
-def test_valid_roi_gdf(transect_compatible_rois_gdf:gpd.GeoDataFrame):
+def test_valid_roi_gdf(valid_roi_gdf:gpd.GeoDataFrame):
     """tests if a ROI will be created from valid rois of type gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """    
-    actual_roi = roi.ROI(rois_gdf = transect_compatible_rois_gdf)
+    actual_roi = roi.ROI(rois_gdf = valid_roi_gdf)
     assert isinstance(actual_roi,roi.ROI)
     assert isinstance(actual_roi.gdf,gpd.GeoDataFrame)
     assert set(actual_roi.gdf.columns) == set(['geometry', 'id'])
@@ -166,7 +161,7 @@ def test_valid_roi_gdf(transect_compatible_rois_gdf:gpd.GeoDataFrame):
 def test_update_extracted_shorelines(valid_ROI:roi.ROI):
     """tests if a ROI will be created from valid rois of type gpd.GeoDataFrame
     Args:
-       transect_compatible_rois_gdf (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
+       valid_roi_gdf (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
     """    
     expected_dict={23:{'filename': 
          ['ms.tif',
@@ -182,7 +177,7 @@ def test_update_extracted_shorelines(valid_ROI:roi.ROI):
 def test_set_inputs_dict(valid_ROI:roi.ROI):
     """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
     Args:
-        transect_compatible_rois_gdf (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
+        valid_roi_gdf (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
     """    
     expected_dict = {23: {'dates': ['2018-12-01', '2019-03-01'],
                     'sat_list': ['L8'],
