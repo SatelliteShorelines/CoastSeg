@@ -5,9 +5,18 @@ import zipfile
 import json
 from tqdm import tqdm
 from doodleverse_utils.prediction_imports import do_seg
-from doodleverse_utils.imports import simple_resunet, simple_unet, simple_satunet, custom_resunet, custom_unet, mean_iou, dice_coef
+from doodleverse_utils.imports import (
+    simple_resunet,
+    simple_unet,
+    simple_satunet,
+    custom_resunet,
+    custom_unet,
+    mean_iou,
+    dice_coef,
+)
 import tensorflow as tf
 from tqdm.auto import tqdm
+
 
 class Zoo_Model:
     def __init__(self):
@@ -22,18 +31,24 @@ class Zoo_Model:
             list: files to be segmented
         """
         # Read in the image filenames as either .npz,.jpg, or .png
-        sample_filenames = sorted(glob.glob(sample_direc + os.sep + '*.*'))
-        if sample_filenames[0].split('.')[-1] == 'npz':
-            sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + '*.npz'))
+        sample_filenames = sorted(glob.glob(sample_direc + os.sep + "*.*"))
+        if sample_filenames[0].split(".")[-1] == "npz":
+            sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + "*.npz"))
         else:
-            sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + '*.jpg'))
+            sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + "*.jpg"))
             if len(sample_filenames) == 0:
-                sample_filenames = sorted(glob.glob(sample_direc + os.sep + '*.png'))
+                sample_filenames = sorted(glob.glob(sample_direc + os.sep + "*.png"))
         return sample_filenames
 
-    def compute_segmentation(self, sample_direc: str, model_list: list, metadatadict: dict, do_crf:bool=False):
+    def compute_segmentation(
+        self,
+        sample_direc: str,
+        model_list: list,
+        metadatadict: dict,
+        do_crf: bool = False,
+    ):
         # look for TTA config
-        if 'TESTTIMEAUG' not in locals():
+        if "TESTTIMEAUG" not in locals():
             TESTTIMEAUG = False
         WRITE_MODELMETADATA = False
         # Read in the image filenames as either .npz,.jpg, or .png
@@ -50,7 +65,8 @@ class Zoo_Model:
                 self.TARGET_SIZE,
                 TESTTIMEAUG,
                 WRITE_MODELMETADATA,
-                do_crf)
+                do_crf,
+            )
 
     def get_model(self, Ww: list):
         model_list = []
@@ -59,110 +75,125 @@ class Zoo_Model:
         if Ww == []:
             raise Exception("No Model Info Passed")
         for weights in Ww:
-            configfile = weights.replace('.h5', '.json').replace('weights', 'config')
-            if 'fullmodel' in configfile:
-                configfile = configfile.replace('_fullmodel', '')
+            configfile = weights.replace(".h5", ".json").replace("weights", "config")
+            if "fullmodel" in configfile:
+                configfile = configfile.replace("_fullmodel", "")
             with open(configfile) as f:
                 config = json.load(f)
-            self.TARGET_SIZE = config.get('TARGET_SIZE')
-            MODEL = config.get('MODEL')
-            self.NCLASSES = config.get('NCLASSES')
-            KERNEL = config.get('KERNEL')
-            STRIDE = config.get('STRIDE')
-            FILTERS = config.get('FILTERS')
-            self.N_DATA_BANDS = config.get('N_DATA_BANDS')
-            DROPOUT = config.get('DROPOUT')
-            DROPOUT_CHANGE_PER_LAYER = config.get('DROPOUT_CHANGE_PER_LAYER')
-            DROPOUT_TYPE = config.get('DROPOUT_TYPE')
-            USE_DROPOUT_ON_UPSAMPLING = config.get('USE_DROPOUT_ON_UPSAMPLING')
-            DO_TRAIN = config.get('DO_TRAIN')
-            LOSS = config.get('LOSS')
-            PATIENCE = config.get('PATIENCE')
-            MAX_EPOCHS = config.get('MAX_EPOCHS')
-            VALIDATION_SPLIT = config.get('VALIDATION_SPLIT')
-            RAMPUP_EPOCHS = config.get('RAMPUP_EPOCHS')
-            SUSTAIN_EPOCHS = config.get('SUSTAIN_EPOCHS')
-            EXP_DECAY = config.get('EXP_DECAY')
-            START_LR = config.get('START_LR')
-            MIN_LR = config.get('MIN_LR')
-            MAX_LR = config.get('MAX_LR')
-            FILTER_VALUE = config.get('FILTER_VALUE')
-            DOPLOT = config.get('DOPLOT')
-            ROOT_STRING = config.get('ROOT_STRING')
-            USEMASK = config.get('USEMASK')
-            AUG_ROT = config.get('AUG_ROT')
-            AUG_ZOOM = config.get('AUG_ZOOM')
-            AUG_WIDTHSHIFT = config.get('AUG_WIDTHSHIFT')
-            AUG_HEIGHTSHIFT = config.get('AUG_HEIGHTSHIFT')
-            AUG_HFLIP = config.get('AUG_HFLIP')
-            AUG_VFLIP = config.get('AUG_VFLIP')
-            AUG_LOOPS = config.get('AUG_LOOPS')
-            AUG_COPIES = config.get('AUG_COPIES')
-            REMAP_CLASSES = config.get('REMAP_CLASSES')
+            self.TARGET_SIZE = config.get("TARGET_SIZE")
+            MODEL = config.get("MODEL")
+            self.NCLASSES = config.get("NCLASSES")
+            KERNEL = config.get("KERNEL")
+            STRIDE = config.get("STRIDE")
+            FILTERS = config.get("FILTERS")
+            self.N_DATA_BANDS = config.get("N_DATA_BANDS")
+            DROPOUT = config.get("DROPOUT")
+            DROPOUT_CHANGE_PER_LAYER = config.get("DROPOUT_CHANGE_PER_LAYER")
+            DROPOUT_TYPE = config.get("DROPOUT_TYPE")
+            USE_DROPOUT_ON_UPSAMPLING = config.get("USE_DROPOUT_ON_UPSAMPLING")
+            DO_TRAIN = config.get("DO_TRAIN")
+            LOSS = config.get("LOSS")
+            PATIENCE = config.get("PATIENCE")
+            MAX_EPOCHS = config.get("MAX_EPOCHS")
+            VALIDATION_SPLIT = config.get("VALIDATION_SPLIT")
+            RAMPUP_EPOCHS = config.get("RAMPUP_EPOCHS")
+            SUSTAIN_EPOCHS = config.get("SUSTAIN_EPOCHS")
+            EXP_DECAY = config.get("EXP_DECAY")
+            START_LR = config.get("START_LR")
+            MIN_LR = config.get("MIN_LR")
+            MAX_LR = config.get("MAX_LR")
+            FILTER_VALUE = config.get("FILTER_VALUE")
+            DOPLOT = config.get("DOPLOT")
+            ROOT_STRING = config.get("ROOT_STRING")
+            USEMASK = config.get("USEMASK")
+            AUG_ROT = config.get("AUG_ROT")
+            AUG_ZOOM = config.get("AUG_ZOOM")
+            AUG_WIDTHSHIFT = config.get("AUG_WIDTHSHIFT")
+            AUG_HEIGHTSHIFT = config.get("AUG_HEIGHTSHIFT")
+            AUG_HFLIP = config.get("AUG_HFLIP")
+            AUG_VFLIP = config.get("AUG_VFLIP")
+            AUG_LOOPS = config.get("AUG_LOOPS")
+            AUG_COPIES = config.get("AUG_COPIES")
+            REMAP_CLASSES = config.get("REMAP_CLASSES")
 
             try:
                 model = tf.keras.models.load_model(weights)
             except BaseException:
-                if MODEL == 'resunet':
-                    model = custom_resunet((self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
-                                           FILTERS,
-                                           nclasses=[self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES][0],
-                                           kernel_size=(KERNEL, KERNEL),
-                                           strides=STRIDE,
-                                           dropout=DROPOUT,  # 0.1,
-                                           dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
-                                           dropout_type=DROPOUT_TYPE,  # "standard",
-                                           use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
-                                           )
-                elif MODEL == 'unet':
-                    model = custom_unet((self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
-                                        FILTERS,
-                                        nclasses=[self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES][0],
-                                        kernel_size=(KERNEL, KERNEL),
-                                        strides=STRIDE,
-                                        dropout=DROPOUT,  # 0.1,
-                                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
-                                        dropout_type=DROPOUT_TYPE,  # "standard",
-                                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
-                                        )
+                if MODEL == "resunet":
+                    model = custom_resunet(
+                        (self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=[
+                            self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES
+                        ][0],
+                        kernel_size=(KERNEL, KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,  # 0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
+                        dropout_type=DROPOUT_TYPE,  # "standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
+                    )
+                elif MODEL == "unet":
+                    model = custom_unet(
+                        (self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=[
+                            self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES
+                        ][0],
+                        kernel_size=(KERNEL, KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,  # 0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
+                        dropout_type=DROPOUT_TYPE,  # "standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
+                    )
 
-                elif MODEL == 'simple_resunet':
+                elif MODEL == "simple_resunet":
                     # num_filters = 8 # initial filters
-                    model = simple_resunet((self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
-                                           kernel=(2, 2),
-                                           num_classes=[self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES][0],
-                                           activation="relu",
-                                           use_batch_norm=True,
-                                           dropout=DROPOUT,  # 0.1,
-                                           dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
-                                           dropout_type=DROPOUT_TYPE,  # "standard",
-                                           use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
-                                           filters=FILTERS,  # 8,
-                                           num_layers=4,
-                                           strides=(1, 1))
+                    model = simple_resunet(
+                        (self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
+                        kernel=(2, 2),
+                        num_classes=[
+                            self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES
+                        ][0],
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,  # 0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
+                        dropout_type=DROPOUT_TYPE,  # "standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
+                        filters=FILTERS,  # 8,
+                        num_layers=4,
+                        strides=(1, 1),
+                    )
                 # 346,564
-                elif MODEL == 'simple_unet':
-                    model = simple_unet((self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
-                                        kernel=(2, 2),
-                                        num_classes=[self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES][0],
-                                        activation="relu",
-                                        use_batch_norm=True,
-                                        dropout=DROPOUT,  # 0.1,
-                                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
-                                        dropout_type=DROPOUT_TYPE,  # "standard",
-                                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
-                                        filters=FILTERS,  # 8,
-                                        num_layers=4,
-                                        strides=(1, 1))
+                elif MODEL == "simple_unet":
+                    model = simple_unet(
+                        (self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
+                        kernel=(2, 2),
+                        num_classes=[
+                            self.NCLASSES + 1 if self.NCLASSES == 1 else self.NCLASSES
+                        ][0],
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,  # 0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,  # 0.0,
+                        dropout_type=DROPOUT_TYPE,  # "standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,  # False,
+                        filters=FILTERS,  # 8,
+                        num_layers=4,
+                        strides=(1, 1),
+                    )
                 # 242,812
                 else:
-                    raise Exception(f"An unknown model type {MODEL} was received. Please select a valid model.")
+                    raise Exception(
+                        f"An unknown model type {MODEL} was received. Please select a valid model."
+                    )
                 model.compile(
-                    optimizer='adam',
+                    optimizer="adam",
                     loss=tf.keras.losses.CategoricalCrossentropy(),
-                    metrics=[
-                        mean_iou,
-                        dice_coef])
+                    metrics=[mean_iou, dice_coef],
+                )
                 model.load_weights(weights)
 
             model_types.append(MODEL)
@@ -173,72 +204,73 @@ class Zoo_Model:
 
     def get_metadatadict(self, Ww: list, config_files: list, model_types: list):
         metadatadict = {}
-        metadatadict['model_weights'] = Ww
-        metadatadict['config_files'] = config_files
-        metadatadict['model_types'] = model_types
+        metadatadict["model_weights"] = Ww
+        metadatadict["config_files"] = config_files
+        metadatadict["model_types"] = model_types
         return metadatadict
 
-    def get_weights_list(self, model_choice: str = 'ENSEMBLE'):
-        """Returns of the weights files(.h5) within weights_direc """
-        if model_choice == 'ENSEMBLE':
-            return glob.glob(self.weights_direc + os.sep + '*.h5')
-        elif model_choice == 'BEST':
-            with open(self.weights_direc + os.sep + 'BEST_MODEL.txt')as f:
+    def get_weights_list(self, model_choice: str = "ENSEMBLE"):
+        """Returns of the weights files(.h5) within weights_direc"""
+        if model_choice == "ENSEMBLE":
+            return glob.glob(self.weights_direc + os.sep + "*.h5")
+        elif model_choice == "BEST":
+            with open(self.weights_direc + os.sep + "BEST_MODEL.txt") as f:
                 w = f.readlines()
             return [self.weights_direc + os.sep + w[0]]
 
-    def download_model(self, dataset: str = 'RGB', dataset_id: str = 'landsat_6229071'):
-        zenodo_id = dataset_id.split('_')[-1]
-        root_url = 'https://zenodo.org/record/' + zenodo_id + '/files/'
+    def download_model(self, dataset: str = "RGB", dataset_id: str = "landsat_6229071"):
+        zenodo_id = dataset_id.split("_")[-1]
+        root_url = "https://zenodo.org/record/" + zenodo_id + "/files/"
         # Create the directory to hold the downloaded models from Zenodo
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.weights_direc =os.path.abspath(os.path.join(script_dir,"downloaded_models",dataset_id))
+        self.weights_direc = os.path.abspath(
+            os.path.join(script_dir, "downloaded_models", dataset_id)
+        )
         if not os.path.exists(self.weights_direc):
             os.mkdir(self.weights_direc)
         if not os.path.exists(self.weights_direc):
             os.mkdir(self.weights_direc)
-        if dataset == 'RGB':
+        if dataset == "RGB":
             # filename = 'rgb.zip'
-            filename = 'rgb'
-        elif dataset=='MNDWI':
+            filename = "rgb"
+        elif dataset == "MNDWI":
             # filename='mndwi.zip'
-            filename='mndwi'
-        # outfile: where zip folder model is downloaded 
+            filename = "mndwi"
+        # outfile: where zip folder model is downloaded
         outfile = os.path.join(self.weights_direc, filename)
-        print(f'\n Model located at: {os.path.abspath(outfile)}')
+        print(f"\n Model located at: {os.path.abspath(outfile)}")
         # Download the model from Zenodo
         if not os.path.exists(outfile):
-            zip_file=filename+'.zip'
+            zip_file = filename + ".zip"
             zip_folder = os.path.join(self.weights_direc, zip_file)
-            print(f'\n zip_folder: {zip_folder}')
-            url = (root_url + zip_file)
-            print('Retrieving model {} ...'.format(url))
+            print(f"\n zip_folder: {zip_folder}")
+            url = root_url + zip_file
+            print("Retrieving model {} ...".format(url))
             self.download_url(url, zip_folder)
-            print('Unzipping model to {} ...'.format(self.weights_direc))
-            with zipfile.ZipFile(zip_folder, 'r') as zip_ref:
+            print("Unzipping model to {} ...".format(self.weights_direc))
+            with zipfile.ZipFile(zip_folder, "r") as zip_ref:
                 zip_ref.extractall(self.weights_direc)
-            print(f'Removing {zip_folder}')
+            print(f"Removing {zip_folder}")
             os.remove(zip_folder)
-                
+
         # if model in subfolder set self.weights_direc to valid subdirectory
-        sub_dirs=os.listdir(self.weights_direc)
+        sub_dirs = os.listdir(self.weights_direc)
         # There should be no more than 1 sub directory
-        if len(sub_dirs)>=0:
+        if len(sub_dirs) >= 0:
             for folder in sub_dirs:
-                folder_path=os.path.join(self.weights_direc,folder)
-                if os.path.isdir(folder_path) and not folder_path.endswith('.zip'):
-                    self.weights_direc=folder_path
+                folder_path = os.path.join(self.weights_direc, folder)
+                if os.path.isdir(folder_path) and not folder_path.endswith(".zip"):
+                    self.weights_direc = folder_path
                     break
-                
+
         # Ensure all files are unzipped
         with os.scandir(self.weights_direc) as it:
             for entry in it:
-                if entry.name.endswith('.zip'):
-                    with zipfile.ZipFile(entry, 'r') as zip_ref:
+                if entry.name.endswith(".zip"):
+                    with zipfile.ZipFile(entry, "r") as zip_ref:
                         zip_ref.extractall(self.weights_direc)
                     os.remove(entry)
-            
-            
+
     def download_url(self, url: str, save_path: str, chunk_size: int = 128):
         """Downloads the model from the given url to the save_path location.
         Args:
@@ -250,8 +282,16 @@ class Zoo_Model:
         with requests.get(url, stream=True) as r:
             # check header to get content length, in bytes
             total_length = int(r.headers.get("Content-Length"))
-            with open(save_path, 'wb') as fd:
-                with tqdm(total=total_length, unit='B', unit_scale=True,unit_divisor=1024,desc="Downloading Model",initial=0, ascii=True) as pbar:
-                        for chunk in r.iter_content(chunk_size=chunk_size):
-                            fd.write(chunk)
-                            pbar.update(len(chunk))
+            with open(save_path, "wb") as fd:
+                with tqdm(
+                    total=total_length,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc="Downloading Model",
+                    initial=0,
+                    ascii=True,
+                ) as pbar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
