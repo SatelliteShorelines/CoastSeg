@@ -23,8 +23,6 @@ from pyproj import Proj, transform
 import pandas as pd
 
 logger = logging.getLogger(__name__)
-logger.info("I am a log from %s",__name__)
-
 
 def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
     """save_to_geojson_file Saves given geojson to a geojson file at outfile
@@ -41,7 +39,6 @@ def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
         out_geojson = os.path.splitext(out_file)[1] + ".geojson"
     with open(out_geojson, "w") as f:
         json.dump(geojson, f, **kwargs)
-
 
 def download_url(url: str, save_path: str, filename:str=None, chunk_size: int = 128):
     """Downloads the data from the given url to the save_path location.
@@ -62,24 +59,6 @@ def download_url(url: str, save_path: str, filename:str=None, chunk_size: int = 
                         fd.write(chunk)
                         pbar.update(len(chunk))
 
-
-def make_input(dates:list[str],
-                sat_list:list[str], 
-                collection:str,
-                roi_id:int,
-                polygon:dict,
-                sitename:str,
-                filepath:str,
-                )-> dict:
-    return{'dates': dates,
-        'sat_list': sat_list,
-        'sitename' : sitename,
-        'filepath': filepath,
-        'roi_id': roi_id,
-        'polygon':polygon,
-        'landsat_collection': collection}
-
-
 def combine_inputs(roi:dict,attributes:dict)->dict:
     """Adds the roi's coordinates and roi_id to attributes 
     Args:
@@ -93,7 +72,7 @@ def combine_inputs(roi:dict,attributes:dict)->dict:
     polygon = SDS_tools.smallest_rectangle(polygon)
     inputs = {
     'polygon': polygon,
-    'roi_id':roi['properties']['id'],
+    'roi_id':str(roi['properties']['id']),
     **attributes}
     return inputs
 
@@ -125,38 +104,35 @@ def get_inputs_list(roi_geojson:dict,
     date_str = generate_datestring()
     # filepath: directory where data will be saved
     filepath = os.path.join(os.getcwd(), 'data')
-    # create unique sitenames using the date and index of ROI
+    
     # for each site create dictionary with download settings eg. dates,sitename
-    site_ids=np.arange(len(roi_geojson['features']))
-    sitenames=list(map(lambda x:'ID' + str(x) + date_str,site_ids))
     inputs_list = []
-    for index, roi in enumerate(roi_geojson["features"]):
+    for roi in roi_geojson["features"]:
         # get the id from ROI's properties
-        roi_id = roi['properties']['id']
+        roi_id = str(roi['properties']['id'])
         polygon = roi['geometry']['coordinates']
-        sitename = sitenames[index]
-        inputs=make_input(dates,sat_list,
-                   collection,
-                   roi_id,
-                   polygon,
-                   sitename,
-                   filepath) 
+        sitename = 'ID_'+ str(roi_id)+'_datetime' + date_str
+        inputs= {'dates': dates,
+                'sat_list': sat_list,
+                'sitename' : sitename,
+                'filepath': filepath,
+                'roi_id': roi_id,
+                'polygon':polygon,
+                'landsat_collection': collection}
+ 
         # add inputs dictionary to inputs list
         inputs_list.append(inputs)
     
     logger.info(f"inputs_list: {inputs_list}")
-    del sitenames,site_ids
     if inputs_list == []:
         logger.error("Error: No ROIs were selected. Please click a valid ROI on the map")
         raise Exception("Error: No ROIs were selected. Please click a valid ROI on the map\n")
-    logger.info(f"Images available: \n {inputs_list}")
     return inputs_list
 
-
-def get_center_rectangle(coords:list[float])->tuple[float]:
-    """returns the center points of rectangle specified by points coords
+def get_center_rectangle(coords:list[tuple[float]])->tuple[float]:
+    """returns the center point of rectangle specified by points coords
     Args:
-        coords (list[float]): 
+        coords list[tuple(float,float)]: 
     Returns:
         tuple[float]: (center x coordinate, center y coordinate)
     """        
@@ -165,6 +141,21 @@ def get_center_rectangle(coords:list[float])->tuple[float]:
     center_x,center_y = (x1 + x2) / 2, (y1 + y2) / 2 
     return center_x,center_y
 
+def is_shoreline_present(extracted_shorelines:dict, roi_id:int) -> bool:
+    """Returns true if shoreline array exists for roi_id
+    Args:
+        extracted_shorelines (dict): dictionary of extracted shorelines in form of :
+            {   roi_id : {dates: [datetime.datetime,datetime.datetime], 
+                shorelines: [array(),array()]}  } 
+        roi_id (int): id of the roi
+    Returns:
+        bool: false if shoreline does not exist at roi_id
+    """
+    logger.info(f"is_shoreline_present() : extracted_shorelines[roi_id]['shorelines']: {extracted_shorelines[roi_id]['shorelines']}")
+    for shoreline in extracted_shorelines[roi_id]['shorelines']:
+        if shoreline.size != 0:
+            return True
+    return False
 
 def convert_espg(input_epsg:int,output_epsg:int,coastsat_array:np.ndarray)->np.ndarray:
     """Convert the coastsat_array espg to the output_espg 
@@ -187,26 +178,23 @@ def convert_espg(input_epsg:int,output_epsg:int,coastsat_array:np.ndarray)->np.n
         s_proj.append([x2,y2,0.])
     return np.array(s_proj)
 
-
 def convert_wgs_to_utm(lon: float,lat: float)->str:
     """return most accurate utm epsg-code based on lat and lng
     convert_wgs_to_utm function, see https://stackoverflow.com/a/40140326/4556479
     Args:
-        lon (float): longtitde
+        lon (float): longitude
         lat (float): latitude
     Returns:
         str: new espg code
     """        
-    # """Based on lat and lng, return best utm epsg-code"""
     utm_band = str((math.floor((lon + 180) / 6 ) % 60) + 1)
-    if len(utm_band) == 1:
+    if len(utm_band) == '1':
         utm_band = '0' + utm_band
     if lat >= 0:
         epsg_code = '326' + utm_band # North
         return epsg_code
     epsg_code = '327' + utm_band #South
     return epsg_code
-
 
 def extract_roi_by_id(gdf:gpd.geodataframe, roi_id:int)->gpd.geodataframe:
     """Returns geodataframe with a single ROI whose id matches roi_id.
@@ -224,7 +212,7 @@ def extract_roi_by_id(gdf:gpd.geodataframe, roi_id:int)->gpd.geodataframe:
         single_roi=gdf
     else:
         # Select a single roi by id
-        single_roi = gdf[gdf['id'].astype(int)==int(roi_id)]
+        single_roi = gdf[gdf['id'].astype(str)==str(roi_id)]
         # if the id was not found in the geodataframe raise an exception
     if single_roi.empty:
         logger.error(f"Id: {id} was not found in {gdf}")
@@ -269,12 +257,60 @@ def find_config_json(dir_path):
             logger.info(f"{item} matched regex")
             return item
 
+def check_filepaths_exist(roi_ids:list[str], inputs_dict:dict)->bool:
+    """Returns True if a 'filepath' key and location exists in inputs dict for each roi id in roi_ids.
+    False means a 'filepath' key or location did not exist for an id in roi_ids
+    Args:
+        roi_ids (list[str]): ids of each roi
+        inputs_dict (dict): input settings for each roi. 
+    Returns:
+        bool: True if all filepaths existed in inputs_dict for each id in roi_ids
+    """        
+    # by default assume 'filepath's exist for all rois
+    all_filepaths_exist=True
+    for id in roi_ids:
+        if "filepath" in inputs_dict[id]:
+            logger.info(f"filepath in inputs_dict[id]: {inputs_dict[id]['filepath']}")
+            if not os.path.exists(inputs_dict[id]['filepath']):
+                print(f"Did not find filepath location for ROI: {id}")
+                logger.info(f"Did not find filepath location for ROI: {id}")
+                all_filepaths_exist=False
+        elif "filepath" not in inputs_dict[id]:
+            print(f"Did not find filepath for ROI: {id}")
+            logger.info(f"Did not find filepath for ROI: {id}")
+            all_filepaths_exist=False
+    return all_filepaths_exist
+
+def make_coastsat_compatible(shoreline_in_roi:gpd.geodataframe)->np.ndarray:
+    """ Return the shoreline_in_roi as an np.array in the form: 
+        array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
+    Args:
+        shoreline_in_roi (gpd.geodataframe): clipped portion of shoreline within a roi
+    Returns:
+        np.ndarray: shorelines in the form: 
+            array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....]) 
+    """    
+    # Then convert the shoreline to lat,lon tuples for CoastSat
+    shorelines = []
+    # Use explode to break multilinestrings in linestrings
+    shoreline_in_roi_exploded = shoreline_in_roi.explode()
+    for k in shoreline_in_roi_exploded['geometry'].keys():
+        #For each linestring portion of shoreline convert to lat,lon tuples
+        shorelines.append(tuple(np.array(shoreline_in_roi_exploded['geometry'][k]).tolist()))
+    # shorelines = [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...]
+    # Stack all the tuples into a single list of n rows X 2 columns
+    shorelines = np.vstack(shorelines)
+    # Add third column of 0s to represent mean sea level
+    shorelines = np.insert(shorelines, 2, np.zeros(len(shorelines)), axis=1)
+    # shorelines = array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
+    return shorelines
+
 def create_json_config(master_config:dict,inputs:dict,settings:dict)->dict:
-    """ returns a dictionary with the settings, content of the master_config and
+    """ returns master config dictionary with the settings, currently selected_roi ids, and
     each of the inputs specified by roi id.
     sample master_config:
     {
-        'roi_ids': [17,20]
+        'roi_ids': ['17','20']
         'settings':{ 'dates': ['2018-12-01', '2019-03-01'],
                     'cloud_thresh': 0.5,
                     'dist_clouds': 300,
@@ -304,15 +340,9 @@ def create_json_config(master_config:dict,inputs:dict,settings:dict)->dict:
         dict: json style dictionary, master_config  
     """    
     roi_ids = list(inputs.keys())
-    # convert all the ids to ints
-    roi_ids = list(map(lambda x:int(x),roi_ids))
-    if 'roi_ids' in master_config: 
-        roi_ids = [*roi_ids,*master_config['roi_ids']] 
+    master_config = {**inputs}
     master_config['roi_ids'] = roi_ids
-    master_config = {**master_config,**inputs}
-    # master_config's keys are roi ids of type string due to inputs encoding the roi ids as strings
-    if 'settings' not in  master_config: 
-        master_config['settings'] = settings
+    master_config['settings'] = settings
     
     return master_config
  
@@ -324,9 +354,8 @@ def does_filepath_exist(dictionary:dict):
         logger.error(f"Cannot extract shorelines because location doesn't exist. Download the data first.\n{dictionary['filepath']} ")
         raise FileNotFoundError(f"Cannot extract shorelines because location doesn't exist. Download the data first.\n{dictionary['filepath']} ")
    
-       
-
-def create_config_gdf(rois:gpd.GeoDataFrame,shorelines_gdf:gpd.GeoDataFrame=None,
+def create_config_gdf(rois:gpd.GeoDataFrame,
+                      shorelines_gdf:gpd.GeoDataFrame=None,
                       transects_gdf:gpd.GeoDataFrame=None,
                       bbox_gdf:gpd.GeoDataFrame=None)->gpd.GeoDataFrame():
     if shorelines_gdf is None:
@@ -349,7 +378,6 @@ def write_to_json(filepath: str, settings: dict):
     """"Write the  settings dictionary to json file"""
     with open(filepath, 'w', encoding='utf-8') as output_file:
         json.dump(settings, output_file)
-
 
 def read_geojson_file(geojson_file: str) -> dict:
     """Returns the geojson of the selected ROIs from the file specified by geojson_file"""
@@ -441,14 +469,11 @@ def rename_jpgs(src_path: str) -> None:
         if files_renamed:
             print(f"Renamed files in {src_path} ")
 
-
 def generate_datestring() -> str:
-    """"Returns a datetime string in the following format %Y-%m-%d__%H_hr_%M_min.
-    EX: "ID02022-01-31__13_hr_19_min"
-    """
+    """Returns a datetime string in the following format %m-%d-%y__%I_%M_%S
+    EX: "ID_0__01-31-22_12_19_45 """
     date = datetime.now()
-    return date.strftime('%Y-%m-%d__%H_hr_%M_min%Ssec')
-
+    return date.strftime('%m-%d-%y__%I_%M_%S')
 
 def mk_new_dir(name: str, location: str):
     """Create new folder with  datetime stamp at location
@@ -462,7 +487,6 @@ def mk_new_dir(name: str, location: str):
         return new_folder
     else:
         raise Exception("Location provided does not exist.")
-
 
 def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
     """Copies all files from src_path to dest_path
@@ -478,8 +502,7 @@ def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
         for file in glob.glob(glob_str):
             shutil.copy(file, dst_path)
         print(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
-        
-        
+            
 def RGB_to_MNDWI(RGB_dir_path:str, NIR_dir_path :str, output_path:str)->None:
     """Converts two directories of RGB and NIR imagery to MNDWI imagery in a directory named
      'MNDWI_outputs'.

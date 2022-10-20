@@ -215,7 +215,6 @@ class UI:
             self.coastseg_map.map.default_style = {'cursor': 'wait'}
             # Generate ROIs along the coastline within the bounding box
             self.coastseg_map.load_rois_on_map(self.fishnet_sizes['large'],self.fishnet_sizes['small'])
-            # self.coastseg_map.generate_ROIS_fishnet(self.fishnet_sizes['large'],self.fishnet_sizes['small'])
         except exceptions.Object_Not_Found as not_on_map_error:
             with Tkinter_Window_Creator():
                 messagebox.showwarning("Bounding Box Error", f'{not_on_map_error}')
@@ -403,7 +402,6 @@ class UI:
     def on_save_config_clicked(self, button):
         try:
             self.coastseg_map.save_config(self.coastseg_map.data_downloaded)
-            # self.coastseg_map.save_config(self.coastseg_map.data_downloaded, os.getcwd())
         except Exception as error:
             with Tkinter_Window_Creator():
                 logger.error(error)
