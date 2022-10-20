@@ -195,6 +195,33 @@ def valid_settings() -> dict:
 
 
 @pytest.fixture
+def valid_single_inputs_dict() -> dict:
+    """Returns valid inputs dict with two roi id '2' and '5'
+
+    Returns:
+        dict: valid inputs dict with two roi id '2' and '5'
+    """
+    return {
+        "2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L8"],
+            "sitename": "ID_2_datetime10-19-22__04_00_34",
+            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "roi_id": "2",
+            "polygon": [
+                [
+                    [-124.16930255115336, 40.8665390046026],
+                    [-124.16950858759564, 40.878247531017706],
+                    [-124.15408259844114, 40.878402930533994],
+                    [-124.1538792781699, 40.8666943403763],
+                    [-124.16930255115336, 40.8665390046026],
+                ]
+            ],
+            "landsat_collection": "C01",
+        },
+    }
+
+@pytest.fixture
 def valid_inputs_dict() -> dict:
     """Returns valid inputs dict with two roi id '2' and '5'
 
@@ -255,7 +282,7 @@ def valid_inputs_dict() -> dict:
         },
     }
 
-
+    
 @pytest.fixture
 def valid_master_config() -> dict:
     """Returns a complete master config with roi_ids=['2', '3', '5'], settings, and
