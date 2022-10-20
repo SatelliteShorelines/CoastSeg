@@ -99,7 +99,9 @@ class ROI():
             fishnet_intersect_gdf = gpd.GeoDataFrame(pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True))
 
         # Assign an id to each ROI square in the fishnet
-        fishnet_intersect_gdf['id'] = np.arange(0, len(fishnet_intersect_gdf),step=1)
+        ids = range(0, len(fishnet_intersect_gdf),1)
+        fishnet_intersect_gdf['id'] = list(map(lambda x:str(x),ids))
+        del ids
         logger.info(f"Created fishnet_intersect_gdf: {fishnet_intersect_gdf}")
         return fishnet_intersect_gdf
 

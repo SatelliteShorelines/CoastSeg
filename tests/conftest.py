@@ -221,6 +221,7 @@ def valid_single_inputs_dict() -> dict:
         },
     }
 
+
 @pytest.fixture
 def valid_inputs_dict() -> dict:
     """Returns valid inputs dict with two roi id '2' and '5'
@@ -282,7 +283,7 @@ def valid_inputs_dict() -> dict:
         },
     }
 
-    
+
 @pytest.fixture
 def valid_master_config() -> dict:
     """Returns a complete master config with roi_ids=['2', '3', '5'], settings, and
