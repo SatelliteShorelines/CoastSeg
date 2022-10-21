@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg_beta_package"
 dynamic = ["readme"]
-version = "0.0.1"
+version = "0.0.4"
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -36,11 +36,6 @@ classifiers = [
 # tells setup tools to include the code in the coastseg directory within the src directory
 [tool.setuptools.packages.find]
 where = ["src"]
-
-# [tool.setuptools.package-data]
-# include = ["coastseg*.py","coastseg.bounding_boxes*"]  
-# exclude = ["coastseg.tests*","coastseg.shorelines*","coastseg.transects*","coastseg.downloaded_models*","*__pycache__*"]  # empty by default
-# "*"=["*.kml","*.pkl","*geojson",".csv"]
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.md"]}

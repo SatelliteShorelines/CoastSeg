@@ -88,7 +88,7 @@ def combine_inputs(roi: dict, attributes: dict) -> dict:
 
 def get_inputs_list(
     roi_geojson: dict, dates: list, sat_list: list, collection: str
-) -> list[dict]:
+) -> list:
     """get_inputs_list Returns a list of all download settings each of ROI.
         Sample download settings:
         {'polygon': roi["geometry"]["coordinates"],
@@ -145,10 +145,10 @@ def get_inputs_list(
     return inputs_list
 
 
-def get_center_rectangle(coords: list[tuple[float]]) -> tuple[float]:
+def get_center_rectangle(coords: list) -> tuple:
     """returns the center point of rectangle specified by points coords
     Args:
-        coords list[tuple(float,float)]:
+        coords list[tuple(float,float)]: lat,lon coordinates
     Returns:
         tuple[float]: (center x coordinate, center y coordinate)
     """

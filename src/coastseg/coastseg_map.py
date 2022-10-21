@@ -33,7 +33,6 @@ import matplotlib
 matplotlib.use("Qt5Agg")
 
 logger = logging.getLogger(__name__)
-logger.info(f"Loaded module:  {__name__}")
 
 
 class CoastSeg_Map:
