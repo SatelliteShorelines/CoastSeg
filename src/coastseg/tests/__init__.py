@@ -1,1 +1,1 @@
-from src.coastseg import bbox, exceptions
+from coastseg import bbox, exceptions

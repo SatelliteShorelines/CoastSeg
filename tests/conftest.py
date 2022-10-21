@@ -5,7 +5,7 @@ import json
 import pytest
 import geopandas as gpd
 from shapely.geometry import shape
-from src.coastseg import roi
+from coastseg import roi
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 

@@ -4,9 +4,9 @@ import glob
 import json
 
 # internal python imports
-from src.coastseg import common
-from src.coastseg.zoo_model import Zoo_Model
-from src.coastseg.tkinter_window_creator import Tkinter_Window_Creator
+from coastseg import common
+from coastseg.zoo_model import Zoo_Model
+from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 
 # external python imports
 import ipywidgets

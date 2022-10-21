@@ -1,7 +1,7 @@
 import json
 
-from src.coastseg import exceptions
-from src.coastseg import common
+from coastseg import exceptions
+from coastseg import common
 
 import geopandas as gpd
 from shapely import geometry

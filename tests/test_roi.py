@@ -1,7 +1,7 @@
 import math
 import pytest
-from src.coastseg import roi
-from src.coastseg import exceptions
+from coastseg import roi
+from coastseg import exceptions
 import geopandas as gpd
 import pyproj
 

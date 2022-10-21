@@ -8,7 +8,7 @@ from datetime import datetime
 import logging
 
 # Internal dependencies imports
-from src.coastseg import exceptions
+from coastseg import exceptions
 
 from coastsat import SDS_tools
 from tqdm.auto import tqdm

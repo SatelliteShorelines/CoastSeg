@@ -4,8 +4,8 @@ import os
 import json
 
 # Internal dependencies imports
-from src.coastseg import common
-from src.coastseg import exceptions
+from coastseg import common
+from coastseg import exceptions
 
 # External dependencies imports
 import geopandas as gpd

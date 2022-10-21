@@ -1,10 +1,10 @@
 import json
 import pytest
-from src.coastseg import shoreline
-from src.coastseg import transects
-from src.coastseg import roi
-from src.coastseg import exceptions
-from src.coastseg import coastseg_map
+from coastseg import shoreline
+from coastseg import transects
+from coastseg import roi
+from coastseg import exceptions
+from coastseg import coastseg_map
 from leafmap import Map
 import geopandas as gpd
 from ipyleaflet import GeoJSON

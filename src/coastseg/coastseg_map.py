@@ -5,12 +5,12 @@ import copy
 
 from typing import Union
 
-from src.coastseg.bbox import Bounding_Box
-from src.coastseg import common
-from src.coastseg.shoreline import Shoreline
-from src.coastseg.transects import Transects
-from src.coastseg.roi import ROI
-from src.coastseg import exceptions
+from coastseg.bbox import Bounding_Box
+from coastseg import common
+from coastseg.shoreline import Shoreline
+from coastseg.transects import Transects
+from coastseg.roi import ROI
+from coastseg import exceptions
 
 import geopandas as gpd
 import numpy as np

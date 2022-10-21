@@ -3,8 +3,8 @@ import logging
 import os
 
 # Internal dependencies imports
-from src.coastseg.exceptions import DownloadError
-from src.coastseg import common
+from coastseg.exceptions import DownloadError
+from coastseg import common
 
 # External dependencies imports
 import geopandas as gpd

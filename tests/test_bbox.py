@@ -1,7 +1,7 @@
 import json
 import pytest
-from src.coastseg import bbox
-from src.coastseg import exceptions
+from coastseg import bbox
+from coastseg import exceptions
 import geopandas as gpd
 from ipyleaflet import GeoJSON
 

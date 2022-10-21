@@ -3,8 +3,8 @@ import os
 import logging
 
 # internal python imports
-from src.coastseg.tkinter_window_creator import Tkinter_Window_Creator
-from src.coastseg import exceptions
+from coastseg.tkinter_window_creator import Tkinter_Window_Creator
+from coastseg import exceptions
 
 # external python imports
 import ipywidgets

@@ -1,6 +1,6 @@
 # from CoastSeg import make_overlapping_roi
-from src.coastseg import bbox
-from src.coastseg import exceptions
+from coastseg import bbox
+from coastseg import exceptions
 import geopandas as gpd
 import pytest
 
