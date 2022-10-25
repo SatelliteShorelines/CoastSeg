@@ -110,7 +110,7 @@ class CoastSeg_Map:
         html = HTML("Hover over shoreline")
         html.layout.margin = "0px 20px 20px 20px"
 
-        self.shoreline_accordion = Accordion(children=[html], titles=("Shoreline Data"))
+        self.shoreline_accordion = Accordion(children=[html], titles=("Shoreline Data",))
         self.shoreline_accordion.set_title(0, "Shoreline Data")
 
         return WidgetControl(widget=self.shoreline_accordion, position="topright")
@@ -590,7 +590,7 @@ class CoastSeg_Map:
             f"extract_all_shorelines : self.rois.extracted_shorelines {self.rois.extracted_shorelines}"
         )
 
-    def get_selected_rois(self, roi_ids: list[str]) -> gpd.GeoDataFrame:
+    def get_selected_rois(self, roi_ids: list) -> gpd.GeoDataFrame:
         """Returns a geodataframe of all rois selected by roi_ids
 
         Args:
