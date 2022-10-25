@@ -109,7 +109,6 @@ class CoastSeg_Map:
         """
         html = HTML("Hover over shoreline")
         html.layout.margin = "0px 20px 20px 20px"
-
         self.shoreline_accordion = Accordion(children=[html], titles=("Shoreline Data",))
         self.shoreline_accordion.set_title(0, "Shoreline Data")
 
@@ -594,7 +593,7 @@ class CoastSeg_Map:
         """Returns a geodataframe of all rois selected by roi_ids
 
         Args:
-            roi_ids (list): ids of ROIs
+            roi_ids (list[str]): ids of ROIs
 
         Returns:
             gpd.GeoDataFrame:  geodataframe of all rois selected by the roi_ids

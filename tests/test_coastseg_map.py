@@ -97,3 +97,39 @@ def test__coastseg_map_settings():
     expected_settings = set(list(pre_process_settings.keys()))
     assert expected_settings.issubset(actual_settings)
     assert set(["dates", "collection", "sat_list"]).issubset(actual_settings)
+    
+    def test__coastseg_map_settings():
+        """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
+    Args:
+        valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
+    """
+    coastsegmap = coastseg_map.CoastSeg_Map()
+    dates = ["2018-12-01", "2019-03-01"]
+    collection = "C01"
+    sat_list = ["L8"]
+    pre_process_settings = {
+        # general parameters:
+        "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+        "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+        "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
+        # quality control:
+        "check_detection": True,  # if True, shows each shoreline detection to the user for validation
+        "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+        "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+        # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+        "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
+        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+        "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
+        "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+        "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+        "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
+        "max_dist_ref": 25,
+    }
+    coastsegmap.save_settings(
+        sat_list=sat_list, collection=collection, dates=dates, **pre_process_settings
+    )
+    actual_settings = set(list(coastsegmap.settings.keys()))
+    expected_settings = set(list(pre_process_settings.keys()))
+    assert expected_settings.issubset(actual_settings)
+    assert set(["dates", "collection", "sat_list"]).issubset(actual_settings)

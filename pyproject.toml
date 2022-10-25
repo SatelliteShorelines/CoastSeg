@@ -5,26 +5,21 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg_beta_package"
 dynamic = ["readme"]
-version = "0.0.4"
+version = "0.0.5"
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
 # find` directive with `include` or `exclude`
 description = "An interactive jupyter notebook for downloading satellite imagery"
-dependencies = [ "scikit-image",
- "earthengine-api>=0.1.304",
-  "coastsat-package",
+dependencies = [
+  "coastsat-package>=0.0.3",
   "area",
   "requests",
   "doodleverse-utils<=0.0.3",
   "tqdm",
   "leafmap",
   "shapely",
-  "geojson",
-  "scikit-image",
-  "matplotlib",
-  "pandas",
-  "numpy<1.23.0"]
+  "geojson",]
 license = { file="LICENSE" }
 requires-python = ">=3.8"
 classifiers = [
