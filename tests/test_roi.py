@@ -32,9 +32,12 @@ def test_create_geodataframe(
         valid_shoreline_gdf.columns.difference(["geometry"]), "columns"
     )
     # Validate any shorelines intersect any squares in actual_gdf
-    intersection_gdf = valid_shoreline_gdf.sjoin(
-        actual_gdf, how="inner", predicate="intersects"
+    intersection_gdf =gpd.sjoin(
+        valid_shoreline_gdf,right_df =actual_gdf, how="inner", predicate="intersects"
     )
+    # intersection_gdf = valid_shoreline_gdf.sjoin(
+    #     actual_gdf, how="inner", predicate="intersects"
+    # )
     assert intersection_gdf.empty == False
 
 

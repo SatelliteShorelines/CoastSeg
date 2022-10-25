@@ -287,7 +287,7 @@ def find_config_json(dir_path):
             return item
 
 
-def check_filepaths_exist(roi_ids: list[str], inputs_dict: dict) -> bool:
+def check_filepaths_exist(roi_ids: list, inputs_dict: dict) -> bool:
     """Returns True if a 'filepath' key and location exists in inputs dict for each roi id in roi_ids.
     False means a 'filepath' key or location did not exist for an id in roi_ids
     Args:
