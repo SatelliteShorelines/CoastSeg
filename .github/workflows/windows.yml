@@ -1,6 +1,6 @@
 on:
     push:
-        branches: [packaging/beta_package, packaging/updating_dependencies]
+        branches: [packaging/beta_package, packaging/updating_dependencies, workflows]
     pull_request:
         branches: [packaging/beta_package, packaging/updating_dependencies]
 
