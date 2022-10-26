@@ -24,7 +24,6 @@ from ipywidgets import Checkbox
 from tkinter import messagebox
 
 logger = logging.getLogger(__name__)
-logger.info("I am a log from %s", __name__)
 
 
 class UI:
@@ -374,6 +373,7 @@ class UI:
             self.extract_shorelines_button.disabled = True
             self.coastseg_map.extract_all_shorelines()
         except Exception as exception:
+            logger.error(exception)
             with Tkinter_Window_Creator():
                 messagebox.showerror("Error", f"{exception}")
         finally:
