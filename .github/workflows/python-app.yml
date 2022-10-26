@@ -35,6 +35,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-cache-dir Cython
           pip install coastseg-beta-package==0.0.5
+      - name: pip install jupyter
+        run: |
+          pip install jupyter
+      - name: pip install geopandas
+        run: |
+          pip install geopandas
 
       #       - name: Lint with flake8
       #         run: |
