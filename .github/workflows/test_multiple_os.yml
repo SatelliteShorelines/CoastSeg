@@ -1,9 +1,8 @@
 on:
   push:
-    branches:
-      [packaging/beta_package, packaging/updating_dependencies, workflows]
+    branches: [workflows]
   pull_request:
-    branches: [packaging/beta_package, packaging/updating_dependencies]
+    branches: [workflows]
 
 name: Custom build multiple os
 jobs:
