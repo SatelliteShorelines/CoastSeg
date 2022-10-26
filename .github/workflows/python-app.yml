@@ -3,9 +3,9 @@
 name: Python application
 on:
   push:
-    branches: [packaging/beta_package]
+    branches: [packaging/beta_package, packaging/updating_dependencies]
   pull_request:
-    branches: [packaging/beta_package]
+    branches: [packaging/beta_package, packaging/updating_dependencies]
 jobs:
   build:
     runs-on: ubuntu-latest
