@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [packaging/beta_package, packaging/updating_dependencies]
 
-name: Windows build
+name: Custom build windows
 jobs:
   test-windows:
     runs-on: windows-latest
