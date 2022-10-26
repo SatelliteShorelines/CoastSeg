@@ -21,8 +21,10 @@ jobs:
         run: |
           python -c "from osgeo import gdal"
           gdalinfo --version
-      - name: Install Conda Dependencies
-        run: conda install -c conda-forge jupyter geopandas --yes
+      - name: Install Conda Dependency jupyter
+        run: conda install -c conda-forge jupyter --yes
+      - name: Install Conda Dependency geopandas
+        run: conda install -c conda-forge geopandas --yes
       - name: Test Conda Dependencies installation
         run: |
           python -c "import geopandas"
