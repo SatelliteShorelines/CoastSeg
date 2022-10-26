@@ -30,10 +30,7 @@ from tqdm.auto import tqdm
 from pyproj import Proj, transform
 import matplotlib
 
-matplotlib.use("Qt5Agg")
-
 logger = logging.getLogger(__name__)
-
 
 class CoastSeg_Map:
     def __init__(self, map_settings: dict = None):
