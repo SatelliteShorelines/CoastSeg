@@ -18,13 +18,11 @@ This guide explains how to install coastseg using an anaconda environment and pi
 
 2. Activate your conda environment
    > `conda activate coastseg_pkg`
-3. Install geopandas with Conda
+3. Install geopandas and jupyter with Conda
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
-   - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
-     > `conda install -c conda-forge geopandas -y`
-4. Install jupyter with Conda
-   > `conda install jupyter -y`
-5. Install the coastseg pip package
+   - Make sure to install geopandas and jupyter from the `conda-forge` channel to ensure you get the latest version.
+     > `conda install -c conda-forge jupyter geopandas -y`
+4. Install the coastseg pip package
 
 - `-U` (upgrade flag) this gets the latest release of the CoastSeg package
   > `pip install coastseg-beta-package -U`
@@ -58,6 +56,9 @@ This guide walks you through how to contribute to the coastseg project. It will 
 
 - **upstream**: refers to the official CoastSeg repository hosted on GitHub
 - **origin** :refers to your personal fork on your computer
+
+4. Install your package locally as a pip editable installation
+   > `pip install -e .`
 
 ### Create Development Environment
 
