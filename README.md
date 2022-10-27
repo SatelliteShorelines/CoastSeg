@@ -1,4 +1,4 @@
-# 📦 CoastSeg
+# CoastSeg
 
 [![Last Commit](https://img.shields.io/github/last-commit/SatelliteShorelines/CoastSeg)](https://github.com/Doodleverse/segmentation_gym/commits/main)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SatelliteShorelines/CoastSeg/graphs/commit-activity)
@@ -14,13 +14,13 @@
 
 A mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo) models
 
-## :warning: NOT A FINISHED PRODUCT :warning:
+## NOT A FINISHED PRODUCT
 
 Please note that we're in the planning stages only - please check back later. Please see our [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki) for further information
 
 We welcome collaboration! Please use our [Discussions tab](https://github.com/dbuscombe-usgs/CoastSeg/discussions) to provide feedback or offer help - thanks!
 
-## ✍️ Authors
+## Authors
 
 Package maintainers:
 
@@ -33,7 +33,7 @@ Contributions:
 
 lease use our [Discussions tab](https://github.com/dbuscombe-usgs/CoastSeg/discussions) if you're interested in this project.
 
-## 🧰 Installation Instructions
+## Installation Instructions
 
 ### Create an environment with Anaconda
 
@@ -72,7 +72,7 @@ To confirm that you have successfully activated coastseg, your terminal command 
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="250" height="150">
 
-### ⚠️Installation Errors ⚠️
+### Installation Errors
 
 Use the command `conda clean --all` to clean old packages from your anaconda base environment. Ensure you are not in your coastseg environment or any other environment by running `conda deactivate`, to deactivate any environment you're in before running `conda clean --all`. It is recommended that you have Anaconda prompt (terminal for Mac and Linux) open as an administrator before you attempt to install `coastseg` again.
 
@@ -83,7 +83,7 @@ conda deactivate
 conda clean --all
 ```
 
-## ⬇️ Installation
+## Installation
 
 We advise creating a new conda environment to run the program.
 
