@@ -15,7 +15,7 @@
 - A mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo) models.
 - GUI interface to download satellite imagery using CoastSat from Google Earth Engine
 
-# this Project is Not Finished Yet
+# This Project is Not Finished Yet
 
 👷‍♀️Hi there! This package is still under active development. Feel free to contribute, but don't use this software expecting a finished product.
 
@@ -74,6 +74,15 @@ Create a new environment named `coastseg` with all the required packages by ente
 
 - `-U` (upgrade flag) this gets the latest release of the CoastSeg package
   > `pip install coastseg-beta-package -U`
+
+**All the Installation Commands:**
+
+```python
+conda create --name coastseg python=3.9 -y
+conda activate coastseg
+conda install -c conda-forge jupyter geopandas -y
+pip install coastseg-beta-package -U
+```
 
 ### **Install CoastSeg Locally (Without PyPi package)**
 
