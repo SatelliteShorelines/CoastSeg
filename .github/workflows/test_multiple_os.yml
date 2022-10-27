@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [workflows]
+    branches: [workflows, packaging/render_readme]
   pull_request:
     branches: [workflows]
 
