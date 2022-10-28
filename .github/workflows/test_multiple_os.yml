@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [workflows, packaging/render_readme, update/zoo_model]
+    branches: [workflows]
   pull_request:
     branches: [workflows]
 
