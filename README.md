@@ -79,7 +79,7 @@ Create a new environment named `coastseg` with all the required packages by ente
 ```python
 conda create --name coastseg python=3.9 -y
 conda activate coastseg
-conda install -c conda-forge jupyter geopandas -y
+conda install -c conda-forge jupyter geopandas pydensecrf -y
 pip install coastseg-beta-package
 ```
 
