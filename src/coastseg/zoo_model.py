@@ -1,5 +1,6 @@
 import os
 import glob
+import logging
 import requests
 import zipfile
 import json
@@ -17,6 +18,7 @@ from  doodleverse_utils.model_imports import (dice_coef_loss,
 import tensorflow as tf
 from tqdm.auto import tqdm
 
+logger = logging.getLogger(__name__)
 
 class Zoo_Model:
     def __init__(self):
@@ -226,11 +228,13 @@ class Zoo_Model:
         root_url = "https://zenodo.org/record/" + zenodo_id + "/files/"
         # Create the directory to hold the downloaded models from Zenodo
         script_dir = os.path.dirname(os.path.abspath(__file__))
+        downloaded_models_path= os.path.abspath(os.path.join(script_dir, "downloaded_models"))
         self.weights_direc = os.path.abspath(
-            os.path.join(script_dir, "downloaded_models", dataset_id)
+            os.path.join(downloaded_models_path, dataset_id)
         )
-        if not os.path.exists(self.weights_direc):
-            os.mkdir(self.weights_direc)
+        if not os.path.exists(downloaded_models_path):
+            os.mkdir(downloaded_models_path)
+        logger.info(f"download_model:: self.weights_direc:{self.weights_direc}")
         if not os.path.exists(self.weights_direc):
             os.mkdir(self.weights_direc)
         if dataset == "RGB":
@@ -240,7 +244,7 @@ class Zoo_Model:
             # filename='mndwi.zip'
             filename = "mndwi"
         # outfile: where zip folder model is downloaded
-        outfile = os.path.join(self.weights_direc, filename)
+        outfile = os.path.join(os.path.abspath(self.weights_direc), filename)
         print(f"\n Model located at: {os.path.abspath(outfile)}")
         # Download the model from Zenodo
         if not os.path.exists(outfile):
