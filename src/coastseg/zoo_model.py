@@ -8,12 +8,12 @@ from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.imports import (
     simple_resunet,
     simple_unet,
-    simple_satunet,
     custom_resunet,
     custom_unet,
-    mean_iou,
-    dice_coef,
 )
+from  doodleverse_utils.model_imports import (dice_coef_loss,
+                                              iou_multi,
+                                              dice_multi)
 import tensorflow as tf
 from tqdm.auto import tqdm
 
@@ -52,20 +52,21 @@ class Zoo_Model:
             TESTTIMEAUG = False
         WRITE_MODELMETADATA = False
         # Read in the image filenames as either .npz,.jpg, or .png
-        sample_filenames = self.get_files_for_seg(sample_direc)
+        files_to_segment = self.get_files_for_seg(sample_direc)
         # Compute the segmentation for each of the files
-        for f in tqdm(sample_filenames):
+        for file_to_seg in tqdm(files_to_segment):
             do_seg(
-                f,
+                file_to_seg,
                 model_list,
                 metadatadict,
-                sample_direc,
-                self.NCLASSES,
-                self.N_DATA_BANDS,
-                self.TARGET_SIZE,
-                TESTTIMEAUG,
-                WRITE_MODELMETADATA,
-                do_crf,
+                sample_direc= sample_direc,
+                NCLASSES = self.NCLASSES,
+                N_DATA_BANDS = self.N_DATA_BANDS,
+                TARGET_SIZE = self.TARGET_SIZE,
+                TESTTIMEAUG =TESTTIMEAUG,
+                WRITE_MODELMETADATA =WRITE_MODELMETADATA,
+                DO_CRF= do_crf,
+                OTSU_THRESHOLD=False
             )
 
     def get_model(self, Ww: list):
@@ -75,6 +76,8 @@ class Zoo_Model:
         if Ww == []:
             raise Exception("No Model Info Passed")
         for weights in Ww:
+            # "fullmodel" is for serving on zoo they are smaller and more portable between systems than traditional h5 files
+            # gym makes a h5 file, then you use gym to make a "fullmodel" version then zoo can read "fullmodel" version
             configfile = weights.replace(".h5", ".json").replace("weights", "config")
             if "fullmodel" in configfile:
                 configfile = configfile.replace("_fullmodel", "")
@@ -118,6 +121,7 @@ class Zoo_Model:
 
             try:
                 model = tf.keras.models.load_model(weights)
+                #  nclasses=NCLASSES, may have to replace nclasses with NCLASSES
             except BaseException:
                 if MODEL == "resunet":
                     model = custom_resunet(
@@ -189,11 +193,10 @@ class Zoo_Model:
                     raise Exception(
                         f"An unknown model type {MODEL} was received. Please select a valid model."
                     )
-                model.compile(
-                    optimizer="adam",
-                    loss=tf.keras.losses.CategoricalCrossentropy(),
-                    metrics=[mean_iou, dice_coef],
-                )
+                    
+                # Load in the custom loss function from doodleverse_utils        
+                model.compile(optimizer = 'adam', loss = dice_coef_loss(self.NCLASSES)) #, metrics = [iou_multi(self.NCLASSESNCLASSES), dice_multi(self.NCLASSESNCLASSES)])
+                
                 model.load_weights(weights)
 
             model_types.append(MODEL)
