@@ -17,7 +17,7 @@
 
 # This Project is Not Finished Yet
 
-👷‍♀️Hi there! This package is still under active development. Feel free to contribute, but don't use this software expecting a finished product.
+Hi there! This package is still under active development. Feel free to contribute, but don't use this software expecting a finished product.
 
 - Please note that we're in the planning stages only - please check back later. Please see our [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki) for further information
 
@@ -58,7 +58,7 @@ Create a new environment named `coastseg` with all the required packages by ente
   > `conda create --name coastseg python=3.9 -y`
 
 2. Activate your conda environment
-   > `conda activate coastseg` > `conda activate coastseg`
+   > `conda activate coastseg`
 
 - If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
 
@@ -66,14 +66,13 @@ Create a new environment named `coastseg` with all the required packages by ente
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
 3. Install geopandas with Conda
+   - install [pydensecrf](https://anaconda.org/conda-forge/pydensecrf) because it is a dependency of doodleverse_utils
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
    - Make sure to install both jupyter and geopandas from the conda forge channel to avoid dependency conflicts
-     > `conda install -c conda-forge jupyter geopandas -y`
+     > `conda install -c conda-forge jupyter geopandas pydensecrf -y`
 4. Install the CoastSeg from PyPi
-
-- `-U` (upgrade flag) this gets the latest release of the CoastSeg package
-  > `pip install coastseg-beta-package -U`
+   > `pip install coastseg-beta-package`
 
 **All the Installation Commands:**
 
@@ -81,7 +80,7 @@ Create a new environment named `coastseg` with all the required packages by ente
 conda create --name coastseg python=3.9 -y
 conda activate coastseg
 conda install -c conda-forge jupyter geopandas -y
-pip install coastseg-beta-package -U
+pip install coastseg-beta-package
 ```
 
 ### **Install CoastSeg Locally (Without PyPi package)**
@@ -130,7 +129,7 @@ conda clean --all
 
 # How to Use Coastseg
 
-👷‍♀️Hi there! This section is still under active development. So it may not be that helpful to you. If you have any suggestions of what you'd tutorials or guides you'd like submit an issue.
+Hi there! This section is still under active development. So it may not be that helpful to you. If you have any suggestions of what you'd tutorials or guides you'd like submit an issue.
 
 - @todo add screenshots and a full guide on how to use coastseg
 
@@ -183,14 +182,12 @@ Thanks @kvos for this awesome guide!
 9. Open `data` folder in CoastSeg Directory to View Downloads
 
 - Downloads are organized by ROI id and labeled with the date and time they were downloaded
-- @ todo add a screenshot
 
 ## How to Load Configs
 
 - @todo add a screenshot of a sample config
 - only `.geojson` files can be loaded as configs
 - Save a config file with `Save Config` button
-- @ todo link to wiki with Guide on how to save/ load configs
 
 ## How to Save Your Drawings to Geojson
 
@@ -311,6 +308,6 @@ To correctly create your development environment make sure you run all these com
 3. Write your OS and web browser
 4. If you made any changes to the source code make separate notebook to replicate the error your encountered
 5. Include any data files used to replicate the issue
-6. Create a branch @ todo add commands
-7. Add Commits @ todo add commands
-8. Submit a PR on Github @ todo add commands
+6. Create a branch
+7. Add Commits
+8. Submit a PR on Github
