@@ -135,7 +135,7 @@ def test_roi_from_bbox_and_shorelines(valid_bbox_gdf, valid_shoreline_gdf):
     assert actual_roi.filename == "rois.geojson"
     assert hasattr(actual_roi, "extracted_shorelines")
     assert hasattr(actual_roi, "cross_distance_transects")
-    assert hasattr(actual_roi, "inputs_dict")
+    assert hasattr(actual_roi, "roi_settings")
     assert hasattr(actual_roi, "master_config")
 
 
@@ -204,7 +204,7 @@ def test_transect_compatible_roi(transect_compatible_roi: gpd.GeoDataFrame):
     assert actual_roi.filename == "rois.geojson"
     assert hasattr(actual_roi, "extracted_shorelines")
     assert hasattr(actual_roi, "cross_distance_transects")
-    assert hasattr(actual_roi, "inputs_dict")
+    assert hasattr(actual_roi, "roi_settings")
     assert hasattr(actual_roi, "master_config")
 
 
@@ -228,7 +228,7 @@ def test_update_extracted_shorelines(valid_ROI: roi.ROI):
     assert valid_ROI.extracted_shorelines == expected_dict
 
 
-def test_set_inputs_dict(valid_ROI: roi.ROI):
+def test_set_roi_settings(valid_ROI: roi.ROI):
     """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
     Args:
         transect_compatible_roi (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
@@ -269,9 +269,9 @@ def test_set_inputs_dict(valid_ROI: roi.ROI):
             "landsat_collection": "C01",
         },
     }
-    valid_ROI.set_inputs_dict(expected_dict)
-    assert valid_ROI.inputs_dict != {}
-    assert valid_ROI.inputs_dict == expected_dict
+    valid_ROI.set_roi_settings(expected_dict)
+    assert valid_ROI.roi_settings != {}
+    assert valid_ROI.roi_settings == expected_dict
 
 
 def test_style_layer(valid_ROI: roi.ROI):

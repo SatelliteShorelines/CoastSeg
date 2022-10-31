@@ -59,11 +59,11 @@ def test_get_center_rectangle():
 
 def test_create_json_config(
     valid_settings,
-    valid_inputs_dict,
+    valid_roi_settings,
 ):
     # test if valid json style config is created when inputs dictionary contains multiple entries
-    actual_config = common.create_json_config(valid_inputs_dict,valid_settings)
-    expected_roi_ids = list(valid_inputs_dict.keys())
+    actual_config = common.create_json_config(valid_roi_settings,valid_settings)
+    expected_roi_ids = list(valid_roi_settings.keys())
 
     assert isinstance(actual_config, dict)
     assert "settings" in actual_config.keys()
@@ -75,10 +75,10 @@ def test_create_json_config(
         assert isinstance(actual_config[str(key)], dict)
 
 
-def test_create_json_config_single_input(valid_settings, valid_single_inputs_dict):
+def test_create_json_config_single_input(valid_settings, valid_single_roi_settings):
     # test if valid json style config is created when inputs dictionary contains only one entry
-    actual_config = common.create_json_config(valid_single_inputs_dict, valid_settings)
-    expected_roi_ids = list(valid_single_inputs_dict.keys())
+    actual_config = common.create_json_config(valid_single_roi_settings, valid_settings)
+    expected_roi_ids = list(valid_single_roi_settings.keys())
 
     assert isinstance(actual_config, dict)
     assert "settings" in actual_config.keys()

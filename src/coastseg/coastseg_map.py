@@ -260,11 +260,11 @@ class CoastSeg_Map:
         # make a deep copy so settings doesn't get modified by the temp copy
         tmp_settings = copy.deepcopy(self.settings)
         logger.info(f"self.settings: {self.settings}")
-        for inputs in tqdm(inputs_list, desc="Downloading ROIs"):
-            metadata = SDS_download.retrieve_images(inputs)
-            print(f"inputs: {inputs}")
-            logger.info(f"inputs: {inputs}")
-            tmp_settings["inputs"] = inputs
+        for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
+            metadata = SDS_download.retrieve_images(inputs_for_roi)
+            print(f"inputs: {inputs_for_roi}")
+            logger.info(f"inputs: {inputs_for_roi}")
+            tmp_settings["inputs"] = inputs_for_roi
             logger.info(f"Saving to jpg. Metadata: {metadata}")
             SDS_preprocess.save_jpg(metadata, tmp_settings)
 
@@ -273,49 +273,33 @@ class CoastSeg_Map:
         # tmp settings is no longer needed
         del tmp_settings
         # Save inputs used to download data with CoastSat
-        inputs_dict = {}
-        for inputs in tqdm(inputs_list, desc="Saving settings"):
-            inputs_dict[str(inputs["roi_id"])] = inputs
+        roi_settings = {}
+        for inputs_for_roi in tqdm(inputs_list, desc="Saving settings"):
+            roi_settings[str(inputs_for_roi["roi_id"])] = inputs_for_roi
 
-        # Save inputs_dict to ROI class
-        self.rois.set_inputs_dict(inputs_dict)
+        # Save roi_settings to ROI class
+        self.rois.set_roi_settings(roi_settings)
         self.save_config(is_downloaded=True)
         logger.info("Done downloading")
 
     def load_json_config(self, filepath: str) -> None:
-        json_data = common.read_json_file(filepath)
-
-        master_config = {}
-        master_config["roi_ids"] = json_data["roi_ids"]
-        master_config["settings"] = json_data["settings"]
-        for roi_id in master_config["roi_ids"]:
-            master_config[str(roi_id)] = json_data[str(roi_id)]
-        logger.info(f"load_json_config::master_config: {master_config}")
-
-        print(f" Loaded config.json: {os.path.basename(filepath)}")
         if self.rois is None:
             raise Exception("Must load ROIs onto the map first")
-        # initialize master_config and settings with master_config read from json
-        self.rois.master_config = master_config
-        self.settings = master_config["settings"]
-        logger.info(
-            f"load_json_config::Loaded settings from master_config: {self.settings}"
-        )
-
-        # roi_ids contains list of all roi ids in master_config
-        roi_ids = master_config["roi_ids"]
-        # for each set of ROI input settings in master config initialize inputs_dict for ROI
-        inputs_dict = {}
-        logger.info(f"load_json_config:: master_config roi_ids: {roi_ids}")
-        # Save inputs for each ROI's id
-        for id in roi_ids:
-            inputs_dict[str(id)] = master_config[str(id)]
-        logger.info(f"load_json_config:: inputs_dict: {inputs_dict}")
+        
+        json_data = common.read_json_file(filepath)
+        # replace coastseg_map.settings with settings from config file
+        self.settings = json_data["settings"]
+        logger.info(f"load_json_config::Loaded settings from master_config: {self.settings}")
+        # replace roi_settings for each ROI with contents of json_data
+        roi_settings = {}
+        for roi_id in json_data["roi_ids"]:
+            roi_settings[str(roi_id)] = json_data[roi_id]
         # Save input dictionaries for all ROIs
-        self.rois.inputs_dict = inputs_dict
-
+        self.rois.roi_settings = roi_settings
+        logger.info(f"load_json_config:: roi_settings: {roi_settings}")
+        
         # if the filepaths to the downloaded data exist for each ROI set data_downloaded to True
-        all_filepaths_exist = common.check_filepaths_exist(roi_ids, inputs_dict)
+        all_filepaths_exist = common.check_filepaths_exist(json_data["roi_ids"], roi_settings)
         if all_filepaths_exist:
             # means user already has downloaded ROI data
             self.data_downloaded = True
@@ -363,18 +347,17 @@ class CoastSeg_Map:
                 "No ROIs were selected. Cannot save ROIs to config until ROIs are selected."
             )
 
-        logger.info(f"is_downloaded: {is_downloaded}")
         settings = self.settings
 
         # if the data has been downloaded before and has been loaded from a config/just downloaded
-        if self.rois.inputs_dict is not None and is_downloaded:
+        if self.rois.roi_settings is not None and is_downloaded:
             logger.info(
-                f"save_config :: inputs from inputs_dict: {self.rois.inputs_dict}"
+                f"save_config :: inputs from roi_settings: {self.rois.roi_settings}"
             )
-            inputs = self.rois.inputs_dict
+            inputs = self.rois.roi_settings
         else:
             # if inputs is empty or the ROI have not been downloaded
-            logger.info(f"save_config ::self.rois.inputs_dict: {self.rois.inputs_dict}")
+            logger.info(f"save_config ::self.rois.roi_settings: {self.rois.roi_settings}")
             inputs = {}
             sat_list = settings["sat_list"]
             collection = settings["collection"]
@@ -391,13 +374,11 @@ class CoastSeg_Map:
                 }
                 inputs[roi_id] = inputs_dict
             # Save inputs to ROI class
-            self.rois.set_inputs_dict(inputs)
-            logger.info(f"save_config :: Inputs_dict: {self.rois.inputs_dict}")
-
+            self.rois.set_roi_settings(inputs)
+            logger.info(f"save_config :: roi_settings: {self.rois.roi_settings}")
+        # create dictionary to be saved to config.json
         config_json = common.create_json_config(inputs, settings)
-        logger.info(
-            f"save_config :: config_json: {config_json} "
-        )
+        logger.info(f"save_config :: config_json: {config_json} ")
         # get currently selected rois selected 
         roi_ids = config_json["roi_ids"]
         selected_rois = self.get_selected_rois(roi_ids)
@@ -487,7 +468,7 @@ class CoastSeg_Map:
 
     def extract_all_shorelines(self) -> None:
         """Use this function when the user interactively downloads rois
-        Iterates through all the ROIS downloaded by the user as indicated by the inputs_dict generated by
+        Iterates through all the ROIS downloaded by the user as indicated by the roi_settings generated by
         download_imagery() and extracts a shoreline for each of them
         """
         if self.rois is None:
@@ -496,7 +477,7 @@ class CoastSeg_Map:
             raise Exception(
                 "No Shoreline found. Please load a shoreline on the map first."
             )
-        if self.rois.inputs_dict == {}:
+        if self.rois.roi_settings == {}:
             logger.error(
                 f"extract_all_shorelines::No inputs settings found. Please click download ROIs first. self.rois: {self.rois}"
             )
@@ -517,9 +498,9 @@ class CoastSeg_Map:
             raise Exception(
                 f"Missing keys from self.settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}"
             )
-        if not self.selected_set.issubset(set(self.rois.inputs_dict.keys())):
+        if not self.selected_set.issubset(set(self.rois.roi_settings.keys())):
             logger.error(
-                f"self.selected_set: {self.selected_set} was not a subset of self.rois.inputs_dict: {set(self.rois.inputs_dict.keys())}"
+                f"self.selected_set: {self.selected_set} was not a subset of self.rois.roi_settings: {set(self.rois.roi_settings.keys())}"
             )
             raise Exception(
                 f"To extract shorelines you must first select ROIs and have the data downloaded."
@@ -532,7 +513,7 @@ class CoastSeg_Map:
         logger.info(f"extract_all_shorelines:: roi_ids: {roi_ids}")
         print(f"Extracting shorelines from ROIs: {roi_ids}")
         selected_rois_gdf = self.get_selected_rois(roi_ids)
-        # if none of the ids in inputs_dict are in the ROI geodataframe raise an Exception
+        # if none of the ids in roi_settings are in the ROI geodataframe raise an Exception
         if selected_rois_gdf.empty:
             logger.error("extract_all_shorelines::No ROIs selected")
             raise Exception("No ROIs selected")
@@ -542,7 +523,7 @@ class CoastSeg_Map:
         for id in tqdm(roi_ids, desc="Extracting Shorelines"):
             try:
                 print(f"Extracting shorelines from ROI with the id:{id}")
-                inputs = self.rois.inputs_dict[id]
+                inputs = self.rois.roi_settings[id]
                 # raise exception if no files were download to extract shorelines from
                 common.does_filepath_exist(inputs)
                 extracted_shoreline = self.extract_shorelines_from_roi(

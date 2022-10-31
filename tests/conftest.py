@@ -6,9 +6,62 @@ import pytest
 import geopandas as gpd
 from shapely.geometry import shape
 from coastseg import roi
+from coastseg import coastseg_map
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
+@pytest.fixture
+def valid_coastseg_map_with_settings()->coastseg_map.CoastSeg_Map:
+    # returns a valid instance of CoastSeg_Map with settings loaded in
+    coastsegmap = coastseg_map.CoastSeg_Map()
+    dates = ["2018-12-01", "2019-03-01"]
+    collection = "C01"
+    sat_list = ["L8"]
+    pre_process_settings = {
+        # general parameters:
+        "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+        "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+        "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
+        # quality control:
+        "check_detection": True,  # if True, shows each shoreline detection to the user for validation
+        "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+        "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+        # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+        "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
+        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+        "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
+        "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+        "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+        "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
+        "max_dist_ref": 25,
+    }
+    coastsegmap.save_settings(
+        sat_list=sat_list, collection=collection, dates=dates, **pre_process_settings
+    )
+    return coastsegmap
+
+
+@pytest.fixture
+def downloaded_config_geojson_filepath()->str:
+    # filepath to config.geojson file containing geodataframe with rois with ids ["2", "3", "5"] that were downloaded
+    return  os.path.abspath(
+    os.path.join(script_dir, "test_data", "config_gdf_id_2.geojson")
+    )
+
+@pytest.fixture
+def config_json_filepath()->str:
+    # filepath to config.json file containing rois with ids ["2", "3", "5"] that were not downloaded
+    return  os.path.abspath(
+    os.path.join(script_dir, "test_data", "config.json")
+    )
+
+@pytest.fixture
+def downloaded_config_json_filepath()->str:
+    # filepath to config.json file containing rois with ids ["2", "3", "5"] that were downloaded
+    return  os.path.abspath(
+    os.path.join(script_dir, "test_data", "config_id_2.json")
+    )
 
 @pytest.fixture
 def config_dict() -> dict:
@@ -87,6 +140,13 @@ def valid_bbox_geojson() -> dict:
     with open(file_path, "r", encoding="utf-8") as input_file:
         data = json.load(input_file)
     return data
+
+@pytest.fixture
+def valid_rois_filepath() -> str:
+    """returns filepath to valid_rois.geojson. ROIs with ids:[17,30,35]"""
+    return os.path.abspath(
+        os.path.join(script_dir, "test_data", "valid_rois.geojson")
+    )
 
 
 @pytest.fixture
@@ -195,7 +255,7 @@ def valid_settings() -> dict:
 
 
 @pytest.fixture
-def valid_single_inputs_dict() -> dict:
+def valid_single_roi_settings() -> dict:
     """Returns valid inputs dict with two roi id '2' and '5'
 
     Returns:
@@ -223,7 +283,7 @@ def valid_single_inputs_dict() -> dict:
 
 
 @pytest.fixture
-def valid_inputs_dict() -> dict:
+def valid_roi_settings() -> dict:
     """Returns valid inputs dict with two roi id '2' and '5'
 
     Returns:

@@ -30,8 +30,8 @@ class ROI:
         square_len_sm: float = 0,
         filename: str = None,
     ):
-        # inputs_dict ; after ROIs have been downloaded holds all download settings
-        self.inputs_dict = {}
+        # roi_settings : after ROIs have been downloaded holds all download settings
+        self.roi_settings = {}
         # holds the settings and inputs for all the ROIs downloaded
         self.master_config = {}
         # extract_shorelines : dictionary with ROIs' ids as the keys holding the extracted shorelines
@@ -65,9 +65,9 @@ class ROI:
                 bbox, shoreline, square_len_lg, square_len_sm
             )
 
-    def set_inputs_dict(self, inputs: dict) -> None:
-        logger.info(f"Saving inputs_dict {inputs}")
-        self.inputs_dict = inputs
+    def set_roi_settings(self, roi_settings: dict) -> None:
+        logger.info(f"Saving roi_settings {roi_settings}")
+        self.roi_settings = roi_settings
 
     def update_extracted_shorelines(self, extract_shoreline: dict):
         logger.info(
@@ -269,7 +269,7 @@ class ROI:
             print(f"Did not save transects to json for ROI:{roi_id}")
             logger.info(f"Did not save transects to json for ROI:{roi_id}")
             return
-        sitename = str(self.inputs_dict[roi_id]["sitename"])
+        sitename = str(self.roi_settings[roi_id]["sitename"])
         logger.info(f"save_transects_to_json:: sitename: {sitename}")
         filename = f"transects_cross_distances" + str(roi_id) + ".json"
         logger.info(f"save_transects_to_json:: filename: {filename}")

@@ -287,27 +287,27 @@ def find_config_json(dir_path):
             return item
 
 
-def check_filepaths_exist(roi_ids: list, inputs_dict: dict) -> bool:
+def check_filepaths_exist(roi_ids: list, roi_settings: dict) -> bool:
     """Returns True if a 'filepath' key and location exists in inputs dict for each roi id in roi_ids.
     False means a 'filepath' key or location did not exist for an id in roi_ids
     Args:
         roi_ids (list[str]): ids of each roi
-        inputs_dict (dict): input settings for each roi.
+        roi_settings (dict): input settings for each roi.
     Returns:
-        bool: True if all filepaths existed in inputs_dict for each id in roi_ids
+        bool: True if all filepaths existed in roi_settings for each id in roi_ids
     """
     # by default assume 'filepath's exist for all rois
     all_filepaths_exist = True
-    for id in roi_ids:
-        if "filepath" in inputs_dict[id]:
-            logger.info(f"filepath in inputs_dict[id]: {inputs_dict[id]['filepath']}")
-            if not os.path.exists(inputs_dict[id]["filepath"]):
-                print(f"Did not find filepath location for ROI: {id}")
-                logger.info(f"Did not find filepath location for ROI: {id}")
+    for roi_id in roi_ids:
+        if "filepath" in roi_settings[roi_id]:
+            logger.info(f"filepath in roi_settings[id]: {roi_settings[roi_id]['filepath']}")
+            if not os.path.exists(roi_settings[roi_id]["filepath"]):
+                print(f"Did not find filepath location for ROI: {roi_id}")
+                logger.info(f"Did not find filepath location for ROI: {roi_id}")
                 all_filepaths_exist = False
-        elif "filepath" not in inputs_dict[id]:
-            print(f"Did not find filepath for ROI: {id}")
-            logger.info(f"Did not find filepath for ROI: {id}")
+        elif "filepath" not in roi_settings[roi_id]:
+            print(f"Did not find filepath for ROI: {roi_id}")
+            logger.info(f"Did not find filepath for ROI: {roi_id}")
             all_filepaths_exist = False
     return all_filepaths_exist
 
