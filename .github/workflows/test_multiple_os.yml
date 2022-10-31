@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [workflows]
+    branches: [workflows, update/create_json_config]
   pull_request:
     branches: [workflows]
 
