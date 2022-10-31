@@ -32,8 +32,6 @@ class ROI:
     ):
         # roi_settings : after ROIs have been downloaded holds all download settings
         self.roi_settings = {}
-        # holds the settings and inputs for all the ROIs downloaded
-        self.master_config = {}
         # extract_shorelines : dictionary with ROIs' ids as the keys holding the extracted shorelines
         self.extracted_shorelines = {}
         # cross_distance_transects : dictionary with ROIs' ids as the keys holding the transects cross distances

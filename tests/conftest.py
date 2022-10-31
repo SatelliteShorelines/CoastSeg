@@ -345,11 +345,11 @@ def valid_roi_settings() -> dict:
 
 
 @pytest.fixture
-def valid_master_config() -> dict:
+def valid_config_json() -> dict:
     """Returns a complete master config with roi_ids=['2', '3', '5'], settings, and
     a key for each roi and their associated inputs
     Returns:
-        dict: master_config with roi_ids=['2', '3', '5']
+        dict: config json with roi_ids=['2', '3', '5']
     """
     return {
         "roi_ids": ["2", "3", "5"],

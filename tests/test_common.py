@@ -62,7 +62,7 @@ def test_create_json_config(
     valid_roi_settings,
 ):
     # test if valid json style config is created when inputs dictionary contains multiple entries
-    actual_config = common.create_json_config(valid_roi_settings,valid_settings)
+    actual_config = common.create_json_config(valid_roi_settings, valid_settings)
     expected_roi_ids = list(valid_roi_settings.keys())
 
     assert isinstance(actual_config, dict)
@@ -88,46 +88,6 @@ def test_create_json_config_single_input(valid_settings, valid_single_roi_settin
     assert actual_config["roi_ids"] == expected_roi_ids
     for key in expected_roi_ids:
         assert isinstance(actual_config[str(key)], dict)
-
-
-# def test_create_config_dict(valid_inputs, valid_settings)->dict:
-#     # test adding an ROI's data to an empty config dictionary
-#     master_config = {}
-#     actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
-#     assert isinstance(actual_config,dict)
-#     expected_roi = valid_inputs['roi_id']
-#     # test the roi id was added as a key to config
-#     assert expected_roi in actual_config
-#     # test roi id is in the config list of all roi_ids
-#     assert actual_config['roi_ids'] == [expected_roi]
-#     assert actual_config[expected_roi]['inputs']  == valid_inputs
-#     assert actual_config[expected_roi]['settings'] == valid_settings
-
-#     # test adding another ROI's data to a non-empty config dictionary
-#     master_config = {'roi_ids':[23,24],
-#                         23:{
-#                             'settings':[],
-#                             'inputs':[]
-#                         },
-#                             24:{
-#                             'settings':[],
-#                             'inputs':[]
-#                         }}
-#     actual_config = common.create_json_config(master_config, valid_inputs, valid_settings)
-#     assert isinstance(actual_config,dict)
-#     expected_roi = valid_inputs['roi_id']
-#     # test the id was added as a key to config
-#     assert expected_roi in actual_config
-#     # test all roi ids are in the config list of all roi_ids
-#     assert actual_config['roi_ids'] == [23,24,expected_roi]
-#     assert actual_config[expected_roi]['inputs']  == valid_inputs
-#     assert actual_config[expected_roi]['settings'] == valid_settings
-#     # ensure the other record in config dict were not changed
-#     assert actual_config[23]['inputs']  == []
-#     assert actual_config[23]['settings'] == []
-#     # test that all the roi ids are in config
-#     assert 23 in actual_config
-#     assert 24 in actual_config
 
 
 def test_extract_roi_by_id(valid_rois_gdf):

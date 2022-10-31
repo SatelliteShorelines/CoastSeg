@@ -136,7 +136,6 @@ def test_roi_from_bbox_and_shorelines(valid_bbox_gdf, valid_shoreline_gdf):
     assert hasattr(actual_roi, "extracted_shorelines")
     assert hasattr(actual_roi, "cross_distance_transects")
     assert hasattr(actual_roi, "roi_settings")
-    assert hasattr(actual_roi, "master_config")
 
 
 def test_create_fishnet(valid_bbox_gdf: gpd.GeoDataFrame, valid_ROI: roi.ROI):
@@ -205,7 +204,6 @@ def test_transect_compatible_roi(transect_compatible_roi: gpd.GeoDataFrame):
     assert hasattr(actual_roi, "extracted_shorelines")
     assert hasattr(actual_roi, "cross_distance_transects")
     assert hasattr(actual_roi, "roi_settings")
-    assert hasattr(actual_roi, "master_config")
 
 
 def test_update_extracted_shorelines(valid_ROI: roi.ROI):

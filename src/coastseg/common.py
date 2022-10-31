@@ -342,7 +342,7 @@ def make_coastsat_compatible(shoreline_in_roi: gpd.geodataframe) -> np.ndarray:
 def create_json_config(inputs: dict, settings: dict) -> dict:
     """returns config dictionary with the settings, currently selected_roi ids, and
     each of the inputs specified by roi id.
-    sample master_config:
+    sample config:
     {
         'roi_ids': ['17','20']
         'settings':{ 'dates': ['2018-12-01', '2019-03-01'],
@@ -369,7 +369,7 @@ def create_json_config(inputs: dict, settings: dict) -> dict:
         inputs (dict): json style dictionary with roi ids at the keys with inputs as values
         settings (dict):  json style dictionary containing map settings
     Returns:
-        dict: json style dictionary, master_config
+        dict: json style dictionary, config
     """
     roi_ids = list(inputs.keys())
     config = {**inputs}

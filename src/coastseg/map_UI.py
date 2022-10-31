@@ -495,7 +495,7 @@ class UI:
     @debug_view.capture(clear_output=True)
     def on_save_config_clicked(self, button):
         try:
-            self.coastseg_map.save_config(self.coastseg_map.data_downloaded)
+            self.coastseg_map.save_config()
         except Exception as error:
             with Tkinter_Window_Creator():
                 logger.error(error)
