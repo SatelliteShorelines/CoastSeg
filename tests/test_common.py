@@ -57,10 +57,12 @@ def test_get_center_rectangle():
     assert center_y == 5.5
 
 
-def test_create_json_config(valid_settings, valid_inputs_dict, valid_master_config):
-    actual_config = common.create_json_config(
-        valid_master_config, valid_inputs_dict, valid_settings
-    )
+def test_create_json_config(
+    valid_settings,
+    valid_inputs_dict,
+):
+    # test if valid json style config is created when inputs dictionary contains multiple entries
+    actual_config = common.create_json_config(valid_inputs_dict,valid_settings)
     expected_roi_ids = list(valid_inputs_dict.keys())
 
     assert isinstance(actual_config, dict)
@@ -73,13 +75,9 @@ def test_create_json_config(valid_settings, valid_inputs_dict, valid_master_conf
         assert isinstance(actual_config[str(key)], dict)
 
 
-def test_create_json_config_single_inputs(
-    valid_settings, valid_single_inputs_dict, valid_master_config
-):
-    # test if valiud master config is created when inputs contains only one entry
-    actual_config = common.create_json_config(
-        valid_master_config, valid_single_inputs_dict, valid_settings
-    )
+def test_create_json_config_single_input(valid_settings, valid_single_inputs_dict):
+    # test if valid json style config is created when inputs dictionary contains only one entry
+    actual_config = common.create_json_config(valid_single_inputs_dict, valid_settings)
     expected_roi_ids = list(valid_single_inputs_dict.keys())
 
     assert isinstance(actual_config, dict)
@@ -90,20 +88,6 @@ def test_create_json_config_single_inputs(
     assert actual_config["roi_ids"] == expected_roi_ids
     for key in expected_roi_ids:
         assert isinstance(actual_config[str(key)], dict)
-
-
-def test_create_json_config_empty_config(valid_settings, valid_inputs_dict):
-    master_config = {}
-    actual_config = common.create_json_config(
-        master_config, valid_inputs_dict, valid_settings
-    )
-    expected_roi_ids = list(valid_inputs_dict.keys())
-    assert isinstance(actual_config, dict)
-    assert "settings" in actual_config.keys()
-    assert "roi_ids" in actual_config.keys()
-    assert isinstance(actual_config["roi_ids"], list)
-    assert isinstance(actual_config["settings"], dict)
-    assert actual_config["roi_ids"] == expected_roi_ids
 
 
 # def test_create_config_dict(valid_inputs, valid_settings)->dict:

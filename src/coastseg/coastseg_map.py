@@ -394,15 +394,12 @@ class CoastSeg_Map:
             self.rois.set_inputs_dict(inputs)
             logger.info(f"save_config :: Inputs_dict: {self.rois.inputs_dict}")
 
-        master_config = {}
-        self.rois.master_config = common.create_json_config(
-            master_config, inputs, settings
-        )
+        config_json = common.create_json_config(inputs, settings)
         logger.info(
-            f"save_config :: self.rois.master_config: {self.rois.master_config} "
+            f"save_config :: config_json: {config_json} "
         )
-        roi_ids = self.rois.master_config["roi_ids"]
-        logger.info(f"save_config :: self.rois.master_config['roi_ids']: {roi_ids} ")
+        # get currently selected rois selected 
+        roi_ids = config_json["roi_ids"]
         selected_rois = self.get_selected_rois(roi_ids)
         logger.info(f"save_config :: selected_rois: {selected_rois} ")
 
@@ -424,16 +421,16 @@ class CoastSeg_Map:
         # data has been downloaded before so inputs have keys 'filepath' and 'sitename'
         if is_downloaded == True:
             # write master config file to each directory where a roi was saved
-            roi_ids = self.rois.master_config["roi_ids"]
+            roi_ids = config_json["roi_ids"]
             for roi_id in roi_ids:
-                sitename = str(self.rois.master_config[roi_id]["sitename"])
+                sitename = str(config_json[roi_id]["sitename"])
                 filename = f"config_id_{roi_id}.json"
                 site_path = os.path.abspath(os.path.join(os.getcwd(), "data", sitename))
                 save_path = os.path.abspath(os.path.join(site_path, filename))
                 logger.info(
-                    f"Saving master config: {self.rois.master_config} \n Saved to {save_path}"
+                    f"Saving master config: {config_json} \n Saved to {save_path}"
                 )
-                common.write_to_json(save_path, self.rois.master_config)
+                common.write_to_json(save_path, config_json)
                 filename = f"config_gdf_id_{roi_id}.geojson"
                 save_path = os.path.abspath(os.path.join(site_path, filename))
                 logger.info(
@@ -446,7 +443,7 @@ class CoastSeg_Map:
             # if the data has not been downloaded before save it to the coastseg directory
             filename = f"config.json"
             save_path = os.path.abspath(os.path.join(os.getcwd(), filename))
-            common.write_to_json(save_path, self.rois.master_config)
+            common.write_to_json(save_path, config_json)
             print(f"Saved config json: {filename} \n Saved to {save_path}")
             logger.info(f"Saved config json: {filename} \n Saved to {save_path}")
             filename = f"config_gdf.geojson"

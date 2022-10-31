@@ -339,8 +339,8 @@ def make_coastsat_compatible(shoreline_in_roi: gpd.geodataframe) -> np.ndarray:
     return shorelines
 
 
-def create_json_config(master_config: dict, inputs: dict, settings: dict) -> dict:
-    """returns master config dictionary with the settings, currently selected_roi ids, and
+def create_json_config(inputs: dict, settings: dict) -> dict:
+    """returns config dictionary with the settings, currently selected_roi ids, and
     each of the inputs specified by roi id.
     sample master_config:
     {
@@ -366,19 +366,16 @@ def create_json_config(master_config: dict, inputs: dict, settings: dict) -> dic
     }
 
     Args:
-        master_config (dict): json style dictionary containing settings, rois, and inputs
         inputs (dict): json style dictionary with roi ids at the keys with inputs as values
         settings (dict):  json style dictionary containing map settings
-
     Returns:
         dict: json style dictionary, master_config
     """
     roi_ids = list(inputs.keys())
-    master_config = {**inputs}
-    master_config["roi_ids"] = roi_ids
-    master_config["settings"] = settings
-
-    return master_config
+    config = {**inputs}
+    config["roi_ids"] = roi_ids
+    config["settings"] = settings
+    return config
 
 
 def does_filepath_exist(dictionary: dict):
