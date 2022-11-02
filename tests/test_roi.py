@@ -29,12 +29,10 @@ def test_create_geodataframe(
     assert actual_gdf.dtypes["id"] == "object"
     # drop unneeded columns before checking
     columns_to_drop = list(valid_shoreline_gdf.columns.difference(["geometry"]))
-    valid_shoreline_gdf = valid_shoreline_gdf.drop(
-        columns=columns_to_drop
-    )
+    valid_shoreline_gdf = valid_shoreline_gdf.drop(columns=columns_to_drop)
     # Validate any shorelines intersect any squares in actual_gdf
-    intersection_gdf =gpd.sjoin(
-        valid_shoreline_gdf,right_df =actual_gdf, how="inner", predicate="intersects"
+    intersection_gdf = gpd.sjoin(
+        valid_shoreline_gdf, right_df=actual_gdf, how="inner", predicate="intersects"
     )
     assert intersection_gdf.empty == False
 
@@ -57,9 +55,7 @@ def test_fishnet_intersection(
     assert set(fishnet_gdf.columns) == set(["geometry"])
     # drop unneeded columns before checking
     columns_to_drop = list(valid_shoreline_gdf.columns.difference(["geometry"]))
-    valid_shoreline_gdf = valid_shoreline_gdf.drop(
-        columns=columns_to_drop
-    )
+    valid_shoreline_gdf = valid_shoreline_gdf.drop(columns=columns_to_drop)
     # check if any shorelines intersect any squares in fishnet_gdf
     intersection_gdf = valid_shoreline_gdf.sjoin(
         fishnet_gdf, how="inner", predicate="intersects"
@@ -87,9 +83,7 @@ def test_get_fishnet(
     assert set(fishnet_gdf.columns) == set(["geometry"])
     # drop unneeded columns before checking
     columns_to_drop = list(valid_shoreline_gdf.columns.difference(["geometry"]))
-    valid_shoreline_gdf = valid_shoreline_gdf.drop(
-        columns=columns_to_drop
-    )
+    valid_shoreline_gdf = valid_shoreline_gdf.drop(columns=columns_to_drop)
     # check if any shorelines intersect any squares in fishnet_gdf
     intersection_gdf = valid_shoreline_gdf.sjoin(
         fishnet_gdf, how="inner", predicate="intersects"

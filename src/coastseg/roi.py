@@ -151,12 +151,12 @@ class ROI:
         Returns:
             geopandas.geodataframe.GeoDataFrame: intersection of fishnet and data
         """
-        intersection_gdf = gpd.sjoin(left_df =fishnet,right_df = data, how="inner", predicate='intersects')
+        intersection_gdf = gpd.sjoin(
+            left_df=fishnet, right_df=data, how="inner", predicate="intersects"
+        )
         # intersection_gdf = fishnet.sjoin(data, how="inner", predicate="intersects")
         columns_to_drop = list(intersection_gdf.columns.difference(["geometry"]))
-        intersection_gdf.drop(
-            columns=columns_to_drop, inplace=True
-        )
+        intersection_gdf.drop(columns=columns_to_drop, inplace=True)
         intersection_gdf.drop_duplicates(inplace=True)
         return intersection_gdf
 

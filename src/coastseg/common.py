@@ -73,20 +73,6 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                     pbar.update(len(chunk))
 
 
-def combine_inputs(roi: dict, attributes: dict) -> dict:
-    """Adds the roi's coordinates and roi_id to attributes
-    Args:
-        roi (dict): geojson of roi
-        attributes (dict): download settings
-    Returns:
-        dict: dictionary containing attributes and
-        new keys 'polygon':roi coordinates and 'roi_id':roi's id
-    """
-    polygon = roi["geometry"]["coordinates"]
-    polygon = SDS_tools.smallest_rectangle(polygon)
-    inputs = {"polygon": polygon, "roi_id": str(roi["properties"]["id"]), **attributes}
-    return inputs
-
 def get_center_rectangle(coords: list) -> tuple:
     """returns the center point of rectangle specified by points coords
     Args:
@@ -202,19 +188,19 @@ def convert_gdf_to_polygon(gdf: gpd.geodataframe, id: int = None) -> geometry.Po
     return polygon
 
 
-def get_area(polygon: dict)->float:
+def get_area(polygon: dict) -> float:
     "Calculates the area of the geojson polygon using the same method as geojson.io"
     return round(area(polygon), 3)
 
 
-def read_json_file(filename: str)->dict:
+def read_json_file(filename: str) -> dict:
     logger.info(f"read_json_file {filename}")
     with open(filename, "r", encoding="utf-8") as input_file:
         data = json.load(input_file)
     return data
 
 
-def find_config_json(dir_path)->bool:
+def find_config_json(dir_path) -> bool:
     logger.info(f"searching directory for config.json: {dir_path}")
 
     def use_regex(input_text):
@@ -229,15 +215,15 @@ def find_config_json(dir_path)->bool:
             return item
 
 
-def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path:str):
-    """Saves config to config.json or config_gdf.geojson 
+def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
+    """Saves config to config.json or config_gdf.geojson
     config's type is dict or geodataframe respectively
-    
+
     Args:
         config (Union[dict, gpd.GeoDataFrame]): data to save to config file
         file_path (str): full path to directory to save config file
-    """        
-    if isinstance(config,dict):
+    """
+    if isinstance(config, dict):
         filename = f"config.json"
         save_path = os.path.abspath(os.path.join(file_path, filename))
         write_to_json(save_path, config)
@@ -246,10 +232,9 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path:str):
     elif isinstance(config, gpd.GeoDataFrame):
         filename = f"config_gdf.geojson"
         save_path = os.path.abspath(os.path.join(file_path, filename))
-        logger.info(
-            f"Saving config gdf:{config} \nSaved to {save_path}"
-        )
+        logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         config.to_file(save_path, driver="GeoJSON")
+
 
 def make_coastsat_compatible(shoreline_in_roi: gpd.geodataframe) -> np.ndarray:
     """Return the shoreline_in_roi as an np.array in the form:
@@ -491,15 +476,26 @@ def rename_jpgs(src_path: str) -> None:
         if files_renamed:
             print(f"Renamed files in {src_path} ")
 
-def were_rois_downloaded(roi_settings:dict, roi_ids: list) -> bool:
+
+def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
+    """Returns true if rois were downloaded before. False if they have not
+    Uses 'sitename' key for each roi to determine if roi was downloaded.
+    If each roi's 'sitename' is not empty string returns true
+    Args:
+        roi_settings (dict): settings of all rois on map
+        roi_ids (list): ids of rois selected on map
+
+    Returns:
+        bool: True means rois were downloaded before
+    """
     # by default assume rois were downloaded
     is_downloaded = True
     if roi_settings is None:
-      # if rois do not have roi_settings this means they were never downloaded
-      is_downloaded = False
+        # if rois do not have roi_settings this means they were never downloaded
+        is_downloaded = False
     elif roi_settings == {}:
         # if rois do not have roi_settings this means they were never downloaded
-        is_downloaded = False    
+        is_downloaded = False
     elif roi_settings != {}:
         for roi_id in roi_ids:
             if roi_settings[roi_id]["sitename"] == "":
@@ -509,9 +505,7 @@ def were_rois_downloaded(roi_settings:dict, roi_ids: list) -> bool:
     # print the correct message depending on whether ROIs were downloaded
     if is_downloaded:
         print("Located previously downloaded ROI data.")
-        logger.info(
-            f"were_rois_downloaded:: Located previously downloaded ROI data."
-        )
+        logger.info(f"were_rois_downloaded:: Located previously downloaded ROI data.")
     elif is_downloaded == False:
         print(
             "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
@@ -521,34 +515,84 @@ def were_rois_downloaded(roi_settings:dict, roi_ids: list) -> bool:
         )
     return is_downloaded
 
+
 def create_roi_settings(
-        settings: dict,
-        selected_rois: dict,
-        filepath: str,
-        date_str: str = "",
-    ):
-        roi_settings = {}
-        sat_list = settings["sat_list"]
-        landsat_collection = settings["landsat_collection"]
-        dates = settings["dates"]
-        # for roi in self.selected_ROI_layer.data["features"]:
-        for roi in selected_rois["features"]:
-            roi_id = str(roi["properties"]["id"])
-            sitename = (
-                "" if date_str == "" else "ID_" + str(roi_id) + "_datetime" + date_str
-            )
-            polygon = roi["geometry"]["coordinates"]
-            inputs_dict = {
-                "dates": dates,
-                "sat_list": sat_list,
-                "roi_id": roi_id,
-                "polygon": polygon,
-                "landsat_collection": landsat_collection,
-                "sitename": sitename,
-                "filepath": filepath,
-            }
-            roi_settings[roi_id] = inputs_dict
-        return roi_settings
+    settings: dict,
+    selected_rois: dict,
+    filepath: str,
+    date_str: str = "",
+) -> dict:
+    """returns a dict of settings for each roi with roi id as the key.
+    Example:
+    "2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L8"],
+            "sitename": "ID_2_datetime10-19-22__04_00_34",
+            "filepath": "C:\\CoastSeg\\data",
+            "roi_id": "2",
+            "polygon": [
+                [
+                    [-124.16930255115336, 40.8665390046026],
+                    [-124.16950858759564, 40.878247531017706],
+                    [-124.15408259844114, 40.878402930533994],
+                    [-124.1538792781699, 40.8666943403763],
+                    [-124.16930255115336, 40.8665390046026],
+                ]
+            ],
+            "landsat_collection": "C01",
+        },
+        "3": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L8"],
+            "sitename": "ID_3_datetime10-19-22__04_00_34",
+            "filepath": "C:\\CoastSeg\\data",
+            "roi_id": "3",
+            "polygon": [
+                [
+                    [-124.16950858759564, 40.878247531017706],
+                    [-124.16971474532464, 40.88995603272874],
+                    [-124.15428603840094, 40.890111496009816],
+                    [-124.15408259844114, 40.878402930533994],
+                    [-124.16950858759564, 40.878247531017706],
+                ]
+            ],
+            "landsat_collection": "C01",
+        },
+
+    Args:
+        settings (dict): settings from coastseg_map.
+        Must have keys ["sat_list","landsat_collection","dates"]
+        selected_rois (dict): geojson dict of rois selected
+        filepath (str): file path to directory to hold roi data
+        date_str (str, optional): datetime formatted string. Defaults to "".
+
+    Returns:
+        dict: settings for each roi with roi id as the key
+    """
+
+    roi_settings = {}
+    sat_list = settings["sat_list"]
+    landsat_collection = settings["landsat_collection"]
+    dates = settings["dates"]
+    # for roi in self.selected_ROI_layer.data["features"]:
+    for roi in selected_rois["features"]:
+        roi_id = str(roi["properties"]["id"])
+        sitename = (
+            "" if date_str == "" else "ID_" + str(roi_id) + "_datetime" + date_str
+        )
+        polygon = roi["geometry"]["coordinates"]
+        inputs_dict = {
+            "dates": dates,
+            "sat_list": sat_list,
+            "roi_id": roi_id,
+            "polygon": polygon,
+            "landsat_collection": landsat_collection,
+            "sitename": sitename,
+            "filepath": filepath,
+        }
+        roi_settings[roi_id] = inputs_dict
+    return roi_settings
+
 
 def generate_datestring() -> str:
     """Returns a datetime string in the following format %m-%d-%y__%I_%M_%S

@@ -12,16 +12,15 @@ from ipyleaflet import GeoJSON
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-    
-
 @pytest.fixture
-def valid_coastseg_map()->coastseg_map.CoastSeg_Map:
+def valid_coastseg_map() -> coastseg_map.CoastSeg_Map:
     # returns a valid instance of CoastSeg_Map with settings loaded in
     coastsegmap = coastseg_map.CoastSeg_Map()
     return coastsegmap
 
+
 @pytest.fixture
-def valid_coastseg_map_with_incomplete_settings()->coastseg_map.CoastSeg_Map:
+def valid_coastseg_map_with_incomplete_settings() -> coastseg_map.CoastSeg_Map:
     # returns a valid instance of CoastSeg_Map with settings loaded in
     coastsegmap = coastseg_map.CoastSeg_Map()
     pre_process_settings = {
@@ -43,14 +42,12 @@ def valid_coastseg_map_with_incomplete_settings()->coastseg_map.CoastSeg_Map:
         "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
-    coastsegmap.save_settings(
-        **pre_process_settings
-    )
+    coastsegmap.save_settings(**pre_process_settings)
     return coastsegmap
 
 
 @pytest.fixture
-def valid_coastseg_map_with_settings()->coastseg_map.CoastSeg_Map:
+def valid_coastseg_map_with_settings() -> coastseg_map.CoastSeg_Map:
     # returns a valid instance of CoastSeg_Map with settings loaded in
     coastsegmap = coastseg_map.CoastSeg_Map()
     dates = ["2018-12-01", "2019-03-01"]
@@ -76,16 +73,19 @@ def valid_coastseg_map_with_settings()->coastseg_map.CoastSeg_Map:
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
-        sat_list=sat_list, landsat_collection=landsat_collection, dates=dates, **pre_process_settings
+        sat_list=sat_list,
+        landsat_collection=landsat_collection,
+        dates=dates,
+        **pre_process_settings
     )
     return coastsegmap
 
 
 @pytest.fixture
-def coastseg_map_with_rois(valid_rois_filepath)->coastseg_map.CoastSeg_Map:
-    """returns a valid instance of CoastSeg_Map with settings loaded, rois loaded, 
+def coastseg_map_with_rois(valid_rois_filepath) -> coastseg_map.CoastSeg_Map:
+    """returns a valid instance of CoastSeg_Map with settings loaded, rois loaded,
     and ROI with id 17 selected on map_
-    ROIs on map have ids:["17","30","35"]   
+    ROIs on map have ids:["17","30","35"]
     Selected ROIs have id:["17"]
     Args:
         valid_coastseg_map_with_settings (Coastseg_Map): valid instance of coastseg map with settings already loaded
@@ -93,7 +93,7 @@ def coastseg_map_with_rois(valid_rois_filepath)->coastseg_map.CoastSeg_Map:
                                     ROIs with ids:[17,30,35]
     Returns:
         coastseg_map.CoastSeg_Map: instance of CoastSeg_Map with settings loaded, rois loaded, and ROI with id 17 selected on map
-    """   
+    """
     coastsegmap = coastseg_map.CoastSeg_Map()
     dates = ["2018-12-01", "2019-03-01"]
     landsat_collection = "C01"
@@ -118,7 +118,10 @@ def coastseg_map_with_rois(valid_rois_filepath)->coastseg_map.CoastSeg_Map:
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
-        sat_list=sat_list, landsat_collection=landsat_collection, dates=dates, **pre_process_settings
+        sat_list=sat_list,
+        landsat_collection=landsat_collection,
+        dates=dates,
+        **pre_process_settings
     )
     # test if rois will added to coastsegmap and added to ROI layer
     coastsegmap.load_rois_on_map(file=valid_rois_filepath)
@@ -126,10 +129,12 @@ def coastseg_map_with_rois(valid_rois_filepath)->coastseg_map.CoastSeg_Map:
 
 
 @pytest.fixture
-def coastseg_map_with_selected_roi_layer(valid_rois_filepath)->coastseg_map.CoastSeg_Map:
-    """returns a valid instance of CoastSeg_Map with settings loaded, rois loaded, 
+def coastseg_map_with_selected_roi_layer(
+    valid_rois_filepath,
+) -> coastseg_map.CoastSeg_Map:
+    """returns a valid instance of CoastSeg_Map with settings loaded, rois loaded,
     and ROI with id 17 selected on map_
-    ROIs on map have ids:["17","30","35"]   
+    ROIs on map have ids:["17","30","35"]
     Selected ROIs have id:["17"]
     Args:
         valid_coastseg_map_with_settings (Coastseg_Map): valid instance of coastseg map with settings already loaded
@@ -137,7 +142,7 @@ def coastseg_map_with_selected_roi_layer(valid_rois_filepath)->coastseg_map.Coas
                                     ROIs with ids:[17,30,35]
     Returns:
         coastseg_map.CoastSeg_Map: instance of CoastSeg_Map with settings loaded, rois loaded, and ROI with id 17 selected on map
-    """   
+    """
     coastsegmap = coastseg_map.CoastSeg_Map()
     dates = ["2018-12-01", "2019-03-01"]
     landsat_collection = "C01"
@@ -162,7 +167,10 @@ def coastseg_map_with_selected_roi_layer(valid_rois_filepath)->coastseg_map.Coas
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
-        sat_list=sat_list, landsat_collection=landsat_collection, dates=dates, **pre_process_settings
+        sat_list=sat_list,
+        landsat_collection=landsat_collection,
+        dates=dates,
+        **pre_process_settings
     )
     # test if rois will added to coastsegmap and added to ROI layer
     coastsegmap.load_rois_on_map(file=valid_rois_filepath)
@@ -179,25 +187,24 @@ def coastseg_map_with_selected_roi_layer(valid_rois_filepath)->coastseg_map.Coas
 
 
 @pytest.fixture
-def downloaded_config_geojson_filepath()->str:
+def downloaded_config_geojson_filepath() -> str:
     # filepath to config.geojson file containing geodataframe with rois with ids ["2", "3", "5"] that were downloaded
-    return  os.path.abspath(
-    os.path.join(script_dir, "test_data", "config_gdf_id_2.geojson")
+    return os.path.abspath(
+        os.path.join(script_dir, "test_data", "config_gdf_id_2.geojson")
     )
 
+
 @pytest.fixture
-def config_json_filepath()->str:
+def config_json_filepath() -> str:
     # filepath to config.json file containing rois with ids ["2", "3", "5"] that were not downloaded
-    return  os.path.abspath(
-    os.path.join(script_dir, "test_data", "config.json")
-    )
+    return os.path.abspath(os.path.join(script_dir, "test_data", "config.json"))
+
 
 @pytest.fixture
-def downloaded_config_json_filepath()->str:
+def downloaded_config_json_filepath() -> str:
     # filepath to config.json file containing rois with ids ["2", "3", "5"] that were downloaded
-    return  os.path.abspath(
-    os.path.join(script_dir, "test_data", "config_id_2.json")
-    )
+    return os.path.abspath(os.path.join(script_dir, "test_data", "config_id_2.json"))
+
 
 @pytest.fixture
 def config_dict() -> dict:
@@ -205,35 +212,65 @@ def config_dict() -> dict:
     settings = {16: {}}
     return settings
 
+
 @pytest.fixture
-def valid_selected_ROI_layer_data()->dict:
-    return {'type': 'FeatureCollection',
-        'features': [{'id': '0',
-        'type': 'Feature',
-        'properties': {'id': '0',
-            'style': {'color': 'blue',
-            'weight': 2,
-            'fillColor': 'blue',
-            'fillOpacity': 0.1}},
-        'geometry': {'type': 'Polygon',
-            'coordinates': [[[-124.19437983778509, 40.82355301978889],
-            [-124.19502680580241, 40.859579119105774],
-            [-124.14757559660633, 40.86006100475558],
-            [-124.14695430388457, 40.82403429740862],
-            [-124.19437983778509, 40.82355301978889]]]}},
-        {'id': '1',
-        'type': 'Feature',
-        'properties': {'id': '1',
-            'style': {'color': 'blue',
-            'weight': 2,
-            'fillColor': 'blue',
-            'fillOpacity': 0.1}},
-        'geometry': {'type': 'Polygon',
-            'coordinates': [[[-124.19437983778509, 40.82355301978889],
-            [-124.19494587073427, 40.85507586949846],
-            [-124.15342893565658, 40.85549851995218],
-            [-124.15288255801966, 40.82397520357295],
-            [-124.19437983778509, 40.82355301978889]]]}}]}
+def valid_selected_ROI_layer_data() -> dict:
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "id": "0",
+                "type": "Feature",
+                "properties": {
+                    "id": "0",
+                    "style": {
+                        "color": "blue",
+                        "weight": 2,
+                        "fillColor": "blue",
+                        "fillOpacity": 0.1,
+                    },
+                },
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-124.19437983778509, 40.82355301978889],
+                            [-124.19502680580241, 40.859579119105774],
+                            [-124.14757559660633, 40.86006100475558],
+                            [-124.14695430388457, 40.82403429740862],
+                            [-124.19437983778509, 40.82355301978889],
+                        ]
+                    ],
+                },
+            },
+            {
+                "id": "1",
+                "type": "Feature",
+                "properties": {
+                    "id": "1",
+                    "style": {
+                        "color": "blue",
+                        "weight": 2,
+                        "fillColor": "blue",
+                        "fillOpacity": 0.1,
+                    },
+                },
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-124.19437983778509, 40.82355301978889],
+                            [-124.19494587073427, 40.85507586949846],
+                            [-124.15342893565658, 40.85549851995218],
+                            [-124.15288255801966, 40.82397520357295],
+                            [-124.19437983778509, 40.82355301978889],
+                        ]
+                    ],
+                },
+            },
+        ],
+    }
+
 
 @pytest.fixture
 def valid_settings() -> dict:
@@ -306,12 +343,11 @@ def valid_bbox_geojson() -> dict:
         data = json.load(input_file)
     return data
 
+
 @pytest.fixture
 def valid_rois_filepath() -> str:
     """returns filepath to valid_rois.geojson. ROIs with ids:[17,30,35]"""
-    return os.path.abspath(
-        os.path.join(script_dir, "test_data", "valid_rois.geojson")
-    )
+    return os.path.abspath(os.path.join(script_dir, "test_data", "valid_rois.geojson"))
 
 
 @pytest.fixture
@@ -393,7 +429,6 @@ def valid_bbox_gdf() -> gpd.GeoDataFrame:
 def valid_ROI(transect_compatible_roi) -> gpd.GeoDataFrame:
     """returns a valid instance of ROI current espg code : 4326 ROIs with ids:[17,30,35]"""
     return roi.ROI(rois_gdf=transect_compatible_roi)
-
 
 
 @pytest.fixture
@@ -489,7 +524,7 @@ def valid_roi_settings() -> dict:
 @pytest.fixture
 def roi_settings_empty_sitenames() -> dict:
     """Returns valid inputs dict with two roi id '2'
-        sitenames are empty strings 
+        sitenames are empty strings
 
     Returns:
         dict: valid inputs dict with two roi id '2'

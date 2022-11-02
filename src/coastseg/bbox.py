@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class Bounding_Box:
     """Bounding_Box
 
-    _extended_summary_
+    A Bounding Box drawn by user.
     """
 
     MAX_AREA = 3000000000  # UNITS = Sq. Meters

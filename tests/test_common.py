@@ -8,58 +8,64 @@ import geopandas as gpd
 from shapely import geometry
 import pytest
 
+
 def test_were_rois_downloaded_empty_roi_settings():
-    actual_value = common.were_rois_downloaded(None,None)
+    actual_value = common.were_rois_downloaded(None, None)
     assert actual_value == False
-    actual_value = common.were_rois_downloaded({},None)
+    actual_value = common.were_rois_downloaded({}, None)
     assert actual_value == False
-    
-def test_were_rois_downloaded(valid_roi_settings,
-                              roi_settings_empty_sitenames):
-    """ Test if were_rois_downloaded returns true when sitenames != "" and false sitenames == ""
+
+
+def test_were_rois_downloaded(valid_roi_settings, roi_settings_empty_sitenames):
+    """Test if were_rois_downloaded returns true when sitenames != "" and false sitenames == ""
 
     Args:
         valid_roi_settings (dict): roi_settings with ids["2","3","5"] and valid sitenames
         roi_settings_empty_sitenames(dict): roi_settings with ids["2"] and sitenames = ""
-    """    
+    """
     # ids of rois in valid_roi_settings
-    roi_ids=["2","3","5"]
+    roi_ids = ["2", "3", "5"]
     # when sitenames are not empty strings should return true
-    actual_value= common.were_rois_downloaded(valid_roi_settings,roi_ids)
+    actual_value = common.were_rois_downloaded(valid_roi_settings, roi_ids)
     assert actual_value == True
-    
+
     roi_ids = ["2"]
     # when sitenames are not empty strings should return False
-    actual_value= common.were_rois_downloaded(roi_settings_empty_sitenames,roi_ids)
+    actual_value = common.were_rois_downloaded(roi_settings_empty_sitenames, roi_ids)
     assert actual_value == False
-    
 
-def test_create_roi_settings(valid_selected_ROI_layer_data,
-                             valid_settings):
-    """ test if valid roi_settings dictionary is created when provided settings and a single selected ROI
+
+def test_create_roi_settings(valid_selected_ROI_layer_data, valid_settings):
+    """test if valid roi_settings dictionary is created when provided settings and a single selected ROI
 
     Args:
         valid_selected_ROI_layer_data (dict): geojson for ROI with id ="0"
-        valid_settings (dict): 
+        valid_settings (dict):
             download settings for ROI
             "sat_list": ["L5", "L7", "L8"],
             "landsat_collection": "C01",
             "dates": ["2018-12-01", "2019-03-01"],
-    """    
-    filepath="C\:Sharon"
-    date_str= datetime.date(2019, 4, 13).strftime("%m-%d-%y__%I_%M_%S")
-    actual_roi_settings=common.create_roi_settings(valid_settings,
-                                    valid_selected_ROI_layer_data,
-                                    filepath,
-                                    date_str)
-    expected_roi_id =valid_selected_ROI_layer_data["features"][0]["properties"]["id"]
-    assert isinstance(actual_roi_settings,dict)
+    """
+    filepath = "C\:Sharon"
+    date_str = datetime.date(2019, 4, 13).strftime("%m-%d-%y__%I_%M_%S")
+    actual_roi_settings = common.create_roi_settings(
+        valid_settings, valid_selected_ROI_layer_data, filepath, date_str
+    )
+    expected_roi_id = valid_selected_ROI_layer_data["features"][0]["properties"]["id"]
+    assert isinstance(actual_roi_settings, dict)
     assert expected_roi_id in actual_roi_settings
-    assert set(actual_roi_settings[expected_roi_id]["dates"]) == set(valid_settings["dates"])
-    assert set(actual_roi_settings[expected_roi_id]["sat_list"]) == set(valid_settings["sat_list"])
-    assert actual_roi_settings[expected_roi_id]["landsat_collection"] == valid_settings["landsat_collection"]
-    assert  actual_roi_settings[expected_roi_id]["roi_id"] == expected_roi_id
-    assert  actual_roi_settings[expected_roi_id]["filepath"] == filepath
+    assert set(actual_roi_settings[expected_roi_id]["dates"]) == set(
+        valid_settings["dates"]
+    )
+    assert set(actual_roi_settings[expected_roi_id]["sat_list"]) == set(
+        valid_settings["sat_list"]
+    )
+    assert (
+        actual_roi_settings[expected_roi_id]["landsat_collection"]
+        == valid_settings["landsat_collection"]
+    )
+    assert actual_roi_settings[expected_roi_id]["roi_id"] == expected_roi_id
+    assert actual_roi_settings[expected_roi_id]["filepath"] == filepath
 
 
 def test_config_dict_to_file(tmp_path):

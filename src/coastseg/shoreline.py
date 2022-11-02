@@ -16,7 +16,6 @@ from ipyleaflet import GeoJSON
 logger = logging.getLogger(__name__)
 
 
-
 class Shoreline:
     """Shoreline: contains the shorelines within a region specified by bbox (bounding box)"""
 

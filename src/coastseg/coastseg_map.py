@@ -286,20 +286,19 @@ class CoastSeg_Map:
         self.rois.roi_settings = roi_settings
         logger.info(f"load_json_config:: roi_settings: {roi_settings}")
 
-
-    def save_config(self,filepath:str=None) -> None:
+    def save_config(self, filepath: str = None) -> None:
         """saves the configuration settings of the map into two files
             config.json and config.geojson
             Saves the inputs such as dates, landsat_collection, satellite list, and ROIs
             Saves the settings such as preprocess settings
         Args:
-            file_path (str, optional): path to directory to save config files. Defaults to None. 
+            file_path (str, optional): path to directory to save config files. Defaults to None.
         Raises:
             Exception: raised if self.settings is missing
-            Exception: raised if any of "dates", "sat_list", "landsat_collection" is missing from self.settings 
+            Exception: raised if any of "dates", "sat_list", "landsat_collection" is missing from self.settings
             Exception: raised if self.rois is missing
             Exception: raised if self.selected_ROI_layer is missing
-        """    
+        """
         if self.settings is None:
             logger.error(
                 "Settings must be loaded before configuration files can be made."
@@ -371,7 +370,7 @@ class CoastSeg_Map:
             common.config_to_file(config_json, filepath)
             # save to config_gdf.geojson
             common.config_to_file(config_gdf, filepath)
-        elif  filepath is None:
+        elif filepath is None:
             # data has been downloaded before so inputs have keys 'filepath' and 'sitename'
             if is_downloaded == True:
                 # write config_json file to each directory where a roi was saved
@@ -466,18 +465,18 @@ class CoastSeg_Map:
             raise Exception(
                 f"To extract shorelines you must first select ROIs and have the data downloaded."
             )
-        
+
         settings = self.settings
         # get selected ROIs on map and extract shoreline for each of them
         roi_ids = list(self.selected_set)
-        if common.were_rois_downloaded(self.rois.roi_settings,roi_ids)== False:
+        if common.were_rois_downloaded(self.rois.roi_settings, roi_ids) == False:
             logger.error(
                 f"self.selected_set: {self.selected_set} was not a subset of self.rois.roi_settings: {set(self.rois.roi_settings.keys())}"
             )
             raise Exception(
                 f"To extract shorelines you must first select ROIs and have the data downloaded."
             )
-            
+
         logger.info(f"extract_all_shorelines:: roi_ids: {roi_ids}")
         print(f"Extracting shorelines from ROIs: {roi_ids}")
         selected_rois_gdf = self.get_selected_rois(roi_ids)
@@ -754,7 +753,7 @@ class CoastSeg_Map:
             )
         if self.settings is None:
             logger.error("compute_transects:: No settings have been loaded")
-            raise Exception("No settings have been loaded")   
+            raise Exception("No settings have been loaded")
         if "along_dist" not in self.settings.keys():
             raise Exception("Missing key 'along_dist' in settings")
 
