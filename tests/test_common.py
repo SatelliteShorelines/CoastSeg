@@ -9,10 +9,66 @@ from shapely import geometry
 import pytest
 
 
+def test_do_rois_filepaths_exist(tmp_path):
+    # should return false when a filepath exist
+    good_filepath = tmp_path
+    roi_settings = {"1": {"filepath": str(good_filepath)}}
+    return_value = common.do_rois_filepaths_exist(
+        roi_settings, list(roi_settings.keys())
+    )
+    assert return_value == True
+    # should return false when all filepaths exist
+    good_filepath = tmp_path
+    roi_settings = {
+        "1": {"filepath": str(good_filepath)},
+        "2": {"filepath": str(good_filepath)},
+    }
+    return_value = common.do_rois_filepaths_exist(
+        roi_settings, list(roi_settings.keys())
+    )
+    assert return_value == True
+    # should return false when a filepath doesn't exist
+    bad_filepath = tmp_path / "fake"
+    roi_settings = {"1": {"filepath": str(bad_filepath)}}
+    return_value = common.do_rois_filepaths_exist(
+        roi_settings, list(roi_settings.keys())
+    )
+    assert return_value == False
+    # should return false when one filepath exist and one filepath doesn't exist
+    roi_settings = {
+        "1": {"filepath": str(good_filepath)},
+        "2": {"filepath": str(bad_filepath)},
+    }
+    return_value = common.do_rois_filepaths_exist(
+        roi_settings, list(roi_settings.keys())
+    )
+    assert return_value == False
+
+
 def test_were_rois_downloaded_empty_roi_settings():
     actual_value = common.were_rois_downloaded(None, None)
     assert actual_value == False
     actual_value = common.were_rois_downloaded({}, None)
+    assert actual_value == False
+
+
+def test_do_rois_have_sitenames(valid_roi_settings, roi_settings_empty_sitenames):
+    """Test if do_rois_have_sitenames returns true when
+    each roi's 'sitename' != "" and false when each roi's 'sitename' == ""
+
+    Args:
+        valid_roi_settings (dict): roi_settings with ids["2","3","5"] and valid sitenames
+        roi_settings_empty_sitenames(dict): roi_settings with ids["2"] and sitenames = ""
+    """
+    # ids of rois in valid_roi_settings
+    roi_ids = ["2", "3", "5"]
+    # when sitenames are not empty strings should return true
+    actual_value = common.do_rois_have_sitenames(valid_roi_settings, roi_ids)
+    assert actual_value == True
+
+    roi_ids = ["2"]
+    # when sitenames are not empty strings should return False
+    actual_value = common.do_rois_have_sitenames(roi_settings_empty_sitenames, roi_ids)
     assert actual_value == False
 
 

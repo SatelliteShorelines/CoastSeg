@@ -301,11 +301,14 @@ def valid_settings() -> dict:
 @pytest.fixture
 def valid_inputs() -> dict:
     """returns a valid dictionary of inputs"""
+    file_path = os.path.abspath(
+        os.path.join(script_dir, "test_data", "valid_rois.geojson")
+    )
     inputs = {
         "dates": ["2018-12-01", "2019-03-01"],
         "sat_list": ["S2"],
         "sitename": "ID02022-10-07__15_hr_42_min59sec",
-        "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+        "filepath": file_path,
         "roi_id": 16,
         "polygon": [
             [
@@ -438,12 +441,15 @@ def valid_single_roi_settings() -> dict:
     Returns:
         dict: valid inputs dict with two roi id '2' and '5'
     """
+    file_path = os.path.abspath(
+        os.path.join(script_dir, "test_data", "valid_rois.geojson")
+    )
     return {
         "2": {
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "ID_2_datetime10-19-22__04_00_34",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": file_path,
             "roi_id": "2",
             "polygon": [
                 [
@@ -466,12 +472,15 @@ def valid_roi_settings() -> dict:
     Returns:
         dict: valid inputs dict with two roi id '2' and '5'
     """
+    file_path = os.path.abspath(
+        os.path.join(script_dir, "test_data", "valid_rois.geojson")
+    )
     return {
         "2": {
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "ID_2_datetime10-19-22__04_00_34",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": file_path,
             "roi_id": "2",
             "polygon": [
                 [
@@ -488,7 +497,7 @@ def valid_roi_settings() -> dict:
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "ID_3_datetime10-19-22__04_00_34",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": file_path,
             "roi_id": "3",
             "polygon": [
                 [
@@ -505,7 +514,7 @@ def valid_roi_settings() -> dict:
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "ID_5_datetime10-19-22__04_00_34",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": file_path,
             "roi_id": "5",
             "polygon": [
                 [
@@ -529,12 +538,15 @@ def roi_settings_empty_sitenames() -> dict:
     Returns:
         dict: valid inputs dict with two roi id '2'
     """
+    file_path = os.path.abspath(
+        os.path.join(script_dir, "test_data", "valid_rois.geojson")
+    )
     return {
         "2": {
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\CoastSeg",
+            "filepath":  file_path,
             "roi_id": "2",
             "polygon": [
                 [
@@ -557,6 +569,9 @@ def valid_config_json() -> dict:
     Returns:
         dict: config json with roi_ids=['2', '3', '5']
     """
+    file_path = os.path.abspath(
+        os.path.join(script_dir, "test_data", "valid_rois.geojson")
+    )
     return {
         "roi_ids": ["2", "3", "5"],
         "settings": {
@@ -583,7 +598,7 @@ def valid_config_json() -> dict:
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "ID_2_datetime10-19-22__04_00_34",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": file_path,
             "roi_id": "2",
             "polygon": [
                 [
@@ -600,7 +615,7 @@ def valid_config_json() -> dict:
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "ID_3_datetime10-19-22__04_00_34",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": file_path,
             "roi_id": "3",
             "polygon": [
                 [
@@ -617,7 +632,7 @@ def valid_config_json() -> dict:
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "ID_5_datetime10-19-22__04_00_34",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": file_path,
             "roi_id": "5",
             "polygon": [
                 [

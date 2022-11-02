@@ -232,6 +232,7 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
     elif isinstance(config, gpd.GeoDataFrame):
         filename = f"config_gdf.geojson"
         save_path = os.path.abspath(os.path.join(file_path, filename))
+        print(f"Saved config json: {filename} \nSaved to {save_path}")
         logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         config.to_file(save_path, driver="GeoJSON")
 
@@ -477,9 +478,56 @@ def rename_jpgs(src_path: str) -> None:
             print(f"Renamed files in {src_path} ")
 
 
+def do_rois_filepaths_exist(roi_settings: dict, roi_ids: list) -> bool:
+    """Returns true if all rois have filepaths that exist
+    Args:
+        roi_settings (dict): settings of all rois on map
+        roi_ids (list): ids of rois selected on map
+    Returns:
+        bool: True if all rois have filepaths that exist
+    """
+    # by default assume all filepaths exist
+    does_filepath_exist = True
+    for roi_id in roi_ids:
+        filepath = str(roi_settings[roi_id]["filepath"])
+        if not os.path.exists(filepath):
+            # if filepath does not exist stop checking
+            does_filepath_exist = False
+            logger.info(f"do_rois_filepaths_exist::filepath did not exist{filepath}")
+            print("Some ROIs contained filepaths that did not exist")
+            break
+    logger.info(
+        "do_rois_filepaths_exist::{does_filepath_exist} All rois filepaths exist"
+    )
+    return does_filepath_exist
+
+
+def do_rois_have_sitenames(roi_settings: dict, roi_ids: list) -> bool:
+    """Returns true if all rois have "sitename" with non-empty string
+    Args:
+        roi_settings (dict): settings of all rois on map
+        roi_ids (list): ids of rois selected on map
+
+    Returns:
+        bool: True if all rois have "sitename" with non-empty string
+    """
+    # by default assume all sitenames are not empty
+    is_sitename_not_empty = True
+    for roi_id in roi_ids:
+        if roi_settings[roi_id]["sitename"] == "":
+            # if sitename is empty means user has not downloaded ROI data
+            is_sitename_not_empty = False
+            break
+    logger.info(
+        f"do_rois_have_sitenames::{is_sitename_not_empty} All rois have non-empty sitenames"
+    )
+    return is_sitename_not_empty
+
+
 def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
     """Returns true if rois were downloaded before. False if they have not
     Uses 'sitename' key for each roi to determine if roi was downloaded.
+    And checks if filepath were roi is saved is valid
     If each roi's 'sitename' is not empty string returns true
     Args:
         roi_settings (dict): settings of all rois on map
@@ -497,11 +545,9 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
         # if rois do not have roi_settings this means they were never downloaded
         is_downloaded = False
     elif roi_settings != {}:
-        for roi_id in roi_ids:
-            if roi_settings[roi_id]["sitename"] == "":
-                # if sitename is present means user already has downloaded ROI data
-                is_downloaded = False
-                break
+        all_sitenames_exist = do_rois_have_sitenames(roi_settings, roi_ids)
+        all_filepaths_exist = do_rois_filepaths_exist(roi_settings, roi_ids)
+        is_downloaded = all_sitenames_exist and all_filepaths_exist
     # print the correct message depending on whether ROIs were downloaded
     if is_downloaded:
         print("Located previously downloaded ROI data.")

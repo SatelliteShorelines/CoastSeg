@@ -365,6 +365,7 @@ class CoastSeg_Map:
         logger.info(f"saved gdf config :: config_gdf: {config_gdf} ")
 
         is_downloaded = common.were_rois_downloaded(self.rois.roi_settings, roi_ids)
+
         if filepath is not None:
             # save to config.json
             common.config_to_file(config_json, filepath)
@@ -471,10 +472,10 @@ class CoastSeg_Map:
         roi_ids = list(self.selected_set)
         if common.were_rois_downloaded(self.rois.roi_settings, roi_ids) == False:
             logger.error(
-                f"self.selected_set: {self.selected_set} was not a subset of self.rois.roi_settings: {set(self.rois.roi_settings.keys())}"
+                f"extract_all_shorelines:: not all rois were downloaded{self.rois.roi_settings}"
             )
             raise Exception(
-                f"To extract shorelines you must first select ROIs and have the data downloaded."
+                f"Some ROIs filepaths did not exist on your computer. Try downloading the rois to overwrite the filepath ."
             )
 
         logger.info(f"extract_all_shorelines:: roi_ids: {roi_ids}")

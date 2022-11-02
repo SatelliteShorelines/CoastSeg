@@ -12,13 +12,12 @@ from doodleverse_utils.imports import (
     custom_resunet,
     custom_unet,
 )
-from  doodleverse_utils.model_imports import (dice_coef_loss,
-                                              iou_multi,
-                                              dice_multi)
+from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
 import tensorflow as tf
 from tqdm.auto import tqdm
 
 logger = logging.getLogger(__name__)
+
 
 class Zoo_Model:
     def __init__(self):
@@ -61,14 +60,14 @@ class Zoo_Model:
                 file_to_seg,
                 model_list,
                 metadatadict,
-                sample_direc= sample_direc,
-                NCLASSES = self.NCLASSES,
-                N_DATA_BANDS = self.N_DATA_BANDS,
-                TARGET_SIZE = self.TARGET_SIZE,
-                TESTTIMEAUG =TESTTIMEAUG,
-                WRITE_MODELMETADATA =WRITE_MODELMETADATA,
-                DO_CRF= do_crf,
-                OTSU_THRESHOLD=False
+                sample_direc=sample_direc,
+                NCLASSES=self.NCLASSES,
+                N_DATA_BANDS=self.N_DATA_BANDS,
+                TARGET_SIZE=self.TARGET_SIZE,
+                TESTTIMEAUG=TESTTIMEAUG,
+                WRITE_MODELMETADATA=WRITE_MODELMETADATA,
+                DO_CRF=do_crf,
+                OTSU_THRESHOLD=False,
             )
 
     def get_model(self, Ww: list):
@@ -195,10 +194,12 @@ class Zoo_Model:
                     raise Exception(
                         f"An unknown model type {MODEL} was received. Please select a valid model."
                     )
-                    
-                # Load in the custom loss function from doodleverse_utils        
-                model.compile(optimizer = 'adam', loss = dice_coef_loss(self.NCLASSES)) #, metrics = [iou_multi(self.NCLASSESNCLASSES), dice_multi(self.NCLASSESNCLASSES)])
-                
+
+                # Load in the custom loss function from doodleverse_utils
+                model.compile(
+                    optimizer="adam", loss=dice_coef_loss(self.NCLASSES)
+                )  # , metrics = [iou_multi(self.NCLASSESNCLASSES), dice_multi(self.NCLASSESNCLASSES)])
+
                 model.load_weights(weights)
 
             model_types.append(MODEL)
@@ -228,7 +229,9 @@ class Zoo_Model:
         root_url = "https://zenodo.org/record/" + zenodo_id + "/files/"
         # Create the directory to hold the downloaded models from Zenodo
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        downloaded_models_path= os.path.abspath(os.path.join(script_dir, "downloaded_models"))
+        downloaded_models_path = os.path.abspath(
+            os.path.join(script_dir, "downloaded_models")
+        )
         self.weights_direc = os.path.abspath(
             os.path.join(downloaded_models_path, dataset_id)
         )
