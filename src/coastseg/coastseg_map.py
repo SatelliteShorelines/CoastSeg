@@ -31,6 +31,7 @@ from pyproj import Proj, transform
 
 logger = logging.getLogger(__name__)
 
+
 class CoastSeg_Map:
     def __init__(self, map_settings: dict = None):
         # settings:  used to select data to download and preprocess settings
@@ -101,7 +102,9 @@ class CoastSeg_Map:
         """
         html = HTML("Hover over shoreline")
         html.layout.margin = "0px 20px 20px 20px"
-        self.shoreline_accordion = Accordion(children=[html], titles=("Shoreline Data",))
+        self.shoreline_accordion = Accordion(
+            children=[html], titles=("Shoreline Data",)
+        )
         self.shoreline_accordion.set_title(0, "Shoreline Data")
 
         return WidgetControl(widget=self.shoreline_accordion, position="topright")
@@ -211,24 +214,20 @@ class CoastSeg_Map:
 
         Raises:
             Exception: raised if settings is missing
-            Exception: raised if 'dates','sat_list', and 'collection' are not in settings
+            Exception: raised if 'dates','sat_list', and 'landsat_collection' are not in settings
             Exception: raised if no ROIs have been selected
         """
-        # 1. Check imagery available and check for ee credentials
-        print("Download_imagery called")
-        logger.info("Download_imagery called")
-
         if self.settings is None:
             logger.error("No settings found.")
             raise Exception("No settings found. Create settings before downloading")
-        if not set(["dates", "sat_list", "collection"]).issubset(
+        if not set(["dates", "sat_list", "landsat_collection"]).issubset(
             set(self.settings.keys())
         ):
             logger.error(
-                f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}"
+                f"Missing keys from settings: {set(['dates','sat_list','landsat_collection'])-set(self.settings.keys())}"
             )
             raise Exception(
-                f"Missing keys from settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}"
+                f"Missing keys from settings: {set(['dates','sat_list','landsat_collection'])-set(self.settings.keys())}"
             )
         if self.selected_ROI_layer is None:
             logger.error("No ROIs were selected.")
@@ -238,23 +237,24 @@ class CoastSeg_Map:
 
         logger.info(f"self.settings: {self.settings}")
         logger.info(f"self.selected_ROI_layer: {self.selected_ROI_layer}")
-        logger.info(f"dates: {self.settings['dates']}")
-        logger.info(f"sat_list: {self.settings['sat_list']}")
-        logger.info(f"collection: {self.settings['collection']}")
-        logger.info(f"selected_roi_geojson: {self.settings}")
 
-        dates = self.settings["dates"]
-        sat_list = self.settings["sat_list"]
-        collection = self.settings["collection"]
-        selected_roi_geojson = self.selected_ROI_layer.data
-        inputs_list = common.get_inputs_list(
-            selected_roi_geojson, dates, sat_list, collection
+        # 1. Create a list of download settings for each ROI.
+        # filepath: path to directory where downloaded imagery will be saved. Defaults to data directory in CoastSeg
+        filepath = os.path.abspath(os.path.join(os.getcwd(), "data"))
+        date_str = common.generate_datestring()
+        roi_settings = common.create_roi_settings(
+            self.settings, self.selected_ROI_layer.data, filepath, date_str
         )
+        # Save download settings dictionary to instance of ROI
+        self.rois.set_roi_settings(roi_settings)
+        inputs_list = list(roi_settings.values())
         logger.info(f"inputs_list {inputs_list}")
+
+        # 2. For each ROI used download settings to download imagery and save to jpg
         print("Download in process")
         # make a deep copy so settings doesn't get modified by the temp copy
         tmp_settings = copy.deepcopy(self.settings)
-        logger.info(f"self.settings: {self.settings}")
+        # for each ROI use inputs dictionary to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
             metadata = SDS_download.retrieve_images(inputs_for_roi)
             print(f"inputs: {inputs_for_roi}")
@@ -265,20 +265,15 @@ class CoastSeg_Map:
 
         # tmp settings is no longer needed
         del tmp_settings
-        # Save inputs used to download data with CoastSat
-        roi_settings = {}
-        for inputs_for_roi in tqdm(inputs_list, desc="Saving settings"):
-            roi_settings[str(inputs_for_roi["roi_id"])] = inputs_for_roi
 
-        # Save roi_settings to ROI class
-        self.rois.set_roi_settings(roi_settings)
+        # 3.save settings used to download rois and the objects on map to config files
         self.save_config()
         logger.info("Done downloading")
 
     def load_json_config(self, filepath: str) -> None:
         if self.rois is None:
             raise Exception("Must load ROIs onto the map first")
-        
+
         json_data = common.read_json_file(filepath)
         # replace coastseg_map.settings with settings from config file
         self.settings = json_data["settings"]
@@ -291,46 +286,35 @@ class CoastSeg_Map:
         self.rois.roi_settings = roi_settings
         logger.info(f"load_json_config:: roi_settings: {roi_settings}")
 
-    def were_rois_downloaded(self, roi_ids:list) -> bool:
-        # by default assume rois were downloaded
-        is_downloaded = True
-        if self.rois.roi_settings is not None:
-            # if the filepaths to the downloaded data exist for each ROI
-            all_filepaths_exist = common.check_filepaths_exist(roi_ids, self.rois.roi_settings)
-            if all_filepaths_exist:
-                # means user already has downloaded ROI data
-                is_downloaded = True
-                print("Located previously downloaded ROI data.")
-                logger.info(f"were_rois_downloaded:: Located previously downloaded ROI data.")
-            else:
-                is_downloaded = False
-                print(
-                    "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
-                )
-                logger.info(
-                    f"were_rois_downloaded:: Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
-                )
-        elif self.rois.roi_settings is None:
-            # if rois do not have roi_settings this means they were never downloaded
-            is_downloaded= False
-            
-        return  is_downloaded    
-        
-    def save_config(self) -> None:
+
+    def save_config(self,filepath:str=None) -> None:
         """saves the configuration settings of the map into two files
             config.json and config.geojson
-            Saves the inputs such as dates, collection, satellite list, and ROIs
+            Saves the inputs such as dates, landsat_collection, satellite list, and ROIs
             Saves the settings such as preprocess settings
+        Args:
+            file_path (str, optional): path to directory to save config files. Defaults to None. 
         Raises:
             Exception: raised if self.settings is missing
+            Exception: raised if any of "dates", "sat_list", "landsat_collection" is missing from self.settings 
             Exception: raised if self.rois is missing
-        """
+            Exception: raised if self.selected_ROI_layer is missing
+        """    
         if self.settings is None:
             logger.error(
                 "Settings must be loaded before configuration files can be made."
             )
             raise Exception(
                 "Settings must be loaded before configuration files can be made."
+            )
+        if not set(["dates", "sat_list", "landsat_collection"]).issubset(
+            set(self.settings.keys())
+        ):
+            logger.error(
+                f"Missing keys from settings: {set(['dates','sat_list','landsat_collection'])-set(self.settings.keys())}"
+            )
+            raise Exception(
+                f"Missing keys from settings: {set(['dates','sat_list','landsat_collection'])-set(self.settings.keys())}"
             )
         if self.rois is None:
             logger.error(
@@ -347,34 +331,21 @@ class CoastSeg_Map:
                 "No ROIs were selected. Cannot save ROIs to config until ROIs are selected."
             )
 
-        settings = self.settings
-
-        logger.info(f"save_config ::self.rois.roi_settings: {self.rois.roi_settings}")
+        logger.info(f"save_config::self.rois.roi_settings: {self.rois.roi_settings}")
         if self.rois.roi_settings == {}:
-            inputs = {}
-            sat_list = settings["sat_list"]
-            collection = settings["collection"]
-            dates = settings["dates"]
-            for roi in self.selected_ROI_layer.data["features"]:
-                roi_id = str(roi["properties"]["id"])
-                polygon = roi["geometry"]["coordinates"]
-                inputs_dict = {
-                    "dates": dates,
-                    "sat_list": sat_list,
-                    "roi_id": roi_id,
-                    "polygon": polygon,
-                    "landsat_collection": collection,
-                }
-                inputs[roi_id] = inputs_dict
-            # Save inputs to ROI class
-            self.rois.set_roi_settings(inputs)
-            logger.info(f"save_config :: roi_settings: {self.rois.roi_settings}")
-            
+            if filepath is None:
+                filepath = os.path.abspath(os.getcwd())
+            roi_settings = common.create_roi_settings(
+                self.settings, self.selected_ROI_layer.data, filepath
+            )
+            # Save download settings dictionary to instance of ROI
+            self.rois.set_roi_settings(roi_settings)
+
         # create dictionary to be saved to config.json
-        config_json = common.create_json_config(self.rois.roi_settings, settings)
+        config_json = common.create_json_config(self.rois.roi_settings, self.settings)
         logger.info(f"save_config :: config_json: {config_json} ")
-        
-        # get currently selected rois selected 
+
+        # get currently selected rois selected
         roi_ids = config_json["roi_ids"]
         selected_rois = self.get_selected_rois(roi_ids)
         logger.info(f"save_config :: selected_rois: {selected_rois} ")
@@ -394,47 +365,40 @@ class CoastSeg_Map:
         )
         logger.info(f"saved gdf config :: config_gdf: {config_gdf} ")
 
-        is_downloaded = self.were_rois_downloaded(roi_ids)
-        
-        # data has been downloaded before so inputs have keys 'filepath' and 'sitename'
-        if is_downloaded == True:
-            # write config_json file to each directory where a roi was saved
-            roi_ids = config_json["roi_ids"]
-            for roi_id in roi_ids:
-                sitename = str(config_json[roi_id]["sitename"])
-                filename = f"config_id_{roi_id}.json"
-                site_path = os.path.abspath(os.path.join(os.getcwd(), "data", sitename))
-                save_path = os.path.abspath(os.path.join(site_path, filename))
-                logger.info(
-                    f"Saving master config: {config_json} \n Saved to {save_path}"
-                )
-                common.write_to_json(save_path, config_json)
-                filename = f"config_gdf_id_{roi_id}.geojson"
-                save_path = os.path.abspath(os.path.join(site_path, filename))
-                logger.info(
-                    f"Saving config gdf: {config_gdf} \n Saved to {save_path}"
-                )
-                config_gdf.to_file(save_path, driver="GeoJSON")
-                print(f"Saved configs to {site_path}")
-            print("Saved config files for each ROI")
-        elif is_downloaded == False:
-            # if the data has not been downloaded before save it to the coastseg directory
-            filename = f"config.json"
-            save_path = os.path.abspath(os.path.join(os.getcwd(), filename))
-            common.write_to_json(save_path, config_json)
-            print(f"Saved config json: {filename} \n Saved to {save_path}")
-            logger.info(f"Saved config json: {filename} \n Saved to {save_path}")
-            filename = f"config_gdf.geojson"
-            save_path = os.path.abspath(os.path.join(os.getcwd(), filename))
-            config_gdf.to_file(save_path, driver="GeoJSON")
-            print(f"Saved config json: {filename} \n Saved to {save_path}")
-            logger.info(f"Saved config gdf: {config_gdf} \n Saved to {save_path}")
+        is_downloaded = common.were_rois_downloaded(self.rois.roi_settings, roi_ids)
+        if filepath is not None:
+            # save to config.json
+            common.config_to_file(config_json, filepath)
+            # save to config_gdf.geojson
+            common.config_to_file(config_gdf, filepath)
+        elif  filepath is None:
+            # data has been downloaded before so inputs have keys 'filepath' and 'sitename'
+            if is_downloaded == True:
+                # write config_json file to each directory where a roi was saved
+                roi_ids = config_json["roi_ids"]
+                for roi_id in roi_ids:
+                    sitename = str(config_json[roi_id]["sitename"])
+                    filepath = os.path.abspath(
+                        os.path.join(config_json[roi_id]["filepath"], sitename)
+                    )
+                    # save to config.json
+                    common.config_to_file(config_json, filepath)
+                    # save to config_gdf.geojson
+                    common.config_to_file(config_gdf, filepath)
+                print("Saved config files for each ROI")
+            elif is_downloaded == False:
+                # if data is not downloaded save to coastseg directory
+                filepath = os.path.abspath(os.getcwd())
+                # save to config.json
+                common.config_to_file(config_json, filepath)
+                # save to config_gdf.geojson
+                common.config_to_file(config_gdf, filepath)
 
     def save_settings(self, **kwargs):
         """Saves the settings for downloading data in a dictionary
         Pass in data in the form of
-        save_settings(sat_list=sat_list, collection='C01',dates=dates,**preprocess_settings)
-        *You must use the names sat_list, collection, and dates
+        save_settings(sat_list=sat_list, landsat_collection='C01',dates=dates,**preprocess_settings)
+        *You must use the names sat_list, landsat_collection, and dates
         """
         for key, value in kwargs.items():
             self.settings[key] = value
@@ -486,14 +450,14 @@ class CoastSeg_Map:
                 "extract_all_shorelines::No settings found. Please load settings"
             )
             raise Exception("No settings found. Please load settings")
-        if not set(["dates", "sat_list", "collection"]).issubset(
+        if not set(["dates", "sat_list", "landsat_collection"]).issubset(
             set(self.settings.keys())
         ):
             logger.error(
-                f"Missing keys from self.settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}"
+                f"Missing keys from self.settings: {set(['dates','sat_list','landsat_collection'])-set(self.settings.keys())}"
             )
             raise Exception(
-                f"Missing keys from self.settings: {set(['dates','sat_list','collection'])-set(self.settings.keys())}"
+                f"Missing keys from self.settings: {set(['dates','sat_list','landsat_collection'])-set(self.settings.keys())}"
             )
         if not self.selected_set.issubset(set(self.rois.roi_settings.keys())):
             logger.error(
@@ -502,11 +466,18 @@ class CoastSeg_Map:
             raise Exception(
                 f"To extract shorelines you must first select ROIs and have the data downloaded."
             )
-
+        
         settings = self.settings
         # get selected ROIs on map and extract shoreline for each of them
         roi_ids = list(self.selected_set)
-
+        if common.were_rois_downloaded(self.rois.roi_settings,roi_ids)== False:
+            logger.error(
+                f"self.selected_set: {self.selected_set} was not a subset of self.rois.roi_settings: {set(self.rois.roi_settings.keys())}"
+            )
+            raise Exception(
+                f"To extract shorelines you must first select ROIs and have the data downloaded."
+            )
+            
         logger.info(f"extract_all_shorelines:: roi_ids: {roi_ids}")
         print(f"Extracting shorelines from ROIs: {roi_ids}")
         selected_rois_gdf = self.get_selected_rois(roi_ids)
@@ -615,7 +586,7 @@ class CoastSeg_Map:
 
         # get the metadata used to extract the shoreline
         metadata = SDS_download.get_metadata(inputs)
-        logger.info(f"metadata: {metadata}")
+        logger.info(f"extract_shorelines_from_roi::metadata: {metadata}")
         extracted_shoreline_dict = SDS_shoreline.extract_shorelines(
             metadata, shoreline_settings
         )
@@ -783,11 +754,9 @@ class CoastSeg_Map:
             )
         if self.settings is None:
             logger.error("compute_transects:: No settings have been loaded")
-            raise Exception("No settings have been loaded")
-        if self.settings is not None:
-            print(self.settings.keys())
-            if "along_dist" not in self.settings.keys():
-                raise Exception("Missing key 'along_dist' in settings")
+            raise Exception("No settings have been loaded")   
+        if "along_dist" not in self.settings.keys():
+            raise Exception("Missing key 'along_dist' in settings")
 
         settings = self.settings
         extracted_shoreline_ids = set(self.rois.extracted_shorelines.keys())
@@ -1158,6 +1127,8 @@ class CoastSeg_Map:
             id (NoneType, optional):  Defaults to None.
             properties (dict, optional): geojson dict for clicked geojson. Defaults to None.
         """
+        logger.info(f"type(event): {type(event)}")
+        logger.info(f"event: {event}")
         if properties is None:
             return
         logger.info(f"geojson_onclick_handler: properties : {properties}")

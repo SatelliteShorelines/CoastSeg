@@ -7,15 +7,54 @@ import geopandas as gpd
 from shapely.geometry import shape
 from coastseg import roi
 from coastseg import coastseg_map
+from ipyleaflet import GeoJSON
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+    
+
+@pytest.fixture
+def valid_coastseg_map()->coastseg_map.CoastSeg_Map:
+    # returns a valid instance of CoastSeg_Map with settings loaded in
+    coastsegmap = coastseg_map.CoastSeg_Map()
+    return coastsegmap
+
+@pytest.fixture
+def valid_coastseg_map_with_incomplete_settings()->coastseg_map.CoastSeg_Map:
+    # returns a valid instance of CoastSeg_Map with settings loaded in
+    coastsegmap = coastseg_map.CoastSeg_Map()
+    pre_process_settings = {
+        # general parameters:
+        "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+        "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+        "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
+        # quality control:
+        "check_detection": True,  # if True, shows each shoreline detection to the user for validation
+        "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+        "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+        # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+        "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
+        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+        "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
+        "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+        "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+        "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
+        "max_dist_ref": 25,
+    }
+    coastsegmap.save_settings(
+        **pre_process_settings
+    )
+    return coastsegmap
+
 
 @pytest.fixture
 def valid_coastseg_map_with_settings()->coastseg_map.CoastSeg_Map:
     # returns a valid instance of CoastSeg_Map with settings loaded in
     coastsegmap = coastseg_map.CoastSeg_Map()
     dates = ["2018-12-01", "2019-03-01"]
-    collection = "C01"
+    landsat_collection = "C01"
     sat_list = ["L8"]
     pre_process_settings = {
         # general parameters:
@@ -37,8 +76,105 @@ def valid_coastseg_map_with_settings()->coastseg_map.CoastSeg_Map:
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
-        sat_list=sat_list, collection=collection, dates=dates, **pre_process_settings
+        sat_list=sat_list, landsat_collection=landsat_collection, dates=dates, **pre_process_settings
     )
+    return coastsegmap
+
+
+@pytest.fixture
+def coastseg_map_with_rois(valid_rois_filepath)->coastseg_map.CoastSeg_Map:
+    """returns a valid instance of CoastSeg_Map with settings loaded, rois loaded, 
+    and ROI with id 17 selected on map_
+    ROIs on map have ids:["17","30","35"]   
+    Selected ROIs have id:["17"]
+    Args:
+        valid_coastseg_map_with_settings (Coastseg_Map): valid instance of coastseg map with settings already loaded
+        valid_rois_filepath (str): filepath to geojson file containing valid rois
+                                    ROIs with ids:[17,30,35]
+    Returns:
+        coastseg_map.CoastSeg_Map: instance of CoastSeg_Map with settings loaded, rois loaded, and ROI with id 17 selected on map
+    """   
+    coastsegmap = coastseg_map.CoastSeg_Map()
+    dates = ["2018-12-01", "2019-03-01"]
+    landsat_collection = "C01"
+    sat_list = ["L8"]
+    pre_process_settings = {
+        # general parameters:
+        "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+        "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+        "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
+        # quality control:
+        "check_detection": True,  # if True, shows each shoreline detection to the user for validation
+        "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+        "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+        # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+        "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
+        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+        "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
+        "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+        "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+        "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
+        "max_dist_ref": 25,
+    }
+    coastsegmap.save_settings(
+        sat_list=sat_list, landsat_collection=landsat_collection, dates=dates, **pre_process_settings
+    )
+    # test if rois will added to coastsegmap and added to ROI layer
+    coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    return coastsegmap
+
+
+@pytest.fixture
+def coastseg_map_with_selected_roi_layer(valid_rois_filepath)->coastseg_map.CoastSeg_Map:
+    """returns a valid instance of CoastSeg_Map with settings loaded, rois loaded, 
+    and ROI with id 17 selected on map_
+    ROIs on map have ids:["17","30","35"]   
+    Selected ROIs have id:["17"]
+    Args:
+        valid_coastseg_map_with_settings (Coastseg_Map): valid instance of coastseg map with settings already loaded
+        valid_rois_filepath (str): filepath to geojson file containing valid rois
+                                    ROIs with ids:[17,30,35]
+    Returns:
+        coastseg_map.CoastSeg_Map: instance of CoastSeg_Map with settings loaded, rois loaded, and ROI with id 17 selected on map
+    """   
+    coastsegmap = coastseg_map.CoastSeg_Map()
+    dates = ["2018-12-01", "2019-03-01"]
+    landsat_collection = "C01"
+    sat_list = ["L8"]
+    pre_process_settings = {
+        # general parameters:
+        "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+        "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+        "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
+        # quality control:
+        "check_detection": True,  # if True, shows each shoreline detection to the user for validation
+        "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+        "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+        # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+        "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
+        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+        "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
+        "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+        "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+        "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
+        "max_dist_ref": 25,
+    }
+    coastsegmap.save_settings(
+        sat_list=sat_list, landsat_collection=landsat_collection, dates=dates, **pre_process_settings
+    )
+    # test if rois will added to coastsegmap and added to ROI layer
+    coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    # simulate an ROI being clicked on map
+    ROI_id = "17"
+    coastsegmap.selected_set.add(ROI_id)
+    coastsegmap.selected_ROI_layer = GeoJSON(
+        data=coastsegmap.convert_selected_set_to_geojson(coastsegmap.selected_set),
+        name="Selected ROIs",
+        hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
+    )
+    coastsegmap.map.add_layer(coastsegmap.selected_ROI_layer)
     return coastsegmap
 
 
@@ -69,13 +205,42 @@ def config_dict() -> dict:
     settings = {16: {}}
     return settings
 
+@pytest.fixture
+def valid_selected_ROI_layer_data()->dict:
+    return {'type': 'FeatureCollection',
+        'features': [{'id': '0',
+        'type': 'Feature',
+        'properties': {'id': '0',
+            'style': {'color': 'blue',
+            'weight': 2,
+            'fillColor': 'blue',
+            'fillOpacity': 0.1}},
+        'geometry': {'type': 'Polygon',
+            'coordinates': [[[-124.19437983778509, 40.82355301978889],
+            [-124.19502680580241, 40.859579119105774],
+            [-124.14757559660633, 40.86006100475558],
+            [-124.14695430388457, 40.82403429740862],
+            [-124.19437983778509, 40.82355301978889]]]}},
+        {'id': '1',
+        'type': 'Feature',
+        'properties': {'id': '1',
+            'style': {'color': 'blue',
+            'weight': 2,
+            'fillColor': 'blue',
+            'fillOpacity': 0.1}},
+        'geometry': {'type': 'Polygon',
+            'coordinates': [[[-124.19437983778509, 40.82355301978889],
+            [-124.19494587073427, 40.85507586949846],
+            [-124.15342893565658, 40.85549851995218],
+            [-124.15288255801966, 40.82397520357295],
+            [-124.19437983778509, 40.82355301978889]]]}}]}
 
 @pytest.fixture
 def valid_settings() -> dict:
     """returns a valid dictionary of settings"""
     settings = {
         "sat_list": ["L5", "L7", "L8"],
-        "collection": "C01",
+        "landsat_collection": "C01",
         "dates": ["2018-12-01", "2019-03-01"],
         "cloud_thresh": 0.5,
         "dist_clouds": 300,
@@ -230,29 +395,6 @@ def valid_ROI(transect_compatible_roi) -> gpd.GeoDataFrame:
     return roi.ROI(rois_gdf=transect_compatible_roi)
 
 
-@pytest.fixture
-def valid_settings() -> dict:
-    return {
-        "sat_list": ["L8"],
-        "collection": "C01",
-        "dates": ["2018-12-01", "2019-03-01"],
-        "cloud_thresh": 0.5,
-        "dist_clouds": 300,
-        "output_epsg": 3857,
-        "check_detection": False,
-        "adjust_detection": False,
-        "save_figure": True,
-        "min_beach_area": 4500,
-        "buffer_size": 550,
-        "min_length_sl": 100,
-        "cloud_mask_issue": False,
-        "sand_color": "default",
-        "pan_off": "False",
-        "create_plot": False,
-        "max_dist_ref": 25,
-        "along_dist": 25,
-    }
-
 
 @pytest.fixture
 def valid_single_roi_settings() -> dict:
@@ -345,6 +487,35 @@ def valid_roi_settings() -> dict:
 
 
 @pytest.fixture
+def roi_settings_empty_sitenames() -> dict:
+    """Returns valid inputs dict with two roi id '2'
+        sitenames are empty strings 
+
+    Returns:
+        dict: valid inputs dict with two roi id '2'
+    """
+    return {
+        "2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L8"],
+            "sitename": "",
+            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\CoastSeg",
+            "roi_id": "2",
+            "polygon": [
+                [
+                    [-124.16930255115336, 40.8665390046026],
+                    [-124.16950858759564, 40.878247531017706],
+                    [-124.15408259844114, 40.878402930533994],
+                    [-124.1538792781699, 40.8666943403763],
+                    [-124.16930255115336, 40.8665390046026],
+                ]
+            ],
+            "landsat_collection": "C01",
+        },
+    }
+
+
+@pytest.fixture
 def valid_config_json() -> dict:
     """Returns a complete master config with roi_ids=['2', '3', '5'], settings, and
     a key for each roi and their associated inputs
@@ -355,7 +526,7 @@ def valid_config_json() -> dict:
         "roi_ids": ["2", "3", "5"],
         "settings": {
             "sat_list": ["L8"],
-            "collection": "C01",
+            "landsat_collection": "C01",
             "dates": ["2018-12-01", "2019-03-01"],
             "cloud_thresh": 0.5,
             "dist_clouds": 300,
