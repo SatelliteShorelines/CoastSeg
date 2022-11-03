@@ -59,11 +59,11 @@ class UI:
         self.load_bbox_button.on_click(self.on_load_bbox_clicked)
         # buttons to load configuration files
         self.load_configs_button = Button(
-            description="Load configs", style=self.load_style
+            description="Load Config", style=self.load_style
         )
         self.load_configs_button.on_click(self.on_load_configs_clicked)
         self.save_config_button = Button(
-            description="Save config files", style=self.save_style
+            description="Save Config", style=self.save_style
         )
         self.save_config_button.on_click(self.on_save_config_clicked)
         # load buttons
@@ -90,7 +90,7 @@ class UI:
         self.save_transects_button.on_click(self.save_transects_button_clicked)
         self.save_roi_button = Button(description="Save ROI", style=self.save_style)
         self.save_roi_button.on_click(self.save_roi_button_clicked)
-        self.save_bbox_button = Button(description="Save Bbox", style=self.save_style)
+        self.save_bbox_button = Button(description="Save box", style=self.save_style)
         self.save_bbox_button.on_click(self.on_save_bbox_button_clicked)
         # Generate buttons
         self.gen_button = Button(description="Generate ROI", style=self.action_style)
@@ -142,7 +142,7 @@ class UI:
             min=0,
             max=10000,
             step=100,
-            description="Small Fishnet:",
+            description="Small Grid:",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -156,7 +156,7 @@ class UI:
             min=1000,
             max=10000,
             step=100,
-            description="Large Fishnet:",
+            description="Large Grid:",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -176,53 +176,69 @@ class UI:
         """
         self.instr_create_roi = HTML(
             value="<h2><b>Generate ROIs</b></h2> \
-                Use the two sliders to control the size of the ROIs generated.<br>\
-                    <li> No Overlap: Set small slider to 0 and large slider to desired ROI size.</li>\
-                    <li>Overlap: Set small slider to a value and large slider to desired ROI size.</li>\
-                    <b>How it Works</b><br> \
-                    Two fishnets (grids) are created out of ROIs (squares) and placed <br> \
-                    within the bounding box.You control the size of the individual ROIs <br> \
-                    that compose the small and large fishnets.<br>\
-                    The ROIs are measured in meters squared.",
+                Use the two sliders to control the size of the ROIs generated.\
+                </br><b>No Overlap</b>: Set small slider to 0 and large slider to ROI size.</li>\
+                </br><b>Overlap</b>: Set small slider to a value and large slider to ROI size.</li>\
+                </br><b>ROI units</b>: meters squared.</li>\
+                </br><h3><b><u>How it Works</u></b></br></h3> \
+                <li>Two grids composed of ROIs (squares) and created within\
+                </br>the bounding box.\
+                <li>Each ROI is created along the shoreline.\
+                <li>If there is no shoreline then ROIs cannot be created.\
+                <li>The slider controls the size of the individual ROIs created.\
+                ",
             layout=Layout(margin="0px 5px 0px 0px"),
         )
 
         self.instr_save_roi = HTML(
-            value="<h2><b>Save ROIs</b></h2> \
-                You must click save ROI before you can download ROIs\
-                <br> Use the save buttons to save the ROIs you selected <br>\
-                <li> Save BBox: Save the bounding box to a geojson file called 'bbox.geojson'</li>\
-                    <li> Save ROIs: Save the selected ROI to a geojson file called 'rois.geojson'</li>\
-                    ",
+            value="<h2><b>Save Features</b></h2> \
+                Use these buttons to save features on the map to a geojson file.\
+                <br>These geojson files are saved to the CoastSeg directory.\
+                </br><b>Save ROI</b>: Saves ROIs you selected to a file: 'rois.geojson'\
+                </br><b>Save box</b>: Saves bounding box to a file: 'bbox.geojson'</li>\
+                </br><b>Save shorelines</b>: Saves shorelines to a file: 'shoreline.geojson'</li>\
+                </br><b>Save transects</b>: Saves selected ROI to a file: 'transects.geojson'</li>\
+                ",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
 
         self.instr_download_roi = HTML(
             value="<h2><b>Download ROIs</b></h2> \
-                <b> You must click 'Save ROI' before you can download ROIs</b> \
-                </br> Scroll past the map to see the download progress \
-                    <li> The data you downloaded will be in the 'data' folder</li> \
-                    ",
+                <li><b>You must click an ROI on the map before you can download ROIs</b> \
+                <li>Scroll past the map to see the download progress \
+                </br><h3><b><u>Where is my data?</u></b></br></h3> \
+                <li>The data you downloaded will be in the 'data' folder in the main CoastSeg directory</li>\
+                Each ROI you downloaded will have its own folder with the ROI's ID and\
+                </br>the time it was downloaded in the folder name\
+                </br><b>Example</b>: 'ID_1_datetime11-03-22__02_33_22'</li>\
+                ",
             layout=Layout(margin="0px 0px 0px 5px"),
         )
 
         self.instr_load_btns = HTML(
-            value="<h2><b>Load ROIs/BBox</b></h2>\
+            value="<h2><b>Load Features</b></h2>\
                 You can upload ROIs or Bbox geojson file.\
-                    <li> Load BBox: Load bounding box from geojson file (ex. 'bbox.geojson')</li>\
-                <li> Load ROIs: Load ROIs from geojson file (ex. 'rois.geojson')</li>\
+                </br><b>Load BBox</b>: Load bounding box from file: 'bbox.geojson'</li>\
+                </br><b>Load ROIs</b>: Load ROIs from file: 'rois.geojson'</li>\
+                </br><b>Load gdf</b>: Load any geodataframe from a geojson file </li>\
                     ",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
 
         self.instr_config_btns = HTML(
-            value="<h2><b>Load Config Files</b></h2>\
-                Use the load configs button to select a config.geojson file.\
-                Make sure the config.json is in the same directory\
-                You can upload a config json and config geojson file.\
-                    <li> Load Config Json: Load settings from json file (ex. 'config_id_241.json')</li>\
-                <li> Load Config geojson: Load rois, shorelines, and transects from geojson file (ex. 'config_gdf_id_241.geojson')</li>\
-                    ",
+            value="<h2><b>Load and Save Config Files</b></h2>\
+                <b>Load Config</b>: Load rois, shorelines, transects and bounding box from file: \
+                </br>'config_gdf.geojson'</li>\
+                <li>Make sure 'config.json' is in the same directory as 'config_gdf.geojson'.</li>\
+                <b>Save Config</b>: Saves rois, shorelines, transects and bounding box to file:\
+                </br>'config_gdf.geojson'</li>\
+                <li>If the ROIs have not been downloaded the config file is in main CoastSeg directory in file:\
+                </br>'config_gdf.geojson'</li>\
+                <li>If the ROIs have been downloaded the config file is in each ROI's folder in file:\
+                </br>'config_gdf.geojson'</li>\
+                <li>The 'config.json' will be saved in the same directory as the 'config_gdf.geojson'.</li>\
+                <li>The 'config.json' contains the data for the ROI and map settings.</li>\
+                ",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
 

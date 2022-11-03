@@ -1196,7 +1196,7 @@ class CoastSeg_Map:
         self, feature: Union[Bounding_Box, Shoreline, Transects, ROI]
     ):
         if feature is None:
-            raise exceptions.Object_Not_Found(feature.LAYER_NAME)
+            raise Exception("Sorry this feature does not exist")
         elif isinstance(feature, ROI):
             # check if any ROIs were selected by making sure the selected set isn't empty
             self.check_selected_set()
