@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [workflows, update/create_json_config]
+    branches: [workflows, updated_coastsat_package]
   pull_request:
     branches: [workflows]
 

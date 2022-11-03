@@ -1127,8 +1127,6 @@ class CoastSeg_Map:
             id (NoneType, optional):  Defaults to None.
             properties (dict, optional): geojson dict for clicked geojson. Defaults to None.
         """
-        logger.info(f"type(event): {type(event)}")
-        logger.info(f"event: {event}")
         if properties is None:
             return
         logger.info(f"geojson_onclick_handler: properties : {properties}")
