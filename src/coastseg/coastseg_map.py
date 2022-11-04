@@ -4,13 +4,15 @@ import logging
 import copy
 
 from typing import Union
-
+from tkinter import messagebox
+from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from coastseg.bbox import Bounding_Box
 from coastseg import common
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
 from coastseg import exceptions
+from coastseg import map_UI
 
 import geopandas as gpd
 import numpy as np
@@ -856,6 +858,7 @@ class CoastSeg_Map:
         existing_layer = self.map.find_layer(Bounding_Box.LAYER_NAME)
         if existing_layer is not None:
             self.map.remove_layer(existing_layer)
+        self.bbox = None
 
     def remove_extracted_shorelines(self):
         """Remove all the extracted shorelines layers from map"""
@@ -951,11 +954,28 @@ class CoastSeg_Map:
         ):
             # validate the bbox size
             bbox_area = common.get_area(self.draw_control.last_draw["geometry"])
-            Bounding_Box.check_bbox_size(bbox_area)
-            # if a bbox already exists delete it
-            self.bbox = None
-            # Save new bbox to coastseg_map
-            self.bbox = Bounding_Box(self.draw_control.last_draw["geometry"])
+            try:
+                Bounding_Box.check_bbox_size(bbox_area)
+            except exceptions.BboxTooLargeError as bbox_too_big:
+               map_UI.handle_bbox_error(str(bbox_too_big))
+               self.remove_bbox()
+            except exceptions.BboxTooSmallError as bbox_too_small:
+                map_UI.handle_bbox_error(str(bbox_too_small))
+                self.remove_bbox()
+            else:
+                # if a bbox already exists delete its layer from map
+                if self.bbox is not None:
+                    temp_bbox = Bounding_Box(self.draw_control.last_draw["geometry"])
+                    self.remove_bbox()
+                    self.bbox=temp_bbox
+                    new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
+                    if new_layer is None:
+                        print("Cannot add an empty bbox layer to the map.")
+                    else:
+                        self.map.add_layer(new_layer)
+                else:     
+                    # Save new bbox to coastseg_map
+                    self.bbox = Bounding_Box(self.draw_control.last_draw["geometry"])
         if self.draw_control.last_action == "deleted":
             self.remove_bbox()
 
@@ -1006,17 +1026,17 @@ class CoastSeg_Map:
                 logger.info(
                     f"load_bbox_on_map:: Loaded the bbox from the file :\n{file}"
                 )
-        elif self.bbox is not None:
-            if self.bbox.gdf.empty:
-                logger.warning("load_bbox_on_map:: self.bbox.gdf.empty")
-                raise exceptions.Object_Not_Found("bbox")
-            new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
-            if new_layer is None:
-                logger.warning("Cannot add an empty bbox layer to the map.")
-                print("Cannot add an empty bbox layer to the map.")
-            else:
-                self.map.add_layer(new_layer)
-                logger.info("load_bbox_on_map:: Loaded the bbox on map from self.bbox")
+        # elif self.bbox is not None:
+        #     if self.bbox.gdf.empty:
+        #         logger.warning("load_bbox_on_map:: self.bbox.gdf.empty")
+        #         raise exceptions.Object_Not_Found("bbox")
+        #     new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
+        #     if new_layer is None:
+        #         logger.warning("Cannot add an empty bbox layer to the map.")
+        #         print("Cannot add an empty bbox layer to the map.")
+        #     else:
+        #         self.map.add_layer(new_layer)
+        #         logger.info("load_bbox_on_map:: Loaded the bbox on map from self.bbox")
 
     def load_shoreline_on_map(self) -> None:
         """Adds shoreline within the drawn bbox onto the map"""

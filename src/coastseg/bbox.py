@@ -72,7 +72,7 @@ class Bounding_Box:
                 "fill_color": "#75b671",
                 "opacity": 1,
                 "fillOpacity": 0.1,
-                "weight": 1,
+                "weight": 3,
             },
         )
 
