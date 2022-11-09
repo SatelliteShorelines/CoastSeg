@@ -15,7 +15,7 @@ def create_root_logger():
     log_filename = "log_" + datetime.now().strftime("%m-%d-%y-%I_%M_%S") + ".log"
     log_file = os.path.abspath(os.path.join(os.getcwd(), "logs", log_filename))
     # configure the logger
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_format = "%(asctime)s - %(filename)s at line %(lineno)s in %(funcName)s() - %(levelname)s : %(message)s"
     os.path.abspath(os.path.join(os.getcwd(), "logs"))
     # Use FileHandler() to log to a file
     file_handler = logging.FileHandler(log_file, mode="a")
