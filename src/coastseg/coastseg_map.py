@@ -890,6 +890,8 @@ class CoastSeg_Map:
     def load_extracted_shorelines_on_map(self, extracted_shoreline):
         # Loads stylized extracted shorelines onto map for single roi
         layers = extracted_shoreline.get_styled_layers()
+        layer_names = extracted_shoreline.get_layer_names()
+        self.extracted_shoreline_layers = [*self.extracted_shoreline_layers, *layer_names]
         logger.info(f"{layers}")
         for new_layer in layers:
             self.map.add_layer(new_layer)
@@ -918,7 +920,6 @@ class CoastSeg_Map:
             )
             self.map.add_layer(new_layer)
             logger.info(f"Loaded geodataframe from file:\n{file}")
-            self.extracted_shoreline_layers.append(layer_name)
 
     def load_bbox_on_map(self, file=None):
         # remove old bbox if it exists

@@ -68,9 +68,6 @@ class ROI:
         self.roi_settings = roi_settings
 
     def update_extracted_shorelines(self, extract_shoreline: dict):
-        logger.info(
-            f"Before adding {extract_shoreline} \nself.extracted_shorelines : {self.extracted_shorelines}"
-        )
         self.extracted_shorelines.update(extract_shoreline)
         logger.info(f"After self.extracted_shorelines : {self.extracted_shorelines}")
 
@@ -268,17 +265,17 @@ class ROI:
             logger.info(f"Did not save transects to json for ROI:{roi_id}")
             return
         sitename = str(self.roi_settings[roi_id]["sitename"])
-        logger.info(f"save_transects_to_json:: sitename: {sitename}")
+        logger.info(f"sitename: {sitename}")
         filename = f"transects_cross_distances" + str(roi_id) + ".json"
-        logger.info(f"save_transects_to_json:: filename: {filename}")
+        logger.info(f"filename: {filename}")
         save_path = os.path.abspath(
             os.path.join(os.getcwd(), "data", sitename, filename)
         )
-        logger.info(f"save_transects_to_json:: save_path: {save_path}")
+        logger.info(f"save_path: {save_path}")
         for key in cross_distance.keys():
             tmp = cross_distance[key].tolist()
             cross_distance[key] = tmp
-        logger.info(f"save_transects_to_json:: cross_distance: {cross_distance}")
+        logger.info(f"cross_distance: {cross_distance}")
 
         with open(save_path, "w") as f:
             json.dump(cross_distance, f)

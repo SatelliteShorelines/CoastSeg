@@ -114,7 +114,8 @@ class Shoreline:
                 inplace=True,
             )
             # Create a single dataframe to hold all shorelines from all files
-            shoreline_in_bbox = common.clip_to_bbox(shoreline, bbox)
+            shoreline_in_bbox = gpd.clip(shoreline, bbox)
+            shoreline_in_bbox = shoreline_in_bbox.to_crs("EPSG:4326")
             if shorelines_in_bbox_gdf.empty:
                 shorelines_in_bbox_gdf = shoreline_in_bbox
             elif not shorelines_in_bbox_gdf.empty:
@@ -146,8 +147,8 @@ class Shoreline:
             data=geojson,
             name=layer_name,
             style={
-                "color": "yellow",
-                "fill_color": "yellow",
+                "color": "black",
+                "fill_color": "black",
                 "opacity": 1,
                 "dashArray": "5",
                 "fillOpacity": 0.5,
