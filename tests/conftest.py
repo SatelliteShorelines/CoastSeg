@@ -546,7 +546,7 @@ def roi_settings_empty_sitenames() -> dict:
             "dates": ["2018-12-01", "2019-03-01"],
             "sat_list": ["L8"],
             "sitename": "",
-            "filepath":  file_path,
+            "filepath": file_path,
             "roi_id": "2",
             "polygon": [
                 [

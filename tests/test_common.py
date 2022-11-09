@@ -5,9 +5,28 @@ from coastseg import exceptions
 from coastseg import common
 
 import geopandas as gpd
+import numpy as np
 from shapely import geometry
 import pytest
 
+
+def test_is_list_empty():
+    # empty list to test if it detects it as empty
+    empty_list = [np.ndarray(shape=(0)),np.ndarray(shape=(0))]
+    assert common.is_list_empty(empty_list) == True
+    # half empty list to test if it detects it as not empty
+    non_empty_list = [np.ndarray(shape=(1,2)),np.ndarray(shape=(0))]
+    assert common.is_list_empty(non_empty_list) == False
+    # full list to test if it detects it as not empty
+    non_empty_list = [np.ndarray(shape=(2)),np.ndarray(shape=(2))]
+    assert common.is_list_empty(non_empty_list) == False
+
+def test_get_colors():
+    length = 4
+    actual_list = common.get_colors(length)
+    assert len(actual_list) == length
+    assert isinstance(actual_list,list)
+    assert isinstance(actual_list[0],str)
 
 def test_do_rois_filepaths_exist(tmp_path):
     # should return false when a filepath exist

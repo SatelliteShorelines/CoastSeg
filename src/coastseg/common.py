@@ -21,6 +21,7 @@ from shapely import geometry
 import numpy as np
 import geojson
 from skimage.io import imread
+import matplotlib
 from leafmap import check_file_path
 from pyproj import Proj, transform
 import pandas as pd
@@ -73,6 +74,14 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                     pbar.update(len(chunk))
 
 
+def is_list_empty(main_list: list) -> bool:
+    all_empty = True
+    for np_array in main_list:
+        if len(np_array) != 0:
+            all_empty = False
+    return all_empty
+
+
 def get_center_rectangle(coords: list) -> tuple:
     """returns the center point of rectangle specified by points coords
     Args:
@@ -86,6 +95,7 @@ def get_center_rectangle(coords: list) -> tuple:
     return center_x, center_y
 
 
+# @todo remove this
 def is_shoreline_present(extracted_shorelines: dict, roi_id: int) -> bool:
     """Returns true if shoreline array exists for roi_id
     Args:
@@ -96,9 +106,6 @@ def is_shoreline_present(extracted_shorelines: dict, roi_id: int) -> bool:
     Returns:
         bool: false if shoreline does not exist at roi_id
     """
-    logger.info(
-        f"is_shoreline_present() : extracted_shorelines[roi_id]['shorelines']: {extracted_shorelines[roi_id]['shorelines']}"
-    )
     for shoreline in extracted_shorelines[roi_id]["shorelines"]:
         if shoreline.size != 0:
             return True
@@ -148,6 +155,13 @@ def convert_wgs_to_utm(lon: float, lat: float) -> str:
     return epsg_code
 
 
+def get_colors(length: int) -> list:
+    # returns a list of color hex codes as long as length
+    cmap = matplotlib.pyplot.get_cmap("plasma", length)
+    cmap_list = [matplotlib.colors.rgb2hex(i) for i in cmap.colors]
+    return cmap_list
+
+
 def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
     """Returns geodataframe with a single ROI whose id matches roi_id.
        If roi_id is None returns gdf
@@ -169,7 +183,7 @@ def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
     if single_roi.empty:
         logger.error(f"Id: {id} was not found in {gdf}")
         raise exceptions.Id_Not_Found(id)
-    logger.info(f"extract_roi_by_id:: single_roi: {single_roi}")
+    logger.info(f"single_roi: {single_roi}")
     return single_roi
 
 
@@ -303,23 +317,6 @@ def create_json_config(inputs: dict, settings: dict) -> dict:
     return config
 
 
-def does_filepath_exist(dictionary: dict):
-    if "filepath" not in dictionary:
-        logger.error(
-            f"Cannot extract shorelines because filepath key did not exist in {dictionary}"
-        )
-        raise Exception(
-            f"Cannot extract shorelines because filepath key did not exist in {dictionary}"
-        )
-    elif not os.path.exists(dictionary["filepath"]):
-        logger.error(
-            f"Cannot extract shorelines because location doesn't exist. Download the data first.\n{dictionary['filepath']} "
-        )
-        raise FileNotFoundError(
-            f"Cannot extract shorelines because location doesn't exist. Download the data first.\n{dictionary['filepath']} "
-        )
-
-
 def create_config_gdf(
     rois: gpd.GeoDataFrame,
     shorelines_gdf: gpd.GeoDataFrame = None,
@@ -371,21 +368,6 @@ def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
         )
         raise FileNotFoundError
     return gpd_data
-
-
-def clip_to_bbox(
-    gdf_to_clip: gpd.GeoDataFrame, bbox_gdf: gpd.GeoDataFrame
-) -> gpd.GeoDataFrame:
-    """Clip gdf_to_clip to bbox_gdf. Only data within bbox will be kept.
-    Args:
-        gdf_to_clip (geopandas.geodataframe.GeoDataFrame): geodataframe to be clipped to bbox
-        bbox_gdf (geopandas.geodataframe.GeoDataFrame): drawn bbox
-    Returns:
-        geopandas.geodataframe.GeoDataFrame: clipped geodata within bbox
-    """
-    shapes_in_bbox = gpd.clip(gdf_to_clip, bbox_gdf)
-    shapes_in_bbox = shapes_in_bbox.to_crs("EPSG:4326")
-    return shapes_in_bbox
 
 
 def get_jpgs_from_data(file_ext: str = "RGB") -> str:
@@ -493,12 +475,10 @@ def do_rois_filepaths_exist(roi_settings: dict, roi_ids: list) -> bool:
         if not os.path.exists(filepath):
             # if filepath does not exist stop checking
             does_filepath_exist = False
-            logger.info(f"do_rois_filepaths_exist::filepath did not exist{filepath}")
+            logger.info(f"filepath did not exist{filepath}")
             print("Some ROIs contained filepaths that did not exist")
             break
-    logger.info(
-        "do_rois_filepaths_exist::{does_filepath_exist} All rois filepaths exist"
-    )
+    logger.info("{does_filepath_exist} All rois filepaths exist")
     return does_filepath_exist
 
 
@@ -518,9 +498,7 @@ def do_rois_have_sitenames(roi_settings: dict, roi_ids: list) -> bool:
             # if sitename is empty means user has not downloaded ROI data
             is_sitename_not_empty = False
             break
-    logger.info(
-        f"do_rois_have_sitenames::{is_sitename_not_empty} All rois have non-empty sitenames"
-    )
+    logger.info(f"{is_sitename_not_empty} All rois have non-empty sitenames")
     return is_sitename_not_empty
 
 
@@ -551,13 +529,13 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
     # print the correct message depending on whether ROIs were downloaded
     if is_downloaded:
         print("Located previously downloaded ROI data.")
-        logger.info(f"were_rois_downloaded:: Located previously downloaded ROI data.")
+        logger.info(f"Located previously downloaded ROI data.")
     elif is_downloaded == False:
         print(
             "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
         )
         logger.info(
-            f"were_rois_downloaded:: Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
+            f"Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
         )
     return is_downloaded
 
