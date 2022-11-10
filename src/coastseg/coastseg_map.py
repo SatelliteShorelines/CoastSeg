@@ -1071,34 +1071,34 @@ class CoastSeg_Map:
         return styled_layer
 
     def load_rois_on_map(self, large_len=7500, small_len=5000, file: str = None):
-        # Remove old ROI_layers
-        if self.rois is not None or file is not None:
-            # removes the old rois from the map
-            if self.rois is not None:
-                self.remove_all_rois(delete_rois=False)
-            # read rois from geojson file and save them to the map
-            if file is not None:
+        try:
+            # Remove old ROI_layers
+            if self.rois is not None or file is not None:
+                # removes the old rois from the map
+                if self.rois is not None:
+                    self.remove_all_rois(delete_rois=False)
+                # read rois from geojson file and save them to the map
+                if file is not None:
+                    self.remove_all_rois()
+                    logger.info(f"Loading ROIs from file {file}")
+                    gdf = gpd.read_file(file)
+                    self.rois = ROI(rois_gdf=gdf)
+
+                logger.info(f"ROIs: {self.rois}")
+                # Create new ROI layer
+                self.ROI_layer = self.create_layer(self.rois, ROI.LAYER_NAME)
+                exception_handler.check_empty_layer(self.ROI_layer)
+                logger.info(f"ROI_layer: {self.ROI_layer}")
+                # add on click handler to add the ROI to the selected geojson layer when its clicked
+                self.ROI_layer.on_click(self.geojson_onclick_handler)
+                self.map.add_layer(self.ROI_layer)
+            else:
+                # if no rois exist on the map then generate ROIs within the bounding box
                 self.remove_all_rois()
-                logger.info(f"Loading ROIs from file {file}")
-                gdf = gpd.read_file(file)
-                self.rois = ROI(rois_gdf=gdf)
-
-            logger.info(f"ROIs: {self.rois}")
-            # Create new ROI layer
-            self.ROI_layer = self.create_layer(self.rois, ROI.LAYER_NAME)
-            if self.ROI_layer is None:
-                logger.error("Cannot add an empty ROI layer to the map.")
-                raise Exception("Cannot add an empty ROI layer to the map.")
-
-            logger.info(f"ROI_layer: {self.ROI_layer}")
-            # add on click handler to add the ROI to the selected geojson layer when its clicked
-            self.ROI_layer.on_click(self.geojson_onclick_handler)
-            self.map.add_layer(self.ROI_layer)
-        else:
-            # if no rois exist on the map then generate ROIs within the bounding box
-            self.remove_all_rois()
-            logger.info(f"No file provided. Generating ROIs")
-            self.generate_ROIS_fishnet(large_len, small_len)
+                logger.info(f"No file provided. Generating ROIs")
+                self.generate_ROIS_fishnet(large_len, small_len)
+        except Exception as error:
+            exception_handler.handle_exception(error)
 
     def generate_ROIS_fishnet(self, large_len: float = 7500, small_len: float = 5000):
         """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
@@ -1193,13 +1193,13 @@ class CoastSeg_Map:
         # Add selected layer to the map
         self.map.add_layer(self.selected_ROI_layer)
 
-
     def save_feature_to_file(
-        self, feature: Union[Bounding_Box, Shoreline, Transects, ROI],
-        feature_type:str=""
+        self,
+        feature: Union[Bounding_Box, Shoreline, Transects, ROI],
+        feature_type: str = "",
     ):
         try:
-            exception_handler.can_feature_save_to_file(feature,feature_type)
+            exception_handler.can_feature_save_to_file(feature, feature_type)
             if isinstance(feature, ROI):
                 # raise exception if no rois were selected
                 exception_handler.check_selected_set(self.selected_set)
@@ -1209,13 +1209,12 @@ class CoastSeg_Map:
             else:
                 logger.info(f"Saving feature type( {feature}) to file")
                 feature.gdf.to_file(feature.filename, driver="GeoJSON")
-            
+
             print(f"Save {feature.LAYER_NAME} to {feature.filename}")
             logger.info(f"Save {feature.LAYER_NAME} to {feature.filename}")
         except Exception as err:
             exception_handler.handle_exception(err)
-            
-            
+
     def convert_selected_set_to_geojson(self, selected_set: set) -> dict:
         """Returns a geojson dict containing a FeatureCollection for all the geojson objects in the
         selected_set

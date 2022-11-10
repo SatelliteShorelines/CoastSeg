@@ -361,9 +361,6 @@ class UI:
             if tk_root.filename:
                 try:
                     self.coastseg_map.load_rois_on_map(file=tk_root.filename)
-                except exceptions.Object_Not_Found as not_on_map_error:
-                    with Tkinter_Window_Creator():
-                        messagebox.showinfo("Error", str(not_on_map_error))
                 except Exception as error:
                     with Tkinter_Window_Creator():
                         messagebox.showinfo("Error", str(error))
@@ -454,12 +451,12 @@ class UI:
     @debug_view.capture(clear_output=True)
     def save_transects_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
-        self.coastseg_map.save_feature_to_file(self.coastseg_map.transects,"transects")
+        self.coastseg_map.save_feature_to_file(self.coastseg_map.transects, "transects")
 
     @debug_view.capture(clear_output=True)
     def save_shoreline_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
-        self.coastseg_map.save_feature_to_file(self.coastseg_map.shoreline,"shoreline")
+        self.coastseg_map.save_feature_to_file(self.coastseg_map.shoreline, "shoreline")
 
     @debug_view.capture(clear_output=True)
     def on_save_cross_distances_button_clicked(self, btn):
@@ -474,8 +471,7 @@ class UI:
     @debug_view.capture(clear_output=True)
     def on_save_bbox_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
-        self.coastseg_map.save_feature_to_file(self.coastseg_map.bbox,"bounding box")
-
+        self.coastseg_map.save_feature_to_file(self.coastseg_map.bbox, "bounding box")
 
     @debug_view.capture(clear_output=True)
     def on_load_gdf_clicked(self, button):
@@ -546,8 +542,7 @@ class UI:
     @debug_view.capture(clear_output=True)
     def save_roi_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
-        self.coastseg_map.save_feature_to_file(self.coastseg_map.rois,"ROI")
-
+        self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
 
     def remove_all_from_map(self, btn):
         self.coastseg_map.remove_all()
