@@ -25,7 +25,7 @@ def test_save_config_invalid_inputs(
         valid_coastseg_map.save_config()
 
     # test if exception is raised when settings is missing ["dates", "sat_list", "landsat_collection"]
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         valid_coastseg_map_with_incomplete_settings.save_config()
 
     # test if exception is raised when coastseg_map missing rois

@@ -214,8 +214,8 @@ def read_json_file(filename: str) -> dict:
     return data
 
 
-def find_config_json(dir_path) -> bool:
-    logger.info(f"searching directory for config.json: {dir_path}")
+def find_config_json(search_path) -> bool:
+    logger.info(f"searching directory for config.json: {search_path}")
 
     def use_regex(input_text):
         pattern = re.compile(r"config.*\.json", re.IGNORECASE)
@@ -223,10 +223,12 @@ def find_config_json(dir_path) -> bool:
             return True
         return False
 
-    for item in os.listdir(dir_path):
+    for item in os.listdir(search_path):
         if use_regex(item):
             logger.info(f"{item} matched regex")
             return item
+
+    raise FileNotFoundError(f"config.json file was not found at {search_path}")
 
 
 def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):

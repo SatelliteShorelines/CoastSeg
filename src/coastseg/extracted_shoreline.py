@@ -178,12 +178,13 @@ class Extracted_Shoreline:
             sitename (str): directory of roi shoreline was extracted from
             filepath (str): full path to directory containing ROIs
         """
+        savepath = os.path.join(filepath, sitename, Extracted_Shoreline.FILE_NAME)
         logger.info(
-            f"Saving shoreline to file{filepath}. \n Extracted Shoreline: {self.gdf}"
+            f"Saving shoreline to file: {savepath}.\n Extracted Shoreline: {self.gdf}"
         )
-        print(f"Saving shoreline to file{filepath}")
+        print(f"Saving shoreline to file: {savepath}")
         self.gdf.to_file(
-            os.path.join(filepath, sitename, Extracted_Shoreline.FILE_NAME),
+            savepath,
             driver="GeoJSON",
             encoding="utf-8",
         )
