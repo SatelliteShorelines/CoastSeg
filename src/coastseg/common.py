@@ -250,7 +250,8 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         config.to_file(save_path, driver="GeoJSON")
 
-def get_transect_points_dict(transects_coords:list)->dict:
+
+def get_transect_points_dict(transects_coords: list) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
     {
@@ -269,8 +270,8 @@ def get_transect_points_dict(transects_coords:list)->dict:
         of form {
             'NA<index>': array([[start point],
                         [end point]]),}
-        
-    """    
+
+    """
     # convert to dict of numpy arrays of start and end points
     transects = {}
     for counter, i in enumerate(transects_coords):
@@ -280,13 +281,16 @@ def get_transect_points_dict(transects_coords:list)->dict:
     return transects
 
 
-def get_cross_distance_df(extracted_shorelines:dict,cross_distance_transects:dict)->pd.DataFrame:
-    transects_csv={}
+def get_cross_distance_df(
+    extracted_shorelines: dict, cross_distance_transects: dict
+) -> pd.DataFrame:
+    transects_csv = {}
     # copy dates from extracted shoreline
-    transects_csv['dates'] = extracted_shorelines['dates']
+    transects_csv["dates"] = extracted_shorelines["dates"]
     # add cross distances for each transect for roi with roi_id
-    transects_csv={**transects_csv,**cross_distance_transects}
+    transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
+
 
 def make_coastsat_compatible(feature: gpd.geodataframe) -> np.ndarray:
     """Return the feature as an np.array in the form:
@@ -302,7 +306,9 @@ def make_coastsat_compatible(feature: gpd.geodataframe) -> np.ndarray:
     # Use explode to break multilinestrings in linestrings
     feature_exploded = feature.explode()
     # For each linestring portion of feature convert to lat,lon tuples
-    lat_lng = feature_exploded.apply(lambda x: tuple(np.array(x.geometry).tolist()), axis=1)
+    lat_lng = feature_exploded.apply(
+        lambda x: tuple(np.array(x.geometry).tolist()), axis=1
+    )
     features = list(lat_lng)
     # for k in feature_exploded["geometry"].keys():
     #     # For each linestring portion of feature convert to lat,lon tuples

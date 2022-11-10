@@ -5,9 +5,7 @@ class Object_Not_Found(Exception):
     """
 
     def __init__(self, feature: str, message=""):
-        self.msg = (
-            f"No {feature.lower()} found on the map.\n{message}"
-        )
+        self.msg = f"No {feature.lower()} found on the map.\n{message}"
         self.feature = feature
         super().__init__(self.msg)
 
