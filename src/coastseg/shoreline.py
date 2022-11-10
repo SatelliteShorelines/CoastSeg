@@ -159,11 +159,9 @@ class Shoreline:
 
     def download_shoreline(self, filename: str, dataset_id: str = "6917358"):
         """Downloads the shoreline file from zenodo
-
         Args:
             filename (str): name of file to download
-            dataset_id (str, optional): zenodo id of file. Defaults to '6917358'.
-        """
+            dataset_id (str, optional): zenodo id of file. Defaults to '6917358'."""
         root_url = "https://zenodo.org/record/" + dataset_id + "/files/"
         # Create the directory to hold the downloaded shorelines from Zenodo
         script_dir = os.path.dirname(os.path.abspath(__file__))

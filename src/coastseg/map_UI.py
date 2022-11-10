@@ -1,6 +1,8 @@
 # standard python imports
 import os
 import logging
+import traceback
+import sys
 
 # internal python imports
 from coastseg.tkinter_window_creator import Tkinter_Window_Creator
@@ -11,6 +13,7 @@ import ipywidgets
 from IPython.display import display, clear_output
 from google.auth import exceptions as google_auth_exceptions
 from tkinter import filedialog
+from tkinter import messagebox
 from ipywidgets import Button
 from ipywidgets import HBox
 from ipywidgets import VBox
@@ -21,21 +24,23 @@ from ipywidgets import RadioButtons
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Checkbox
-from tkinter import messagebox
+
 
 logger = logging.getLogger(__name__)
 
-def handle_bbox_error(error_msg:str):
+
+def handle_bbox_error(error_msg: str):
     logger.error(f"Bounding Box Error{error_msg}")
     with Tkinter_Window_Creator():
         messagebox.showwarning("Bounding Box Error", f"{error_msg}")
 
+
 class UI:
     # all instances of UI will share the same debug_view
     # this means that UI and coastseg_map must have a 1:1 relationship
-    # Output wdiget used to print messages and exceptions created by CoastSeg_Map
+    # Output widget used to print messages and exceptions created by CoastSeg_Map
     debug_view = Output(layout={"border": "1px solid black"})
-    # Output wdiget used to print messages and exceptions created by download progress
+    # Output widget used to print messages and exceptions created by download progress
     download_view = Output(layout={"border": "1px solid black"})
 
     def __init__(self, coastseg_map):
@@ -111,7 +116,11 @@ class UI:
             description="Compute Transects", style=self.action_style
         )
         self.compute_transect_button.on_click(self.compute_transect_button_clicked)
-        # # Remove buttons
+        self.save_transect_csv_button = Button(
+            description="Save Transects CSV", style=self.action_style
+        )
+        self.save_transect_csv_button.on_click(self.on_save_cross_distances_button_clicked)
+        # Remove buttons
         self.clear_debug_button = Button(
             description="Clear TextBox", style=self.clear_stlye
         )
@@ -270,6 +279,7 @@ class UI:
                 self.download_button,
                 self.extract_shorelines_button,
                 self.compute_transect_button,
+                self.save_transect_csv_button,
                 config_vbox,
             ]
         )
@@ -295,6 +305,7 @@ class UI:
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         row_2 = HBox([load_buttons])
         row_3 = HBox([erase_buttons])
+        # in this row prints are rendered with UI.debug_view
         row_4 = HBox([self.clear_debug_button, UI.debug_view])
         row_5 = HBox([self.coastseg_map.map])
         row_6 = HBox([UI.download_view])
@@ -392,10 +403,18 @@ class UI:
         try:
             self.extract_shorelines_button.disabled = True
             self.coastseg_map.extract_all_shorelines()
+        except exceptions.No_Extracted_Shoreline as no_shoreline:
+            logger.error(no_shoreline)
+            with Tkinter_Window_Creator():
+                messagebox.showerror("Error", f"{no_shoreline}")
+        except exceptions.Id_Not_Found as id_error:
+            logger.error(id_error)
+            with Tkinter_Window_Creator():
+                messagebox.showerror("Error", f"{id_error}")
         except Exception as exception:
             logger.error(exception)
             with Tkinter_Window_Creator():
-                messagebox.showerror("Error", f"{exception}")
+                messagebox.showerror("Error", f"{exception} {traceback.format_exc()}")
         finally:
             self.extract_shorelines_button.disabled = False
             self.coastseg_map.map.default_style = {"cursor": "default"}
@@ -408,8 +427,9 @@ class UI:
             self.compute_transect_button.disabled = True
             self.coastseg_map.compute_transects()
         except Exception as exception:
+            logger.error(exception)
             with Tkinter_Window_Creator():
-                messagebox.showerror("Error", f"{exception}")
+                messagebox.showerror("Error", f"{exception} {traceback.format_exc()}")
         finally:
             self.compute_transect_button.disabled = False
             self.coastseg_map.map.default_style = {"cursor": "default"}
@@ -460,6 +480,17 @@ class UI:
         except Exception as error:
             with Tkinter_Window_Creator():
                 messagebox.showinfo("Error", str(error))
+
+    @debug_view.capture(clear_output=True)
+    def on_save_cross_distances_button_clicked(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        try:
+            self.coastseg_map.save_transects_to_csv()
+        except Exception as exception:
+            logger.error(exception)
+            with Tkinter_Window_Creator():
+                messagebox.showerror("Error", f"{exception} {traceback.format_exc()}")
+
 
     @debug_view.capture(clear_output=True)
     def on_save_bbox_button_clicked(self, btn):

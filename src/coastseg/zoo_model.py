@@ -237,7 +237,7 @@ class Zoo_Model:
         )
         if not os.path.exists(downloaded_models_path):
             os.mkdir(downloaded_models_path)
-        logger.info(f"download_model:: self.weights_direc:{self.weights_direc}")
+        logger.info(f"self.weights_direc:{self.weights_direc}")
         if not os.path.exists(self.weights_direc):
             os.mkdir(self.weights_direc)
         if dataset == "RGB":
