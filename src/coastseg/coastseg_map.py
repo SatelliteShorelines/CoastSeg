@@ -12,6 +12,7 @@ from coastseg.roi import ROI
 from coastseg import exceptions
 from coastseg import map_UI
 from coastseg import extracted_shoreline
+from coastseg import exception_handler
 
 import geopandas as gpd
 import numpy as np
@@ -768,38 +769,33 @@ class CoastSeg_Map:
             print(f'Time-series of the shoreline change along the transects saved as:{fn}')
 
     def load_transects_on_map(self) -> None:
-        """Adds transects within the drawn bbox onto the map"""
-        # if no transects have been loaded onto the map before create a new transects
-        if self.transects is None:
-            if self.bbox is None:
-                logger.error(f"self.bbox is None")
-                raise Exception(
-                    "Cannot load transects on map because bbox does not exist"
-                )
-            elif self.bbox.gdf.empty:
-                logger.error(f"self.bbox is empty")
-                raise Exception("Cannot load transects on map because bbox is empty")
-            # if a bounding box exists create a shoreline within it
-            transects = Transects(self.bbox.gdf)
-            # Save transect to coastseg_map
-            self.transects = transects
-            if transects.gdf.empty:
-                raise exceptions.Object_Not_Found(
-                    "Transects Not Found in this region. Draw a new bounding box"
-                )
-
-        layer_name = "transects"
-        # Replace old transect layer with new transect layer
-        self.remove_layer_by_name(layer_name)
-        # style and add the transect to the map
-        new_layer = self.create_layer(self.transects, layer_name)
-        if new_layer is None:
-            print("Cannot add an empty transects layer to the map.")
-        else:
-
-            self.map.add_layer(new_layer)
-            logger.info(f"Added layer to map: {new_layer}")
-
+        """Loads transects within bounding box on map"""
+        # if no transects on map then create new transects
+        try:
+            if self.transects is None:
+                exception_handler.check_exception_None(self.bbox,'bounding box',"Cannot load transects on map because bbox does not exist")
+                exception_handler.check_exception_gdf_empty(self.bbox.gdf,'bounding box',"Cannot load transects on map because bbox does not exist")
+                # if bounding box exists load transects within it
+                transects = Transects(self.bbox.gdf)
+                exception_handler.check_exception_gdf_empty(transects.gdf,'transects',"Transects Not Found in this region. Draw a new bounding box")
+                # Save transects to coastseg_map
+                self.transects = transects
+                
+            layer_name = "transects"
+            # Replace old transect layer with new transect layer
+            self.remove_layer_by_name(layer_name)
+            # style and add the transect to the map
+            new_layer = self.create_layer(self.transects, layer_name)
+            if new_layer is None:
+                print("Cannot add an empty transects layer to the map.")
+            else:
+                self.map.add_layer(new_layer)
+                print("Loaded transects")
+                logger.info(f"Added layer to map: {new_layer}")
+        except Exception as err:
+            exception_handler.handle_exception(err)
+            
+            
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()

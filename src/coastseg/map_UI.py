@@ -342,17 +342,9 @@ class UI:
     @debug_view.capture(clear_output=True)
     def on_transects_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
-        try:
-            print("Loading transects please wait.")
-            self.coastseg_map.map.default_style = {"cursor": "wait"}
-            self.coastseg_map.load_transects_on_map()
-        except exceptions.Object_Not_Found as not_on_map_error:
-            with Tkinter_Window_Creator():
-                messagebox.showinfo("Bounding Box Error", str(not_on_map_error))
-        else:
-            print("Transects Loaded.")
-        finally:
-            self.coastseg_map.map.default_style = {"cursor": "default"}
+        self.coastseg_map.map.default_style = {"cursor": "wait"}
+        self.coastseg_map.load_transects_on_map()
+        self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
     def on_load_rois_clicked(self, button):

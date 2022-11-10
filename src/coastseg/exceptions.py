@@ -4,9 +4,9 @@ class Object_Not_Found(Exception):
         Exception: Inherits from the base exception class
     """
 
-    def __init__(self, feature: str):
+    def __init__(self, feature: str, message=""):
         self.msg = (
-            f"No {feature.lower()} were found in this region. Draw a new bounding box"
+            f"No {feature.lower()} found on the map.\n{message}"
         )
         self.feature = feature
         super().__init__(self.msg)
