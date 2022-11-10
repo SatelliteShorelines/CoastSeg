@@ -359,11 +359,7 @@ class UI:
             )
             # Save the filename as an attribute of the button
             if tk_root.filename:
-                try:
-                    self.coastseg_map.load_rois_on_map(file=tk_root.filename)
-                except Exception as error:
-                    with Tkinter_Window_Creator():
-                        messagebox.showinfo("Error", str(error))
+                self.coastseg_map.load_rois_on_map(file=tk_root.filename)
             else:
                 messagebox.showerror(
                     "ROI Selection Error", "You must select a valid geojson file first!"

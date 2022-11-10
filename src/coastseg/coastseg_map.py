@@ -177,7 +177,6 @@ class CoastSeg_Map:
             bbox = Bounding_Box(rectangle=bbox_gdf)
             logger.info(f"bbox: {bbox}")
             self.bbox = bbox
-            logger.info(f"self.bbox: {self.bbox}")
             self.load_bbox_on_map()
             logger.info("Bounding Box was loaded on the map")
             print("Bounding Box was loaded on the map")
@@ -1004,33 +1003,27 @@ class CoastSeg_Map:
             logger.info(f"Loaded geodataframe from file:\n{file}")
 
     def load_bbox_on_map(self, file=None):
-        # remove old bbox if it exists
-        self.draw_control.clear()
-        existing_layer = self.map.find_layer(Bounding_Box.LAYER_NAME)
-        if existing_layer is not None:
-            self.map.remove_layer(existing_layer)
-        logger.info(f"self.bbox: {self.bbox}")
-        if file is not None:
-            gdf = gpd.read_file(file)
-            self.bbox = Bounding_Box(gdf)
+        try:
+            # remove old bbox layer from map if it exists
+            self.draw_control.clear()
+            existing_layer = self.map.find_layer(Bounding_Box.LAYER_NAME)
+            if existing_layer is not None:
+                self.map.remove_layer(existing_layer)
+            # if geojson file containing a bbox was given
+            if file is not None:
+                gdf = gpd.read_file(file)
+                self.bbox = Bounding_Box(gdf)
+                print(f"Loading bbox from file :\n{file}")
+                logger.info(f"Loading bbox from file :\n{file}")
+                
+            # if bbox not empty create layer and add to map
+            exception_handler.check_exception_None(self.bbox,"bounding box")
+            exception_handler.check_exception_gdf_empty(self.bbox.gdf,"bounding box")
             new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
-            if new_layer is None:
-                print("Cannot add an empty bbox layer to the map.")
-            else:
-                self.map.add_layer(new_layer)
-                print(f"Loaded the bbox from the file :\n{file}")
-                logger.info(f"Loaded the bbox from the file :\n{file}")
-        elif self.bbox is not None:
-            if self.bbox.gdf.empty:
-                logger.warning("self.bbox.gdf.empty")
-                raise exceptions.Object_Not_Found("bbox")
-            new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
-            if new_layer is None:
-                logger.warning("Cannot add an empty bbox layer to the map.")
-                print("Cannot add an empty bbox layer to the map.")
-            else:
-                self.map.add_layer(new_layer)
-                logger.info("Loaded the bbox on map from self.bbox")
+            exception_handler.check_empty_layer(new_layer,"bounding box")
+            self.map.add_layer(new_layer)
+        except Exception as error:
+            exception_handler.handle_exception(error)
 
     def load_shoreline_on_map(self) -> None:
         """Adds shoreline within the drawn bbox onto the map"""
@@ -1087,7 +1080,7 @@ class CoastSeg_Map:
                 logger.info(f"ROIs: {self.rois}")
                 # Create new ROI layer
                 self.ROI_layer = self.create_layer(self.rois, ROI.LAYER_NAME)
-                exception_handler.check_empty_layer(self.ROI_layer)
+                exception_handler.check_empty_layer(self.ROI_layer,"ROI")
                 logger.info(f"ROI_layer: {self.ROI_layer}")
                 # add on click handler to add the ROI to the selected geojson layer when its clicked
                 self.ROI_layer.on_click(self.geojson_onclick_handler)
