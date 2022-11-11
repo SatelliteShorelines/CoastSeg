@@ -234,9 +234,8 @@ class CoastSeg_Map:
         # for each ROI use inputs dictionary to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
             metadata = SDS_download.retrieve_images(inputs_for_roi)
-            print(f"inputs: {inputs_for_roi}")
-            logger.info(f"inputs: {inputs_for_roi}")
             tmp_settings["inputs"] = inputs_for_roi
+            logger.info(f"inputs: {inputs_for_roi}")
             logger.info(f"Saving to jpg. Metadata: {metadata}")
             SDS_preprocess.save_jpg(metadata, tmp_settings)
         # tmp settings is no longer needed
@@ -400,7 +399,7 @@ class CoastSeg_Map:
         exception_handler.check_if_None(self.rois, "ROI")
         exception_handler.check_if_None(self.shoreline, "shoreline")
         exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
-        exception_handler.check_if_None(self.settings)
+        exception_handler.check_if_None(self.settings,"settings")
         # settings must contain keys in subset
         subset = set(["dates", "sat_list", "landsat_collection"])
         superset = set(list(self.settings.keys()))
@@ -414,16 +413,13 @@ class CoastSeg_Map:
         )
         # if no rois are selected throw an error
         exception_handler.check_selected_set(self.selected_set)
-        # get selected ROIs on map and extract shoreline for each of them
         roi_ids = list(self.selected_set)
-        if common.were_rois_downloaded(self.rois.roi_settings, roi_ids) == False:
-            logger.error(f" not all rois were downloaded{self.rois.roi_settings}")
-            raise Exception(
-                f"Some ROIs filepaths did not exist on your computer. Try downloading the rois to overwrite the filepath ."
-            )
-        logger.info(f" roi_ids: {roi_ids}")
+        logger.info(f"roi_ids: {roi_ids}")
+        exception_handler.check_if_rois_downloaded(self.rois.roi_settings, roi_ids)
+        
         # extracted_shoreline_dict: holds extracted shorelines for each ROI
         extracted_shoreline_dict = {}
+        # get selected ROIs on map and extract shoreline for each of them
         for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
             try:
                 print(f"Extracting shorelines from ROI with the id:{roi_id}")
@@ -448,15 +444,13 @@ class CoastSeg_Map:
             else:
                 extracted_shoreline_dict[roi_id] = extracted_shorelines
 
-            # Save all the extracted_shorelines to ROI
-            self.rois.update_extracted_shorelines(extracted_shoreline_dict)
-            logger.info(
-                f"extract_all_shorelines : self.rois.extracted_shorelines {self.rois.extracted_shorelines}"
-            )
-            # Saves extracted_shorelines to ROI's directory to file 'extracted_shorelines.geojson'
-            self.save_extracted_shorelines_to_file(roi_ids)
-            # for each ROI that has extracted shorelines load onto map
-            self.load_extracted_shorelines_to_map(roi_ids)
+        # Save all the extracted_shorelines to ROI
+        self.rois.update_extracted_shorelines(extracted_shoreline_dict)
+        logger.info(f"rois.extracted_shorelines {self.rois.extracted_shorelines}")
+        # Saves extracted_shorelines to ROI's directory to file 'extracted_shorelines.geojson'
+        self.save_extracted_shorelines_to_file(roi_ids)
+        # for each ROI that has extracted shorelines load onto map
+        self.load_extracted_shorelines_to_map(roi_ids)
 
     def get_selected_rois(self, roi_ids: list) -> gpd.GeoDataFrame:
         """Returns a geodataframe of all rois selected by roi_ids
@@ -944,7 +938,7 @@ class CoastSeg_Map:
         # add on_hover handler to update shoreline widget when user hovers over shoreline
         new_layer.on_hover(self.update_shoreline_html)
         self.map.add_layer(new_layer)
-        logger.info(f"Add layer to map: {new_layer}")
+        logger.info(f"Add layer to map: {layer_name}")
 
     def create_layer(self, feature, layer_name: str):
         if feature.gdf.empty:

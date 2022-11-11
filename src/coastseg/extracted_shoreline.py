@@ -244,15 +244,15 @@ class Extracted_Shoreline:
 def get_reference_shoreline(
     shoreline_gdf: gpd.geodataframe, output_crs: str, input_crs=4326
 ) -> np.ndarray:
+    # project shorelines's espg from map's espg to output espg given in settings
+    reprojected_shorlines = shoreline_gdf.to_crs(output_crs)
+    logger.info(f"reprojected_shorlines.crs: {reprojected_shorlines.crs}")
+    logger.info(f"reprojected_shorlines: {reprojected_shorlines}")
     # convert shoreline_in_roi gdf to coastsat compatible format np.array([[lat,lon,0],[lat,lon,0]...])
-    shorelines = common.make_coastsat_compatible(shoreline_gdf)
+    shorelines = common.make_coastsat_compatible(reprojected_shorlines)
     # shorelines = [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...]
     # Stack all the tuples into a single list of n rows X 2 columns
     shorelines = np.vstack(shorelines)
     # Add third column of 0s to represent mean sea level
     shorelines = np.insert(shorelines, 2, np.zeros(len(shorelines)), axis=1)
-    # shorelines = array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
-    # project shorelines's espg from map's espg to output espg given in settings
-    s_proj = common.convert_espg(input_crs, output_crs, shorelines)
-    logger.info(f"s_proj: {s_proj}")
-    return s_proj
+    return shorelines

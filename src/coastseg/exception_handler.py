@@ -8,6 +8,7 @@ from typing import Union
 # internal python imports
 from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from coastseg import exceptions
+from coastseg import common
 
 # external python imports
 from google.auth import exceptions as google_auth_exceptions
@@ -63,6 +64,12 @@ def check_if_subset(subset: set, superset: set, superset_name: str, message: str
             f"Missing keys {subset-superset} from {superset_name}\n{message}"
         )
 
+def check_if_rois_downloaded(roi_settings:dict, roi_ids:list):
+    if common.were_rois_downloaded(roi_settings, roi_ids) == False:
+        logger.error(f"Not all rois were downloaded{roi_settings}")
+        raise FileNotFoundError(
+            f"Some ROIs filepaths did not exist on your computer. Try downloading ROIs to overwrite filepath ."
+        )
 
 def can_feature_save_to_file(feature, feature_type: str = ""):
     if feature is None:

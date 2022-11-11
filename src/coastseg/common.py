@@ -520,7 +520,7 @@ def do_rois_filepaths_exist(roi_settings: dict, roi_ids: list) -> bool:
             logger.info(f"filepath did not exist{filepath}")
             print("Some ROIs contained filepaths that did not exist")
             break
-    logger.info("{does_filepath_exist} All rois filepaths exist")
+    logger.info(f"{does_filepath_exist} All rois filepaths exist")
     return does_filepath_exist
 
 
