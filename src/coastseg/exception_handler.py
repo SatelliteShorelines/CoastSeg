@@ -12,30 +12,29 @@ from coastseg import common
 
 # external python imports
 from google.auth import exceptions as google_auth_exceptions
-from tkinter import filedialog
 from tkinter import messagebox
 
 logger = logging.getLogger(__name__)
 
-CONFIG_ROIS_NOT_FOUND = (
+NO_CONFIG_ROIS = (
     "No ROIs were selected. Cannot save ROIs to config until ROIs are selected."
 )
-CONFIG_SETTINGS_NOT_FOUND = (
-    "Settings must be loaded before configuration files can be made."
+NO_CONFIG_SETTINGS = "Settings must be loaded before configuration files can be made."
+ROIS_NOT_DOWNLOADED = (
+    "Not all ROI directories exist on your computer. Try downloading the ROIs again."
 )
 BBOX_NOT_FOUND = "Bounding Box not found on map"
 EMPTY_SELECTED_ROIS = "Must select at least one ROI on the map"
 SETTINGS_NOT_FOUND = "No settings found. Create settings before downloading"
 SHORELINE_NOT_FOUND = "No Shoreline found. Please load a shoreline on the map first."
-INPUT_SETTINGS_NOT_FOUND = (
+NO_INPUT_SETTINGS = (
     "No inputs settings found. Please click download ROIs first or upload configs"
 )
-EXTRACTED_SHORELINES_NOT_FOUND = (
-    "No shorelines have been extracted. Extract shorelines first."
-)
+NO_EXTRACTED_SHORELINES = "No shorelines have been extracted. Extract shorelines first."
 NO_ROIS_WITH_EXTRACTED_SHORELINES = (
     "You must select an ROI and extract shorelines before you can compute transects"
 )
+NO_CROSS_DISTANCE_TRANSECTS = "No cross distances transects have been computed"
 
 # Separate different exception checking and handling
 # Checking decides the message
@@ -64,12 +63,12 @@ def check_if_subset(subset: set, superset: set, superset_name: str, message: str
             f"Missing keys {subset-superset} from {superset_name}\n{message}"
         )
 
-def check_if_rois_downloaded(roi_settings:dict, roi_ids:list):
+
+def check_if_rois_downloaded(roi_settings: dict, roi_ids: list):
     if common.were_rois_downloaded(roi_settings, roi_ids) == False:
         logger.error(f"Not all rois were downloaded{roi_settings}")
-        raise FileNotFoundError(
-            f"Some ROIs filepaths did not exist on your computer. Try downloading ROIs to overwrite filepath ."
-        )
+        raise FileNotFoundError(ROIS_NOT_DOWNLOADED)
+
 
 def can_feature_save_to_file(feature, feature_type: str = ""):
     if feature is None:
@@ -80,9 +79,11 @@ def can_feature_save_to_file(feature, feature_type: str = ""):
 def check_empty_dict(feature, feature_type: str = ""):
     if feature == {}:
         if feature_type == "roi_settings":
-            raise Exception(INPUT_SETTINGS_NOT_FOUND)
+            raise Exception(NO_INPUT_SETTINGS)
         if feature_type == "extracted_shorelines":
-            raise Exception(EXTRACTED_SHORELINES_NOT_FOUND)
+            raise Exception(NO_EXTRACTED_SHORELINES)
+        if feature_type == "cross_distance_transects":
+            raise Exception(NO_CROSS_DISTANCE_TRANSECTS)
 
 
 def check_empty_layer(layer, feature_type: str = ""):
@@ -135,7 +136,9 @@ def handle_exception(error):
         messagebox.showinfo("Error", error_message)
 
 
-def handle_bbox_error(error_msg: Union[exceptions.BboxTooLargeError,exceptions.BboxTooSmallError]):
+def handle_bbox_error(
+    error_msg: Union[exceptions.BboxTooLargeError, exceptions.BboxTooSmallError]
+):
     logger.error(f"Bounding Box Error{error_msg}")
     with Tkinter_Window_Creator():
         messagebox.showwarning("Bounding Box Error", f"{str(error_msg)}")

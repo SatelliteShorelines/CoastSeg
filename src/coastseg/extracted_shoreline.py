@@ -209,10 +209,9 @@ class Extracted_Shoreline:
             style={
                 "color": color,
                 "opacity": 1,
-                "fillOpacity": 0.5,
-                "weight": 2,
+                "weight": 4,
             },
-            hover_style={"color": "white", "dashArray": "4", "fillOpacity": 0.7},
+            hover_style={"color": "red", "dashArray": "4", "fillOpacity": 0.7},
         )
 
     def get_layer_names(self) -> list:

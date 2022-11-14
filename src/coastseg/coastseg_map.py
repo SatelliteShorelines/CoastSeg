@@ -65,8 +65,8 @@ class CoastSeg_Map:
         self.map.add(self.draw_control)
         layer_control = LayersControl(position="topright")
         self.map.add(layer_control)
-        hover_shoreline_control = self.create_shoreline_widget()
-        self.map.add(hover_shoreline_control)
+        hover_accordion_control = self.create_accordion_widget()
+        self.map.add(hover_accordion_control)
 
     def create_map(self, map_settings: dict):
         """create an interactive map object using the map_settings
@@ -97,20 +97,19 @@ class CoastSeg_Map:
             layout=map_settings["Layout"],
         )
 
-    def create_shoreline_widget(self):
-        """creates a accordion style widget controller to hold shoreline data.
+    def create_accordion_widget(self):
+        """creates a accordion style widget controller to hold data of
+        a feature that was last hovered over by user on map.
 
         Returns:
            ipyleaflet.WidgetControl: an widget control for an accordion widget
         """
-        html = HTML("Hover over shoreline")
+        html = HTML("Hover over a Feature")
         html.layout.margin = "0px 20px 20px 20px"
-        self.shoreline_accordion = Accordion(
-            children=[html], titles=("Shoreline Data",)
-        )
-        self.shoreline_accordion.set_title(0, "Shoreline Data")
+        self.accordion = Accordion(children=[html], titles=("Hover Data",))
+        self.accordion.set_title(0, "Hover Data")
 
-        return WidgetControl(widget=self.shoreline_accordion, position="topright")
+        return WidgetControl(widget=self.accordion, position="topright")
 
     def load_configs(self, filepath: str):
         self.load_gdf_config(filepath)
@@ -349,9 +348,25 @@ class CoastSeg_Map:
         for key, value in kwargs.items():
             self.settings[key] = value
 
+    def update_extracted_shoreline_html(self, feature, **kwargs):
+        # Modifies main html body of Shoreline Data Accordion
+        self.accordion.children[
+            0
+        ].value = """
+        <p>Date: {}</p>
+        <p>Geoaccuracy: {}</p>
+        <p>Cloud Cover: {}</p>
+        <p>Satellite name: {}</p>
+        """.format(
+            feature["properties"]["date"],
+            feature["properties"]["geoaccuracy"],
+            feature["properties"]["cloud_cover"],
+            feature["properties"]["satname"],
+        )
+
     def update_shoreline_html(self, feature, **kwargs):
         # Modifies main html body of Shoreline Data Accordion
-        self.shoreline_accordion.children[
+        self.accordion.children[
             0
         ].value = """
         <p>Mean Sig Waveheight: {}</p>
@@ -396,10 +411,10 @@ class CoastSeg_Map:
         download_imagery() and extracts a shoreline for each of them
         """
         # ROIs,settings, roi-settings cannot be None or empty
-        exception_handler.check_if_None(self.rois, "ROI")
+        exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.shoreline, "shoreline")
         exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
-        exception_handler.check_if_None(self.settings,"settings")
+        exception_handler.check_if_None(self.settings, "settings")
         # settings must contain keys in subset
         subset = set(["dates", "sat_list", "landsat_collection"])
         superset = set(list(self.settings.keys()))
@@ -416,7 +431,7 @@ class CoastSeg_Map:
         roi_ids = list(self.selected_set)
         logger.info(f"roi_ids: {roi_ids}")
         exception_handler.check_if_rois_downloaded(self.rois.roi_settings, roi_ids)
-        
+
         # extracted_shoreline_dict: holds extracted shorelines for each ROI
         extracted_shoreline_dict = {}
         # get selected ROIs on map and extract shoreline for each of them
@@ -622,23 +637,18 @@ class CoastSeg_Map:
             Exception: No roi settings have been loaded
             Exception: No rois selected that have had shorelines extracted
         """
-        if self.rois is None:
-            logger.error("No ROIs have been loaded")
-            raise Exception("No ROIs have been loaded")
-        if self.transects is None:
-            logger.error("No transects were loaded onto the map.")
-            raise Exception("No transects were loaded onto the map.")
-        if self.rois.extracted_shorelines == {}:
-            logger.error("No shorelines have been extracted. Extract shorelines first.")
-            raise Exception(
-                "No shorelines have been extracted. Extract shorelines first."
-            )
-        if self.rois.roi_settings == {}:
-            logger.error("No roi settings have been loaded")
-            raise Exception("No roi settings have been loaded")
-        if self.rois.cross_distance_transects == {}:
-            logger.error("No cross distances transects have been computed")
-            raise Exception("No roi settings transects have been computed")
+        # ROIs and transects must exist
+        exception_handler.check_if_None(self.rois, "ROIs")
+        exception_handler.check_if_None(self.transects, "transects")
+        # there must be extracted shorelines for rois
+        exception_handler.check_empty_dict(
+            self.rois.extracted_shorelines, "extracted_shorelines"
+        )
+        exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
+        #  each roi must have a computed transect
+        exception_handler.check_empty_dict(
+            self.rois.cross_distance_transects, "cross_distance_transects"
+        )
 
         # only get roi ids that are currently selected on map and have had their shorelines extracted
         extracted_shoreline_ids = set(list(self.rois.extracted_shorelines.keys()))
@@ -756,8 +766,8 @@ class CoastSeg_Map:
         logger.info(f"Removed layer {layer_name}")
 
     def remove_shoreline_html(self):
-        """Clear the shoreline html accoridon"""
-        self.shoreline_accordion.children[0].value = "Hover over the shoreline."
+        """Clear the shoreline html accordion"""
+        self.accordion.children[0].value = "Hover over the shoreline."
 
     def remove_shoreline(self):
         del self.shoreline
@@ -870,6 +880,7 @@ class CoastSeg_Map:
         ]
         logger.info(f"{layers}")
         for new_layer in layers:
+            new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
     def load_gdf_on_map(self, layer_name: str, file=None):

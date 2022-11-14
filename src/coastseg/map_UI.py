@@ -30,6 +30,7 @@ from ipywidgets import Checkbox
 
 logger = logging.getLogger(__name__)
 
+
 class UI:
     # all instances of UI will share the same debug_view
     # this means that UI and coastseg_map must have a 1:1 relationship
