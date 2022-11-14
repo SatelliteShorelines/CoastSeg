@@ -837,11 +837,11 @@ class CoastSeg_Map:
             bbox_area = common.get_area(self.draw_control.last_draw["geometry"])
             try:
                 Bounding_Box.check_bbox_size(bbox_area)
-            except exceptions.BboxTooLargeError as bbox_too_big:
-                map_UI.handle_bbox_error(str(bbox_too_big))
+            except exceptions.Invalid_Bbox_Size as bbox_too_big:
+                exception_handler.handle_bbox_error(bbox_too_big)
                 self.remove_bbox()
             except exceptions.BboxTooSmallError as bbox_too_small:
-                map_UI.handle_bbox_error(str(bbox_too_small))
+                exception_handler.handle_bbox_error(bbox_too_small)
                 self.remove_bbox()
             else:
                 # if a bbox already exists delete its layer from map

@@ -30,13 +30,6 @@ from ipywidgets import Checkbox
 
 logger = logging.getLogger(__name__)
 
-
-def handle_bbox_error(error_msg: str):
-    logger.error(f"Bounding Box Error{error_msg}")
-    with Tkinter_Window_Creator():
-        messagebox.showwarning("Bounding Box Error", f"{error_msg}")
-
-
 class UI:
     # all instances of UI will share the same debug_view
     # this means that UI and coastseg_map must have a 1:1 relationship

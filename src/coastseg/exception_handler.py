@@ -133,3 +133,9 @@ def handle_exception(error):
     logger.error(f"{error_message}")
     with Tkinter_Window_Creator():
         messagebox.showinfo("Error", error_message)
+
+
+def handle_bbox_error(error_msg: Union[exceptions.BboxTooLargeError,exceptions.BboxTooSmallError]):
+    logger.error(f"Bounding Box Error{error_msg}")
+    with Tkinter_Window_Creator():
+        messagebox.showwarning("Bounding Box Error", f"{str(error_msg)}")
