@@ -348,11 +348,25 @@ class CoastSeg_Map:
         for key, value in kwargs.items():
             self.settings[key] = value
 
-    def update_extracted_shoreline_html(self, feature, **kwargs):
-        # Modifies main html body of Shoreline Data Accordion
+    def update_transects_html(self, feature, **kwargs):
+        # Modifies html body of accordion
         self.accordion.children[
             0
         ].value = """
+        <h3>Transect</h3>
+        <p>id: {}</p>
+        <p>Slope: {}</p>
+        """.format(
+            feature["properties"]["id"],
+            feature["properties"]["slope"],
+        )
+
+    def update_extracted_shoreline_html(self, feature, **kwargs):
+        # Modifies html body of Data Accordion
+        self.accordion.children[
+            0
+        ].value = """
+        <h4>Extracted Shoreline</h4>
         <p>Date: {}</p>
         <p>Geoaccuracy: {}</p>
         <p>Cloud Cover: {}</p>
@@ -369,6 +383,7 @@ class CoastSeg_Map:
         self.accordion.children[
             0
         ].value = """
+        <h2>Shoreline</h2>
         <p>Mean Sig Waveheight: {}</p>
         <p>Tidal Range: {}</p>
         <p>Erodibility: {}</p>
@@ -728,6 +743,7 @@ class CoastSeg_Map:
         if new_layer is None:
             print("Cannot add an empty transects layer to the map.")
         else:
+            new_layer.on_hover(self.update_transects_html)
             self.map.add_layer(new_layer)
             print("Loaded transects")
             logger.info(f"Added layer to map: {new_layer}")
