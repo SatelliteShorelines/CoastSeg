@@ -1,12 +1,9 @@
 # standard python imports
 import os
 import logging
-import traceback
-import sys
 
 # internal python imports
 from coastseg.tkinter_window_creator import Tkinter_Window_Creator
-from coastseg import exceptions
 from coastseg import exception_handler
 
 # external python imports

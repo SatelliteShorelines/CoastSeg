@@ -163,7 +163,9 @@ class CoastSeg_Map:
             logger.info("No Bounding Box was loaded on map")
             print("No Bounding Box was loaded on map")
         else:
-            self.bbox = Bounding_Box(rectangle=bbox_gdf)
+            bbox = Bounding_Box(rectangle=bbox_gdf)
+            self.remove_bbox()
+            self.bbox = bbox
             self.load_bbox_on_map()
         # Create ROI object from roi_gdf
         exception_handler.check_if_gdf_empty(
@@ -910,37 +912,26 @@ class CoastSeg_Map:
             action (str): name of the most recent action ex. 'created', 'deleted'
             geo_json (dict): geojson dictionary
         """
-        self.action = action
-        self.geo_json = geo_json
-        self.target = target
         if (
             self.draw_control.last_action == "created"
             and self.draw_control.last_draw["geometry"]["type"] == "Polygon"
         ):
             # validate the bbox size
-            bbox_area = common.get_area(self.draw_control.last_draw["geometry"])
+            geometry=self.draw_control.last_draw["geometry"]
+            self.remove_bbox()
+            bbox_area = common.get_area(geometry)
             try:
                 Bounding_Box.check_bbox_size(bbox_area)
             except exceptions.BboxTooLargeError as bbox_too_big:
                 exception_handler.handle_bbox_error(bbox_too_big)
-                self.remove_bbox()
             except exceptions.BboxTooSmallError as bbox_too_small:
                 exception_handler.handle_bbox_error(bbox_too_small)
-                self.remove_bbox()
             else:
-                # if a bbox already exists delete its layer from map
-                if self.bbox is not None:
-                    temp_bbox = Bounding_Box(self.draw_control.last_draw["geometry"])
-                    self.remove_bbox()
-                    self.bbox = temp_bbox
-                    new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
-                    if new_layer is None:
-                        print("Cannot add an empty bbox layer to the map.")
-                    else:
-                        self.map.add_layer(new_layer)
-                else:
-                    # Save new bbox to coastseg_map
-                    self.bbox = Bounding_Box(self.draw_control.last_draw["geometry"])
+                # if no exceptions occur create new bbox, remove old bbox, and load new bbox
+                logger.info(f"Made it with bbox area: {bbox_area}")
+                bbox = Bounding_Box(geometry)
+                self.bbox = bbox
+                self.load_bbox_on_map()
         if self.draw_control.last_action == "deleted":
             self.remove_bbox()
 
