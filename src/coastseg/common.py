@@ -252,8 +252,27 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         config.to_file(save_path, driver="GeoJSON")
 
+def get_default_dict(default,keys:list,fill_dict:dict)->dict:
+    """returns a dictionary with keys each with
+    default value if the key does not exist in fill_dict. If the key exists
+    in fill_dict then the value replaces the default value.
 
-def get_transect_points_dict(roi_id:str,feature: gpd.geodataframe) -> dict:
+    Args:
+        default (): default value for each key
+        keys (list): keys for dictionary
+        fill_dict (dict): dictionary used to replace default values
+
+    Returns:
+        dict: dict with given keys and default value for each key that didn't exist in fill_dict
+    """    
+    values = {}
+    values = values.fromkeys(keys, default)
+    for key in fill_dict.keys():
+        if key in values:
+            values[key] = fill_dict[key]
+    return values
+
+def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
     {
@@ -275,11 +294,18 @@ def get_transect_points_dict(roi_id:str,feature: gpd.geodataframe) -> dict:
     feature_exploded = feature.explode()
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
-        lambda row: {"ROI_"+str(roi_id)+'_'+str(row.id):np.array(np.array(row.geometry).tolist())}, axis=1)
+        lambda row: {
+            "ROI_"
+            + str(roi_id)
+            + "_"
+            + str(row.id): np.array(np.array(row.geometry).tolist())
+        },
+        axis=1,
+    )
     features = list(lat_lng)
-    new_dict={}
+    new_dict = {}
     for item in list(features):
-        new_dict={**new_dict,**item}
+        new_dict = {**new_dict, **item}
     return new_dict
 
 

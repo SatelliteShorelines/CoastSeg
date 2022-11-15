@@ -104,7 +104,7 @@ class CoastSeg_Map:
         Returns:
            ipyleaflet.WidgetControl: an widget control for an accordion widget
         """
-        html = HTML("Hover over a Feature")
+        html = HTML("Hover over a feature on the map")
         html.layout.margin = "0px 20px 20px 20px"
         self.accordion = Accordion(children=[html], titles=("Hover Data",))
         self.accordion.set_title(0, "Hover Data")
@@ -349,20 +349,36 @@ class CoastSeg_Map:
             self.settings[key] = value
 
     def update_transects_html(self, feature, **kwargs):
-        # Modifies html body of accordion
+        # Modifies html of accordion when transect is hovered over
+        default = "unknown"
+        keys = [
+            "id",
+            "slope",
+        ]
+        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
+        values = common.get_default_dict(default=default,keys=keys,fill_dict=feature["properties"])
         self.accordion.children[
             0
-        ].value = """
+        ].value = """ 
         <h2>Transect</h2>
-        <p>id: {}</p>
+        <p>Id: {}</p>
         <p>Slope: {}</p>
         """.format(
-            feature["properties"]["id"],
-            feature["properties"]["slope"],
+            values["id"],
+            values["slope"],
         )
 
     def update_extracted_shoreline_html(self, feature, **kwargs):
-        # Modifies html body of Data Accordion
+        # Modifies html body of accordion when extracted shoreline is hovered over
+        default = "unknown"
+        keys = [
+            "date",
+            "geoaccuracy",
+            "cloud_cover",
+            "satname",
+        ]
+        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
+        values = common.get_default_dict(default=default,keys=keys,fill_dict=feature["properties"])
         self.accordion.children[
             0
         ].value = """
@@ -370,16 +386,29 @@ class CoastSeg_Map:
         <p>Date: {}</p>
         <p>Geoaccuracy: {}</p>
         <p>Cloud Cover: {}</p>
-        <p>Satellite name: {}</p>
+        <p>Satellite Name: {}</p>
         """.format(
-            feature["properties"]["date"],
-            feature["properties"]["geoaccuracy"],
-            feature["properties"]["cloud_cover"],
-            feature["properties"]["satname"],
+            values["date"],
+            values["geoaccuracy"],
+            values["cloud_cover"],
+            values["satname"],
         )
 
     def update_shoreline_html(self, feature, **kwargs):
-        # Modifies main html body of Shoreline Data Accordion
+        # Modifies html of accordion when shoreline is hovered over
+        default_str = "unknown"
+        keys = [
+            "MEAN_SIG_WAVEHEIGHT",
+            "TIDAL_RANGE",
+            "ERODIBILITY",
+            "river_label",
+            "sinuosity_label",
+            "slope_label",
+            "turbid_label",
+            "CSU_ID",
+        ]
+        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
+        values = common.get_default_dict(default=default_str,keys=keys,fill_dict=feature["properties"])
         self.accordion.children[
             0
         ].value = """
@@ -393,14 +422,14 @@ class CoastSeg_Map:
         <p>Turbid: {}</p>
         <p>CSU_ID: {}</p>
         """.format(
-            feature["properties"]["MEAN_SIG_WAVEHEIGHT"],
-            feature["properties"]["TIDAL_RANGE"],
-            feature["properties"]["ERODIBILITY"],
-            feature["properties"]["river_label"],
-            feature["properties"]["sinuosity_label"],
-            feature["properties"]["slope_label"],
-            feature["properties"]["turbid_label"],
-            feature["properties"]["CSU_ID"],
+            values["MEAN_SIG_WAVEHEIGHT"],
+            values["TIDAL_RANGE"],
+            values["ERODIBILITY"],
+            values["river_label"],
+            values["sinuosity_label"],
+            values["slope_label"],
+            values["turbid_label"],
+            values["CSU_ID"],
         )
 
     def load_extracted_shorelines_to_map(self, roi_ids: list) -> None:
@@ -496,7 +525,7 @@ class CoastSeg_Map:
 
     def compute_transects_from_roi(
         self,
-        roi_id:str,
+        roi_id: str,
         extracted_shorelines: list,
         transects_gdf: gpd.GeoDataFrame,
         settings: dict,
@@ -515,7 +544,7 @@ class CoastSeg_Map:
                    Not tidally corrected.
         """
         # create dict of numpy arrays of transect start and end points
-        transects = common.get_transect_points_dict(roi_id,transects_gdf)
+        transects = common.get_transect_points_dict(roi_id, transects_gdf)
         logger.info(f"transects: {transects}")
         # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
         cross_distance = SDS_transects.compute_intersection(
@@ -561,7 +590,8 @@ class CoastSeg_Map:
         )
         exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_if_subset(
-            set(["along_dist"]), set(list(self.settings.keys())),"settings")
+            set(["along_dist"]), set(list(self.settings.keys())), "settings"
+        )
         # ids of ROIs that have had their shorelines extracted
         extracted_shoreline_ids = set(list(self.rois.extracted_shorelines.keys()))
         logger.info(f"extracted_shoreline_ids:{extracted_shoreline_ids}")
@@ -617,7 +647,10 @@ class CoastSeg_Map:
                     # compute cross distances of transects and extracted shorelines
                     if cross_distance is None:
                         cross_distance = self.compute_transects_from_roi(
-                            roi_id, extracted_shorelines, transects_in_roi_gdf, self.settings
+                            roi_id,
+                            extracted_shorelines,
+                            transects_in_roi_gdf,
+                            self.settings,
                         )
                 if cross_distance == 0:
                     logger.warning(failure_msg)
@@ -780,7 +813,7 @@ class CoastSeg_Map:
 
     def remove_shoreline_html(self):
         """Clear the shoreline html accordion"""
-        self.accordion.children[0].value = "Hover over the shoreline."
+        self.accordion.children[0].value = "Hover over a feature on the map."
 
     def remove_shoreline(self):
         del self.shoreline
@@ -860,7 +893,7 @@ class CoastSeg_Map:
             bbox_area = common.get_area(self.draw_control.last_draw["geometry"])
             try:
                 Bounding_Box.check_bbox_size(bbox_area)
-            except exceptions.Invalid_Bbox_Size as bbox_too_big:
+            except exceptions.BboxTooLargeError as bbox_too_big:
                 exception_handler.handle_bbox_error(bbox_too_big)
                 self.remove_bbox()
             except exceptions.BboxTooSmallError as bbox_too_small:

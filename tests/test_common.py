@@ -9,6 +9,29 @@ import numpy as np
 from shapely import geometry
 import pytest
 
+def test_get_default_dict():
+    # should return dict with fill dict values since keys exist in fill_dict
+    default_str = "unknown"
+    fill_dict = {'1':4,'2':5}
+    keys = ['1','2']
+    actual = common.get_default_dict(default=default_str,
+                                     keys=keys,
+                                     fill_dict=fill_dict)
+    assert actual == fill_dict
+    #should return dict with default values if no keys exist in fill_dict
+    fill_dict = {'4':4,'5':5}
+    expected = {'1':default_str,'2':default_str}
+    actual = common.get_default_dict(default=default_str,
+                                     keys=keys,
+                                     fill_dict=fill_dict)
+    assert actual == expected
+    # should return dict with some default values if some keys exist in fill_dict
+    fill_dict = {'1':4,'5':5}
+    expected = {'1':4,'2':default_str}
+    actual = common.get_default_dict(default=default_str,
+                                     keys=keys,
+                                     fill_dict=fill_dict)
+    assert actual == expected
 
 def test_is_list_empty():
     # empty list to test if it detects it as empty
