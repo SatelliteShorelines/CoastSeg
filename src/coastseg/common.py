@@ -252,7 +252,8 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         config.to_file(save_path, driver="GeoJSON")
 
-def get_default_dict(default,keys:list,fill_dict:dict)->dict:
+
+def get_default_dict(default, keys: list, fill_dict: dict) -> dict:
     """returns a dictionary with keys each with
     default value if the key does not exist in fill_dict. If the key exists
     in fill_dict then the value replaces the default value.
@@ -264,13 +265,14 @@ def get_default_dict(default,keys:list,fill_dict:dict)->dict:
 
     Returns:
         dict: dict with given keys and default value for each key that didn't exist in fill_dict
-    """    
+    """
     values = {}
     values = values.fromkeys(keys, default)
     for key in fill_dict.keys():
         if key in values:
             values[key] = fill_dict[key]
     return values
+
 
 def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points

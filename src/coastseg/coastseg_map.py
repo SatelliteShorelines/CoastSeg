@@ -2,35 +2,27 @@ import os
 import json
 import logging
 import copy
-
 from typing import Union
+
 from coastseg.bbox import Bounding_Box
 from coastseg import common
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
 from coastseg import exceptions
-from coastseg import map_UI
 from coastseg import extracted_shoreline
 from coastseg import exception_handler
 
-import geopandas as gpd
-import numpy as np
-import matplotlib
-
 from coastsat import (
-    SDS_tools,
     SDS_download,
-    SDS_tools,
     SDS_transects,
-    SDS_shoreline,
     SDS_preprocess,
 )
+import geopandas as gpd
 from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
 from ipywidgets import Layout, HTML, Accordion
 from tqdm.auto import tqdm
-from pyproj import Proj, transform
 
 logger = logging.getLogger(__name__)
 
@@ -100,15 +92,18 @@ class CoastSeg_Map:
     def create_accordion_widget(self):
         """creates a accordion style widget controller to hold data of
         a feature that was last hovered over by user on map.
-
         Returns:
            ipyleaflet.WidgetControl: an widget control for an accordion widget
         """
         html = HTML("Hover over a feature on the map")
+        roi_html = HTML("Hover over a ROI on the map")
+        roi_html.layout.margin = "0px 20px 20px 20px"
         html.layout.margin = "0px 20px 20px 20px"
-        self.accordion = Accordion(children=[html], titles=("Hover Data",))
+        self.accordion = Accordion(
+            children=[html, roi_html], titles=("Features Data", "ROI Data")
+        )
         self.accordion.set_title(0, "Hover Data")
-
+        self.accordion.set_title(1, "ROI Data")
         return WidgetControl(widget=self.accordion, position="topright")
 
     def load_configs(self, filepath: str):
@@ -356,7 +351,9 @@ class CoastSeg_Map:
             "slope",
         ]
         # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(default=default,keys=keys,fill_dict=feature["properties"])
+        values = common.get_default_dict(
+            default=default, keys=keys, fill_dict=feature["properties"]
+        )
         self.accordion.children[
             0
         ].value = """ 
@@ -378,7 +375,9 @@ class CoastSeg_Map:
             "satname",
         ]
         # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(default=default,keys=keys,fill_dict=feature["properties"])
+        values = common.get_default_dict(
+            default=default, keys=keys, fill_dict=feature["properties"]
+        )
         self.accordion.children[
             0
         ].value = """
@@ -392,6 +391,25 @@ class CoastSeg_Map:
             values["geoaccuracy"],
             values["cloud_cover"],
             values["satname"],
+        )
+
+    def update_roi_html(self, feature, **kwargs):
+        # Modifies html of accordion when roi is hovered over
+        default = "unknown"
+        keys = [
+            "id",
+        ]
+        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
+        values = common.get_default_dict(
+            default=default, keys=keys, fill_dict=feature["properties"]
+        )
+        self.accordion.children[
+            1
+        ].value = """ 
+        <h2>ROI</h2>
+        <p>Id: {}</p>
+        """.format(
+            values["id"],
         )
 
     def update_shoreline_html(self, feature, **kwargs):
@@ -408,7 +426,9 @@ class CoastSeg_Map:
             "CSU_ID",
         ]
         # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(default=default_str,keys=keys,fill_dict=feature["properties"])
+        values = common.get_default_dict(
+            default=default_str, keys=keys, fill_dict=feature["properties"]
+        )
         self.accordion.children[
             0
         ].value = """
@@ -743,7 +763,16 @@ class CoastSeg_Map:
             )
 
     def load_transects_on_map(self) -> None:
-        """Loads transects within bounding box on map"""
+        """Loads transects within bounding box on map
+        
+        Creates transects if none have been created.Otherwise, replaces
+        the current transect layer on map with latest self.transect
+         
+        Raises:
+            exceptions.Object_Not_Found: raised if bounding box is missing or empty
+            exceptions.Object_Not_Found: raised if transect geodataframe is empty
+            Exception: raised if transect layer is empty
+        """          
         # if no transects on map then create new transects
         if self.transects is None:
             exception_handler.check_if_None(
@@ -770,13 +799,11 @@ class CoastSeg_Map:
         self.remove_layer_by_name(layer_name)
         # style and add the transect to the map
         new_layer = self.create_layer(self.transects, layer_name)
-        if new_layer is None:
-            print("Cannot add an empty transects layer to the map.")
-        else:
-            new_layer.on_hover(self.update_transects_html)
-            self.map.add_layer(new_layer)
-            print("Loaded transects")
-            logger.info(f"Added layer to map: {new_layer}")
+        exception_handler.check_empty_layer(new_layer, "transects")
+        new_layer.on_hover(self.update_transects_html)
+        self.map.add_layer(new_layer)
+        print("Loaded transects")
+        logger.info(f"Added layer to map: {new_layer}")
 
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
@@ -784,7 +811,7 @@ class CoastSeg_Map:
         self.remove_shoreline()
         self.remove_transects()
         self.remove_all_rois()
-        self.remove_shoreline_html()
+        self.remove_accordion_html()
         self.remove_layer_by_name("geodataframe")
         self.remove_extracted_shorelines()
 
@@ -811,9 +838,10 @@ class CoastSeg_Map:
             self.map.remove_layer(existing_layer)
         logger.info(f"Removed layer {layer_name}")
 
-    def remove_shoreline_html(self):
+    def remove_accordion_html(self):
         """Clear the shoreline html accordion"""
         self.accordion.children[0].value = "Hover over a feature on the map."
+        self.accordion.children[1].value = "Hover over a ROI on the map."
 
     def remove_shoreline(self):
         del self.shoreline
@@ -976,8 +1004,17 @@ class CoastSeg_Map:
         print("Bounding Box was loaded on the map")
 
     def load_shoreline_on_map(self) -> None:
-        """Adds shoreline within the drawn bbox onto the map"""
-        # if no shorelines have been loaded onto the map before create a new shoreline
+        """Loads shorelines within bounding box on map
+        
+        Creates shorelines if none have been created.Otherwise, replaces
+        the current shoreline layer on map with latest self.shoreline
+         
+        Raises:
+            exceptions.Object_Not_Found: raised if bounding box is missing or empty
+            exceptions.Object_Not_Found: raised if shoreline is empty
+            Exception: raised if shoreline layer is empty
+        """        
+        # if no shorelines have been loaded onto map before create a new shoreline
         if self.shoreline is None:
             exception_handler.check_if_None(self.bbox, "bounding box")
             exception_handler.check_if_gdf_empty(self.bbox.gdf, "bounding box")
@@ -986,7 +1023,7 @@ class CoastSeg_Map:
             exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
             # Save shoreline to coastseg_map
             self.shoreline = shoreline
-        layer_name = "shoreline"
+        layer_name =self.shoreline.LAYER_NAME
         # Replace old shoreline layer with new shoreline layer
         self.remove_layer_by_name(layer_name)
         # style and add the shoreline to the map
@@ -1019,21 +1056,26 @@ class CoastSeg_Map:
                 logger.info(f"Loading ROIs from file {file}")
                 gdf = gpd.read_file(file)
                 self.rois = ROI(rois_gdf=gdf)
-            logger.info(f"ROIs: {self.rois}")
-            # Create new ROI layer
-            self.ROI_layer = self.create_layer(self.rois, ROI.LAYER_NAME)
-            exception_handler.check_empty_layer(self.ROI_layer, "ROI")
-            logger.info(f"ROI_layer: {self.ROI_layer}")
-            # add on click handler to add the ROI to the selected geojson layer when its clicked
-            self.ROI_layer.on_click(self.geojson_onclick_handler)
-            self.map.add_layer(self.ROI_layer)
         else:
             # if no rois exist on the map then generate ROIs within the bounding box
             self.remove_all_rois()
             logger.info(f"No file provided. Generating ROIs")
-            self.generate_ROIS_fishnet(large_len, small_len)
+            # generate new rois with no downloaded data associated with them yet
+            self.rois = self.generate_ROIS_fishnet(large_len, small_len)
 
-    def generate_ROIS_fishnet(self, large_len: float = 7500, small_len: float = 5000):
+        logger.info(f"ROIs: {self.rois}")
+        # create roi layer to add to map
+        self.ROI_layer = self.create_layer(self.rois, ROI.LAYER_NAME)
+        exception_handler.check_empty_layer(self.ROI_layer, "ROI")
+        logger.info(f"ROI_layer: {self.ROI_layer}")
+        # add on click handler to add the ROI to the selected geojson layer when its clicked
+        self.ROI_layer.on_click(self.geojson_onclick_handler)
+        self.ROI_layer.on_hover(self.update_roi_html)
+        self.map.add_layer(self.ROI_layer)
+
+    def generate_ROIS_fishnet(
+        self, large_len: float = 7500, small_len: float = 5000
+    ) -> ROI:
         """Generates series of overlapping ROIS along shoreline on map using fishnet method"""
         if self.bbox is None:
             raise exceptions.Object_Not_Found("bounding box")
@@ -1041,22 +1083,15 @@ class CoastSeg_Map:
         # If no shoreline exists on map then load one in
         if self.shoreline is None:
             self.load_shoreline_on_map()
-        logger.info(f"self.shoreline used for ROIs:{ self.shoreline}")
+        logger.info(f"self.shoreline used for ROIs:{self.shoreline}")
         # create rois within the bbox that intersect shorelines
-        self.rois = ROI(
+        rois = ROI(
             self.bbox.gdf,
             self.shoreline.gdf,
             square_len_lg=large_len,
             square_len_sm=small_len,
         )
-        # create roi layer to add to map
-        self.ROI_layer = self.create_layer(self.rois, ROI.LAYER_NAME)
-        if self.ROI_layer is None:
-            logger.error("Cannot add an empty ROI layer to the map.")
-            raise Exception("Cannot add an empty ROI layer to the map.")
-        # new rois have been generated so they have no downloaded data associated with them yet
-        self.ROI_layer.on_click(self.geojson_onclick_handler)
-        self.map.add_layer(self.ROI_layer)
+        return rois
 
     def geojson_onclick_handler(
         self, event: str = None, id: "NoneType" = None, properties: dict = None, **args
@@ -1090,6 +1125,7 @@ class CoastSeg_Map:
         )
         logger.info(f"selected_ROI_layer: {self.selected_ROI_layer}")
         self.selected_ROI_layer.on_click(self.selected_onclick_handler)
+        self.selected_ROI_layer.on_hover(self.update_roi_html)
         self.map.add_layer(self.selected_ROI_layer)
 
     def selected_onclick_handler(
@@ -1123,6 +1159,7 @@ class CoastSeg_Map:
         )
         # Recreate the onclick handler for the selected layers
         self.selected_ROI_layer.on_click(self.selected_onclick_handler)
+        self.selected_ROI_layer.on_hover(self.update_roi_html)
         # Add selected layer to the map
         self.map.add_layer(self.selected_ROI_layer)
 

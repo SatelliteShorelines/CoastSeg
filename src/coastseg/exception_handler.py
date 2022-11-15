@@ -1,8 +1,6 @@
 # standard python imports
-import os
 import logging
 import traceback
-import sys
 from typing import Union
 
 # internal python imports
