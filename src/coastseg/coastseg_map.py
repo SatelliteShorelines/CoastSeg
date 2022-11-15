@@ -353,7 +353,7 @@ class CoastSeg_Map:
         self.accordion.children[
             0
         ].value = """
-        <h3>Transect</h3>
+        <h2>Transect</h2>
         <p>id: {}</p>
         <p>Slope: {}</p>
         """.format(
@@ -366,7 +366,7 @@ class CoastSeg_Map:
         self.accordion.children[
             0
         ].value = """
-        <h4>Extracted Shoreline</h4>
+        <h2>Extracted Shoreline</h2>
         <p>Date: {}</p>
         <p>Geoaccuracy: {}</p>
         <p>Cloud Cover: {}</p>
@@ -496,6 +496,7 @@ class CoastSeg_Map:
 
     def compute_transects_from_roi(
         self,
+        roi_id:str,
         extracted_shorelines: list,
         transects_gdf: gpd.GeoDataFrame,
         settings: dict,
@@ -503,6 +504,7 @@ class CoastSeg_Map:
         """Computes the intersection between the 2D shorelines and the shore-normal.
             transects. It returns time-series of cross-shore distance along each transect.
         Args:
+            roi_id(str): id of roi that transects intersect
             extracted_shorelines (list): contains the extracted shorelines and corresponding metadata
             transects_gdf (gpd.GeoDataFrame): transects in ROI with crs= output_crs in settings
             settings (dict): settings dict with keys
@@ -512,17 +514,13 @@ class CoastSeg_Map:
             dict:  time-series of cross-shore distance along each of the transects.
                    Not tidally corrected.
         """
-        transects_coords = common.make_coastsat_compatible(transects_gdf)
-        logger.info(f"transects_coords:{transects_coords}")
         # create dict of numpy arrays of transect start and end points
-        # {'NA<index>': array([[start point],[end point]]),...}
-        transects = common.get_transect_points_dict(transects_coords)
+        transects = common.get_transect_points_dict(roi_id,transects_gdf)
         logger.info(f"transects: {transects}")
         # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
         cross_distance = SDS_transects.compute_intersection(
             extracted_shorelines, transects, settings
         )
-        # print(f"transects cross_distance:{cross_distance}")
         return cross_distance
 
     def compute_transects(self) -> dict:
@@ -563,8 +561,7 @@ class CoastSeg_Map:
         )
         exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_if_subset(
-            set(["along_dist"]), set(list(self.settings.keys()))
-        )
+            set(["along_dist"]), set(list(self.settings.keys())),"settings")
         # ids of ROIs that have had their shorelines extracted
         extracted_shoreline_ids = set(list(self.rois.extracted_shorelines.keys()))
         logger.info(f"extracted_shoreline_ids:{extracted_shoreline_ids}")
@@ -620,7 +617,7 @@ class CoastSeg_Map:
                     # compute cross distances of transects and extracted shorelines
                     if cross_distance is None:
                         cross_distance = self.compute_transects_from_roi(
-                            extracted_shorelines, transects_in_roi_gdf, self.settings
+                            roi_id, extracted_shorelines, transects_in_roi_gdf, self.settings
                         )
                 if cross_distance == 0:
                     logger.warning(failure_msg)

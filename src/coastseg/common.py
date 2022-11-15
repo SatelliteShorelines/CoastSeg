@@ -253,34 +253,34 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         config.to_file(save_path, driver="GeoJSON")
 
 
-def get_transect_points_dict(transects_coords: list) -> dict:
+def get_transect_points_dict(roi_id:str,feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
     {
-        'NA0': array([[-13820440.53165404,   4995568.65036405],
+        'ROI_1_usa_CA_0289-0055-NA1': array([[-13820440.53165404,   4995568.65036405],
         [-13820940.93156407,   4995745.1518021 ]]),
-        'NA1': array([[-13820394.24579453,   4995700.97802925],
+        'ROI_1_usa_CA_0289-0056-NA1': array([[-13820394.24579453,   4995700.97802925],
         [-13820900.16320004,   4995862.31860808]])
     }
-
     Args:
-        transects_coords (list): list of np.arrays in the form:
-        [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
-
+        feature (gpd.geodataframe): clipped portion of shoreline within a roi
     Returns:
         dict: dict of np.arrays of transect start and end points
         of form {
-            'NA<index>': array([[start point],
+            'ROI<roi_id>_<transect_id>': array([[start point],
                         [end point]]),}
-
     """
-    # convert to dict of numpy arrays of start and end points
-    transects = {}
-    for counter, i in enumerate(transects_coords):
-        x0, y0 = i[0][0], i[0][1]
-        x1, y1 = i[1][0], i[1][1]
-        transects["NA" + str(counter)] = np.array([[x0, y0], [x1, y1]])
-    return transects
+    features = []
+    # Use explode to break multilinestrings in linestrings
+    feature_exploded = feature.explode()
+    # For each linestring portion of feature convert to lat,lon tuples
+    lat_lng = feature_exploded.apply(
+        lambda row: {"ROI_"+str(roi_id)+'_'+str(row.id):np.array(np.array(row.geometry).tolist())}, axis=1)
+    features = list(lat_lng)
+    new_dict={}
+    for item in list(features):
+        new_dict={**new_dict,**item}
+    return new_dict
 
 
 def get_cross_distance_df(
@@ -294,29 +294,23 @@ def get_cross_distance_df(
     return pd.DataFrame(transects_csv)
 
 
-def make_coastsat_compatible(feature: gpd.geodataframe) -> np.ndarray:
+def make_coastsat_compatible(feature: gpd.geodataframe) -> list:
     """Return the feature as an np.array in the form:
         [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
     Args:
         feature (gpd.geodataframe): clipped portion of shoreline within a roi
     Returns:
-        np.ndarray: shorelines in form:
+        list: shorelines in form:
             [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
     """
-    # Then convert feature to lat,lon tuples for CoastSat
     features = []
     # Use explode to break multilinestrings in linestrings
     feature_exploded = feature.explode()
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
-        lambda x: tuple(np.array(x.geometry).tolist()), axis=1
+        lambda row: tuple(np.array(row.geometry).tolist()), axis=1
     )
     features = list(lat_lng)
-    # for k in feature_exploded["geometry"].keys():
-    #     # For each linestring portion of feature convert to lat,lon tuples
-    #     features.append(
-    #         tuple(np.array(feature_exploded["geometry"][k]).tolist())
-    #     )
     return features
 
 
