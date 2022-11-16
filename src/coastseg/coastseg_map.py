@@ -32,7 +32,27 @@ class CoastSeg_Map:
     def __init__(self, map_settings: dict = None):
         self.factory = factory.Factory()
         # settings:  used to select data to download and preprocess settings
-        self.settings = {}
+        self.settings = { 
+            # general parameters:
+            'cloud_thresh': 0.5,        # threshold on maximum cloud cover
+            'dist_clouds': 300,        # ditance around clouds where shoreline can't be mapped
+            'output_epsg': 3857,        # epsg code of spatial reference system desired for the output   
+            # quality control:
+            'check_detection': False,    # if True, shows each shoreline detection to the user for validation
+            'adjust_detection': False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+            'save_figure': True,        # if True, saves a figure showing the mapped shoreline for each image
+            # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+            'min_beach_area': 4500,     # minimum area (in metres^2) for an object to be labelled as a beach
+            'buffer_size': 550,         # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+            'min_length_sl': 100,       # minimum length (in metres) of shoreline perimeter to be valid
+            'cloud_mask_issue': False,  # switch this parameter to True if sand pixels are masked (in black) on many images  
+            'sand_color': 'default',    # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+            'pan_off':'False',          # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+            'create_plot':False,        # True create a matplotlib plot of the image with the datetime as the title
+            'max_dist_ref':25,
+            'along_dist' :25,
+            'landsat_collection': 'C02',
+        }
         # selected_set set(str): ids of the selected rois
         self.selected_set = set()
         # self.extracted_shoreline_layers : names of extracted shorelines vectors on the map
@@ -333,12 +353,18 @@ class CoastSeg_Map:
     def save_settings(self, **kwargs):
         """Saves the settings for downloading data in a dictionary
         Pass in data in the form of
-        save_settings(sat_list=sat_list, landsat_collection='C01',dates=dates,**preprocess_settings)
+        save_settings(sat_list=sat_list, dates=dates,**preprocess_settings)
         *You must use the names sat_list, landsat_collection, and dates
         """
+        tmp_settings = self.settings.copy()
         for key, value in kwargs.items():
-            self.settings[key] = value
+            tmp_settings[key] = value
+        
+        self.settings = tmp_settings
+        del tmp_settings
+        logger.info(f"Settings: {self.settings}")
 
+    
     def update_transects_html(self, feature, **kwargs):
         # Modifies html of accordion when transect is hovered over
         default = "unknown"
@@ -963,31 +989,6 @@ class CoastSeg_Map:
         for new_layer in layers:
             new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
-
-    def load_gdf_on_map(self, layer_name: str, file=None):
-        # assumes geodataframe has a crs
-        self.remove_layer_by_name(layer_name)
-        if file is not None:
-            gdf = gpd.read_file(file)
-            new_gdf = gdf.to_crs("EPSG:4326")
-            new_gdf.drop(
-                new_gdf.columns.difference(["geometry"]), "columns", inplace=True
-            )
-            layer_geojson = json.loads(new_gdf.to_json())
-            new_layer = GeoJSON(
-                data=layer_geojson,
-                name=layer_name,
-                style={
-                    "color": "#9933ff",
-                    "fill_color": "#9933ff",
-                    "opacity": 1,
-                    "fillOpacity": 0.5,
-                    "weight": 2,
-                },
-                hover_style={"color": "white", "fillOpacity": 0.7},
-            )
-            self.map.add_layer(new_layer)
-            logger.info(f"Loaded geodataframe from file:\n{file}")
 
     def load_bbox_on_map(self, file: str = None):
         if file is not None:

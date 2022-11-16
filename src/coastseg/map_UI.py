@@ -1,10 +1,12 @@
 # standard python imports
 import os
+import datetime
 import logging
 
 # internal python imports
 from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from coastseg import exception_handler
+from coastseg import common
 
 # external python imports
 import ipywidgets
@@ -13,6 +15,7 @@ from IPython.display import display, clear_output
 from google.auth import exceptions as google_auth_exceptions
 from tkinter import filedialog
 from tkinter import messagebox
+from ipywidgets import Accordion
 from ipywidgets import Button
 from ipywidgets import HBox
 from ipywidgets import VBox
@@ -20,6 +23,7 @@ from ipywidgets import Layout
 from ipywidgets import DatePicker
 from ipywidgets import HTML
 from ipywidgets import RadioButtons
+from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Checkbox
@@ -50,11 +54,60 @@ class UI:
         small_roi_size = 3500
         large_roi_size = 4000
         self.fishnet_sizes = {"small": small_roi_size, "large": large_roi_size}
-        # Declare widgets and on click callbacks
-        self.load_gdf_button = Button(
-            description="Load gdf from file", style=self.load_style
+        
+        # declare settings widgets
+        # Date Widgets
+        self.start_date=DatePicker(
+            description='Start Date',
+            value=datetime.date(2018, 12, 1),
+            disabled=False,
         )
-        self.load_gdf_button.on_click(self.on_load_gdf_clicked)
+        self.end_date=DatePicker(
+            description='End Date',
+            value=datetime.date(2019, 3, 1), #2019, 1, 1
+            disabled=False,
+        )
+        date_instr=HTML(
+            value="<b>Pick a date:</b>",
+            layout=Layout(padding='10px')
+        )
+        dates_box=HBox([self.start_date,self.end_date])
+        dates_vbox=VBox([date_instr,dates_box])
+        
+        # satellite selection widgets
+        satellite_instr=HTML(
+            value="<b>Pick multiple satellites:</b>\
+                <br> - Pick multiple satellites by holding the control key> \
+                <br> - images after 2022/01/01 will be automatically downloaded from Collection 2 ",
+            layout=Layout(padding='10px')
+        )
+
+        self.satellite_selection=SelectMultiple(
+            options=['L5', 'L7', 'L8','L9', 'S2'],
+            value=['L8'],
+            description='Satellites',
+            disabled=False
+        )
+        satellite_vbox = VBox([satellite_instr,self.satellite_selection])
+        
+        self.settings_button = Button(
+            description="Save Settings",style=self.action_style
+            )
+        self.settings_button.on_click(self.save_settings_clicked)
+        
+        self.output_epsg_text=Text(
+            value='3857',
+            description='Output epsg:')
+        
+        # create settings accordion
+        settings_vbox=VBox([dates_vbox,
+                    satellite_vbox,
+                    self.output_epsg_text,
+                    self.settings_button])
+        self.settings_accordion = Accordion(children=[settings_vbox])
+        self.settings_accordion.set_title(0, "Settings")
+        
+        # Declare widgets and on click callbacks
         self.load_bbox_button = Button(
             description="Load bbox from file", style=self.load_style
         )
@@ -68,15 +121,28 @@ class UI:
             description="Save Config", style=self.save_style
         )
         self.save_config_button.on_click(self.on_save_config_clicked)
-        # load buttons
-        self.transects_button = Button(
-            description="Load Transects", style=self.load_style
+        
+        # Buttons to load shoreline or transects in bbox on map
+        self.load_instr=HTML(
+            value="<h3>Load on Map</h3>",
+            layout=Layout(padding='0px')
         )
-        self.transects_button.on_click(self.on_transects_button_clicked)
-        self.shoreline_button = Button(
-            description="Load Shoreline", style=self.load_style
+        self.load_radio=RadioButtons(
+            options=['Shoreline', 'Transects'],
+            value='Shoreline',
+            description='',
+            disabled=False
         )
-        self.shoreline_button.on_click(self.on_shoreline_button_clicked)
+        self.load_button = Button(
+            description=f"Load {self.load_radio.value}",
+            )       
+        self.load_button.on_click(self.load_button_clicked)
+        
+        def handle_collection_change(change):
+            self.load_button.description=f"Load {str(change['new'])}"
+        
+        self.load_radio.observe(handle_collection_change,"value")
+        
         self.load_rois_button = Button(
             description="Load rois from file", style=self.load_style
         )
@@ -177,6 +243,74 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
 
+    def get_settings_html(self,settings:dict,):
+        # Modifies html of accordion when transect is hovered over
+        default = "unknown"
+        keys = [
+            "cloud_thresh",
+            "dist_clouds",
+            "output_epsg",
+            "check_detection",
+            'adjust_detection',
+            'save_figure',
+            'min_beach_area',
+            'buffer_size',
+            'min_length_sl',
+            'cloud_mask_issue',
+            'sand_color',
+            'pan_off',
+            'create_plot',
+            'max_dist_ref',
+            'along_dist',
+            'sat_list',
+            'landsat_collection',
+            'dates',
+        ]
+        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
+        values = common.get_default_dict(
+            default=default, keys=keys, fill_dict=settings
+        )
+        return """ 
+        <h2>Settings</h2>
+        <p>sat_list: {}</p>
+        <p>dates: {}</p>
+        <p>landsat_collection: {}</p>
+        <p>cloud_thresh: {}</p>
+        <p>dist_clouds: {}</p>
+        <p>output_epsg: {}</p>
+        <p>check_detection: {}</p>
+        <p>adjust_detection: {}</p>
+        <p>save_figure: {}</p>
+        <p>min_beach_area: {}</p>
+        <p>buffer_size: {}</p>
+        <p>min_length_sl: {}</p>
+        <p>cloud_mask_issue: {}</p>
+        <p>sand_color: {}</p>
+        <p>pan_off: {}</p>
+        <p>create_plot: {}</p>
+        <p>max_dist_ref: {}</p>
+        <p>along_dist: {}</p>
+        """.format(
+            values["sat_list"],
+            values["dates"],
+            values["landsat_collection"],
+            values["cloud_thresh"],
+            values["dist_clouds"],
+            values["output_epsg"],
+            values["check_detection"],
+            values["adjust_detection"],
+            values["save_figure"],
+            values["min_beach_area"],
+            values["buffer_size"],
+            values["min_length_sl"],
+            values["cloud_mask_issue"],
+            values["sand_color"],
+            values["pan_off"],
+            values["create_plot"],
+            values["max_dist_ref"],
+            values["along_dist"],       
+        )
+
     def _create_HTML_widgets(self):
         """create HTML widgets that display the instructions.
         widgets created: instr_create_ro, instr_save_roi, instr_load_btns
@@ -262,7 +396,6 @@ class UI:
                 self.instr_load_btns,
                 self.load_rois_button,
                 self.load_bbox_button,
-                self.load_gdf_button,
             ]
         )
         config_vbox = VBox(
@@ -281,12 +414,12 @@ class UI:
 
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
         slider_btn_box = VBox([slider_v_box, self.gen_button])
+        load_buttons = VBox([self.load_instr,self.load_radio,self.load_button])
         roi_controls_box = VBox(
-            [self.instr_create_roi, slider_btn_box],
+            [self.instr_create_roi, slider_btn_box, load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
         )
 
-        load_buttons = HBox([self.transects_button, self.shoreline_button])
         erase_buttons = HBox(
             [
                 self.remove_all_button,
@@ -296,16 +429,22 @@ class UI:
                 self.remove_rois_button,
             ]
         )
-
+        
+        self.settings_html = HTML()
+        self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+        
+        html_settings_accordion = Accordion(children=[self.settings_html])
+        html_settings_accordion.set_title(0, "View Settings")
+        
+        row_0 = HBox([self.settings_accordion, html_settings_accordion])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
-        row_2 = HBox([load_buttons])
-        row_3 = HBox([erase_buttons])
+        row_2 = HBox([erase_buttons])
         # in this row prints are rendered with UI.debug_view
-        row_4 = HBox([self.clear_debug_button, UI.debug_view])
-        row_5 = HBox([self.coastseg_map.map])
-        row_6 = HBox([UI.download_view])
+        row_3 = HBox([self.clear_debug_button, UI.debug_view])
+        row_4 = HBox([self.coastseg_map.map])
+        row_5 = HBox([UI.download_view])
 
-        return display(row_1, row_2, row_3, row_4, row_5, row_6)
+        return display(row_0,row_1, row_2, row_3, row_4, row_5,)
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes["small"] = change["new"]
@@ -329,15 +468,37 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
-    def on_transects_button_clicked(self, btn):
-
+    def load_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         try:
-            self.coastseg_map.load_transects_on_map()
+            if 'shoreline' in btn.description.lower():
+                print("Finding Shoreline")
+                self.coastseg_map.load_feature_on_map('shoreline')
+            if 'transects' in btn.description.lower():
+                print("Finding 'Transects'")
+                self.coastseg_map.load_feature_on_map('transects')
         except Exception as error:
             exception_handler.handle_exception(error)
         self.coastseg_map.map.default_style = {"cursor": "default"}
+
+    @debug_view.capture(clear_output=True)
+    def save_settings_clicked(self,btn):
+        if self.satellite_selection.value:
+            sat_list = list(self.satellite_selection.value)
+            # Save dates selected by user
+            dates = [str(self.start_date.value),str(self.end_date.value)]
+            settings = {'output_epsg':int(self.output_epsg_text.value)}
+            try:
+                self.coastseg_map.save_settings(sat_list=sat_list,dates=dates,**settings)
+                self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+            except Exception as error:
+                exception_handler.handle_exception(error)
+        elif not self.satellite_selection.value:
+            try:
+                raise Exception("Must select at least one satellite first")
+            except Exception as error:
+                exception_handler.handle_exception(error)
 
     @debug_view.capture(clear_output=True)
     def on_load_rois_clicked(self, button):
@@ -358,18 +519,6 @@ class UI:
                 messagebox.showerror(
                     "ROI Selection Error", "You must select a valid geojson file first!"
                 )
-
-    @debug_view.capture(clear_output=True)
-    def on_shoreline_button_clicked(self, btn):
-        self.coastseg_map.map.default_style = {"cursor": "wait"}
-        UI.debug_view.clear_output(wait=True)
-        print("Loading shoreline please wait...")
-        try:
-            self.coastseg_map.load_shoreline_on_map()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-        print("Shoreline loaded.")
-        self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):
@@ -455,26 +604,6 @@ class UI:
         except Exception as error:
             exception_handler.handle_exception(error)
 
-    @debug_view.capture(clear_output=True)
-    def on_load_gdf_clicked(self, button):
-        # Prompt the user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename = filedialog.askopenfilename(
-                initialdir=os.getcwd(),
-                filetypes=[("geojson", "*.geojson")],
-                title="Select a geojson file",
-            )
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                try:
-                    self.coastseg_map.load_gdf_on_map("geodataframe", tk_root.filename)
-                except Exception as error:
-                    exception_handler.handle_exception(error)
-            else:
-                messagebox.showerror(
-                    "File Selection Error",
-                    "You must select a valid geojson file first!",
-                )
 
     @debug_view.capture(clear_output=True)
     def on_load_configs_clicked(self, button):
