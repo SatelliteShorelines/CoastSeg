@@ -82,14 +82,15 @@ def create_bbox(coastsegmap, gdf=None):
         bbox = Bounding_Box(gdf)
         exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
     else:
-        exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
-        # if bounding box exists load transects within it
         geometry = coastsegmap.draw_control.last_draw["geometry"]
         bbox = Bounding_Box(geometry)
         exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
-
+    
     # clean drawn feature from map
+    coastsegmap.remove_bbox()
     coastsegmap.draw_control.clear()
+    logger.info("Bounding Box was loaded on map")
+    print("Bounding Box was loaded on map")
+    # save bbox to coastseg_map
     coastsegmap.bbox = bbox
     return bbox

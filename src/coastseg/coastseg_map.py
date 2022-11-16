@@ -165,10 +165,7 @@ class CoastSeg_Map:
             logger.info("No Bounding Box was loaded on map")
             print("No Bounding Box was loaded on map")
         else:
-            bbox = Bounding_Box(rectangle=bbox_gdf)
-            self.remove_bbox()
-            self.bbox = bbox
-            self.load_bbox_on_map()
+            self.load_feature_on_map("bbox",gdf=bbox_gdf)
         # Create ROI object from roi_gdf
         exception_handler.check_if_gdf_empty(
             roi_gdf, "ROIs", "Cannot load empty ROIs onto map"
@@ -181,7 +178,7 @@ class CoastSeg_Map:
             logger.info("No shoreline was loaded on map")
             print("No shoreline was loaded on map")
         else:
-            self.load_feature_on_map("shoreline",feature_gdf=shoreline_gdf)
+            self.load_feature_on_map("shoreline",gdf=shoreline_gdf)
 
         # Create Transect object from transect_gdf
         if transect_gdf.empty:
@@ -189,7 +186,7 @@ class CoastSeg_Map:
             logger.info("No transects were loaded on map")
             print("No transects were loaded on map")
         else:
-            self.load_feature_on_map("transects",feature_gdf=transect_gdf)
+            self.load_feature_on_map("transects",gdf=transect_gdf)
 
     def download_imagery(self) -> None:
         """download_imagery  downloads selected rois as jpgs
@@ -937,20 +934,20 @@ class CoastSeg_Map:
         ):
             # validate the bbox size
             geometry = self.draw_control.last_draw["geometry"]
-            self.remove_bbox()
             bbox_area = common.get_area(geometry)
             try:
                 Bounding_Box.check_bbox_size(bbox_area)
             except exceptions.BboxTooLargeError as bbox_too_big:
+                self.remove_bbox()
                 exception_handler.handle_bbox_error(bbox_too_big)
             except exceptions.BboxTooSmallError as bbox_too_small:
+                self.remove_bbox()
                 exception_handler.handle_bbox_error(bbox_too_small)
             else:
                 # if no exceptions occur create new bbox, remove old bbox, and load new bbox
                 logger.info(f"Made it with bbox area: {bbox_area}")
-                bbox = Bounding_Box(geometry)
-                self.bbox = bbox
-                self.load_bbox_on_map()
+                self.load_feature_on_map("bbox")
+        
         if self.draw_control.last_action == "deleted":
             self.remove_bbox()
 
