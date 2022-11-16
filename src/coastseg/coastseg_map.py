@@ -6,6 +6,7 @@ from typing import Union
 
 from coastseg.bbox import Bounding_Box
 from coastseg import common
+from coastseg import factory
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 class CoastSeg_Map:
     def __init__(self, map_settings: dict = None):
+        self.factory= factory.Factory()
         # settings:  used to select data to download and preprocess settings
         self.settings = {}
         # selected_set set(str): ids of the selected rois
@@ -1009,6 +1011,37 @@ class CoastSeg_Map:
         self.draw_control.clear()
         self.replace_layer_by_name(self.bbox.LAYER_NAME, new_layer)
         print("Bounding Box was loaded on the map")
+
+    def load_feature_on_map(self,feature_name,file="")-> None:
+        # if feature name given is not one of possible features throw exception
+        # create new feature based on feature passed in and using file
+        new_feature = self.factory.make_feature(self,feature_name,file)
+        on_hover = None
+        on_click = None
+        if 'shoreline' in feature_name.lower():
+            # self.shoreline = new_feature
+            on_hover = self.update_shoreline_html
+        # load new feature on map
+        # what do I do about handlers?
+        self.load_on_map(new_feature,on_hover,on_click)
+
+
+    def load_on_map(self,feature,on_hover=None,on_click=None) -> None:
+        """Loads feature on map
+        
+        Replaces current feature layer on map with given feature
+
+        Raises:
+            Exception: raised if feature layer is empty
+        """
+        layer_name = feature.LAYER_NAME
+        # style and add the feature to the map
+        new_layer = self.create_layer(feature, layer_name)
+        # Replace old feature layer with new feature layer
+        self.replace_layer_by_name(
+            layer_name, new_layer, on_hover=on_hover
+        )
+
 
     def load_shoreline_on_map(self) -> None:
         """Loads shorelines within bounding box on map

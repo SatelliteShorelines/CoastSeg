@@ -426,10 +426,6 @@ def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
         with open(filename, "r") as f:
             gpd_data = gpd.read_file(f)
     else:
-        logger.error(f"Geodataframe file does not exist \n {filename}")
-        print(
-            "File does not exist. Please download the coastline_vector necessary here: https://geodata.lib.berkeley.edu/catalog/stanford-xv279yj9196 "
-        )
         raise FileNotFoundError
     return gpd_data
 
