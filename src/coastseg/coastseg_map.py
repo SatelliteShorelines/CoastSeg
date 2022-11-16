@@ -29,30 +29,33 @@ logger = logging.getLogger(__name__)
 
 
 class CoastSeg_Map:
-    def __init__(self, map_settings: dict = None):
+    def __init__(self, settings: dict = None):
         self.factory = factory.Factory()
         # settings:  used to select data to download and preprocess settings
-        self.settings = { 
-            # general parameters:
-            'cloud_thresh': 0.5,        # threshold on maximum cloud cover
-            'dist_clouds': 300,        # ditance around clouds where shoreline can't be mapped
-            'output_epsg': 3857,        # epsg code of spatial reference system desired for the output   
-            # quality control:
-            'check_detection': False,    # if True, shows each shoreline detection to the user for validation
-            'adjust_detection': False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
-            'save_figure': True,        # if True, saves a figure showing the mapped shoreline for each image
-            # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
-            'min_beach_area': 4500,     # minimum area (in metres^2) for an object to be labelled as a beach
-            'buffer_size': 550,         # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
-            'min_length_sl': 100,       # minimum length (in metres) of shoreline perimeter to be valid
-            'cloud_mask_issue': False,  # switch this parameter to True if sand pixels are masked (in black) on many images  
-            'sand_color': 'default',    # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
-            'pan_off':'False',          # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-            'create_plot':False,        # True create a matplotlib plot of the image with the datetime as the title
-            'max_dist_ref':25,
-            'along_dist' :25,
-            'landsat_collection': 'C02',
-        }
+        if settings is not None:
+            self.settings = settings
+        elif settings is None:
+            self.settings = {
+                # general parameters:
+                "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+                "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+                "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
+                # quality control:
+                "check_detection": False,  # if True, shows each shoreline detection to the user for validation
+                "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+                "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+                # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+                "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
+                "buffer_size": 550,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+                "min_length_sl": 100,  # minimum length (in metres) of shoreline perimeter to be valid
+                "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+                "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+                "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+                "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
+                "max_dist_ref": 25,
+                "along_dist": 25,
+                "landsat_collection": "C02",
+            }
         # selected_set set(str): ids of the selected rois
         self.selected_set = set()
         # self.extracted_shoreline_layers : names of extracted shorelines vectors on the map
@@ -72,7 +75,7 @@ class CoastSeg_Map:
         # preprocess_settings : dictionary of settings used by coastsat to download imagery
         self.preprocess_settings = {}
         # create map if map_settings not provided else use default settings
-        self.map = self.create_map(map_settings)
+        self.map = self.create_map()
         # create controls and add to map
         self.draw_control = self.create_DrawControl(DrawControl())
         self.draw_control.on_draw(self.handle_draw)
@@ -82,25 +85,20 @@ class CoastSeg_Map:
         hover_accordion_control = self.create_accordion_widget()
         self.map.add(hover_accordion_control)
 
-    def create_map(self, map_settings: dict):
+    def create_map(self):
         """create an interactive map object using the map_settings
-
-        Args:
-            map_settings (dict): settings to control how map is created
-
         Returns:
            ipyleaflet.Map: ipyleaflet interactive Map object
         """
-        if not map_settings:
-            map_settings = {
-                "center_point": (40.8630302395, -124.166267),
-                "zoom": 13,
-                "draw_control": False,
-                "measure_control": False,
-                "fullscreen_control": False,
-                "attribution_control": True,
-                "Layout": Layout(width="100%", height="100px"),
-            }
+        map_settings = {
+            "center_point": (40.8630302395, -124.166267),
+            "zoom": 13,
+            "draw_control": False,
+            "measure_control": False,
+            "fullscreen_control": False,
+            "attribution_control": True,
+            "Layout": Layout(width="100%", height="100px"),
+        }
         return Map(
             draw_control=map_settings["draw_control"],
             measure_control=map_settings["measure_control"],
@@ -359,12 +357,11 @@ class CoastSeg_Map:
         tmp_settings = self.settings.copy()
         for key, value in kwargs.items():
             tmp_settings[key] = value
-        
+
         self.settings = tmp_settings
         del tmp_settings
         logger.info(f"Settings: {self.settings}")
 
-    
     def update_transects_html(self, feature, **kwargs):
         # Modifies html of accordion when transect is hovered over
         default = "unknown"
@@ -784,47 +781,6 @@ class CoastSeg_Map:
                 f"Time-series of the shoreline change along the transects saved as:{fn}"
             )
 
-    def load_transects_on_map(self) -> None:
-        """Loads transects within bounding box on map
-
-        Creates transects if none have been created.Otherwise, replaces
-        the current transect layer on map with latest self.transect
-
-        Raises:
-            exceptions.Object_Not_Found: raised if bounding box is missing or empty
-            exceptions.Object_Not_Found: raised if transect geodataframe is empty
-            Exception: raised if transect layer is empty
-        """
-        # if no transects on map then create new transects
-        if self.transects is None:
-            exception_handler.check_if_None(
-                self.bbox,
-                "bounding box",
-                "Cannot load transects on map because bbox does not exist",
-            )
-            exception_handler.check_if_gdf_empty(
-                self.bbox.gdf,
-                "bounding box",
-                "Cannot load transects on map because bbox does not exist",
-            )
-            # if bounding box exists load transects within it
-            transects = Transects(self.bbox.gdf)
-            exception_handler.check_if_gdf_empty(
-                transects.gdf,
-                "transects",
-                "Transects Not Found in this region. Draw a new bounding box",
-            )
-            # Save transects to coastseg_map
-            self.transects = transects
-        layer_name = self.transects.LAYER_NAME
-        # style and add transects to map
-        new_layer = self.create_layer(self.transects, layer_name)
-        # Replace old transect layer with new transect layer
-        self.replace_layer_by_name(
-            layer_name, new_layer, on_hover=self.update_transects_html
-        )
-        print("Loaded transects")
-
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()
@@ -1006,6 +962,7 @@ class CoastSeg_Map:
         print("Bounding Box was loaded on the map")
 
     def load_feature_on_map(self, feature_name, file="", gdf=None) -> None:
+        # feature name can be ['shoreline','transects','bbox','ROIs']
         # if feature name given is not one of possible features throw exception
         # create new feature based on feature passed in and using file
 
@@ -1020,7 +977,7 @@ class CoastSeg_Map:
             on_hover = self.update_shoreline_html
         if "transects" in feature_name.lower():
             on_hover = self.update_transects_html
-        if "ROIs" in feature_name.lower():
+        if "rois" in feature_name.lower():
             on_hover = self.update_roi_html
             on_click = self.geojson_onclick_handler
         # load new feature on map
@@ -1039,35 +996,6 @@ class CoastSeg_Map:
         new_layer = self.create_layer(feature, layer_name)
         # Replace old feature layer with new feature layer
         self.replace_layer_by_name(layer_name, new_layer, on_hover=on_hover)
-
-    def load_shoreline_on_map(self) -> None:
-        """Loads shorelines within bounding box on map
-
-        Creates shorelines if none have been created.Otherwise, replaces
-        the current shoreline layer on map with latest self.shoreline
-
-        Raises:
-            exceptions.Object_Not_Found: raised if bounding box is missing or empty
-            exceptions.Object_Not_Found: raised if shoreline is empty
-            Exception: raised if shoreline layer is empty
-        """
-        # if no shorelines have been loaded onto map before create a new shoreline
-        if self.shoreline is None:
-            exception_handler.check_if_None(self.bbox, "bounding box")
-            exception_handler.check_if_gdf_empty(self.bbox.gdf, "bounding box")
-            # if bounding box exists create shoreline within it
-            shoreline = Shoreline(self.bbox.gdf)
-            exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
-            # Save shoreline to coastseg_map
-            self.shoreline = shoreline
-
-        layer_name = self.shoreline.LAYER_NAME
-        # style and add the shoreline to the map
-        new_layer = self.create_layer(self.shoreline, layer_name)
-        # Replace old shoreline layer with new shoreline layer
-        self.replace_layer_by_name(
-            layer_name, new_layer, on_hover=self.update_shoreline_html
-        )
 
     def create_layer(self, feature, layer_name: str):
         if feature.gdf.empty:
@@ -1117,7 +1045,7 @@ class CoastSeg_Map:
         logger.info(f"bbox for ROIs: {self.bbox.gdf}")
         # If no shoreline exists on map then load one in
         if self.shoreline is None:
-            self.load_shoreline_on_map()
+            self.coastseg_map.load_feature_on_map("shoreline")
         logger.info(f"self.shoreline used for ROIs:{self.shoreline}")
         # create rois within the bbox that intersect shorelines
         rois = ROI(

@@ -54,64 +54,87 @@ class UI:
         small_roi_size = 3500
         large_roi_size = 4000
         self.fishnet_sizes = {"small": small_roi_size, "large": large_roi_size}
-        
+
         # declare settings widgets
         # Date Widgets
-        self.start_date=DatePicker(
-            description='Start Date',
+        self.start_date = DatePicker(
+            description="Start Date",
             value=datetime.date(2018, 12, 1),
             disabled=False,
         )
-        self.end_date=DatePicker(
-            description='End Date',
-            value=datetime.date(2019, 3, 1), #2019, 1, 1
+        self.end_date = DatePicker(
+            description="End Date",
+            value=datetime.date(2019, 3, 1),  # 2019, 1, 1
             disabled=False,
         )
-        date_instr=HTML(
-            value="<b>Pick a date:</b>",
-            layout=Layout(padding='10px')
-        )
-        dates_box=HBox([self.start_date,self.end_date])
-        dates_vbox=VBox([date_instr,dates_box])
-        
+        date_instr = HTML(value="<b>Pick a date:</b>", layout=Layout(padding="10px"))
+        dates_box = HBox([self.start_date, self.end_date])
+        dates_vbox = VBox([date_instr, dates_box])
+
         # satellite selection widgets
-        satellite_instr=HTML(
+        satellite_instr = HTML(
             value="<b>Pick multiple satellites:</b>\
                 <br> - Pick multiple satellites by holding the control key> \
                 <br> - images after 2022/01/01 will be automatically downloaded from Collection 2 ",
-            layout=Layout(padding='10px')
+            layout=Layout(padding="10px"),
         )
 
-        self.satellite_selection=SelectMultiple(
-            options=['L5', 'L7', 'L8','L9', 'S2'],
-            value=['L8'],
-            description='Satellites',
-            disabled=False
+        self.satellite_selection = SelectMultiple(
+            options=["L5", "L7", "L8", "L9", "S2"],
+            value=["L8"],
+            description="Satellites",
+            disabled=False,
         )
-        satellite_vbox = VBox([satellite_instr,self.satellite_selection])
-        
+        satellite_vbox = VBox([satellite_instr, self.satellite_selection])
+
         self.settings_button = Button(
-            description="Save Settings",style=self.action_style
-            )
+            description="Save Settings", style=self.action_style
+        )
         self.settings_button.on_click(self.save_settings_clicked)
-        
-        self.output_epsg_text=Text(
-            value='3857',
-            description='Output epsg:')
-        
+
+        self.output_epsg_text = Text(value="3857", description="Output epsg:")
+
         # create settings accordion
-        settings_vbox=VBox([dates_vbox,
-                    satellite_vbox,
-                    self.output_epsg_text,
-                    self.settings_button])
+        settings_vbox = VBox(
+            [dates_vbox, satellite_vbox, self.output_epsg_text, self.settings_button]
+        )
         self.settings_accordion = Accordion(children=[settings_vbox])
         self.settings_accordion.set_title(0, "Settings")
-        
-        # Declare widgets and on click callbacks
-        self.load_bbox_button = Button(
-            description="Load bbox from file", style=self.load_style
+
+        # save to file buttons
+
+        self.save_instr = HTML(
+            value="<h2>Save to file</h2>\
+                Save feature on the map to a geojson file.\
+                <br>Geojson file will be saved to CoastSeg directory.\
+                </br><b>Example</b>: Saves bounding box to bbox.geojson\
+            ",
+            layout=Layout(padding="0px"),
         )
-        self.load_bbox_button.on_click(self.on_load_bbox_clicked)
+
+        self.save_radio = RadioButtons(
+            options=[
+                "Shoreline",
+                "Transects",
+                "Bbox",
+                "ROIs",
+            ],
+            value="Shoreline",
+            description="",
+            disabled=False,
+        )
+
+        self.save_button = Button(
+            description=f"Save {self.save_radio.value} to file", style=self.save_style
+        )
+        self.save_button.on_click(self.save_to_file_btn_clicked)
+
+        def save_radio_changed(change):
+            self.save_button.description = f"Save {str(change['new'])} to file"
+
+        self.save_radio.observe(save_radio_changed, "value")
+        self.save_vbox = VBox([self.save_instr, self.save_radio, self.save_button])
+
         # buttons to load configuration files
         self.load_configs_button = Button(
             description="Load Config", style=self.load_style
@@ -121,45 +144,59 @@ class UI:
             description="Save Config", style=self.save_style
         )
         self.save_config_button.on_click(self.on_save_config_clicked)
-        
+
         # Buttons to load shoreline or transects in bbox on map
-        self.load_instr=HTML(
-            value="<h3>Load on Map</h3>",
-            layout=Layout(padding='0px')
+        self.load_instr = HTML(
+            value="<h2>Load Feature into Bounding Box</h2>\
+                </br> Loads shoreline or transects into bounding box on map.\
+                </br>If no transects or shorelines exist, then\
+               </br> draw bounding box somewhere else\
+                ",
+            layout=Layout(padding="0px"),
         )
-        self.load_radio=RadioButtons(
-            options=['Shoreline', 'Transects'],
-            value='Shoreline',
-            description='',
-            disabled=False
+        self.load_radio = RadioButtons(
+            options=["Shoreline", "Transects"],
+            value="Shoreline",
+            description="",
+            disabled=False,
         )
         self.load_button = Button(
-            description=f"Load {self.load_radio.value}",
-            )       
+            description=f"Load {self.load_radio.value}", style=self.load_style
+        )
         self.load_button.on_click(self.load_button_clicked)
-        
-        def handle_collection_change(change):
-            self.load_button.description=f"Load {str(change['new'])}"
-        
-        self.load_radio.observe(handle_collection_change,"value")
-        
-        self.load_rois_button = Button(
-            description="Load rois from file", style=self.load_style
+
+        def handle_load_radio_change(change):
+            self.load_button.description = f"Load {str(change['new'])}"
+
+        self.load_radio.observe(handle_load_radio_change, "value")
+
+        self.load_file_instr = HTML(
+            value="<h3>Load Feature from File</h3>\
+                 Load a feature onto map from geojson file.\
+                ",
+            layout=Layout(padding="0px"),
         )
-        self.load_rois_button.on_click(self.on_load_rois_clicked)
-        # Save buttons
-        self.save_shoreline_button = Button(
-            description="Save shorelines", style=self.save_style
+
+        self.load_file_radio = RadioButtons(
+            options=[
+                "Shoreline",
+                "Transects",
+                "Bbox",
+            ],
+            value="Shoreline",
+            description="",
+            disabled=False,
         )
-        self.save_shoreline_button.on_click(self.save_shoreline_button_clicked)
-        self.save_transects_button = Button(
-            description="Save transects", style=self.save_style
+        self.load_file_button = Button(
+            description=f"Load {self.load_file_radio.value} file", style=self.load_style
         )
-        self.save_transects_button.on_click(self.save_transects_button_clicked)
-        self.save_roi_button = Button(description="Save ROI", style=self.save_style)
-        self.save_roi_button.on_click(self.save_roi_button_clicked)
-        self.save_bbox_button = Button(description="Save box", style=self.save_style)
-        self.save_bbox_button.on_click(self.on_save_bbox_button_clicked)
+        self.load_file_button.on_click(self.load_feature_from_file)
+
+        def change_load_file_btn_name(change):
+            self.load_file_button.description = f"Load {str(change['new'])} file"
+
+        self.load_file_radio.observe(change_load_file_btn_name, "value")
+
         # Generate buttons
         self.gen_button = Button(description="Generate ROI", style=self.action_style)
         self.gen_button.on_click(self.on_gen_button_clicked)
@@ -243,7 +280,10 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
 
-    def get_settings_html(self,settings:dict,):
+    def get_settings_html(
+        self,
+        settings: dict,
+    ):
         # Modifies html of accordion when transect is hovered over
         default = "unknown"
         keys = [
@@ -251,25 +291,23 @@ class UI:
             "dist_clouds",
             "output_epsg",
             "check_detection",
-            'adjust_detection',
-            'save_figure',
-            'min_beach_area',
-            'buffer_size',
-            'min_length_sl',
-            'cloud_mask_issue',
-            'sand_color',
-            'pan_off',
-            'create_plot',
-            'max_dist_ref',
-            'along_dist',
-            'sat_list',
-            'landsat_collection',
-            'dates',
+            "adjust_detection",
+            "save_figure",
+            "min_beach_area",
+            "buffer_size",
+            "min_length_sl",
+            "cloud_mask_issue",
+            "sand_color",
+            "pan_off",
+            "create_plot",
+            "max_dist_ref",
+            "along_dist",
+            "sat_list",
+            "landsat_collection",
+            "dates",
         ]
         # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(
-            default=default, keys=keys, fill_dict=settings
-        )
+        values = common.get_default_dict(default=default, keys=keys, fill_dict=settings)
         return """ 
         <h2>Settings</h2>
         <p>sat_list: {}</p>
@@ -308,7 +346,7 @@ class UI:
             values["pan_off"],
             values["create_plot"],
             values["max_dist_ref"],
-            values["along_dist"],       
+            values["along_dist"],
         )
 
     def _create_HTML_widgets(self):
@@ -332,20 +370,8 @@ class UI:
             layout=Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.instr_save_roi = HTML(
-            value="<h2><b>Save Features</b></h2> \
-                Use these buttons to save features on the map to a geojson file.\
-                <br>These geojson files are saved to the CoastSeg directory.\
-                </br><b>Save ROI</b>: Saves ROIs you selected to a file: 'rois.geojson'\
-                </br><b>Save box</b>: Saves bounding box to a file: 'bbox.geojson'</li>\
-                </br><b>Save shorelines</b>: Saves shorelines to a file: 'shoreline.geojson'</li>\
-                </br><b>Save transects</b>: Saves selected ROI to a file: 'transects.geojson'</li>\
-                ",
-            layout=Layout(margin="0px 5px 0px 5px"),
-        )  # top right bottom left
-
         self.instr_download_roi = HTML(
-            value="<h2><b>Download ROIs</b></h2> \
+            value="<h2><b>Download Imagery</b></h2> \
                 <li><b>You must click an ROI on the map before you can download ROIs</b> \
                 <li>Scroll past the map to see the download progress \
                 </br><h3><b><u>Where is my data?</u></b></br></h3> \
@@ -356,16 +382,6 @@ class UI:
                 ",
             layout=Layout(margin="0px 0px 0px 5px"),
         )
-
-        self.instr_load_btns = HTML(
-            value="<h2><b>Load Features</b></h2>\
-                You can upload ROIs or Bbox geojson file.\
-                </br><b>Load BBox</b>: Load bounding box from file: 'bbox.geojson'</li>\
-                </br><b>Load ROIs</b>: Load ROIs from file: 'rois.geojson'</li>\
-                </br><b>Load gdf</b>: Load any geodataframe from a geojson file </li>\
-                    ",
-            layout=Layout(margin="0px 5px 0px 5px"),
-        )  # top right bottom left
 
         self.instr_config_btns = HTML(
             value="<h2><b>Load and Save Config Files</b></h2>\
@@ -386,16 +402,13 @@ class UI:
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
+        load_file_vbox = VBox(
+            [self.load_file_instr, self.load_file_radio, self.load_file_button]
+        )
         save_vbox = VBox(
             [
-                self.instr_save_roi,
-                self.save_roi_button,
-                self.save_bbox_button,
-                self.save_shoreline_button,
-                self.save_transects_button,
-                self.instr_load_btns,
-                self.load_rois_button,
-                self.load_bbox_button,
+                self.save_vbox,
+                load_file_vbox,
             ]
         )
         config_vbox = VBox(
@@ -414,7 +427,7 @@ class UI:
 
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
         slider_btn_box = VBox([slider_v_box, self.gen_button])
-        load_buttons = VBox([self.load_instr,self.load_radio,self.load_button])
+        load_buttons = VBox([self.load_instr, self.load_radio, self.load_button])
         roi_controls_box = VBox(
             [self.instr_create_roi, slider_btn_box, load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
@@ -429,13 +442,13 @@ class UI:
                 self.remove_rois_button,
             ]
         )
-        
+
         self.settings_html = HTML()
         self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
-        
+
         html_settings_accordion = Accordion(children=[self.settings_html])
         html_settings_accordion.set_title(0, "View Settings")
-        
+
         row_0 = HBox([self.settings_accordion, html_settings_accordion])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         row_2 = HBox([erase_buttons])
@@ -444,7 +457,14 @@ class UI:
         row_4 = HBox([self.coastseg_map.map])
         row_5 = HBox([UI.download_view])
 
-        return display(row_0,row_1, row_2, row_3, row_4, row_5,)
+        return display(
+            row_0,
+            row_1,
+            row_2,
+            row_3,
+            row_4,
+            row_5,
+        )
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes["small"] = change["new"]
@@ -472,26 +492,30 @@ class UI:
         UI.debug_view.clear_output(wait=True)
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         try:
-            if 'shoreline' in btn.description.lower():
+            if "shoreline" in btn.description.lower():
                 print("Finding Shoreline")
-                self.coastseg_map.load_feature_on_map('shoreline')
-            if 'transects' in btn.description.lower():
+                self.coastseg_map.load_feature_on_map("shoreline")
+            if "transects" in btn.description.lower():
                 print("Finding 'Transects'")
-                self.coastseg_map.load_feature_on_map('transects')
+                self.coastseg_map.load_feature_on_map("transects")
         except Exception as error:
             exception_handler.handle_exception(error)
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
-    def save_settings_clicked(self,btn):
+    def save_settings_clicked(self, btn):
         if self.satellite_selection.value:
             sat_list = list(self.satellite_selection.value)
             # Save dates selected by user
-            dates = [str(self.start_date.value),str(self.end_date.value)]
-            settings = {'output_epsg':int(self.output_epsg_text.value)}
+            dates = [str(self.start_date.value), str(self.end_date.value)]
+            settings = {"output_epsg": int(self.output_epsg_text.value)}
             try:
-                self.coastseg_map.save_settings(sat_list=sat_list,dates=dates,**settings)
-                self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+                self.coastseg_map.save_settings(
+                    sat_list=sat_list, dates=dates, **settings
+                )
+                self.settings_html.value = self.get_settings_html(
+                    self.coastseg_map.settings
+                )
             except Exception as error:
                 exception_handler.handle_exception(error)
         elif not self.satellite_selection.value:
@@ -567,43 +591,12 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
-    def save_transects_button_clicked(self, btn):
-        UI.debug_view.clear_output(wait=True)
-        try:
-            self.coastseg_map.save_feature_to_file(
-                self.coastseg_map.transects, "transects"
-            )
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
-    def save_shoreline_button_clicked(self, btn):
-        UI.debug_view.clear_output(wait=True)
-        try:
-            self.coastseg_map.save_feature_to_file(
-                self.coastseg_map.shoreline, "shoreline"
-            )
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
     def on_save_cross_distances_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         try:
             self.coastseg_map.save_transects_to_csv()
         except Exception as error:
             exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
-    def on_save_bbox_button_clicked(self, btn):
-        UI.debug_view.clear_output(wait=True)
-        try:
-            self.coastseg_map.save_feature_to_file(
-                self.coastseg_map.bbox, "bounding box"
-            )
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
 
     @debug_view.capture(clear_output=True)
     def on_load_configs_clicked(self, button):
@@ -634,20 +627,24 @@ class UI:
             exception_handler.handle_exception(error)
 
     @debug_view.capture(clear_output=True)
-    def on_load_bbox_clicked(self, button):
+    def load_feature_from_file(self, btn):
         # Prompt the user to select a directory of images
         with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename = filedialog.askopenfilename(
+            file = filedialog.askopenfilename(
                 initialdir=os.getcwd(),
                 filetypes=[("geojson", "*.geojson")],
                 title="Select a geojson file containing bbox",
             )
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                try:
-                    self.coastseg_map.load_bbox_on_map(tk_root.filename)
-                except Exception as error:
-                    exception_handler.handle_exception(error)
+            if file:
+                if "shoreline" in btn.description.lower():
+                    print(f"Loading shoreline from file: {file}")
+                    self.coastseg_map.load_feature_on_map("shoreline", file)
+                if "transects" in btn.description.lower():
+                    print(f"Loading transects from file: {file}")
+                    self.coastseg_map.load_feature_on_map("transects", file)
+                if "bbox" in btn.description.lower():
+                    print(f"Loading bounding box from file: {file}")
+                    self.coastseg_map.load_feature_on_map("bbox", file)
             else:
                 messagebox.showerror(
                     "File Selection Error",
@@ -655,10 +652,27 @@ class UI:
                 )
 
     @debug_view.capture(clear_output=True)
-    def save_roi_button_clicked(self, btn):
+    def save_to_file_btn_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         try:
-            self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
+            if "shoreline" in btn.description.lower():
+                print(f"Saving shoreline to file")
+                self.coastseg_map.save_feature_to_file(
+                    self.coastseg_map.shoreline, "shoreline"
+                )
+            if "transects" in btn.description.lower():
+                print(f"Saving transects to file")
+                self.coastseg_map.save_feature_to_file(
+                    self.coastseg_map.transects, "transects"
+                )
+            if "bbox" in btn.description.lower():
+                print(f"Saving bounding box to file")
+                self.coastseg_map.save_feature_to_file(
+                    self.coastseg_map.bbox, "bounding box"
+                )
+            if "rois" in btn.description.lower():
+                print(f"Saving ROIs to file")
+                self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
         except Exception as error:
             exception_handler.handle_exception(error)
 

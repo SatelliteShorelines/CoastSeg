@@ -12,7 +12,6 @@ from typing import Union
 # Internal dependencies imports
 from coastseg import exceptions
 
-from coastsat import SDS_tools
 from tqdm.auto import tqdm
 import requests
 from area import area

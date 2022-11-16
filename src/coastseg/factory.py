@@ -32,18 +32,18 @@ class Factory:
         return feature_maker(coastsegmap)
 
 
-def create_shoreline(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Shoreline:
+def create_shoreline(coastsegmap, gdf: "geopandas.GeoDataFrame" = None) -> Shoreline:
     """Creates shorelines within bounding box on map
 
-        Creates shorelines if no gdf(geodataframe). If a gdf(geodataframe) is
-        provided a shoreline is created from it
-        
-        Sets coastsegmap.shoreline to created shoreline
+    Creates shorelines if no gdf(geodataframe). If a gdf(geodataframe) is
+    provided a shoreline is created from it
 
-        Raises:
-            exceptions.Object_Not_Found: raised if bounding box is missing or empty
-            exceptions.Object_Not_Found: raised if shoreline is empty
-        """
+    Sets coastsegmap.shoreline to created shoreline
+
+    Raises:
+        exceptions.Object_Not_Found: raised if bounding box is missing or empty
+        exceptions.Object_Not_Found: raised if shoreline is empty
+    """
     # if shoreline gdf is given make a shoreline from it
     if gdf is not None:
         shoreline = Shoreline(shoreline=gdf)
@@ -61,18 +61,18 @@ def create_shoreline(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Shoreline:
     return shoreline
 
 
-def create_transects(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Transects:
+def create_transects(coastsegmap, gdf: "geopandas.GeoDataFrame" = None) -> Transects:
     """Creates transects within bounding box on map
 
-        Creates transects if no gdf(geodataframe). If a gdf(geodataframe) is
-        provided a transect is created from it
-        
-        Sets coastsegmap.transect to created transect
+    Creates transects if no gdf(geodataframe). If a gdf(geodataframe) is
+    provided a transect is created from it
 
-        Raises:
-            exceptions.Object_Not_Found: raised if bounding box is missing or empty
-            exceptions.Object_Not_Found: raised if transect is empty
-        """    
+    Sets coastsegmap.transect to created transect
+
+    Raises:
+        exceptions.Object_Not_Found: raised if bounding box is missing or empty
+        exceptions.Object_Not_Found: raised if transect is empty
+    """
     # if gdf is given make a transects from it
     if gdf is not None:
         transects = Transects(transects=gdf)
@@ -93,12 +93,12 @@ def create_transects(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Transects:
     return transects
 
 
-def create_bbox(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Bounding_Box:
+def create_bbox(coastsegmap, gdf: "geopandas.GeoDataFrame" = None) -> Bounding_Box:
     """Creates bounding box
-    
+
     Creates bounding box if no gdf(geodataframe). If a gdf(geodataframe) is
     provided a bbox is created from it
-    
+
     Sets coastsegmap.bbox to created bbox
     Raises:
         exceptions.Object_Not_Found: raised if bounding box is missing or empty

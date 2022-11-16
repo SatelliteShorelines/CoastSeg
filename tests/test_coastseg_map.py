@@ -223,7 +223,6 @@ def test_coastseg_map_settings():
     """
     coastsegmap = coastseg_map.CoastSeg_Map()
     dates = ["2018-12-01", "2019-03-01"]
-    landsat_collection = "C01"
     sat_list = ["L8"]
     pre_process_settings = {
         # general parameters:
@@ -243,10 +242,10 @@ def test_coastseg_map_settings():
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
         "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
+        'landsat_collection': 'C02',
     }
     coastsegmap.save_settings(
         sat_list=sat_list,
-        landsat_collection=landsat_collection,
         dates=dates,
         **pre_process_settings
     )
