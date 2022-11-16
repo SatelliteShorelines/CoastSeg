@@ -766,15 +766,15 @@ class CoastSeg_Map:
 
     def load_transects_on_map(self) -> None:
         """Loads transects within bounding box on map
-        
+
         Creates transects if none have been created.Otherwise, replaces
         the current transect layer on map with latest self.transect
-         
+
         Raises:
             exceptions.Object_Not_Found: raised if bounding box is missing or empty
             exceptions.Object_Not_Found: raised if transect geodataframe is empty
             Exception: raised if transect layer is empty
-        """          
+        """
         # if no transects on map then create new transects
         if self.transects is None:
             exception_handler.check_if_None(
@@ -796,16 +796,14 @@ class CoastSeg_Map:
             )
             # Save transects to coastseg_map
             self.transects = transects
-        layer_name = "transects"
-        # Replace old transect layer with new transect layer
-        self.remove_layer_by_name(layer_name)
-        # style and add the transect to the map
+        layer_name = self.transects.LAYER_NAME
+        # style and add transects to map
         new_layer = self.create_layer(self.transects, layer_name)
-        exception_handler.check_empty_layer(new_layer, "transects")
-        new_layer.on_hover(self.update_transects_html)
-        self.map.add_layer(new_layer)
+        # Replace old transect layer with new transect layer
+        self.replace_layer_by_name(
+            layer_name, new_layer, on_hover=self.update_transects_html
+        )
         print("Loaded transects")
-        logger.info(f"Added layer to map: {new_layer}")
 
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
@@ -834,7 +832,7 @@ class CoastSeg_Map:
             self.remove_layer_by_name(layer)
         self.extracted_shoreline_layers = []
 
-    def remove_layer_by_name(self, layer_name):
+    def remove_layer_by_name(self, layer_name: str):
         existing_layer = self.map.find_layer(layer_name)
         if existing_layer is not None:
             self.map.remove_layer(existing_layer)
@@ -854,6 +852,30 @@ class CoastSeg_Map:
         del self.transects
         self.transects = None
         self.remove_layer_by_name(Transects.LAYER_NAME)
+
+    def replace_layer_by_name(
+        self, layer_name: str, new_layer: GeoJSON, on_hover=None, on_click=None
+    ) -> None:
+        """Replaces layer with layer_name with new_layer on map. Adds on_hover and on_click callable functions
+        as handlers for hover and click events on new_layer
+        Args:
+            layer_name (str): name of layer to replace
+            new_layer (GeoJSON): ipyleaflet GeoJSON layer to add to map
+            on_hover (callable, optional): Callback function that will be called on hover event on a feature, this function
+            should take the event and the feature as inputs. Defaults to None.
+            on_click (callable, optional): Callback function that will be called on click event on a feature, this function
+            should take the event and the feature as inputs. Defaults to None.
+        """
+        self.remove_layer_by_name(layer_name)
+        exception_handler.check_empty_layer(new_layer, layer_name)
+        # when feature is hovered over on_hover function is called
+        if on_hover is not None:
+            new_layer.on_hover(on_hover)
+        if on_click is not None:
+            # when feature is clicked on on_click function is called
+            new_layer.on_click(on_click)
+        self.map.add_layer(new_layer)
+        logger.info(f"Add layer to map: {layer_name}")
 
     def remove_all_rois(self, delete_rois: bool = True) -> None:
         """Removes all the unselected rois from the map
@@ -917,7 +939,7 @@ class CoastSeg_Map:
             and self.draw_control.last_draw["geometry"]["type"] == "Polygon"
         ):
             # validate the bbox size
-            geometry=self.draw_control.last_draw["geometry"]
+            geometry = self.draw_control.last_draw["geometry"]
             self.remove_bbox()
             bbox_area = common.get_area(geometry)
             try:
@@ -973,13 +995,7 @@ class CoastSeg_Map:
             self.map.add_layer(new_layer)
             logger.info(f"Loaded geodataframe from file:\n{file}")
 
-    def load_bbox_on_map(self, file=None):
-        # remove old bbox layer from map if it exists
-        self.draw_control.clear()
-        existing_layer = self.map.find_layer(Bounding_Box.LAYER_NAME)
-        if existing_layer is not None:
-            self.map.remove_layer(existing_layer)
-        # if geojson file containing a bbox was given
+    def load_bbox_on_map(self, file: str = None):
         if file is not None:
             gdf = gpd.read_file(file)
             self.bbox = Bounding_Box(gdf)
@@ -989,22 +1005,22 @@ class CoastSeg_Map:
         exception_handler.check_if_None(self.bbox, "bounding box")
         exception_handler.check_if_gdf_empty(self.bbox.gdf, "bounding box")
         new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
-        exception_handler.check_empty_layer(new_layer, "bounding box")
-        self.map.add_layer(new_layer)
-        logger.info("Bounding Box was loaded on the map")
+        # Replace old bbox layer with new bbox layer
+        self.draw_control.clear()
+        self.replace_layer_by_name(self.bbox.LAYER_NAME, new_layer)
         print("Bounding Box was loaded on the map")
 
     def load_shoreline_on_map(self) -> None:
         """Loads shorelines within bounding box on map
-        
+
         Creates shorelines if none have been created.Otherwise, replaces
         the current shoreline layer on map with latest self.shoreline
-         
+
         Raises:
             exceptions.Object_Not_Found: raised if bounding box is missing or empty
             exceptions.Object_Not_Found: raised if shoreline is empty
             Exception: raised if shoreline layer is empty
-        """        
+        """
         # if no shorelines have been loaded onto map before create a new shoreline
         if self.shoreline is None:
             exception_handler.check_if_None(self.bbox, "bounding box")
@@ -1014,16 +1030,14 @@ class CoastSeg_Map:
             exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
             # Save shoreline to coastseg_map
             self.shoreline = shoreline
-        layer_name =self.shoreline.LAYER_NAME
-        # Replace old shoreline layer with new shoreline layer
-        self.remove_layer_by_name(layer_name)
+
+        layer_name = self.shoreline.LAYER_NAME
         # style and add the shoreline to the map
         new_layer = self.create_layer(self.shoreline, layer_name)
-        exception_handler.check_empty_layer(new_layer, "shoreline")
-        # add on_hover handler to update shoreline widget when user hovers over shoreline
-        new_layer.on_hover(self.update_shoreline_html)
-        self.map.add_layer(new_layer)
-        logger.info(f"Add layer to map: {layer_name}")
+        # Replace old shoreline layer with new shoreline layer
+        self.replace_layer_by_name(
+            layer_name, new_layer, on_hover=self.update_shoreline_html
+        )
 
     def create_layer(self, feature, layer_name: str):
         if feature.gdf.empty:
@@ -1036,19 +1050,18 @@ class CoastSeg_Map:
         return styled_layer
 
     def load_rois_on_map(self, large_len=7500, small_len=5000, file: str = None):
-        # Remove old ROI_layers
         if self.rois is not None or file is not None:
             # removes the old rois from the map
             if self.rois is not None:
                 self.remove_all_rois(delete_rois=False)
-            # read rois from geojson file and save them to the map
+            # read rois from geojson file and save them to map
             if file is not None:
                 self.remove_all_rois()
                 logger.info(f"Loading ROIs from file {file}")
                 gdf = gpd.read_file(file)
                 self.rois = ROI(rois_gdf=gdf)
         else:
-            # if no rois exist on the map then generate ROIs within the bounding box
+            # if no rois exist on map then generate ROIs within bounding box
             self.remove_all_rois()
             logger.info(f"No file provided. Generating ROIs")
             # generate new rois with no downloaded data associated with them yet
@@ -1057,12 +1070,13 @@ class CoastSeg_Map:
         logger.info(f"ROIs: {self.rois}")
         # create roi layer to add to map
         self.ROI_layer = self.create_layer(self.rois, ROI.LAYER_NAME)
-        exception_handler.check_empty_layer(self.ROI_layer, "ROI")
-        logger.info(f"ROI_layer: {self.ROI_layer}")
-        # add on click handler to add the ROI to the selected geojson layer when its clicked
-        self.ROI_layer.on_click(self.geojson_onclick_handler)
-        self.ROI_layer.on_hover(self.update_roi_html)
-        self.map.add_layer(self.ROI_layer)
+        # Replace old roi layer with new roi layer
+        self.replace_layer_by_name(
+            ROI.LAYER_NAME,
+            self.ROI_layer,
+            on_hover=self.update_roi_html,
+            on_click=self.geojson_onclick_handler,
+        )
 
     def generate_ROIS_fishnet(
         self, large_len: float = 7500, small_len: float = 5000
