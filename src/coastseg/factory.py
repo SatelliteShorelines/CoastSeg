@@ -1,7 +1,4 @@
-import os
-import json
 import logging
-import copy
 from typing import Union
 
 from coastseg.bbox import Bounding_Box
@@ -17,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class Factory:
-    # def __init__(self):
     def _get_feature_maker(self, feature_type):
         if feature_type == "shoreline":
             return create_shoreline
@@ -36,7 +32,18 @@ class Factory:
         return feature_maker(coastsegmap)
 
 
-def create_shoreline(coastsegmap, gdf=None):
+def create_shoreline(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Shoreline:
+    """Creates shorelines within bounding box on map
+
+        Creates shorelines if no gdf(geodataframe). If a gdf(geodataframe) is
+        provided a shoreline is created from it
+        
+        Sets coastsegmap.shoreline to created shoreline
+
+        Raises:
+            exceptions.Object_Not_Found: raised if bounding box is missing or empty
+            exceptions.Object_Not_Found: raised if shoreline is empty
+        """
     # if shoreline gdf is given make a shoreline from it
     if gdf is not None:
         shoreline = Shoreline(shoreline=gdf)
@@ -51,12 +58,22 @@ def create_shoreline(coastsegmap, gdf=None):
     logger.info("Shoreline were loaded on map")
     print("Shoreline were loaded on map")
     coastsegmap.shoreline = shoreline
-    # clean up (this is always done)
     return shoreline
 
 
-def create_transects(coastsegmap, gdf=None):
-    # if shoreline gdf is given make a shoreline from it
+def create_transects(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Transects:
+    """Creates transects within bounding box on map
+
+        Creates transects if no gdf(geodataframe). If a gdf(geodataframe) is
+        provided a transect is created from it
+        
+        Sets coastsegmap.transect to created transect
+
+        Raises:
+            exceptions.Object_Not_Found: raised if bounding box is missing or empty
+            exceptions.Object_Not_Found: raised if transect is empty
+        """    
+    # if gdf is given make a transects from it
     if gdf is not None:
         transects = Transects(transects=gdf)
     else:
@@ -76,8 +93,18 @@ def create_transects(coastsegmap, gdf=None):
     return transects
 
 
-def create_bbox(coastsegmap, gdf=None):
-    # if shoreline gdf is given make a shoreline from it
+def create_bbox(coastsegmap, gdf:'geopandas.GeoDataFrame'=None)->Bounding_Box:
+    """Creates bounding box
+    
+    Creates bounding box if no gdf(geodataframe). If a gdf(geodataframe) is
+    provided a bbox is created from it
+    
+    Sets coastsegmap.bbox to created bbox
+    Raises:
+        exceptions.Object_Not_Found: raised if bounding box is missing or empty
+        exceptions.Object_Not_Found: raised if bbox is empty
+    """
+    # if  gdf is given make a bounding box from it
     if gdf is not None:
         bbox = Bounding_Box(gdf)
         exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
@@ -85,7 +112,7 @@ def create_bbox(coastsegmap, gdf=None):
         geometry = coastsegmap.draw_control.last_draw["geometry"]
         bbox = Bounding_Box(geometry)
         exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
-    
+
     # clean drawn feature from map
     coastsegmap.remove_bbox()
     coastsegmap.draw_control.clear()

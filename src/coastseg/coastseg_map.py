@@ -165,7 +165,7 @@ class CoastSeg_Map:
             logger.info("No Bounding Box was loaded on map")
             print("No Bounding Box was loaded on map")
         else:
-            self.load_feature_on_map("bbox",gdf=bbox_gdf)
+            self.load_feature_on_map("bbox", gdf=bbox_gdf)
         # Create ROI object from roi_gdf
         exception_handler.check_if_gdf_empty(
             roi_gdf, "ROIs", "Cannot load empty ROIs onto map"
@@ -178,7 +178,7 @@ class CoastSeg_Map:
             logger.info("No shoreline was loaded on map")
             print("No shoreline was loaded on map")
         else:
-            self.load_feature_on_map("shoreline",gdf=shoreline_gdf)
+            self.load_feature_on_map("shoreline", gdf=shoreline_gdf)
 
         # Create Transect object from transect_gdf
         if transect_gdf.empty:
@@ -186,7 +186,7 @@ class CoastSeg_Map:
             logger.info("No transects were loaded on map")
             print("No transects were loaded on map")
         else:
-            self.load_feature_on_map("transects",gdf=transect_gdf)
+            self.load_feature_on_map("transects", gdf=transect_gdf)
 
     def download_imagery(self) -> None:
         """download_imagery  downloads selected rois as jpgs
@@ -947,7 +947,7 @@ class CoastSeg_Map:
                 # if no exceptions occur create new bbox, remove old bbox, and load new bbox
                 logger.info(f"Made it with bbox area: {bbox_area}")
                 self.load_feature_on_map("bbox")
-        
+
         if self.draw_control.last_action == "deleted":
             self.remove_bbox()
 
