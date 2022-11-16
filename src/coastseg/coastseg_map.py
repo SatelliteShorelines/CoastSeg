@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class CoastSeg_Map:
     def __init__(self, map_settings: dict = None):
-        self.factory= factory.Factory()
+        self.factory = factory.Factory()
         # settings:  used to select data to download and preprocess settings
         self.settings = {}
         # selected_set set(str): ids of the selected rois
@@ -175,26 +175,21 @@ class CoastSeg_Map:
         )
         self.rois = ROI(rois_gdf=roi_gdf)
         self.load_rois_on_map()
+        # Create Shoreline object from shoreline_gdf
         if shoreline_gdf.empty:
             self.shoreline = None
             logger.info("No shoreline was loaded on map")
             print("No shoreline was loaded on map")
         else:
-            # Create Shoreline object from shoreline_gdf
-            self.shoreline = Shoreline(shoreline=shoreline_gdf)
-            self.load_shoreline_on_map()
-            logger.info("Shoreline was loaded on map")
-            print("Shoreline was loaded on map")
+            self.load_feature_on_map("shoreline",feature_gdf=shoreline_gdf)
+
         # Create Transect object from transect_gdf
         if transect_gdf.empty:
             self.transects = None
             logger.info("No transects were loaded on map")
             print("No transects were loaded on map")
         else:
-            self.transects = Transects(transects=transect_gdf)
-            self.load_transects_on_map()
-            logger.info("Transects were loaded on map")
-            print("Transects were loaded on map")
+            self.load_feature_on_map("transects",feature_gdf=transect_gdf)
 
     def download_imagery(self) -> None:
         """download_imagery  downloads selected rois as jpgs
@@ -1012,23 +1007,30 @@ class CoastSeg_Map:
         self.replace_layer_by_name(self.bbox.LAYER_NAME, new_layer)
         print("Bounding Box was loaded on the map")
 
-    def load_feature_on_map(self,feature_name,file="")-> None:
+    def load_feature_on_map(self, feature_name, file="", gdf=None) -> None:
         # if feature name given is not one of possible features throw exception
         # create new feature based on feature passed in and using file
-        new_feature = self.factory.make_feature(self,feature_name,file)
+
+        # if file is passed read gdf from file
+        if file != "":
+            gdf = common.read_gpd_file(file)
+
+        new_feature = self.factory.make_feature(self, feature_name, gdf)
         on_hover = None
         on_click = None
-        if 'shoreline' in feature_name.lower():
-            # self.shoreline = new_feature
+        if "shoreline" in feature_name.lower():
             on_hover = self.update_shoreline_html
+        if "transects" in feature_name.lower():
+            on_hover = self.update_transects_html
+        if "ROIs" in feature_name.lower():
+            on_hover = self.update_roi_html
+            on_click = self.geojson_onclick_handler
         # load new feature on map
-        # what do I do about handlers?
-        self.load_on_map(new_feature,on_hover,on_click)
+        self.load_on_map(new_feature, on_hover, on_click)
 
-
-    def load_on_map(self,feature,on_hover=None,on_click=None) -> None:
+    def load_on_map(self, feature, on_hover=None, on_click=None) -> None:
         """Loads feature on map
-        
+
         Replaces current feature layer on map with given feature
 
         Raises:
@@ -1038,10 +1040,7 @@ class CoastSeg_Map:
         # style and add the feature to the map
         new_layer = self.create_layer(feature, layer_name)
         # Replace old feature layer with new feature layer
-        self.replace_layer_by_name(
-            layer_name, new_layer, on_hover=on_hover
-        )
-
+        self.replace_layer_by_name(layer_name, new_layer, on_hover=on_hover)
 
     def load_shoreline_on_map(self) -> None:
         """Loads shorelines within bounding box on map
