@@ -231,7 +231,7 @@ def test_coastseg_map_settings():
         "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
         # quality control:
         "check_detection": True,  # if True, shows each shoreline detection to the user for validation
-        "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+        "adjust_detection": False,  # if True, allows user to adjust the position of each shoreline by changing the threshold
         "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
         # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
         "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
@@ -240,7 +240,6 @@ def test_coastseg_map_settings():
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
         'landsat_collection': 'C02',
     }

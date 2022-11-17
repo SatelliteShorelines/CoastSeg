@@ -39,7 +39,6 @@ def valid_coastseg_map_with_incomplete_settings() -> coastseg_map.CoastSeg_Map:
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(**pre_process_settings)
@@ -69,7 +68,6 @@ def valid_coastseg_map_with_settings() -> coastseg_map.CoastSeg_Map:
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
@@ -114,7 +112,6 @@ def coastseg_map_with_rois(valid_rois_filepath) -> coastseg_map.CoastSeg_Map:
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
@@ -163,7 +160,6 @@ def coastseg_map_with_selected_roi_layer(
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
@@ -291,7 +287,6 @@ def valid_settings() -> dict:
         "cloud_mask_issue": False,
         "sand_color": "default",
         "pan_off": "False",
-        "create_plot": False,
         "max_dist_ref": 25,
         "along_dist": 25,
     }
@@ -590,7 +585,6 @@ def valid_config_json() -> dict:
             "cloud_mask_issue": False,
             "sand_color": "default",
             "pan_off": "False",
-            "create_plot": False,
             "max_dist_ref": 25,
             "along_dist": 25,
         },

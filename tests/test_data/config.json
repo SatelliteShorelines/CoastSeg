@@ -69,7 +69,6 @@
     "cloud_mask_issue": false,
     "sand_color": "default",
     "pan_off": "False",
-    "create_plot": false,
     "max_dist_ref": 25,
     "along_dist": 25
   }

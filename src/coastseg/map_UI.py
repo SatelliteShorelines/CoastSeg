@@ -299,7 +299,6 @@ class UI:
             "cloud_mask_issue",
             "sand_color",
             "pan_off",
-            "create_plot",
             "max_dist_ref",
             "along_dist",
             "sat_list",
@@ -325,7 +324,6 @@ class UI:
         <p>cloud_mask_issue: {}</p>
         <p>sand_color: {}</p>
         <p>pan_off: {}</p>
-        <p>create_plot: {}</p>
         <p>max_dist_ref: {}</p>
         <p>along_dist: {}</p>
         """.format(
@@ -344,7 +342,6 @@ class UI:
             values["cloud_mask_issue"],
             values["sand_color"],
             values["pan_off"],
-            values["create_plot"],
             values["max_dist_ref"],
             values["along_dist"],
         )
