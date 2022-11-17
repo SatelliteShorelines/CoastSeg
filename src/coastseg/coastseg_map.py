@@ -769,11 +769,13 @@ class CoastSeg_Map:
             # if no cross distance was 0 then skip
             if cross_distance_transects == 0:
                 print(f"ROI: {roi_id} cross distance is 0")
+                print(f"ROI: {roi_id} will not have time-series of shoreline change along transects ")
                 logger.info(f"ROI: {roi_id} cross distance is 0")
                 continue
             # if no shorelines were extracted then skip
             if extracted_shoreline is None:
-                print(f"ROI: {roi_id} had no extracted shorelines ")
+                print(f"ROI: {roi_id} had no extracted shorelines")
+                print(f"ROI: {roi_id} will not have time-series of shoreline change along transects ")
                 logger.info(f"ROI: {roi_id} had no extracted shorelines ")
                 continue
             # check if cross_distance transects is 0
@@ -788,6 +790,7 @@ class CoastSeg_Map:
                 print(f"Overwriting:{fn}")
                 os.remove(fn)
             cross_distance_df.to_csv(fn, sep=",")
+            print(f"ROI: {roi_id} time-series of shoreline change along transects")
             print(
                 f"Time-series of the shoreline change along the transects saved as:{fn}"
             )
@@ -1056,7 +1059,7 @@ class CoastSeg_Map:
         logger.info(f"bbox for ROIs: {self.bbox.gdf}")
         # If no shoreline exists on map then load one in
         if self.shoreline is None:
-            self.coastseg_map.load_feature_on_map("shoreline")
+            self.load_feature_on_map("shoreline")
         logger.info(f"self.shoreline used for ROIs:{self.shoreline}")
         # create rois within the bbox that intersect shorelines
         rois = ROI(
