@@ -1,0 +1,20 @@
+include MANIFEST.in
+include LICENSE
+include pyproject.toml
+include *.md
+
+# Include src, tests, and docs directories in package
+graft src
+graft tests
+graft docs
+
+# Include bounding boxes for shorelines and transects
+recursive-include src/coastseg/bounding_boxes *.csv
+
+# Exclude downloaded shorelines and models
+recursive-exclude src/coastseg/shorelines *.geojson
+recursive-exclude src/coastseg/downloaded_models *
+
+# Remove the pycache directory and any pycache files
+prune src/coastseg/__pycache__
+recursive-exclude * *.py[co]

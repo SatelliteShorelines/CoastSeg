@@ -1,0 +1,4 @@
+pytest
+build
+twine
+black
