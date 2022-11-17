@@ -186,21 +186,6 @@ def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
     return single_roi
 
 
-def convert_gdf_to_polygon(gdf: gpd.geodataframe, id: int = None) -> geometry.Polygon:
-    """Returns the roi with given id as Shapely.geometry.Polygon
-    Args:
-        gdf (gpd.geodataframe): geodataframe consisting of rois or a bbox
-        id (str): roi_id
-    Returns:
-        geometry.Polygon: roi with the id converted to Shapely.geometry.Polygon
-    """
-    single_roi = extract_roi_by_id(gdf, id)
-    single_roi = single_roi["geometry"].to_json()
-    single_roi = json.loads(single_roi)
-    polygon = geometry.Polygon(single_roi["features"][0]["geometry"]["coordinates"][0])
-    return polygon
-
-
 def get_area(polygon: dict) -> float:
     "Calculates the area of the geojson polygon using the same method as geojson.io"
     return round(area(polygon), 3)
