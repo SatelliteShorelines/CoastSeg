@@ -764,12 +764,16 @@ class CoastSeg_Map:
                 roi_id
             ].extracted_shorelines
             cross_distance_transects = rois.cross_distance_transects[roi_id]
+            # if no cross distance was 0 then skip
+            if cross_distance_transects == 0:
+                continue
             # if no shorelines were extracted then skip
             if extracted_shoreline is None:
                 continue
+            # check if cross_distance transects is 0
             cross_distance_df = common.get_cross_distance_df(
                 extracted_shorelines, cross_distance_transects
-            )
+            
             filepath = rois.roi_settings[roi_id]["filepath"]
             sitename = rois.roi_settings[roi_id]["sitename"]
             fn = os.path.join(filepath, sitename, "transect_time_series.csv")
