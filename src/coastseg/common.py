@@ -94,23 +94,6 @@ def get_center_rectangle(coords: list) -> tuple:
     return center_x, center_y
 
 
-# @todo remove this
-def is_shoreline_present(extracted_shorelines: dict, roi_id: int) -> bool:
-    """Returns true if shoreline array exists for roi_id
-    Args:
-        extracted_shorelines (dict): dictionary of extracted shorelines in form of :
-            {   roi_id : {dates: [datetime.datetime,datetime.datetime],
-                shorelines: [array(),array()]}  }
-        roi_id (int): id of the roi
-    Returns:
-        bool: false if shoreline does not exist at roi_id
-    """
-    for shoreline in extracted_shorelines[roi_id]["shorelines"]:
-        if shoreline.size != 0:
-            return True
-    return False
-
-
 def convert_espg(
     input_epsg: int, output_epsg: int, coastsat_array: np.ndarray
 ) -> np.ndarray:
