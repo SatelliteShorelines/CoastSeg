@@ -548,7 +548,7 @@ class CoastSeg_Map:
         )
         exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_if_subset(
-            set(["along_dist"]), set(list(self.settings.keys()))
+            set(["along_dist"]), set(list(self.settings.keys())), "settings"
         )
         # ids of ROIs that have had their shorelines extracted
         extracted_shoreline_ids = set(list(self.rois.extracted_shorelines.keys()))
