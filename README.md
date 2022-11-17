@@ -147,7 +147,7 @@ Hi there! This section is still under active development. So it may not be that 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
 3. Start the Jupyter Notebook
-   > jupyter lab `<notebook_name>`.ipynb
+   > jupyter lab custom_map.ipynb
 
 - @ add screenshot and official notebook
 
