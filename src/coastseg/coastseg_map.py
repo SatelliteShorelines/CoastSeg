@@ -749,7 +749,7 @@ class CoastSeg_Map:
         self.save_cross_distance_df(roi_ids, self.rois)
 
     def save_cross_distance_df(self, roi_ids: list, rois: ROI) -> None:
-        """save_cross_distance_df Saves the cross distances of the transects and
+        """Saves cross distances of transects and
         extracted shorelines in ROI to csv file within each ROI's directory.
         If no shorelines were extracted for an ROI then nothing is saved
         Args:
@@ -764,17 +764,23 @@ class CoastSeg_Map:
                 roi_id
             ].extracted_shorelines
             cross_distance_transects = rois.cross_distance_transects[roi_id]
+            logger.info(f"ROI: {roi_id} cross distance : {cross_distance_transects}")
+            logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
             # if no cross distance was 0 then skip
             if cross_distance_transects == 0:
+                print(f"ROI: {roi_id} cross distance is 0")
+                logger.info(f"ROI: {roi_id} cross distance is 0")
                 continue
             # if no shorelines were extracted then skip
             if extracted_shoreline is None:
+                print(f"ROI: {roi_id} had no extracted shorelines ")
+                logger.info(f"ROI: {roi_id} had no extracted shorelines ")
                 continue
             # check if cross_distance transects is 0
             cross_distance_df = common.get_cross_distance_df(
                 extracted_shorelines, cross_distance_transects
             )
-
+            logger.info(f"ROI: {roi_id} cross_distance_df : {cross_distance_df}")
             filepath = rois.roi_settings[roi_id]["filepath"]
             sitename = rois.roi_settings[roi_id]["sitename"]
             fn = os.path.join(filepath, sitename, "transect_time_series.csv")
