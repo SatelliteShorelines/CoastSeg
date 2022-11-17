@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [workflows, updated_coastsat_package]
+    branches: [main, workflows]
   pull_request:
-    branches: [workflows]
+    branches: [main, workflows]
 
 name: Test CoastSeg with Multiple OS python 3.9 and pip install -e .
 jobs:
