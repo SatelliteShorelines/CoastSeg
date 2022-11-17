@@ -94,30 +94,6 @@ def get_center_rectangle(coords: list) -> tuple:
     return center_x, center_y
 
 
-def convert_espg(
-    input_epsg: int, output_epsg: int, coastsat_array: np.ndarray
-) -> np.ndarray:
-    """Convert the coastsat_array espg to the output_espg
-    Args:
-        input_epsg (int): input espg
-        output_epsg (int): output espg
-        coastsat_array (np.ndarray): array of coordiinates as [[lat,lon],[lat,lon]....]
-    Returns:
-        np.ndarray: array with output espg in the form [[[lat,lon,0.]]]
-    """
-    if input_epsg is None:
-        input_epsg = 4326
-    inProj = Proj(init="epsg:" + str(input_epsg))
-    outProj = Proj(init="epsg:" + str(output_epsg))
-    s_proj = []
-    logger.info(f"convert_espg: coastsat_array {coastsat_array}")
-    # Convert all the lat,ln coords to new espg (operation takes some time....)
-    for coord in coastsat_array:
-        x2, y2 = transform(inProj, outProj, coord[0], coord[1])
-        s_proj.append([x2, y2, 0.0])
-    return np.array(s_proj)
-
-
 def convert_wgs_to_utm(lon: float, lat: float) -> str:
     """return most accurate utm epsg-code based on lat and lng
     convert_wgs_to_utm function, see https://stackoverflow.com/a/40140326/4556479
