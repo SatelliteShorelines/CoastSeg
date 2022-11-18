@@ -101,40 +101,6 @@ class UI:
         self.settings_accordion = Accordion(children=[settings_vbox])
         self.settings_accordion.set_title(0, "Settings")
 
-        # save to file buttons
-
-        self.save_instr = HTML(
-            value="<h2>Save to file</h2>\
-                Save feature on the map to a geojson file.\
-                <br>Geojson file will be saved to CoastSeg directory.\
-                </br><b>Example</b>: Saves bounding box to bbox.geojson\
-            ",
-            layout=Layout(padding="0px"),
-        )
-
-        self.save_radio = RadioButtons(
-            options=[
-                "Shoreline",
-                "Transects",
-                "Bbox",
-                "ROIs",
-            ],
-            value="Shoreline",
-            description="",
-            disabled=False,
-        )
-
-        self.save_button = Button(
-            description=f"Save {self.save_radio.value} to file", style=self.save_style
-        )
-        self.save_button.on_click(self.save_to_file_btn_clicked)
-
-        def save_radio_changed(change):
-            self.save_button.description = f"Save {str(change['new'])} to file"
-
-        self.save_radio.observe(save_radio_changed, "value")
-        self.save_vbox = VBox([self.save_instr, self.save_radio, self.save_button])
-
         # buttons to load configuration files
         self.load_configs_button = Button(
             description="Load Config", style=self.load_style
@@ -144,9 +110,6 @@ class UI:
             description="Save Config", style=self.save_style
         )
         self.save_config_button.on_click(self.on_save_config_clicked)
-
-        # Buttons to load shoreline or transects in bbox on map
-        self.load_buttons = self.load_feature_on_map_buttons()
 
         self.load_file_instr = HTML(
             value="<h2>Load Feature from File</h2>\
@@ -237,6 +200,41 @@ class UI:
         # widget handlers
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
+
+    def save_to_file_buttons(self):
+        # save to file buttons
+        save_instr = HTML(
+            value="<h2>Save to file</h2>\
+                Save feature on the map to a geojson file.\
+                <br>Geojson file will be saved to CoastSeg directory.\
+                </br><b>Example</b>: Saves bounding box to bbox.geojson\
+            ",
+            layout=Layout(padding="0px"),
+        )
+
+        self.save_radio = RadioButtons(
+            options=[
+                "Shoreline",
+                "Transects",
+                "Bbox",
+                "ROIs",
+            ],
+            value="Shoreline",
+            description="",
+            disabled=False,
+        )
+
+        self.save_button = Button(
+            description=f"Save {self.save_radio.value} to file", style=self.save_style
+        )
+        self.save_button.on_click(self.save_to_file_btn_clicked)
+
+        def save_radio_changed(change):
+            self.save_button.description = f"Save {str(change['new'])} to file"
+
+        self.save_radio.observe(save_radio_changed, "value")
+        save_vbox = VBox([save_instr, self.save_radio, self.save_button])
+        return save_vbox
 
     def load_feature_on_map_buttons(self):
         load_instr = HTML(
@@ -418,13 +416,17 @@ class UI:
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
+        # Buttons to load shoreline or transects in bbox on map
+        load_buttons = self.load_feature_on_map_buttons()
         remove_buttons = self.remove_buttons()
+        save_to_file_buttons = self.save_to_file_buttons()
+
         load_file_vbox = VBox(
             [self.load_file_instr, self.load_file_radio, self.load_file_button]
         )
         save_vbox = VBox(
             [
-                self.save_vbox,
+                save_to_file_buttons,
                 load_file_vbox,
                 remove_buttons,
             ]
@@ -446,7 +448,7 @@ class UI:
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
         slider_btn_box = VBox([slider_v_box, self.gen_button])
         roi_controls_box = VBox(
-            [self.instr_create_roi, slider_btn_box, self.load_buttons],
+            [self.instr_create_roi, slider_btn_box, load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
         )
 
