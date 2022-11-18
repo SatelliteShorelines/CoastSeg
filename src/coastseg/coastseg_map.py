@@ -756,11 +756,21 @@ class CoastSeg_Map:
                 'extracted_shorelines': extracted shoreline from roi
                 'roi_settings': must have keys 'filepath' and 'sitename'
                 'cross_distance_transects': cross distance of transects and extracted shoreline from roi
-        """
+        """ 
         for roi_id in roi_ids:
-            extracted_shorelines = rois.extracted_shorelines[
+            roi_extracted_shorelines = rois.extracted_shorelines[
                 roi_id
-            ].extracted_shorelines
+            ]
+            # if roi does not have extracted shoreline skip it
+            if roi_extracted_shorelines  is None:
+                print(f"ROI: {roi_id} had no extracted shorelines")
+                print(
+                    f"ROI: {roi_id} will not have time-series of shoreline change along transects "
+                )
+                logger.info(f"ROI: {roi_id} had no extracted shorelines ")
+                continue
+            # get extracted_shorelines from extracted shoreline object in rois
+            extracted_shorelines = roi_extracted_shorelines.extracted_shorelines
             cross_distance_transects = rois.cross_distance_transects[roi_id]
             logger.info(f"ROI: {roi_id} cross distance : {cross_distance_transects}")
             logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
@@ -773,7 +783,7 @@ class CoastSeg_Map:
                 logger.info(f"ROI: {roi_id} cross distance is 0")
                 continue
             # if no shorelines were extracted then skip
-            if extracted_shoreline is None:
+            if extracted_shorelines is None:
                 print(f"ROI: {roi_id} had no extracted shorelines")
                 print(
                     f"ROI: {roi_id} will not have time-series of shoreline change along transects "
