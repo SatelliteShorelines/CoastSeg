@@ -92,7 +92,7 @@ class UI:
         )
         self.settings_button.on_click(self.save_settings_clicked)
 
-        self.output_epsg_text = Text(value="3857", description="Output epsg:")
+        self.output_epsg_text = Text(value="4326", description="Output epsg:")
 
         # create settings accordion
         settings_vbox = VBox(
@@ -146,32 +146,10 @@ class UI:
         self.save_config_button.on_click(self.on_save_config_clicked)
 
         # Buttons to load shoreline or transects in bbox on map
-        self.load_instr = HTML(
-            value="<h2>Load Feature into Bounding Box</h2>\
-                </br> Loads shoreline or transects into bounding box on map.\
-                </br>If no transects or shorelines exist, then\
-               </br> draw bounding box somewhere else\
-                ",
-            layout=Layout(padding="0px"),
-        )
-        self.load_radio = RadioButtons(
-            options=["Shoreline", "Transects"],
-            value="Shoreline",
-            description="",
-            disabled=False,
-        )
-        self.load_button = Button(
-            description=f"Load {self.load_radio.value}", style=self.load_style
-        )
-        self.load_button.on_click(self.load_button_clicked)
-
-        def handle_load_radio_change(change):
-            self.load_button.description = f"Load {str(change['new'])}"
-
-        self.load_radio.observe(handle_load_radio_change, "value")
+        self.load_buttons = self.load_feature_on_map_buttons()
 
         self.load_file_instr = HTML(
-            value="<h3>Load Feature from File</h3>\
+            value="<h2>Load Feature from File</h2>\
                  Load a feature onto map from geojson file.\
                 ",
             layout=Layout(padding="0px"),
@@ -223,26 +201,6 @@ class UI:
             description="Clear TextBox", style=self.clear_stlye
         )
         self.clear_debug_button.on_click(self.clear_debug_view)
-        self.remove_all_button = Button(
-            description="Remove all", style=self.remove_style
-        )
-        self.remove_all_button.on_click(self.remove_all_from_map)
-        self.remove_transects_button = Button(
-            description="Remove transects", style=self.remove_style
-        )
-        self.remove_transects_button.on_click(self.remove_transects)
-        self.remove_bbox_button = Button(
-            description="Remove bbox", style=self.remove_style
-        )
-        self.remove_bbox_button.on_click(self.remove_bbox_from_map)
-        self.remove_shoreline_button = Button(
-            description="Remove shoreline", style=self.remove_style
-        )
-        self.remove_shoreline_button.on_click(self.remove_shoreline_from_map)
-        self.remove_rois_button = Button(
-            description="Remove ROIs", style=self.remove_style
-        )
-        self.remove_rois_button.on_click(self.remove_all_rois_from_map)
 
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
@@ -280,6 +238,71 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
 
+    def load_feature_on_map_buttons(self):
+        load_instr = HTML(
+            value="<h2>Load Feature into Bounding Box</h2>\
+                </br> Loads shoreline or transects into bounding box on map.\
+                </br>If no transects or shorelines exist, then\
+               </br> draw bounding box somewhere else\
+                ",
+            layout=Layout(padding="0px"),
+        )
+        self.load_radio = RadioButtons(
+            options=["Shoreline", "Transects"],
+            value="Shoreline",
+            description="",
+            disabled=False,
+        )
+        self.load_button = Button(
+            description=f"Load {self.load_radio.value}", style=self.load_style
+        )
+        self.load_button.on_click(self.load_button_clicked)
+
+        def handle_load_radio_change(change):
+            self.load_button.description = f"Load {str(change['new'])}"
+
+        self.load_radio.observe(handle_load_radio_change, "value")
+        load_buttons = VBox([load_instr, self.load_radio, self.load_button])
+        return load_buttons
+
+    def remove_buttons(self):
+        # define remove feature radio box button
+        remove_instr = HTML(
+            value="<h2>Remove Feature from Map</h2>",
+            layout=Layout(padding="0px"),
+        )
+
+        self.remove_radio = RadioButtons(
+            options=["Shoreline", "Transects", "Bbox", "ROIs"],
+            value="Shoreline",
+            description="",
+            disabled=False,
+        )
+        self.remove_button = Button(
+            description=f"Remove {self.remove_radio.value}", style=self.remove_style
+        )
+
+        def handle_remove_radio_change(change):
+            self.remove_button.description = f"Remove {str(change['new'])}"
+
+        self.remove_button.on_click(self.remove_feature_from_map)
+        self.remove_radio.observe(handle_remove_radio_change, "value")
+        # define remove all button
+        self.remove_all_button = Button(
+            description="Remove all", style=self.remove_style
+        )
+        self.remove_all_button.on_click(self.remove_all_from_map)
+
+        remove_buttons = VBox(
+            [
+                remove_instr,
+                self.remove_radio,
+                self.remove_button,
+                self.remove_all_button,
+            ]
+        )
+        return remove_buttons
+
     def get_settings_html(
         self,
         settings: dict,
@@ -315,8 +338,6 @@ class UI:
         <p>cloud_thresh: {}</p>
         <p>dist_clouds: {}</p>
         <p>output_epsg: {}</p>
-        <p>check_detection: {}</p>
-        <p>adjust_detection: {}</p>
         <p>save_figure: {}</p>
         <p>min_beach_area: {}</p>
         <p>buffer_size: {}</p>
@@ -333,8 +354,6 @@ class UI:
             values["cloud_thresh"],
             values["dist_clouds"],
             values["output_epsg"],
-            values["check_detection"],
-            values["adjust_detection"],
             values["save_figure"],
             values["min_beach_area"],
             values["buffer_size"],
@@ -399,6 +418,7 @@ class UI:
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
+        remove_buttons = self.remove_buttons()
         load_file_vbox = VBox(
             [self.load_file_instr, self.load_file_radio, self.load_file_button]
         )
@@ -406,6 +426,7 @@ class UI:
             [
                 self.save_vbox,
                 load_file_vbox,
+                remove_buttons,
             ]
         )
         config_vbox = VBox(
@@ -424,20 +445,9 @@ class UI:
 
         slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
         slider_btn_box = VBox([slider_v_box, self.gen_button])
-        load_buttons = VBox([self.load_instr, self.load_radio, self.load_button])
         roi_controls_box = VBox(
-            [self.instr_create_roi, slider_btn_box, load_buttons],
+            [self.instr_create_roi, slider_btn_box, self.load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
-        )
-
-        erase_buttons = HBox(
-            [
-                self.remove_all_button,
-                self.remove_transects_button,
-                self.remove_bbox_button,
-                self.remove_shoreline_button,
-                self.remove_rois_button,
-            ]
         )
 
         self.settings_html = HTML()
@@ -448,7 +458,6 @@ class UI:
 
         row_0 = HBox([self.settings_accordion, html_settings_accordion])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
-        row_2 = HBox([erase_buttons])
         # in this row prints are rendered with UI.debug_view
         row_3 = HBox([self.clear_debug_button, UI.debug_view])
         row_4 = HBox([self.coastseg_map.map])
@@ -457,7 +466,6 @@ class UI:
         return display(
             row_0,
             row_1,
-            row_2,
             row_3,
             row_4,
             row_5,
@@ -649,6 +657,26 @@ class UI:
                 )
 
     @debug_view.capture(clear_output=True)
+    def remove_feature_from_map(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        try:
+            # Prompt the user to select a directory of images
+            if "shoreline" in btn.description.lower():
+                print(f"Removing shoreline")
+                self.coastseg_map.remove_shoreline()
+            if "transects" in btn.description.lower():
+                print(f"Removing  transects")
+                self.coastseg_map.remove_transects()
+            if "bbox" in btn.description.lower():
+                print(f"Removing bounding box")
+                self.coastseg_map.remove_bbox()
+            if "rois" in btn.description.lower():
+                print(f"Removing ROIs")
+                self.coastseg_map.remove_all_rois()
+        except Exception as error:
+            exception_handler.handle_exception(error)
+
+    @debug_view.capture(clear_output=True)
     def save_to_file_btn_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         try:
@@ -673,33 +701,10 @@ class UI:
         except Exception as error:
             exception_handler.handle_exception(error)
 
+    @debug_view.capture(clear_output=True)
     def remove_all_from_map(self, btn):
         try:
             self.coastseg_map.remove_all()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_transects(self, btn):
-        try:
-            self.coastseg_map.remove_transects()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_bbox_from_map(self, btn):
-        try:
-            self.coastseg_map.remove_bbox()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_shoreline_from_map(self, btn):
-        try:
-            self.coastseg_map.remove_shoreline()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_all_rois_from_map(self, btn):
-        try:
-            self.coastseg_map.remove_all_rois()
         except Exception as error:
             exception_handler.handle_exception(error)
 

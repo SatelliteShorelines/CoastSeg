@@ -32,29 +32,29 @@ class CoastSeg_Map:
     def __init__(self, settings: dict = None):
         self.factory = factory.Factory()
         # settings:  used to select data to download and preprocess settings
+        self.settings = {
+            # general parameters:
+            "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+            "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+            "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
+            # quality control:
+            "check_detection": False,  # if True, shows each shoreline detection to the user for validation
+            "adjust_detection": False,  # if True, allows user to adjust the position of each shoreline by changing the threshold
+            "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+            # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+            "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
+            "buffer_size": 550,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
+            "min_length_sl": 100,  # minimum length (in metres) of shoreline perimeter to be valid
+            "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+            "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+            "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+            "max_dist_ref": 25,
+            "along_dist": 25,
+            "landsat_collection": "C02",
+        }
         if settings is not None:
-            self.settings = settings
-        elif settings is None:
-            self.settings = {
-                # general parameters:
-                "cloud_thresh": 0.5,  # threshold on maximum cloud cover
-                "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
-                "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
-                # quality control:
-                "check_detection": False,  # if True, shows each shoreline detection to the user for validation
-                "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
-                "save_figure": False,  # if True, saves a figure showing the mapped shoreline for each image
-                # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
-                "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-                "buffer_size": 550,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
-                "min_length_sl": 100,  # minimum length (in metres) of shoreline perimeter to be valid
-                "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
-                "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
-                "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-                "max_dist_ref": 25,
-                "along_dist": 25,
-                "landsat_collection": "C02",
-            }
+            tmp_settings = {**settings, **self.settings}
+            self.settings = tmp_settings.copy()
         # selected_set set(str): ids of the selected rois
         self.selected_set = set()
         # self.extracted_shoreline_layers : names of extracted shorelines vectors on the map
@@ -357,7 +357,7 @@ class CoastSeg_Map:
         for key, value in kwargs.items():
             tmp_settings[key] = value
 
-        self.settings = tmp_settings
+        self.settings = tmp_settings.copy()
         del tmp_settings
         logger.info(f"Settings: {self.settings}")
 
