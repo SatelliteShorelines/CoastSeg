@@ -315,7 +315,6 @@ class UI:
             "adjust_detection",
             "save_figure",
             "min_beach_area",
-            "buffer_size",
             "min_length_sl",
             "cloud_mask_issue",
             "sand_color",
@@ -338,7 +337,6 @@ class UI:
         <p>output_epsg: {}</p>
         <p>save_figure: {}</p>
         <p>min_beach_area: {}</p>
-        <p>buffer_size: {}</p>
         <p>min_length_sl: {}</p>
         <p>cloud_mask_issue: {}</p>
         <p>sand_color: {}</p>
@@ -354,7 +352,6 @@ class UI:
             values["output_epsg"],
             values["save_figure"],
             values["min_beach_area"],
-            values["buffer_size"],
             values["min_length_sl"],
             values["cloud_mask_issue"],
             values["sand_color"],
