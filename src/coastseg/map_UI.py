@@ -55,52 +55,6 @@ class UI:
         large_roi_size = 4000
         self.fishnet_sizes = {"small": small_roi_size, "large": large_roi_size}
 
-        # declare settings widgets
-        # Date Widgets
-        self.start_date = DatePicker(
-            description="Start Date",
-            value=datetime.date(2018, 12, 1),
-            disabled=False,
-        )
-        self.end_date = DatePicker(
-            description="End Date",
-            value=datetime.date(2019, 3, 1),  # 2019, 1, 1
-            disabled=False,
-        )
-        date_instr = HTML(value="<b>Pick a date:</b>", layout=Layout(padding="10px"))
-        dates_box = HBox([self.start_date, self.end_date])
-        dates_vbox = VBox([date_instr, dates_box])
-
-        # satellite selection widgets
-        satellite_instr = HTML(
-            value="<b>Pick multiple satellites:</b>\
-                <br> - Pick multiple satellites by holding the control key> \
-                <br> - images after 2022/01/01 will be automatically downloaded from Collection 2 ",
-            layout=Layout(padding="10px"),
-        )
-
-        self.satellite_selection = SelectMultiple(
-            options=["L5", "L7", "L8", "L9", "S2"],
-            value=["L8"],
-            description="Satellites",
-            disabled=False,
-        )
-        satellite_vbox = VBox([satellite_instr, self.satellite_selection])
-
-        self.settings_button = Button(
-            description="Save Settings", style=self.action_style
-        )
-        self.settings_button.on_click(self.save_settings_clicked)
-
-        self.output_epsg_text = Text(value="4326", description="Output epsg:")
-
-        # create settings accordion
-        settings_vbox = VBox(
-            [dates_vbox, satellite_vbox, self.output_epsg_text, self.settings_button]
-        )
-        self.settings_accordion = Accordion(children=[settings_vbox])
-        self.settings_accordion.set_title(0, "Settings")
-
         # buttons to load configuration files
         self.load_configs_button = Button(
             description="Load Config", style=self.load_style
@@ -168,7 +122,7 @@ class UI:
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
         # define slider widgets that control ROI size
-        slider_style = {"description_width": "initial"}
+        self.slider_style = {"description_width": "initial"}
         self.small_fishnet_slider = ipywidgets.IntSlider(
             value=small_roi_size,
             min=0,
@@ -180,7 +134,7 @@ class UI:
             orientation="horizontal",
             readout=True,
             readout_format="d",
-            style=slider_style,
+            style={"description_width": "initial"},
         )
 
         self.large_fishnet_slider = ipywidgets.IntSlider(
@@ -194,12 +148,229 @@ class UI:
             orientation="horizontal",
             readout=True,
             readout_format="d",
-            style=slider_style,
+            style={"description_width": "initial"},
         )
 
         # widget handlers
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
+
+    def get_settings_accordion(self):
+        # declare settings widgets
+        dates_vbox = self.get_dates_picker()
+        satellite_radio = self.get_satellite_radio()
+        sand_dropbox = self.get_sand_dropbox()
+        min_length_sl_slider = self.get_min_length_sl_slider()
+        beach_area_slider = self.get_beach_area_slider()
+        shoreline_buffer_slider = self.get_shoreline_buffer_slider()
+        cloud_slider = self.get_cloud_slider()
+        alongshore_distance_slider = self.get_alongshore_distance_slider()
+        pansharpen_toggle = self.get_pansharpen_toggle()
+        cloud_theshold_slider = self.get_cloud_threshold_slider()
+
+        settings_button = Button(description="Save Settings", style=self.action_style)
+        settings_button.on_click(self.save_settings_clicked)
+        self.output_epsg_text = Text(value="4326", description="Output epsg:")
+
+        # create settings accordion
+        settings_vbox = VBox(
+            [
+                dates_vbox,
+                satellite_radio,
+                self.output_epsg_text,
+                sand_dropbox,
+                min_length_sl_slider,
+                beach_area_slider,
+                shoreline_buffer_slider,
+                cloud_slider,
+                alongshore_distance_slider,
+                cloud_theshold_slider,
+                pansharpen_toggle,
+                settings_button,
+            ]
+        )
+        settings_accordion = Accordion(children=[settings_vbox])
+        settings_accordion.set_title(0, "Settings")
+        return settings_accordion
+
+    def get_dates_picker(self):
+        # Date Widgets
+        self.start_date = DatePicker(
+            description="Start Date",
+            value=datetime.date(2018, 12, 1),
+            disabled=False,
+        )
+        self.end_date = DatePicker(
+            description="End Date",
+            value=datetime.date(2019, 3, 1),  # 2019, 1, 1
+            disabled=False,
+        )
+        date_instr = HTML(value="<b>Pick a date:</b>", layout=Layout(padding="10px"))
+        dates_box = HBox([self.start_date, self.end_date])
+        dates_vbox = VBox([date_instr, dates_box])
+        return dates_vbox
+
+    def get_cloud_threshold_slider(self):
+        instr = HTML(value="<b>Maximum percetange of cloud pixels allowed</b>")
+        self.cloud_threshold_slider = ipywidgets.FloatSlider(
+            value=0.5,
+            min=0,
+            max=1,
+            step=0.01,
+            description="Cloud Pixel %:",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format=".2f",
+            style={"description_width": "initial"},
+        )
+        return VBox([instr, self.cloud_threshold_slider])
+
+    def get_pansharpen_toggle(self):
+        instr = HTML(value="<b>Switch pansharpening off for Landsat 7/8/9 imagery</b>")
+        self.pansharpen_toggle = ipywidgets.ToggleButtons(
+            options=["Pansharpen Off", "Pansharpen On"],
+            description="",
+            disabled=False,
+            button_style="",
+        )
+        return VBox([instr, self.pansharpen_toggle])
+
+    def get_sand_dropbox(self):
+        sand_color_instr = HTML(
+            value="<b>Sand color on beach for model to detect 'dark' (grey/black) 'bright' (white)</b>"
+        )
+        self.sand_dropdown = ipywidgets.Dropdown(
+            options=["default", "latest", "dark", "bright"],
+            value="default",
+            description="Sand Color:",
+            disabled=False,
+        )
+        return VBox([sand_color_instr, self.sand_dropdown])
+
+    def get_alongshore_distance_slider(self):
+        # returns slider to control beach area slider
+        instr = HTML(
+            value="<b>Along-shore distance over which to consider shoreline points to compute median intersection with transects</b>"
+        )
+        self.alongshore_distance_slider = ipywidgets.IntSlider(
+            value=25,
+            min=10,
+            max=100,
+            step=1,
+            description="Alongshore Distance:",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([instr, self.alongshore_distance_slider])
+
+    def get_cloud_slider(self):
+        # returns slider to control beach area slider
+        cloud_instr = HTML(
+            value="<b>Allowed distance from extracted shoreline to detected clouds</b>\
+        </br>- Any extracted shorelines within this distance to any clouds will be dropped"
+        )
+
+        self.cloud_slider = ipywidgets.IntSlider(
+            value=300,
+            min=100,
+            max=1000,
+            step=1,
+            description="Cloud Distance (m):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([cloud_instr, self.cloud_slider])
+
+    def get_shoreline_buffer_slider(self):
+        # returns slider to control beach area slider
+        shoreline_buffer_instr = HTML(
+            value="<b>Buffer around reference shorelines in which shorelines can be extracted</b>"
+        )
+
+        self.shoreline_buffer_slider = ipywidgets.IntSlider(
+            value=50,
+            min=100,
+            max=500,
+            step=1,
+            description="Reference Shoreline Buffer (m):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([shoreline_buffer_instr, self.shoreline_buffer_slider])
+
+    def get_beach_area_slider(self):
+        # returns slider to control beach area slider
+        beach_area_instr = HTML(
+            value="<b>Minimum area (sqm) for object to be labelled as beach</b>"
+        )
+
+        self.beach_area_slider = ipywidgets.IntSlider(
+            value=4500,
+            min=1000,
+            max=10000,
+            step=10,
+            description="Beach Area (sqm):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([beach_area_instr, self.beach_area_slider])
+
+    def get_min_length_sl_slider(self):
+        # returns slider to control beach area slider
+        min_length_sl_instr = HTML(
+            value="<b>Minimum shoreline perimeter that model will detect</b>"
+        )
+
+        self.min_length_sl_slider = ipywidgets.IntSlider(
+            value=500,
+            min=200,
+            max=1000,
+            step=1,
+            description="Min shoreline length (m):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([min_length_sl_instr, self.min_length_sl_slider])
+
+    def get_satellite_radio(self):
+        # satellite selection widgets
+        satellite_instr = HTML(
+            value="<b>Pick multiple satellites:</b>\
+                <br> - Pick multiple satellites by holding the control key> \
+                <br> - images after 2022/01/01 will be automatically downloaded from Collection 2 ",
+            layout=Layout(padding="10px"),
+        )
+
+        self.satellite_selection = SelectMultiple(
+            options=["L5", "L7", "L8", "L9", "S2"],
+            value=["L8"],
+            description="Satellites",
+            disabled=False,
+        )
+        satellite_vbox = VBox([satellite_instr, self.satellite_selection])
+        return satellite_vbox
 
     def save_to_file_buttons(self):
         # save to file buttons
@@ -413,6 +584,8 @@ class UI:
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
+        # create settings accordion
+        settings_accordion = self.get_settings_accordion()
         # Buttons to load shoreline or transects in bbox on map
         load_buttons = self.load_feature_on_map_buttons()
         remove_buttons = self.remove_buttons()
@@ -455,7 +628,7 @@ class UI:
         html_settings_accordion = Accordion(children=[self.settings_html])
         html_settings_accordion.set_title(0, "View Settings")
 
-        row_0 = HBox([self.settings_accordion, html_settings_accordion])
+        row_0 = HBox([settings_accordion, html_settings_accordion])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         # in this row prints are rendered with UI.debug_view
         row_3 = HBox([self.clear_debug_button, UI.debug_view])
@@ -509,14 +682,36 @@ class UI:
     @debug_view.capture(clear_output=True)
     def save_settings_clicked(self, btn):
         if self.satellite_selection.value:
+            # Save satellites selected by user
             sat_list = list(self.satellite_selection.value)
             # Save dates selected by user
             dates = [str(self.start_date.value), str(self.end_date.value)]
-            settings = {"output_epsg": int(self.output_epsg_text.value)}
+            output_epsg = int(self.output_epsg_text.value)
+            max_dist_ref = self.shoreline_buffer_slider.value
+            along_dist = self.alongshore_distance_slider.value
+            dist_clouds = self.cloud_slider.value
+            beach_area = self.beach_area_slider.value
+            min_length_sl = self.min_length_sl_slider.value
+            sand_color = str(self.sand_dropdown.value)
+            pansharpen_enabled = (
+                False if "off" in self.pansharpen_toggle.value.lower() else True
+            )
+            cloud_thresh = self.cloud_threshold_slider.value
+            settings = {
+                "sat_list": sat_list,
+                "dates": dates,
+                "output_epsg": output_epsg,
+                "max_dist_ref": max_dist_ref,
+                "along_dist": along_dist,
+                "dist_clouds": dist_clouds,
+                "min_beach_area": beach_area,
+                "min_length_sl": min_length_sl,
+                "sand_color": sand_color,
+                "pan_off": pansharpen_enabled,
+                "cloud_thresh": cloud_thresh,
+            }
             try:
-                self.coastseg_map.save_settings(
-                    sat_list=sat_list, dates=dates, **settings
-                )
+                self.coastseg_map.save_settings(**settings)
                 self.settings_html.value = self.get_settings_html(
                     self.coastseg_map.settings
                 )
