@@ -55,10 +55,14 @@ Create a new environment named `coastseg` with all the required packages by ente
 1. Create an Anaconda environment
 
 - We will install the CoastSeg package and its dependencies in this environment.
-  > `conda create --name coastseg python=3.9 -y`
+  ```bash 
+  conda create --name coastseg python=3.9 -y
+  ```
 
 2. Activate your conda environment
-   > `conda activate coastseg`
+   ```bash
+   conda activate coastseg
+   ```
 
 - If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
 
@@ -70,13 +74,17 @@ Create a new environment named `coastseg` with all the required packages by ente
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
    - Make sure to install both jupyter and geopandas from the conda forge channel to avoid dependency conflicts
-     > `conda install -c conda-forge jupyter geopandas pydensecrf -y`
+     ```bash
+     conda install -c conda-forge jupyter geopandas pydensecrf -y
+     ```
 4. Install the CoastSeg from PyPi
-   > `pip install coastseg`
+   ```bash
+   pip install coastseg
+   ```
 
 **All the Installation Commands:**
 
-```python
+```bash
 conda create --name coastseg python=3.9 -y
 conda activate coastseg
 conda install -c conda-forge jupyter geopandas pydensecrf -y
@@ -88,7 +96,9 @@ pip install coastseg
 ---
 
 1. Clone the CoastSeg repo:
-   > git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
+   ```bash
+   git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
+   ```
 
 - `--depth 1` : means "give me only the present code, not the whole history of git commits" - this saves disk space, and time
 
