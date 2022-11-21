@@ -14,6 +14,17 @@ from shapely import geometry
 
 # def test_set_roi_settings():
 
+def test_imports():
+    """Test that all the internal coastseg packages are imported correctly"""
+    from coastseg import exceptions
+    from coastseg import exception_handler
+    from coastseg import extracted_shoreline
+    from coastseg import factory
+    from coastseg import map_UI
+    from coastseg import UI_models
+    from coastseg import tkinter_window_creator
+    
+    
 
 def test_save_config_invalid_inputs(
     valid_coastseg_map,
