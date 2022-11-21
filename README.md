@@ -80,7 +80,7 @@ Create a new environment named `coastseg` with all the required packages by ente
 conda create --name coastseg python=3.9 -y
 conda activate coastseg
 conda install -c conda-forge jupyter geopandas pydensecrf -y
-pip install coastseg-beta-package
+pip install coastseg
 ```
 
 ### **Install CoastSeg Locally (Without PyPi package)**
@@ -88,7 +88,7 @@ pip install coastseg-beta-package
 ---
 
 1. Clone the CoastSeg repo:
-   > git clone --depth 1 https://github.com/2320sharon/CoastSeg.git
+   > git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
 
 - `--depth 1` : means "give me only the present code, not the whole history of git commits" - this saves disk space, and time
 
@@ -211,7 +211,7 @@ This guide walks you through how to contribute to the coastseg project. It will 
    > `cd CoastSeg`
 3. To push your changes to the CoastSeg later on add CoastSeg as an upstream repository:
    <br> @todo replace with the official CoastSeg repo
-   > `git remote add upstreamhttps://github.com/2320sharon/CoastSeg/CoastSeg.git`
+   > `git remote add upstream https://github.com/SatelliteShorelines/CoastSeg.git`
 
 - **upstream**: refers to the official CoastSeg repository hosted on GitHub
 - **origin** :refers to your personal fork on your computer
@@ -278,7 +278,7 @@ To correctly create your development environment make sure you run all these com
   <br>`conda create coastseg_dev python = 3.9`
 
 3. Activate coastseg development environment
-   <br> `conda activate coastseg_dev`
+   <br> `conda activate coastseg`
 4. Install Geopandas and Jupyter in this environment
 
 - Make sure to install jupyter and geopandas from the channel `conda-forge` otherwise there might be compatibility issues
