@@ -72,7 +72,7 @@ Create a new environment named `coastseg` with all the required packages by ente
    - Make sure to install both jupyter and geopandas from the conda forge channel to avoid dependency conflicts
      > `conda install -c conda-forge jupyter geopandas pydensecrf -y`
 4. Install the CoastSeg from PyPi
-   > `pip install coastseg-beta-package`
+   > `pip install coastseg`
 
 **All the Installation Commands:**
 
@@ -95,10 +95,14 @@ pip install coastseg
 1. Create an Anaconda environment
 
 - We will install the CoastSeg package and its dependencies in this environment.
-  > `conda create --name coastseg python=3.9 -y`
+  ```bash
+  conda create --name coastseg python=3.9 -y
+  ```
 
 2. Activate your conda environment
-   > `conda activate coastseg`
+   ```bash
+   conda activate coastseg
+   ```
 
 - If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
 
@@ -108,13 +112,20 @@ pip install coastseg
 3. Install geopandas with Conda
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
-     > `conda install -c conda-forge jupyter geopandas -y`
-4. Git Clone
-5. Install the coastseg pip package
+    ```bash
+    conda install -c conda-forge jupyter geopandas -y
+    ```
+4. Clone the CoastSeg Repository
+```bash 
+  git clone https://github.com/SatelliteShorelines/CoastSeg.git
+```
+6. Install the coastseg pip package
 
 - `-e` (editable install flag) install coastseg using the `pyproject.toml` located in coastseg's directory to install the coastseg package. See [pip documentation for -e](https://pip.pypa.io/en/stable/topics/local-project-installs/#:~:text=Editable%20installs%20allow%20you%20to,added%20to%20Python's%20import%20path.) for more information on how editable installations work.
 - By making an editable install you won't need to install the coastseg files from pypi and will have all the files you need to develop with coastseg added to your python path. Using an editable install will avoid any import errors caused by not installing the package from pypi.
-  > `pip install -e .`
+  ```bash
+  pip install -e .
+  ```
 
 ### **Having Installation Errors?**
 
@@ -122,7 +133,7 @@ Use the command `conda clean --all` to clean old packages from your anaconda bas
 
 #### Conda Clean Steps
 
-```
+```bash
 conda deactivate
 conda clean --all
 ```
@@ -138,16 +149,22 @@ Hi there! This section is still under active development. So it may not be that 
 1. Change to the CoastSeg Directory
 
 - In your command prompt or terminal run the `cd` (change directory) command to the CoastSeg directory
-  > cd C:\Users\User1\CoastSeg
+  ```bash
+  cd C:\Users\User1\CoastSeg
+  ```
 
 2. After you' ve installed coastseg's environment activate the `coastseg` environment activate with:
-   > conda activate coastseg
+   ```bash
+   conda activate coastseg
+   ```
 
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
 3. Start the Jupyter Notebook
-   > jupyter lab custom_map.ipynb
+   ```bash
+   jupyter lab custom_map.ipynb
+   ```
 
 - @ add screenshot and official notebook
 
@@ -205,19 +222,27 @@ This guide walks you through how to contribute to the coastseg project. It will 
 
 1. git clone your fork of coastseg onto your local computer
 
-   > `git clone https://github.com/your-username/CoastSeg.git`
+   ```bash
+   git clone https://github.com/your-username/CoastSeg.git
+   ```
 
 2. Change to the directory containing CoastSeg project
-   > `cd CoastSeg`
+   ```bash
+   cd CoastSeg
+   ```
 3. To push your changes to the CoastSeg later on add CoastSeg as an upstream repository:
    <br> @todo replace with the official CoastSeg repo
-   > `git remote add upstream https://github.com/SatelliteShorelines/CoastSeg.git`
+   ```bash
+   git remote add upstream https://github.com/SatelliteShorelines/CoastSeg.git
+   ```
 
 - **upstream**: refers to the official CoastSeg repository hosted on GitHub
 - **origin** :refers to your personal fork on your computer
 
 4. Install your package locally as a pip editable installation
-   > `pip install -e .`
+   ```bash
+   pip install -e .
+   ```
 
 ### Create Development Environment
 
@@ -237,6 +262,8 @@ To correctly create your development environment make sure you run all these com
 │   |  |  |_shoreline.py
 │   |  |  |_transects.py
 │   |  |  |_coastseg_map.py
+│   |  |  |_exception_handler.py
+│   |  |  |_extracted_shoreline.py
 │   |  |  |_common.py
 │   |  |  |_exceptions.py
 │   |  |  |_map_UI.py
