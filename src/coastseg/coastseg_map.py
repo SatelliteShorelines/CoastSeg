@@ -970,21 +970,6 @@ class CoastSeg_Map:
             new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
-    def load_bbox_on_map(self, file: str = None):
-        if file is not None:
-            gdf = gpd.read_file(file)
-            self.bbox = Bounding_Box(gdf)
-            print(f"Loading bbox from file :\n{file}")
-            logger.info(f"Loading bbox from file :\n{file}")
-        # if bbox not empty create layer and add to map
-        exception_handler.check_if_None(self.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(self.bbox.gdf, "bounding box")
-        new_layer = self.create_layer(self.bbox, self.bbox.LAYER_NAME)
-        # Replace old bbox layer with new bbox layer
-        self.draw_control.clear()
-        self.replace_layer_by_name(self.bbox.LAYER_NAME, new_layer)
-        print("Bounding Box was loaded on the map")
-
     def load_feature_on_map(self, feature_name, file="", gdf=None) -> None:
         # feature name can be ['shoreline','transects','bbox','ROIs']
         # if feature name given is not one of possible features throw exception
