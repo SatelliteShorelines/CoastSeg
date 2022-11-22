@@ -656,8 +656,11 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         # Generate ROIs along the coastline within the bounding box
         try:
-            self.coastseg_map.load_rois_on_map(
-                self.fishnet_sizes["large"], self.fishnet_sizes["small"]
+            print("Creating ROIs")
+            self.coastseg_map.load_feature_on_map(
+                "rois",
+                large_len=self.fishnet_sizes["large"],
+                small_len=self.fishnet_sizes["small"],
             )
         except Exception as error:
             exception_handler.handle_exception(error)
@@ -722,26 +725,6 @@ class UI:
                 raise Exception("Must select at least one satellite first")
             except Exception as error:
                 exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
-    def on_load_rois_clicked(self, button):
-        # Prompt the user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename = filedialog.askopenfilename(
-                initialdir=os.getcwd(),
-                filetypes=[("geojson", "*.geojson")],
-                title="Select a geojson file containing rois",
-            )
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                try:
-                    self.coastseg_map.load_rois_on_map(file=tk_root.filename)
-                except Exception as error:
-                    exception_handler.handle_exception(error)
-            else:
-                messagebox.showerror(
-                    "ROI Selection Error", "You must select a valid geojson file first!"
-                )
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):

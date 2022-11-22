@@ -118,7 +118,7 @@ def coastseg_map_with_rois(valid_rois_filepath) -> coastseg_map.CoastSeg_Map:
         **pre_process_settings
     )
     # test if rois will added to coastsegmap and added to ROI layer
-    coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     return coastsegmap
 
 
@@ -165,16 +165,22 @@ def coastseg_map_with_selected_roi_layer(
         **pre_process_settings
     )
     # test if rois will added to coastsegmap and added to ROI layer
-    coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # simulate an ROI being clicked on map
     ROI_id = "17"
     coastsegmap.selected_set.add(ROI_id)
-    coastsegmap.selected_ROI_layer = GeoJSON(
+    
+    selected_layer = GeoJSON(
         data=coastsegmap.convert_selected_set_to_geojson(coastsegmap.selected_set),
-        name="Selected ROIs",
+        name=roi.ROI.SELECTED_LAYER_NAME,
         hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
-    )
-    coastsegmap.map.add_layer(coastsegmap.selected_ROI_layer)
+        )
+    coastsegmap.replace_layer_by_name(
+            roi.ROI.SELECTED_LAYER_NAME,
+            selected_layer,
+            on_click=coastsegmap.selected_onclick_handler,
+            on_hover=coastsegmap.update_roi_html,
+        )
     return coastsegmap
 
 

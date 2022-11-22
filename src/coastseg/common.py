@@ -94,6 +94,23 @@ def get_center_rectangle(coords: list) -> tuple:
     return center_x, center_y
 
 
+def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
+    """Uses geometry of shapely rectangle in crs 4326 to return the most accurate
+    utm code as a string of format 'epsg:utm_code'
+    example: 'espg:32610'
+
+    Args:
+        geometry (shapely.geometry.polygon.Polygon): geometry of a rectangle
+
+    Returns:
+        int: most accurate epsg code based on lat lon coordinates of given geometry
+    """
+    rect_coords = geometry.exterior.coords
+    center_x, center_y = get_center_rectangle(rect_coords)
+    utm_code = convert_wgs_to_utm(center_x, center_y)
+    return int(utm_code)
+
+
 def convert_wgs_to_utm(lon: float, lat: float) -> str:
     """return most accurate utm epsg-code based on lat and lng
     convert_wgs_to_utm function, see https://stackoverflow.com/a/40140326/4556479
@@ -601,7 +618,6 @@ def create_roi_settings(
     sat_list = settings["sat_list"]
     landsat_collection = settings["landsat_collection"]
     dates = settings["dates"]
-    # for roi in self.selected_ROI_layer.data["features"]:
     for roi in selected_rois["features"]:
         roi_id = str(roi["properties"]["id"])
         sitename = (

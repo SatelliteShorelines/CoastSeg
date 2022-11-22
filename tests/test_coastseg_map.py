@@ -43,7 +43,7 @@ def test_save_config_invalid_inputs(
     with pytest.raises(Exception):
         valid_coastseg_map_with_settings.save_config()
 
-    # test if exception is raised when coastseg_map missing selected_ROI_layer
+    # test if exception is raised when coastseg_map missing selected_layer
     with pytest.raises(Exception):
         coastseg_map_with_rois.save_config()
 
@@ -66,9 +66,10 @@ def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     landsat_collection = actual_coastsegmap.settings["landsat_collection"]
     sat_list = actual_coastsegmap.settings["sat_list"]
     # Add roi_settings to  actual_coastsegmap.rois
+    selected_layer = actual_coastsegmap.map.find_layer(roi.ROI.SELECTED_LAYER_NAME)
     roi_settings = common.create_roi_settings(
         actual_coastsegmap.settings,
-        actual_coastsegmap.selected_ROI_layer.data,
+        selected_layer.data,
         filepath,
         date_str,
     )
@@ -151,7 +152,7 @@ def test_load_json_config_downloaded(
     # tests if load_json_config will load contents into rois.roi_settings
     # create instance of Coastseg_Map with settings and ROIs initially loaded
     actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
     actual_coastsegmap.load_json_config(downloaded_config_json_filepath)
     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
@@ -166,7 +167,7 @@ def test_load_json_config(
     # tests if load_json_config will load contents into rois.roi_settings when rois have not been downloaded before
     # create instance of Coastseg_Map with settings and ROIs initially loaded
     actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # test if settings are correctly loaded when valid json config without 'filepath' & 'sitename' keys is loaded
     actual_coastsegmap.load_json_config(config_json_filepath)
     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
@@ -278,38 +279,44 @@ def test_select_roi_layer(
     """
     actual_coastsegmap = valid_coastseg_map_with_settings
     # test if rois will added to coastsegmap and added to ROI layer
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # test if roi layer was added to map
-    assert actual_coastsegmap.ROI_layer is not None
+    existing_layer = actual_coastsegmap.map.find_layer(roi.ROI.LAYER_NAME)
+    assert existing_layer is not None
     # simulate an ROI being clicked on map
     ROI_id = "17"
     actual_coastsegmap.selected_set.add(ROI_id)
-    actual_coastsegmap.selected_ROI_layer = GeoJSON(
-        data=actual_coastsegmap.convert_selected_set_to_geojson(
-            actual_coastsegmap.selected_set
-        ),
-        name="Selected ROIs",
+    
+    selected_layer = GeoJSON(
+        data=actual_coastsegmap.convert_selected_set_to_geojson(actual_coastsegmap.selected_set),
+        name=roi.ROI.SELECTED_LAYER_NAME,
         hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
-    )
-    actual_coastsegmap.map.add_layer(actual_coastsegmap.selected_ROI_layer)
+        )
+    actual_coastsegmap.replace_layer_by_name(
+            roi.ROI.SELECTED_LAYER_NAME,
+            selected_layer,
+            on_click=actual_coastsegmap.selected_onclick_handler,
+            on_hover=actual_coastsegmap.update_roi_html,
+        )    
     # test if roi layer was added to map
-    assert actual_coastsegmap.selected_ROI_layer is not None
+    selected_layer = actual_coastsegmap.map.find_layer(roi.ROI.SELECTED_LAYER_NAME)
+    assert selected_layer is not None
     existing_layer = actual_coastsegmap.map.find_layer("Selected ROIs")
     assert existing_layer is not None
     assert "17" in actual_coastsegmap.selected_set
-    assert isinstance(actual_coastsegmap.selected_ROI_layer.data, dict)
-    assert isinstance(actual_coastsegmap.selected_ROI_layer.data["features"], list)
-    assert isinstance(actual_coastsegmap.selected_ROI_layer.data["features"][0], dict)
-    assert len(actual_coastsegmap.selected_ROI_layer.data["features"]) == 1
+    assert isinstance(selected_layer.data, dict)
+    assert isinstance(selected_layer.data["features"], list)
+    assert isinstance(selected_layer.data["features"][0], dict)
+    assert len(selected_layer.data["features"]) == 1
     roi_json = actual_coastsegmap.rois.gdf[
         actual_coastsegmap.rois.gdf["id"] == ROI_id
     ].to_json()
     roi_geojson = json.loads(roi_json)
     assert isinstance(roi_geojson, dict)
-    # test if geojson in selected layer matches geojson in coastsegmap.rois.gdf
+    # test if geojson in selected layer matches geojson in coastsegmap.rois.gdf 
     assert (
         roi_geojson["features"][0]["geometry"]
-        == actual_coastsegmap.selected_ROI_layer.data["features"][0]["geometry"]
+        == selected_layer.data["features"][0]["geometry"]
     )
 
 
@@ -323,13 +330,12 @@ def test_load_rois_on_map_with_file(
     """
     actual_coastsegmap = valid_coastseg_map_with_settings
     # test if rois will be correctly loaded onto map
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     assert actual_coastsegmap.rois is not None
     assert isinstance(actual_coastsegmap.rois, roi.ROI)
     # test if rois geodataframe was created correctly
     assert isinstance(actual_coastsegmap.rois.gdf, gpd.GeoDataFrame)
     assert actual_coastsegmap.rois.gdf.equals(valid_rois_gdf)
     # test if roi layer was added to map
-    assert actual_coastsegmap.ROI_layer is not None
     existing_layer = actual_coastsegmap.map.find_layer(roi.ROI.LAYER_NAME)
     assert existing_layer is not None
