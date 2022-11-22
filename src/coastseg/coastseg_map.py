@@ -389,6 +389,7 @@ class CoastSeg_Map:
             "satname",
         ]
         # returns a dict with keys in keys and if a key does not exist in feature its value is default str
+        logger.info(f"feature: {feature}")
         values = common.get_default_dict(
             default=default, keys=keys, fill_dict=feature["properties"]
         )
@@ -417,13 +418,16 @@ class CoastSeg_Map:
         values = common.get_default_dict(
             default=default, keys=keys, fill_dict=feature["properties"]
         )
+        logger.info(f"ROI feature: {feature}")
+        roi_area = common.get_area(feature["geometry"])
         self.accordion.children[
             1
         ].value = """ 
         <h2>ROI</h2>
         <p>Id: {}</p>
+        <p>Area(m²): {}</p>
         """.format(
-            values["id"],
+            values["id"], roi_area
         )
 
     def update_shoreline_html(self, feature, **kwargs):
