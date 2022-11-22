@@ -155,6 +155,19 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
 
+    def get_view_settings_accordion(self)-> Accordion:
+        # update settings button
+        update_settings_btn = Button(
+            description="Update Settings", style=self.action_style
+        )
+        update_settings_btn.on_click(self.update_settings_btn_clicked)
+        self.settings_html = HTML()
+        self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+        view_settings_vbox = VBox([self.settings_html, update_settings_btn])
+        html_settings_accordion = Accordion(children=[view_settings_vbox])
+        html_settings_accordion.set_title(0, "View Settings")
+        return html_settings_accordion
+
     def get_settings_accordion(self):
         # declare settings widgets
         dates_vbox = self.get_dates_picker()
@@ -622,11 +635,8 @@ class UI:
             layout=Layout(margin="0px 5px 5px 0px"),
         )
 
-        self.settings_html = HTML()
-        self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
-
-        html_settings_accordion = Accordion(children=[self.settings_html])
-        html_settings_accordion.set_title(0, "View Settings")
+        # view settings accordion
+        html_settings_accordion = self.get_view_settings_accordion()
 
         row_0 = HBox([settings_accordion, html_settings_accordion])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
@@ -648,6 +658,16 @@ class UI:
 
     def handle_large_slider_change(self, change):
         self.fishnet_sizes["large"] = change["new"]
+
+    @debug_view.capture(clear_output=True)
+    def update_settings_btn_clicked(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        # Update settings in view settings accordion
+        try:
+            self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+        except Exception as error:
+            exception_handler.handle_exception(error)
+
 
     @debug_view.capture(clear_output=True)
     def on_gen_button_clicked(self, btn):
@@ -793,6 +813,8 @@ class UI:
             if tk_root.filename:
                 try:
                     self.coastseg_map.load_configs(tk_root.filename)
+                    # update setting html with settings loaded in
+                    self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
                 except Exception as error:
                     exception_handler.handle_exception(error)
             else:
