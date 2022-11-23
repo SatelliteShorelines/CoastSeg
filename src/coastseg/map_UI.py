@@ -121,6 +121,7 @@ class UI:
 
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
+        self.roi_slider_instr = HTML(value="<b>Choose Side Length of ROIs</b>")
         # define slider widgets that control ROI size
         self.slider_style = {"description_width": "initial"}
         self.small_fishnet_slider = ipywidgets.IntSlider(
@@ -128,7 +129,7 @@ class UI:
             min=0,
             max=10000,
             step=100,
-            description="Small Grid:",
+            description="Small ROI Length(m)",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -142,7 +143,7 @@ class UI:
             min=1000,
             max=10000,
             step=100,
-            description="Large Grid:",
+            description="Large ROI Length(m)",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -155,7 +156,7 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
 
-    def get_view_settings_accordion(self)-> Accordion:
+    def get_view_settings_accordion(self) -> Accordion:
         # update settings button
         update_settings_btn = Button(
             description="Update Settings", style=self.action_style
@@ -391,7 +392,6 @@ class UI:
             value="<h2>Save to file</h2>\
                 Save feature on the map to a geojson file.\
                 <br>Geojson file will be saved to CoastSeg directory.\
-                </br><b>Example</b>: Saves bounding box to bbox.geojson\
             ",
             layout=Layout(padding="0px"),
         )
@@ -423,15 +423,15 @@ class UI:
     def load_feature_on_map_buttons(self):
         load_instr = HTML(
             value="<h2>Load Feature into Bounding Box</h2>\
-                </br> Loads shoreline or transects into bounding box on map.\
-                </br>If no transects or shorelines exist, then\
+                Loads shoreline or transects into bounding box on map.\
+                </br>If no transects or shorelines exist in this area, then\
                </br> draw bounding box somewhere else\
                 ",
             layout=Layout(padding="0px"),
         )
         self.load_radio = RadioButtons(
             options=["Shoreline", "Transects"],
-            value="Shoreline",
+            value="Transects",
             description="",
             disabled=False,
         )
@@ -550,17 +550,15 @@ class UI:
          instr_download_roi
         """
         self.instr_create_roi = HTML(
-            value="<h2><b>Generate ROIs</b></h2> \
-                Use the two sliders to control the size of the ROIs generated.\
+            value="<h2><b>Generate ROIs on Map</b></h2> \
+                Use the sliders to control the side length of the ROIs created on the map.\
                 </br><b>No Overlap</b>: Set small slider to 0 and large slider to ROI size.</li>\
                 </br><b>Overlap</b>: Set small slider to a value and large slider to ROI size.</li>\
-                </br><b>ROI units</b>: meters squared.</li>\
-                </br><h3><b><u>How it Works</u></b></br></h3> \
-                <li>Two grids composed of ROIs (squares) and created within\
-                </br>the bounding box.\
-                <li>Each ROI is created along the shoreline.\
-                <li>If there is no shoreline then ROIs cannot be created.\
-                <li>The slider controls the size of the individual ROIs created.\
+                </br><h3><b><u>How ROIs are Made</u></b></br></h3> \
+                <li>Two grids of ROIs (squares) are created within\
+                </br>the bounding box along the shoreline.\
+                <li>If no shoreline is within the bounding box then ROIs cannot be created.\
+                <li>The slider controls the side length of each ROI.\
                 ",
             layout=Layout(margin="0px 5px 0px 0px"),
         )
@@ -580,17 +578,11 @@ class UI:
 
         self.instr_config_btns = HTML(
             value="<h2><b>Load and Save Config Files</b></h2>\
-                <b>Load Config</b>: Load rois, shorelines, transects and bounding box from file: \
-                </br>'config_gdf.geojson'</li>\
-                <li>Make sure 'config.json' is in the same directory as 'config_gdf.geojson'.</li>\
-                <b>Save Config</b>: Saves rois, shorelines, transects and bounding box to file:\
-                </br>'config_gdf.geojson'</li>\
-                <li>If the ROIs have not been downloaded the config file is in main CoastSeg directory in file:\
-                </br>'config_gdf.geojson'</li>\
-                <li>If the ROIs have been downloaded the config file is in each ROI's folder in file:\
-                </br>'config_gdf.geojson'</li>\
-                <li>The 'config.json' will be saved in the same directory as the 'config_gdf.geojson'.</li>\
-                <li>The 'config.json' contains the data for the ROI and map settings.</li>\
+                <b>Load Config</b>: Load rois, shorelines, transects and bounding box from file: 'config_gdf.geojson'\
+                <li>'config.json' must be in the same directory as 'config_gdf.geojson'.</li>\
+                <b>Save Config</b>: Saves rois, shorelines, transects and bounding box to file: 'config_gdf.geojson'\
+                </br><b>ROIs Not Downloaded:</b> config file will be saved to CoastSeg directory in file: 'config_gdf.geojson'\
+                </br><b>ROIs Not Downloaded:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
                 ",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
@@ -628,7 +620,13 @@ class UI:
             ]
         )
 
-        slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
+        slider_v_box = VBox(
+            [
+                self.roi_slider_instr,
+                self.small_fishnet_slider,
+                self.large_fishnet_slider,
+            ]
+        )
         slider_btn_box = VBox([slider_v_box, self.gen_button])
         roi_controls_box = VBox(
             [self.instr_create_roi, slider_btn_box, load_buttons],
@@ -664,10 +662,11 @@ class UI:
         UI.debug_view.clear_output(wait=True)
         # Update settings in view settings accordion
         try:
-            self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+            self.settings_html.value = self.get_settings_html(
+                self.coastseg_map.settings
+            )
         except Exception as error:
             exception_handler.handle_exception(error)
-
 
     @debug_view.capture(clear_output=True)
     def on_gen_button_clicked(self, btn):
@@ -814,7 +813,9 @@ class UI:
                 try:
                     self.coastseg_map.load_configs(tk_root.filename)
                     # update setting html with settings loaded in
-                    self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+                    self.settings_html.value = self.get_settings_html(
+                        self.coastseg_map.settings
+                    )
                 except Exception as error:
                     exception_handler.handle_exception(error)
             else:

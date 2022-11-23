@@ -234,10 +234,10 @@ def test_coastseg_map_settings():
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """
     coastsegmap = coastseg_map.CoastSeg_Map()
-    dates = ["2018-12-01", "2019-03-01"]
-    sat_list = ["L8"]
     pre_process_settings = {
         # general parameters:
+        "dates":["2018-12-01", "2019-03-01"],
+        "sat_list" : ["L8"],
         "cloud_thresh": 0.5,  # threshold on maximum cloud cover
         "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
         "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
@@ -255,8 +255,6 @@ def test_coastseg_map_settings():
         'landsat_collection': 'C02',
     }
     coastsegmap.save_settings(
-        sat_list=sat_list,
-        dates=dates,
         **pre_process_settings
     )
     actual_settings = set(list(coastsegmap.settings.keys()))
