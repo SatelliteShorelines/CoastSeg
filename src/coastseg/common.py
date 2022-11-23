@@ -244,7 +244,8 @@ def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
         [-13820900.16320004,   4995862.31860808]])
     }
     Args:
-        feature (gpd.geodataframe): clipped portion of shoreline within a roi
+        roi_id(str): id of roi that transects intersect
+        feature (gpd.geodataframe): clipped transects within roi
     Returns:
         dict: dict of np.arrays of transect start and end points
         of form {

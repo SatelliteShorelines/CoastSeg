@@ -9,6 +9,24 @@ import numpy as np
 from shapely import geometry
 import pytest
 
+def test_get_transect_points_dict(valid_transects_gdf):
+    """Tests get_transect_points_dict to see if it returns a valid dictionary when given 
+    transects geodataframe and an id
+    Args:
+        valid_transects_gdf (geodataframe): transects geodataframe with ids:[17,30,35]
+    """
+    roi_id = '17'
+    transects_dict = common.get_transect_points_dict(roi_id,valid_transects_gdf)
+    # simulate how roi transect ids would be created 
+    transect_ids=valid_transects_gdf['id'].to_list()
+    roi_transect_ids = ["ROI_"+roi_id +"_"+tid for tid in transect_ids]
+    
+    assert isinstance(transects_dict,dict)
+    assert set(transects_dict.keys()).issubset(set(roi_transect_ids))
+    assert isinstance( transects_dict[roi_transect_ids[0]],np.ndarray)
+    
+    
+
 def test_get_default_dict():
     # should return dict with fill dict values since keys exist in fill_dict
     default_str = "unknown"
