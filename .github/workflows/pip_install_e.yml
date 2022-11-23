@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [main, workflows]
+    branches: [main]
   pull_request:
-    branches: [main, workflows]
+    branches: [main]
 
 name: Test CoastSeg with Multiple OS python 3.9 and pip install -e .
 jobs:

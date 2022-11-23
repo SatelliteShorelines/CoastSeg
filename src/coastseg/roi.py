@@ -20,6 +20,7 @@ class ROI:
     """Roi (Region of Interest) a square where data can be downloaded from"""
 
     LAYER_NAME = "ROIs"
+    SELECTED_LAYER_NAME = "Selected ROIs"
 
     def __init__(
         self,
@@ -174,12 +175,7 @@ class ROI:
         Returns:
             gpd.geodataframe: geodataframe containing all the ROIs
         """
-        # coords : list[tuple] first & last tuple are equal
-        bbox_coords = list(bbox.iloc[0]["geometry"].exterior.coords)
-        # get the utm_code for center of bbox
-        center_x, center_y = common.get_center_rectangle(bbox_coords)
-        utm_code = common.convert_wgs_to_utm(center_x, center_y)
-        projected_espg = f"epsg:{utm_code}"
+        projected_espg = common.get_epsg_from_geometry(bbox.iloc[0]["geometry"])
         logger.info(f"projected_espg_code: {projected_espg}")
         # project geodataframe to new CRS specified by utm_code
         projected_bbox_gdf = bbox.to_crs(projected_espg)

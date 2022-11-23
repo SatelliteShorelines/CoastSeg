@@ -14,6 +14,17 @@ from shapely import geometry
 
 # def test_set_roi_settings():
 
+def test_imports():
+    """Test that all the internal coastseg packages are imported correctly"""
+    from coastseg import exceptions
+    from coastseg import exception_handler
+    from coastseg import extracted_shoreline
+    from coastseg import factory
+    from coastseg import map_UI
+    from coastseg import UI_models
+    from coastseg import tkinter_window_creator
+    
+    
 
 def test_save_config_invalid_inputs(
     valid_coastseg_map,
@@ -32,7 +43,7 @@ def test_save_config_invalid_inputs(
     with pytest.raises(Exception):
         valid_coastseg_map_with_settings.save_config()
 
-    # test if exception is raised when coastseg_map missing selected_ROI_layer
+    # test if exception is raised when coastseg_map missing selected_layer
     with pytest.raises(Exception):
         coastseg_map_with_rois.save_config()
 
@@ -55,9 +66,10 @@ def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     landsat_collection = actual_coastsegmap.settings["landsat_collection"]
     sat_list = actual_coastsegmap.settings["sat_list"]
     # Add roi_settings to  actual_coastsegmap.rois
+    selected_layer = actual_coastsegmap.map.find_layer(roi.ROI.SELECTED_LAYER_NAME)
     roi_settings = common.create_roi_settings(
         actual_coastsegmap.settings,
-        actual_coastsegmap.selected_ROI_layer.data,
+        selected_layer.data,
         filepath,
         date_str,
     )
@@ -140,7 +152,7 @@ def test_load_json_config_downloaded(
     # tests if load_json_config will load contents into rois.roi_settings
     # create instance of Coastseg_Map with settings and ROIs initially loaded
     actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
     actual_coastsegmap.load_json_config(downloaded_config_json_filepath)
     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
@@ -155,7 +167,7 @@ def test_load_json_config(
     # tests if load_json_config will load contents into rois.roi_settings when rois have not been downloaded before
     # create instance of Coastseg_Map with settings and ROIs initially loaded
     actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # test if settings are correctly loaded when valid json config without 'filepath' & 'sitename' keys is loaded
     actual_coastsegmap.load_json_config(config_json_filepath)
     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
@@ -222,32 +234,27 @@ def test_coastseg_map_settings():
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
     """
     coastsegmap = coastseg_map.CoastSeg_Map()
-    dates = ["2018-12-01", "2019-03-01"]
-    landsat_collection = "C01"
-    sat_list = ["L8"]
     pre_process_settings = {
         # general parameters:
+        "dates":["2018-12-01", "2019-03-01"],
+        "sat_list" : ["L8"],
         "cloud_thresh": 0.5,  # threshold on maximum cloud cover
         "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
         "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
         # quality control:
         "check_detection": True,  # if True, shows each shoreline detection to the user for validation
-        "adjust_detection": False,  # if True, allows user to adjust the postion of each shoreline by changing the threhold
+        "adjust_detection": False,  # if True, allows user to adjust the position of each shoreline by changing the threshold
         "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
         # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
         "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
         "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
+        'landsat_collection': 'C02',
     }
     coastsegmap.save_settings(
-        sat_list=sat_list,
-        landsat_collection=landsat_collection,
-        dates=dates,
         **pre_process_settings
     )
     actual_settings = set(list(coastsegmap.settings.keys()))
@@ -270,38 +277,44 @@ def test_select_roi_layer(
     """
     actual_coastsegmap = valid_coastseg_map_with_settings
     # test if rois will added to coastsegmap and added to ROI layer
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # test if roi layer was added to map
-    assert actual_coastsegmap.ROI_layer is not None
+    existing_layer = actual_coastsegmap.map.find_layer(roi.ROI.LAYER_NAME)
+    assert existing_layer is not None
     # simulate an ROI being clicked on map
     ROI_id = "17"
     actual_coastsegmap.selected_set.add(ROI_id)
-    actual_coastsegmap.selected_ROI_layer = GeoJSON(
-        data=actual_coastsegmap.convert_selected_set_to_geojson(
-            actual_coastsegmap.selected_set
-        ),
-        name="Selected ROIs",
+    
+    selected_layer = GeoJSON(
+        data=actual_coastsegmap.convert_selected_set_to_geojson(actual_coastsegmap.selected_set),
+        name=roi.ROI.SELECTED_LAYER_NAME,
         hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
-    )
-    actual_coastsegmap.map.add_layer(actual_coastsegmap.selected_ROI_layer)
+        )
+    actual_coastsegmap.replace_layer_by_name(
+            roi.ROI.SELECTED_LAYER_NAME,
+            selected_layer,
+            on_click=actual_coastsegmap.selected_onclick_handler,
+            on_hover=actual_coastsegmap.update_roi_html,
+        )    
     # test if roi layer was added to map
-    assert actual_coastsegmap.selected_ROI_layer is not None
+    selected_layer = actual_coastsegmap.map.find_layer(roi.ROI.SELECTED_LAYER_NAME)
+    assert selected_layer is not None
     existing_layer = actual_coastsegmap.map.find_layer("Selected ROIs")
     assert existing_layer is not None
     assert "17" in actual_coastsegmap.selected_set
-    assert isinstance(actual_coastsegmap.selected_ROI_layer.data, dict)
-    assert isinstance(actual_coastsegmap.selected_ROI_layer.data["features"], list)
-    assert isinstance(actual_coastsegmap.selected_ROI_layer.data["features"][0], dict)
-    assert len(actual_coastsegmap.selected_ROI_layer.data["features"]) == 1
+    assert isinstance(selected_layer.data, dict)
+    assert isinstance(selected_layer.data["features"], list)
+    assert isinstance(selected_layer.data["features"][0], dict)
+    assert len(selected_layer.data["features"]) == 1
     roi_json = actual_coastsegmap.rois.gdf[
         actual_coastsegmap.rois.gdf["id"] == ROI_id
     ].to_json()
     roi_geojson = json.loads(roi_json)
     assert isinstance(roi_geojson, dict)
-    # test if geojson in selected layer matches geojson in coastsegmap.rois.gdf
+    # test if geojson in selected layer matches geojson in coastsegmap.rois.gdf 
     assert (
         roi_geojson["features"][0]["geometry"]
-        == actual_coastsegmap.selected_ROI_layer.data["features"][0]["geometry"]
+        == selected_layer.data["features"][0]["geometry"]
     )
 
 
@@ -315,13 +328,12 @@ def test_load_rois_on_map_with_file(
     """
     actual_coastsegmap = valid_coastseg_map_with_settings
     # test if rois will be correctly loaded onto map
-    actual_coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    actual_coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     assert actual_coastsegmap.rois is not None
     assert isinstance(actual_coastsegmap.rois, roi.ROI)
     # test if rois geodataframe was created correctly
     assert isinstance(actual_coastsegmap.rois.gdf, gpd.GeoDataFrame)
     assert actual_coastsegmap.rois.gdf.equals(valid_rois_gdf)
     # test if roi layer was added to map
-    assert actual_coastsegmap.ROI_layer is not None
     existing_layer = actual_coastsegmap.map.find_layer(roi.ROI.LAYER_NAME)
     assert existing_layer is not None

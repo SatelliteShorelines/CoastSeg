@@ -61,9 +61,17 @@ class Transects:
             )
             transects_gdf = common.read_gpd_file(transect_path)
             # Get all the transects that intersect with bbox
-            transects_in_bbox = self.get_intersecting_transects(
-                bbox, transects_gdf, None
+            transects_in_bbox = gpd.sjoin(
+                left_df=transects_gdf,
+                right_df=bbox,
+                how="inner",
+                predicate="intersects",
             )
+            columns_to_drop = list(
+                set(transects_in_bbox.columns) - set(["id", "geometry", "slope"])
+            )
+            transects_in_bbox.drop(columns_to_drop, axis=1, inplace=True)
+
             if transects_in_bbox.empty:
                 print("Skipping ", transects_name)
             elif not transects_in_bbox.empty:
@@ -109,22 +117,6 @@ class Transects:
             },
             hover_style={"color": "blue", "fillOpacity": 0.7},
         )
-
-    def get_intersecting_transects(
-        self, gdf: gpd.geodataframe, transect_gdf: gpd.geodataframe, id: str = None
-    ) -> gpd.geodataframe:
-        """Returns a transects that intersect with the roi with id provided
-        Args:
-            gdf (gpd.geodataframe): rois with geometry, ids and more
-            transect_gdf (gpd.geodataframe): transects geometry
-            id (str): id of roi
-
-        Returns:
-            gpd.geodataframe: transects that intersected with gdf
-        """
-        polygon = common.convert_gdf_to_polygon(gdf, id)
-        transect_mask = transect_gdf.intersects(polygon, align=False)
-        return transect_gdf[transect_mask]
 
     def get_intersecting_files(self, bbox_gdf: gpd.geodataframe) -> list:
         """Returns a list of filenames that intersect with bbox_gdf

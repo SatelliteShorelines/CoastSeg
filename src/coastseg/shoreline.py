@@ -242,27 +242,3 @@ class Shoreline:
         if "filename" in total_bounds_df.columns:
             total_bounds_df.drop("filename", axis=1, inplace=True)
         return total_bounds_df
-
-    def make_coastsat_compatible(shoreline_in_roi: gpd.geodataframe) -> np.ndarray:
-        """Return the shoreline_in_roi as an np.array in the form:
-            array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
-
-        Args:
-            shoreline_in_roi (gpd.geodataframe): clipped portion of shoreline withinv a roi
-
-        Returns:
-            np.ndarray: shorelines in the form:
-                array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
-        """
-        # Then convert the shoreline to lat,lon tuples for CoastSat
-        shorelines = []
-        for k in shoreline_in_roi["geometry"].keys():
-            # For each linestring portion of shoreline convert to lat,lon tuples
-            shorelines.append(tuple(np.array(shoreline_in_roi["geometry"][k]).tolist()))
-        # shorelines = [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...]
-        # Stack all the tuples into a single list of n rows X 2 columns
-        shorelines = np.vstack(shorelines)
-        # Add third column of 0s to represent mean sea level
-        shorelines = np.insert(shorelines, 2, np.zeros(len(shorelines)), axis=1)
-        # shorelines = array([[lat,lon,0],[lat,lon,0],[lat,lon,0]....])
-        return shorelines

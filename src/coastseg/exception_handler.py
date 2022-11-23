@@ -1,14 +1,13 @@
 # standard python imports
-import os
 import logging
 import traceback
-import sys
 from typing import Union
 
 # internal python imports
 from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from coastseg import exceptions
 from coastseg import common
+from coastseg.roi import ROI
 
 # external python imports
 from google.auth import exceptions as google_auth_exceptions
@@ -88,6 +87,12 @@ def check_empty_dict(feature, feature_type: str = ""):
 
 def check_empty_layer(layer, feature_type: str = ""):
     if layer is None:
+        if feature_type == ROI.LAYER_NAME:
+            logger.error(f"No ROI layer found on map")
+            raise Exception("No ROI layer found on map")
+        if feature_type == ROI.SELECTED_LAYER_NAME:
+            logger.error(f"No selected ROI layer found on map")
+            raise Exception("No selected ROI layer found on map")
         logger.error(f"Cannot add an empty {feature_type} layer to the map.")
         raise Exception(f"Cannot add an empty {feature_type} layer to the map.")
 
