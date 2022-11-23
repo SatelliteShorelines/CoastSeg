@@ -80,7 +80,7 @@ class Bounding_Box:
         """ "Raises an exception if the size of the bounding box is too large or small."""
         # Check if the size is greater than MAX_BBOX_SIZE
         if bbox_area > Bounding_Box.MAX_AREA:
-            raise BboxTooLargeError
+            raise BboxTooLargeError()
         # Check if size smaller than MIN_BBOX_SIZE
         elif bbox_area < Bounding_Box.MIN_AREA:
-            raise BboxTooSmallError
+            raise BboxTooSmallError()

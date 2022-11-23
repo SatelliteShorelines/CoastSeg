@@ -34,12 +34,10 @@ def valid_coastseg_map_with_incomplete_settings() -> coastseg_map.CoastSeg_Map:
         "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
         # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
         "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
         "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(**pre_process_settings)
@@ -64,12 +62,10 @@ def valid_coastseg_map_with_settings() -> coastseg_map.CoastSeg_Map:
         "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
         # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
         "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
         "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
@@ -109,12 +105,10 @@ def coastseg_map_with_rois(valid_rois_filepath) -> coastseg_map.CoastSeg_Map:
         "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
         # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
         "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
         "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
@@ -124,7 +118,7 @@ def coastseg_map_with_rois(valid_rois_filepath) -> coastseg_map.CoastSeg_Map:
         **pre_process_settings
     )
     # test if rois will added to coastsegmap and added to ROI layer
-    coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     return coastsegmap
 
 
@@ -158,12 +152,10 @@ def coastseg_map_with_selected_roi_layer(
         "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
         # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
         "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-        "buffer_size": 150,  # radius (in metres) of the buffer around sandy pixels considered in the shoreline detection
         "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
         "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "create_plot": False,  # True create a matplotlib plot of the image with the datetime as the title
         "max_dist_ref": 25,
     }
     coastsegmap.save_settings(
@@ -173,16 +165,22 @@ def coastseg_map_with_selected_roi_layer(
         **pre_process_settings
     )
     # test if rois will added to coastsegmap and added to ROI layer
-    coastsegmap.load_rois_on_map(file=valid_rois_filepath)
+    coastsegmap.load_feature_on_map('rois',file=valid_rois_filepath)
     # simulate an ROI being clicked on map
     ROI_id = "17"
     coastsegmap.selected_set.add(ROI_id)
-    coastsegmap.selected_ROI_layer = GeoJSON(
+    
+    selected_layer = GeoJSON(
         data=coastsegmap.convert_selected_set_to_geojson(coastsegmap.selected_set),
-        name="Selected ROIs",
+        name=roi.ROI.SELECTED_LAYER_NAME,
         hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
-    )
-    coastsegmap.map.add_layer(coastsegmap.selected_ROI_layer)
+        )
+    coastsegmap.replace_layer_by_name(
+            roi.ROI.SELECTED_LAYER_NAME,
+            selected_layer,
+            on_click=coastsegmap.selected_onclick_handler,
+            on_hover=coastsegmap.update_roi_html,
+        )
     return coastsegmap
 
 
@@ -286,12 +284,10 @@ def valid_settings() -> dict:
         "adjust_detection": False,
         "save_figure": True,
         "min_beach_area": 4500,
-        "buffer_size": 150,
         "min_length_sl": 200,
         "cloud_mask_issue": False,
         "sand_color": "default",
         "pan_off": "False",
-        "create_plot": False,
         "max_dist_ref": 25,
         "along_dist": 25,
     }
@@ -585,12 +581,10 @@ def valid_config_json() -> dict:
             "adjust_detection": False,
             "save_figure": True,
             "min_beach_area": 4500,
-            "buffer_size": 550,
             "min_length_sl": 100,
             "cloud_mask_issue": False,
             "sand_color": "default",
             "pan_off": "False",
-            "create_plot": False,
             "max_dist_ref": 25,
             "along_dist": 25,
         },

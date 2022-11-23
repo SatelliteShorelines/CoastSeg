@@ -12,7 +12,6 @@ from typing import Union
 # Internal dependencies imports
 from coastseg import exceptions
 
-from coastsat import SDS_tools
 from tqdm.auto import tqdm
 import requests
 from area import area
@@ -95,45 +94,21 @@ def get_center_rectangle(coords: list) -> tuple:
     return center_x, center_y
 
 
-# @todo remove this
-def is_shoreline_present(extracted_shorelines: dict, roi_id: int) -> bool:
-    """Returns true if shoreline array exists for roi_id
-    Args:
-        extracted_shorelines (dict): dictionary of extracted shorelines in form of :
-            {   roi_id : {dates: [datetime.datetime,datetime.datetime],
-                shorelines: [array(),array()]}  }
-        roi_id (int): id of the roi
-    Returns:
-        bool: false if shoreline does not exist at roi_id
-    """
-    for shoreline in extracted_shorelines[roi_id]["shorelines"]:
-        if shoreline.size != 0:
-            return True
-    return False
+def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
+    """Uses geometry of shapely rectangle in crs 4326 to return the most accurate
+    utm code as a string of format 'epsg:utm_code'
+    example: 'espg:32610'
 
-
-def convert_espg(
-    input_epsg: int, output_epsg: int, coastsat_array: np.ndarray
-) -> np.ndarray:
-    """Convert the coastsat_array espg to the output_espg
     Args:
-        input_epsg (int): input espg
-        output_epsg (int): output espg
-        coastsat_array (np.ndarray): array of coordiinates as [[lat,lon],[lat,lon]....]
+        geometry (shapely.geometry.polygon.Polygon): geometry of a rectangle
+
     Returns:
-        np.ndarray: array with output espg in the form [[[lat,lon,0.]]]
+        int: most accurate epsg code based on lat lon coordinates of given geometry
     """
-    if input_epsg is None:
-        input_epsg = 4326
-    inProj = Proj(init="epsg:" + str(input_epsg))
-    outProj = Proj(init="epsg:" + str(output_epsg))
-    s_proj = []
-    logger.info(f"convert_espg: coastsat_array {coastsat_array}")
-    # Convert all the lat,ln coords to new espg (operation takes some time....)
-    for coord in coastsat_array:
-        x2, y2 = transform(inProj, outProj, coord[0], coord[1])
-        s_proj.append([x2, y2, 0.0])
-    return np.array(s_proj)
+    rect_coords = geometry.exterior.coords
+    center_x, center_y = get_center_rectangle(rect_coords)
+    utm_code = convert_wgs_to_utm(center_x, center_y)
+    return int(utm_code)
 
 
 def convert_wgs_to_utm(lon: float, lat: float) -> str:
@@ -187,21 +162,6 @@ def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
     return single_roi
 
 
-def convert_gdf_to_polygon(gdf: gpd.geodataframe, id: int = None) -> geometry.Polygon:
-    """Returns the roi with given id as Shapely.geometry.Polygon
-    Args:
-        gdf (gpd.geodataframe): geodataframe consisting of rois or a bbox
-        id (str): roi_id
-    Returns:
-        geometry.Polygon: roi with the id converted to Shapely.geometry.Polygon
-    """
-    single_roi = extract_roi_by_id(gdf, id)
-    single_roi = single_roi["geometry"].to_json()
-    single_roi = json.loads(single_roi)
-    polygon = geometry.Polygon(single_roi["features"][0]["geometry"]["coordinates"][0])
-    return polygon
-
-
 def get_area(polygon: dict) -> float:
     "Calculates the area of the geojson polygon using the same method as geojson.io"
     return round(area(polygon), 3)
@@ -253,34 +213,63 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         config.to_file(save_path, driver="GeoJSON")
 
 
-def get_transect_points_dict(transects_coords: list) -> dict:
+def get_default_dict(default, keys: list, fill_dict: dict) -> dict:
+    """returns a dictionary with keys each with
+    default value if the key does not exist in fill_dict. If the key exists
+    in fill_dict then the value replaces the default value.
+
+    Args:
+        default (): default value for each key
+        keys (list): keys for dictionary
+        fill_dict (dict): dictionary used to replace default values
+
+    Returns:
+        dict: dict with given keys and default value for each key that didn't exist in fill_dict
+    """
+    values = {}
+    values = values.fromkeys(keys, default)
+    for key in fill_dict.keys():
+        if key in values:
+            values[key] = fill_dict[key]
+    return values
+
+
+def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
     {
-        'NA0': array([[-13820440.53165404,   4995568.65036405],
+        'ROI_1_usa_CA_0289-0055-NA1': array([[-13820440.53165404,   4995568.65036405],
         [-13820940.93156407,   4995745.1518021 ]]),
-        'NA1': array([[-13820394.24579453,   4995700.97802925],
+        'ROI_1_usa_CA_0289-0056-NA1': array([[-13820394.24579453,   4995700.97802925],
         [-13820900.16320004,   4995862.31860808]])
     }
-
     Args:
-        transects_coords (list): list of np.arrays in the form:
-        [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
-
+        roi_id(str): id of roi that transects intersect
+        feature (gpd.geodataframe): clipped transects within roi
     Returns:
         dict: dict of np.arrays of transect start and end points
         of form {
-            'NA<index>': array([[start point],
+            'ROI<roi_id>_<transect_id>': array([[start point],
                         [end point]]),}
-
     """
-    # convert to dict of numpy arrays of start and end points
-    transects = {}
-    for counter, i in enumerate(transects_coords):
-        x0, y0 = i[0][0], i[0][1]
-        x1, y1 = i[1][0], i[1][1]
-        transects["NA" + str(counter)] = np.array([[x0, y0], [x1, y1]])
-    return transects
+    features = []
+    # Use explode to break multilinestrings in linestrings
+    feature_exploded = feature.explode()
+    # For each linestring portion of feature convert to lat,lon tuples
+    lat_lng = feature_exploded.apply(
+        lambda row: {
+            "ROI_"
+            + str(roi_id)
+            + "_"
+            + str(row.id): np.array(np.array(row.geometry).tolist())
+        },
+        axis=1,
+    )
+    features = list(lat_lng)
+    new_dict = {}
+    for item in list(features):
+        new_dict = {**new_dict, **item}
+    return new_dict
 
 
 def get_cross_distance_df(
@@ -294,29 +283,23 @@ def get_cross_distance_df(
     return pd.DataFrame(transects_csv)
 
 
-def make_coastsat_compatible(feature: gpd.geodataframe) -> np.ndarray:
+def make_coastsat_compatible(feature: gpd.geodataframe) -> list:
     """Return the feature as an np.array in the form:
         [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
     Args:
         feature (gpd.geodataframe): clipped portion of shoreline within a roi
     Returns:
-        np.ndarray: shorelines in form:
+        list: shorelines in form:
             [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
     """
-    # Then convert feature to lat,lon tuples for CoastSat
     features = []
     # Use explode to break multilinestrings in linestrings
     feature_exploded = feature.explode()
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
-        lambda x: tuple(np.array(x.geometry).tolist()), axis=1
+        lambda row: tuple(np.array(row.geometry).tolist()), axis=1
     )
     features = list(lat_lng)
-    # for k in feature_exploded["geometry"].keys():
-    #     # For each linestring portion of feature convert to lat,lon tuples
-    #     features.append(
-    #         tuple(np.array(feature_exploded["geometry"][k]).tolist())
-    #     )
     return features
 
 
@@ -404,10 +387,6 @@ def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
         with open(filename, "r") as f:
             gpd_data = gpd.read_file(f)
     else:
-        logger.error(f"Geodataframe file does not exist \n {filename}")
-        print(
-            "File does not exist. Please download the coastline_vector necessary here: https://geodata.lib.berkeley.edu/catalog/stanford-xv279yj9196 "
-        )
         raise FileNotFoundError
     return gpd_data
 
@@ -640,7 +619,6 @@ def create_roi_settings(
     sat_list = settings["sat_list"]
     landsat_collection = settings["landsat_collection"]
     dates = settings["dates"]
-    # for roi in self.selected_ROI_layer.data["features"]:
     for roi in selected_rois["features"]:
         roi_id = str(roi["properties"]["id"])
         sitename = (
