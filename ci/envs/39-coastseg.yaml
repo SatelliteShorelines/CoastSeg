@@ -6,6 +6,7 @@ dependencies:
   # required
   - jupyter
   - geopandas
+  - pydensecrf
   - pip
   - pip:
       - tensorflow
