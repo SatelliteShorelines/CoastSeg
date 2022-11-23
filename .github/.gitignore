@@ -1,7 +1,7 @@
 data\*
 src\*\downloaded_models\*
 *segmentation_data_*
-
+\*
 # Distribution / packaging
 md2rst.md
 md2rst.rst
