@@ -2,7 +2,7 @@
 
 Use the settings drop down to modify the settings used by CoastSeg to download ROIs, extract shorelines and compute transect and shoreline intersections.
 
-![Settings Demo](../../../../../../../../C:/1_USGS/CoastSeg/repos/2_CoastSeg/CoastSeg_fork/Seg2Map/docs/gifs/settings_demo.gif)
+![Settings Demo](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/settings_demo.gif)
 
 ## Settings Explained
 
