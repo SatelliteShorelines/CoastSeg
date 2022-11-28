@@ -23,4 +23,4 @@ See the extracted shorelines for the ROIs selected on the map by first selecting
 4. You should see extracted shorelines appear within some of your ROIs.
 5. If this works you can compute the time-series of shoreline change along shore-normal transects by clicking the `Compute Transects` Button.
 
-![Alt text](../../../../../../../../C:/1_USGS/CoastSeg/repos/2_CoastSeg/CoastSeg_fork/Seg2Map/docs/gifs/extract_shorelines_and_transects.gif)
+![Alt text](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/extract_shorelines_and_transects.gif)
