@@ -1,13 +1,12 @@
 # standard python imports
 import os
+import datetime
 import logging
-import traceback
-import sys
 
 # internal python imports
 from coastseg.tkinter_window_creator import Tkinter_Window_Creator
-from coastseg import exceptions
 from coastseg import exception_handler
+from coastseg import common
 
 # external python imports
 import ipywidgets
@@ -16,6 +15,7 @@ from IPython.display import display, clear_output
 from google.auth import exceptions as google_auth_exceptions
 from tkinter import filedialog
 from tkinter import messagebox
+from ipywidgets import Accordion
 from ipywidgets import Button
 from ipywidgets import HBox
 from ipywidgets import VBox
@@ -23,6 +23,7 @@ from ipywidgets import Layout
 from ipywidgets import DatePicker
 from ipywidgets import HTML
 from ipywidgets import RadioButtons
+from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Checkbox
@@ -53,15 +54,7 @@ class UI:
         small_roi_size = 3500
         large_roi_size = 4000
         self.fishnet_sizes = {"small": small_roi_size, "large": large_roi_size}
-        # Declare widgets and on click callbacks
-        self.load_gdf_button = Button(
-            description="Load gdf from file", style=self.load_style
-        )
-        self.load_gdf_button.on_click(self.on_load_gdf_clicked)
-        self.load_bbox_button = Button(
-            description="Load bbox from file", style=self.load_style
-        )
-        self.load_bbox_button.on_click(self.on_load_bbox_clicked)
+
         # buttons to load configuration files
         self.load_configs_button = Button(
             description="Load Config", style=self.load_style
@@ -71,32 +64,34 @@ class UI:
             description="Save Config", style=self.save_style
         )
         self.save_config_button.on_click(self.on_save_config_clicked)
-        # load buttons
-        self.transects_button = Button(
-            description="Load Transects", style=self.load_style
+
+        self.load_file_instr = HTML(
+            value="<h2>Load Feature from File</h2>\
+                 Load a feature onto map from geojson file.\
+                ",
+            layout=Layout(padding="0px"),
         )
-        self.transects_button.on_click(self.on_transects_button_clicked)
-        self.shoreline_button = Button(
-            description="Load Shoreline", style=self.load_style
+
+        self.load_file_radio = RadioButtons(
+            options=[
+                "Shoreline",
+                "Transects",
+                "Bbox",
+            ],
+            value="Shoreline",
+            description="",
+            disabled=False,
         )
-        self.shoreline_button.on_click(self.on_shoreline_button_clicked)
-        self.load_rois_button = Button(
-            description="Load rois from file", style=self.load_style
+        self.load_file_button = Button(
+            description=f"Load {self.load_file_radio.value} file", style=self.load_style
         )
-        self.load_rois_button.on_click(self.on_load_rois_clicked)
-        # Save buttons
-        self.save_shoreline_button = Button(
-            description="Save shorelines", style=self.save_style
-        )
-        self.save_shoreline_button.on_click(self.save_shoreline_button_clicked)
-        self.save_transects_button = Button(
-            description="Save transects", style=self.save_style
-        )
-        self.save_transects_button.on_click(self.save_transects_button_clicked)
-        self.save_roi_button = Button(description="Save ROI", style=self.save_style)
-        self.save_roi_button.on_click(self.save_roi_button_clicked)
-        self.save_bbox_button = Button(description="Save box", style=self.save_style)
-        self.save_bbox_button.on_click(self.on_save_bbox_button_clicked)
+        self.load_file_button.on_click(self.load_feature_from_file)
+
+        def change_load_file_btn_name(change):
+            self.load_file_button.description = f"Load {str(change['new'])} file"
+
+        self.load_file_radio.observe(change_load_file_btn_name, "value")
+
         # Generate buttons
         self.gen_button = Button(description="Generate ROI", style=self.action_style)
         self.gen_button.on_click(self.on_gen_button_clicked)
@@ -123,43 +118,24 @@ class UI:
             description="Clear TextBox", style=self.clear_stlye
         )
         self.clear_debug_button.on_click(self.clear_debug_view)
-        self.remove_all_button = Button(
-            description="Remove all", style=self.remove_style
-        )
-        self.remove_all_button.on_click(self.remove_all_from_map)
-        self.remove_transects_button = Button(
-            description="Remove transects", style=self.remove_style
-        )
-        self.remove_transects_button.on_click(self.remove_transects)
-        self.remove_bbox_button = Button(
-            description="Remove bbox", style=self.remove_style
-        )
-        self.remove_bbox_button.on_click(self.remove_bbox_from_map)
-        self.remove_shoreline_button = Button(
-            description="Remove shoreline", style=self.remove_style
-        )
-        self.remove_shoreline_button.on_click(self.remove_shoreline_from_map)
-        self.remove_rois_button = Button(
-            description="Remove ROIs", style=self.remove_style
-        )
-        self.remove_rois_button.on_click(self.remove_all_rois_from_map)
 
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
+        self.roi_slider_instr = HTML(value="<b>Choose Side Length of ROIs</b>")
         # define slider widgets that control ROI size
-        slider_style = {"description_width": "initial"}
+        self.slider_style = {"description_width": "initial"}
         self.small_fishnet_slider = ipywidgets.IntSlider(
             value=small_roi_size,
             min=0,
             max=10000,
             step=100,
-            description="Small Grid:",
+            description="Small ROI Length(m)",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
             readout=True,
             readout_format="d",
-            style=slider_style,
+            style={"description_width": "initial"},
         )
 
         self.large_fishnet_slider = ipywidgets.IntSlider(
@@ -167,18 +143,406 @@ class UI:
             min=1000,
             max=10000,
             step=100,
-            description="Large Grid:",
+            description="Large ROI Length(m)",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
             readout=True,
             readout_format="d",
-            style=slider_style,
+            style={"description_width": "initial"},
         )
 
         # widget handlers
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
+
+    def get_view_settings_accordion(self) -> Accordion:
+        # update settings button
+        update_settings_btn = Button(
+            description="Update Settings", style=self.action_style
+        )
+        update_settings_btn.on_click(self.update_settings_btn_clicked)
+        self.settings_html = HTML()
+        self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+        view_settings_vbox = VBox([self.settings_html, update_settings_btn])
+        html_settings_accordion = Accordion(children=[view_settings_vbox])
+        html_settings_accordion.set_title(0, "View Settings")
+        return html_settings_accordion
+
+    def get_settings_accordion(self):
+        # declare settings widgets
+        dates_vbox = self.get_dates_picker()
+        satellite_radio = self.get_satellite_radio()
+        sand_dropbox = self.get_sand_dropbox()
+        min_length_sl_slider = self.get_min_length_sl_slider()
+        beach_area_slider = self.get_beach_area_slider()
+        shoreline_buffer_slider = self.get_shoreline_buffer_slider()
+        cloud_slider = self.get_cloud_slider()
+        alongshore_distance_slider = self.get_alongshore_distance_slider()
+        pansharpen_toggle = self.get_pansharpen_toggle()
+        cloud_theshold_slider = self.get_cloud_threshold_slider()
+
+        settings_button = Button(description="Save Settings", style=self.action_style)
+        settings_button.on_click(self.save_settings_clicked)
+        self.output_epsg_text = Text(value="4326", description="Output epsg:")
+
+        # create settings accordion
+        settings_vbox = VBox(
+            [
+                dates_vbox,
+                satellite_radio,
+                self.output_epsg_text,
+                sand_dropbox,
+                min_length_sl_slider,
+                beach_area_slider,
+                shoreline_buffer_slider,
+                cloud_slider,
+                alongshore_distance_slider,
+                cloud_theshold_slider,
+                pansharpen_toggle,
+                settings_button,
+            ]
+        )
+        settings_accordion = Accordion(children=[settings_vbox])
+        settings_accordion.set_title(0, "Settings")
+        return settings_accordion
+
+    def get_dates_picker(self):
+        # Date Widgets
+        self.start_date = DatePicker(
+            description="Start Date",
+            value=datetime.date(2018, 12, 1),
+            disabled=False,
+        )
+        self.end_date = DatePicker(
+            description="End Date",
+            value=datetime.date(2019, 3, 1),  # 2019, 1, 1
+            disabled=False,
+        )
+        date_instr = HTML(value="<b>Pick a date:</b>", layout=Layout(padding="10px"))
+        dates_box = HBox([self.start_date, self.end_date])
+        dates_vbox = VBox([date_instr, dates_box])
+        return dates_vbox
+
+    def get_cloud_threshold_slider(self):
+        instr = HTML(value="<b>Maximum percetange of cloud pixels allowed</b>")
+        self.cloud_threshold_slider = ipywidgets.FloatSlider(
+            value=0.5,
+            min=0,
+            max=1,
+            step=0.01,
+            description="Cloud Pixel %:",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format=".2f",
+            style={"description_width": "initial"},
+        )
+        return VBox([instr, self.cloud_threshold_slider])
+
+    def get_pansharpen_toggle(self):
+        instr = HTML(value="<b>Switch pansharpening off for Landsat 7/8/9 imagery</b>")
+        self.pansharpen_toggle = ipywidgets.ToggleButtons(
+            options=["Pansharpen Off", "Pansharpen On"],
+            description="",
+            disabled=False,
+            button_style="",
+        )
+        return VBox([instr, self.pansharpen_toggle])
+
+    def get_sand_dropbox(self):
+        sand_color_instr = HTML(
+            value="<b>Sand color on beach for model to detect 'dark' (grey/black) 'bright' (white)</b>"
+        )
+        self.sand_dropdown = ipywidgets.Dropdown(
+            options=["default", "latest", "dark", "bright"],
+            value="default",
+            description="Sand Color:",
+            disabled=False,
+        )
+        return VBox([sand_color_instr, self.sand_dropdown])
+
+    def get_alongshore_distance_slider(self):
+        # returns slider to control beach area slider
+        instr = HTML(
+            value="<b>Along-shore distance over which to consider shoreline points to compute median intersection with transects</b>"
+        )
+        self.alongshore_distance_slider = ipywidgets.IntSlider(
+            value=25,
+            min=10,
+            max=100,
+            step=1,
+            description="Alongshore Distance:",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([instr, self.alongshore_distance_slider])
+
+    def get_cloud_slider(self):
+        # returns slider to control beach area slider
+        cloud_instr = HTML(
+            value="<b>Allowed distance from extracted shoreline to detected clouds</b>\
+        </br>- Any extracted shorelines within this distance to any clouds will be dropped"
+        )
+
+        self.cloud_slider = ipywidgets.IntSlider(
+            value=300,
+            min=100,
+            max=1000,
+            step=1,
+            description="Cloud Distance (m):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([cloud_instr, self.cloud_slider])
+
+    def get_shoreline_buffer_slider(self):
+        # returns slider to control beach area slider
+        shoreline_buffer_instr = HTML(
+            value="<b>Buffer around reference shorelines in which shorelines can be extracted</b>"
+        )
+
+        self.shoreline_buffer_slider = ipywidgets.IntSlider(
+            value=50,
+            min=100,
+            max=500,
+            step=1,
+            description="Reference Shoreline Buffer (m):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([shoreline_buffer_instr, self.shoreline_buffer_slider])
+
+    def get_beach_area_slider(self):
+        # returns slider to control beach area slider
+        beach_area_instr = HTML(
+            value="<b>Minimum area (sqm) for object to be labelled as beach</b>"
+        )
+
+        self.beach_area_slider = ipywidgets.IntSlider(
+            value=4500,
+            min=1000,
+            max=10000,
+            step=10,
+            description="Beach Area (sqm):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([beach_area_instr, self.beach_area_slider])
+
+    def get_min_length_sl_slider(self):
+        # returns slider to control beach area slider
+        min_length_sl_instr = HTML(
+            value="<b>Minimum shoreline perimeter that model will detect</b>"
+        )
+
+        self.min_length_sl_slider = ipywidgets.IntSlider(
+            value=500,
+            min=200,
+            max=1000,
+            step=1,
+            description="Min shoreline length (m):",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([min_length_sl_instr, self.min_length_sl_slider])
+
+    def get_satellite_radio(self):
+        # satellite selection widgets
+        satellite_instr = HTML(
+            value="<b>Pick multiple satellites:</b>\
+                <br> - Pick multiple satellites by holding the control key> \
+                <br> - images after 2022/01/01 will be automatically downloaded from Collection 2 ",
+            layout=Layout(padding="10px"),
+        )
+
+        self.satellite_selection = SelectMultiple(
+            options=["L5", "L7", "L8", "L9", "S2"],
+            value=["L8"],
+            description="Satellites",
+            disabled=False,
+        )
+        satellite_vbox = VBox([satellite_instr, self.satellite_selection])
+        return satellite_vbox
+
+    def save_to_file_buttons(self):
+        # save to file buttons
+        save_instr = HTML(
+            value="<h2>Save to file</h2>\
+                Save feature on the map to a geojson file.\
+                <br>Geojson file will be saved to CoastSeg directory.\
+            ",
+            layout=Layout(padding="0px"),
+        )
+
+        self.save_radio = RadioButtons(
+            options=[
+                "Shoreline",
+                "Transects",
+                "Bbox",
+                "ROIs",
+            ],
+            value="Shoreline",
+            description="",
+            disabled=False,
+        )
+
+        self.save_button = Button(
+            description=f"Save {self.save_radio.value} to file", style=self.save_style
+        )
+        self.save_button.on_click(self.save_to_file_btn_clicked)
+
+        def save_radio_changed(change):
+            self.save_button.description = f"Save {str(change['new'])} to file"
+
+        self.save_radio.observe(save_radio_changed, "value")
+        save_vbox = VBox([save_instr, self.save_radio, self.save_button])
+        return save_vbox
+
+    def load_feature_on_map_buttons(self):
+        load_instr = HTML(
+            value="<h2>Load Feature into Bounding Box</h2>\
+                Loads shoreline or transects into bounding box on map.\
+                </br>If no transects or shorelines exist in this area, then\
+               </br> draw bounding box somewhere else\
+                ",
+            layout=Layout(padding="0px"),
+        )
+        self.load_radio = RadioButtons(
+            options=["Shoreline", "Transects"],
+            value="Transects",
+            description="",
+            disabled=False,
+        )
+        self.load_button = Button(
+            description=f"Load {self.load_radio.value}", style=self.load_style
+        )
+        self.load_button.on_click(self.load_button_clicked)
+
+        def handle_load_radio_change(change):
+            self.load_button.description = f"Load {str(change['new'])}"
+
+        self.load_radio.observe(handle_load_radio_change, "value")
+        load_buttons = VBox([load_instr, self.load_radio, self.load_button])
+        return load_buttons
+
+    def remove_buttons(self):
+        # define remove feature radio box button
+        remove_instr = HTML(
+            value="<h2>Remove Feature from Map</h2>",
+            layout=Layout(padding="0px"),
+        )
+
+        self.remove_radio = RadioButtons(
+            options=["Shoreline", "Transects", "Bbox", "ROIs"],
+            value="Shoreline",
+            description="",
+            disabled=False,
+        )
+        self.remove_button = Button(
+            description=f"Remove {self.remove_radio.value}", style=self.remove_style
+        )
+
+        def handle_remove_radio_change(change):
+            self.remove_button.description = f"Remove {str(change['new'])}"
+
+        self.remove_button.on_click(self.remove_feature_from_map)
+        self.remove_radio.observe(handle_remove_radio_change, "value")
+        # define remove all button
+        self.remove_all_button = Button(
+            description="Remove all", style=self.remove_style
+        )
+        self.remove_all_button.on_click(self.remove_all_from_map)
+
+        remove_buttons = VBox(
+            [
+                remove_instr,
+                self.remove_radio,
+                self.remove_button,
+                self.remove_all_button,
+            ]
+        )
+        return remove_buttons
+
+    def get_settings_html(
+        self,
+        settings: dict,
+    ):
+        # Modifies html of accordion when transect is hovered over
+        default = "unknown"
+        keys = [
+            "cloud_thresh",
+            "dist_clouds",
+            "output_epsg",
+            "check_detection",
+            "adjust_detection",
+            "save_figure",
+            "min_beach_area",
+            "min_length_sl",
+            "cloud_mask_issue",
+            "sand_color",
+            "pan_off",
+            "max_dist_ref",
+            "along_dist",
+            "sat_list",
+            "landsat_collection",
+            "dates",
+        ]
+        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
+        values = common.get_default_dict(default=default, keys=keys, fill_dict=settings)
+        return """ 
+        <h2>Settings</h2>
+        <p>sat_list: {}</p>
+        <p>dates: {}</p>
+        <p>landsat_collection: {}</p>
+        <p>cloud_thresh: {}</p>
+        <p>dist_clouds: {}</p>
+        <p>output_epsg: {}</p>
+        <p>save_figure: {}</p>
+        <p>min_beach_area: {}</p>
+        <p>min_length_sl: {}</p>
+        <p>cloud_mask_issue: {}</p>
+        <p>sand_color: {}</p>
+        <p>pan_off: {}</p>
+        <p>max_dist_ref: {}</p>
+        <p>along_dist: {}</p>
+        """.format(
+            values["sat_list"],
+            values["dates"],
+            values["landsat_collection"],
+            values["cloud_thresh"],
+            values["dist_clouds"],
+            values["output_epsg"],
+            values["save_figure"],
+            values["min_beach_area"],
+            values["min_length_sl"],
+            values["cloud_mask_issue"],
+            values["sand_color"],
+            values["pan_off"],
+            values["max_dist_ref"],
+            values["along_dist"],
+        )
 
     def _create_HTML_widgets(self):
         """create HTML widgets that display the instructions.
@@ -186,35 +550,21 @@ class UI:
          instr_download_roi
         """
         self.instr_create_roi = HTML(
-            value="<h2><b>Generate ROIs</b></h2> \
-                Use the two sliders to control the size of the ROIs generated.\
+            value="<h2><b>Generate ROIs on Map</b></h2> \
+                Use the sliders to control the side length of the ROIs created on the map.\
                 </br><b>No Overlap</b>: Set small slider to 0 and large slider to ROI size.</li>\
                 </br><b>Overlap</b>: Set small slider to a value and large slider to ROI size.</li>\
-                </br><b>ROI units</b>: meters squared.</li>\
-                </br><h3><b><u>How it Works</u></b></br></h3> \
-                <li>Two grids composed of ROIs (squares) and created within\
-                </br>the bounding box.\
-                <li>Each ROI is created along the shoreline.\
-                <li>If there is no shoreline then ROIs cannot be created.\
-                <li>The slider controls the size of the individual ROIs created.\
+                </br><h3><b><u>How ROIs are Made</u></b></br></h3> \
+                <li>Two grids of ROIs (squares) are created within\
+                </br>the bounding box along the shoreline.\
+                <li>If no shoreline is within the bounding box then ROIs cannot be created.\
+                <li>The slider controls the side length of each ROI.\
                 ",
             layout=Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.instr_save_roi = HTML(
-            value="<h2><b>Save Features</b></h2> \
-                Use these buttons to save features on the map to a geojson file.\
-                <br>These geojson files are saved to the CoastSeg directory.\
-                </br><b>Save ROI</b>: Saves ROIs you selected to a file: 'rois.geojson'\
-                </br><b>Save box</b>: Saves bounding box to a file: 'bbox.geojson'</li>\
-                </br><b>Save shorelines</b>: Saves shorelines to a file: 'shoreline.geojson'</li>\
-                </br><b>Save transects</b>: Saves selected ROI to a file: 'transects.geojson'</li>\
-                ",
-            layout=Layout(margin="0px 5px 0px 5px"),
-        )  # top right bottom left
-
         self.instr_download_roi = HTML(
-            value="<h2><b>Download ROIs</b></h2> \
+            value="<h2><b>Download Imagery</b></h2> \
                 <li><b>You must click an ROI on the map before you can download ROIs</b> \
                 <li>Scroll past the map to see the download progress \
                 </br><h3><b><u>Where is my data?</u></b></br></h3> \
@@ -226,46 +576,34 @@ class UI:
             layout=Layout(margin="0px 0px 0px 5px"),
         )
 
-        self.instr_load_btns = HTML(
-            value="<h2><b>Load Features</b></h2>\
-                You can upload ROIs or Bbox geojson file.\
-                </br><b>Load BBox</b>: Load bounding box from file: 'bbox.geojson'</li>\
-                </br><b>Load ROIs</b>: Load ROIs from file: 'rois.geojson'</li>\
-                </br><b>Load gdf</b>: Load any geodataframe from a geojson file </li>\
-                    ",
-            layout=Layout(margin="0px 5px 0px 5px"),
-        )  # top right bottom left
-
         self.instr_config_btns = HTML(
             value="<h2><b>Load and Save Config Files</b></h2>\
-                <b>Load Config</b>: Load rois, shorelines, transects and bounding box from file: \
-                </br>'config_gdf.geojson'</li>\
-                <li>Make sure 'config.json' is in the same directory as 'config_gdf.geojson'.</li>\
-                <b>Save Config</b>: Saves rois, shorelines, transects and bounding box to file:\
-                </br>'config_gdf.geojson'</li>\
-                <li>If the ROIs have not been downloaded the config file is in main CoastSeg directory in file:\
-                </br>'config_gdf.geojson'</li>\
-                <li>If the ROIs have been downloaded the config file is in each ROI's folder in file:\
-                </br>'config_gdf.geojson'</li>\
-                <li>The 'config.json' will be saved in the same directory as the 'config_gdf.geojson'.</li>\
-                <li>The 'config.json' contains the data for the ROI and map settings.</li>\
+                <b>Load Config</b>: Load rois, shorelines, transects and bounding box from file: 'config_gdf.geojson'\
+                <li>'config.json' must be in the same directory as 'config_gdf.geojson'.</li>\
+                <b>Save Config</b>: Saves rois, shorelines, transects and bounding box to file: 'config_gdf.geojson'\
+                </br><b>ROIs Not Downloaded:</b> config file will be saved to CoastSeg directory in file: 'config_gdf.geojson'\
+                </br><b>ROIs Not Downloaded:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
                 ",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
+        # create settings accordion
+        settings_accordion = self.get_settings_accordion()
+        # Buttons to load shoreline or transects in bbox on map
+        load_buttons = self.load_feature_on_map_buttons()
+        remove_buttons = self.remove_buttons()
+        save_to_file_buttons = self.save_to_file_buttons()
+
+        load_file_vbox = VBox(
+            [self.load_file_instr, self.load_file_radio, self.load_file_button]
+        )
         save_vbox = VBox(
             [
-                self.instr_save_roi,
-                self.save_roi_button,
-                self.save_bbox_button,
-                self.save_shoreline_button,
-                self.save_transects_button,
-                self.instr_load_btns,
-                self.load_rois_button,
-                self.load_bbox_button,
-                self.load_gdf_button,
+                save_to_file_buttons,
+                load_file_vbox,
+                remove_buttons,
             ]
         )
         config_vbox = VBox(
@@ -282,33 +620,36 @@ class UI:
             ]
         )
 
-        slider_v_box = VBox([self.small_fishnet_slider, self.large_fishnet_slider])
+        slider_v_box = VBox(
+            [
+                self.roi_slider_instr,
+                self.small_fishnet_slider,
+                self.large_fishnet_slider,
+            ]
+        )
         slider_btn_box = VBox([slider_v_box, self.gen_button])
         roi_controls_box = VBox(
-            [self.instr_create_roi, slider_btn_box],
+            [self.instr_create_roi, slider_btn_box, load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
         )
 
-        load_buttons = HBox([self.transects_button, self.shoreline_button])
-        erase_buttons = HBox(
-            [
-                self.remove_all_button,
-                self.remove_transects_button,
-                self.remove_bbox_button,
-                self.remove_shoreline_button,
-                self.remove_rois_button,
-            ]
-        )
+        # view settings accordion
+        html_settings_accordion = self.get_view_settings_accordion()
 
+        row_0 = HBox([settings_accordion, html_settings_accordion])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
-        row_2 = HBox([load_buttons])
-        row_3 = HBox([erase_buttons])
         # in this row prints are rendered with UI.debug_view
-        row_4 = HBox([self.clear_debug_button, UI.debug_view])
-        row_5 = HBox([self.coastseg_map.map])
-        row_6 = HBox([UI.download_view])
+        row_3 = HBox([self.clear_debug_button, UI.debug_view])
+        row_4 = HBox([self.coastseg_map.map])
+        row_5 = HBox([UI.download_view])
 
-        return display(row_1, row_2, row_3, row_4, row_5, row_6)
+        return display(
+            row_0,
+            row_1,
+            row_3,
+            row_4,
+            row_5,
+        )
 
     def handle_small_slider_change(self, change):
         self.fishnet_sizes["small"] = change["new"]
@@ -317,14 +658,28 @@ class UI:
         self.fishnet_sizes["large"] = change["new"]
 
     @debug_view.capture(clear_output=True)
+    def update_settings_btn_clicked(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        # Update settings in view settings accordion
+        try:
+            self.settings_html.value = self.get_settings_html(
+                self.coastseg_map.settings
+            )
+        except Exception as error:
+            exception_handler.handle_exception(error)
+
+    @debug_view.capture(clear_output=True)
     def on_gen_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         print("Generating ROIs please wait.")
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         # Generate ROIs along the coastline within the bounding box
         try:
-            self.coastseg_map.load_rois_on_map(
-                self.fishnet_sizes["large"], self.fishnet_sizes["small"]
+            print("Creating ROIs")
+            self.coastseg_map.load_feature_on_map(
+                "rois",
+                large_len=self.fishnet_sizes["large"],
+                small_len=self.fishnet_sizes["small"],
             )
         except Exception as error:
             exception_handler.handle_exception(error)
@@ -332,47 +687,63 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
-    def on_transects_button_clicked(self, btn):
-
+    def load_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         try:
-            self.coastseg_map.load_transects_on_map()
+            if "shoreline" in btn.description.lower():
+                print("Finding Shoreline")
+                self.coastseg_map.load_feature_on_map("shoreline")
+            if "transects" in btn.description.lower():
+                print("Finding 'Transects'")
+                self.coastseg_map.load_feature_on_map("transects")
         except Exception as error:
             exception_handler.handle_exception(error)
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
-    def on_load_rois_clicked(self, button):
-        # Prompt the user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename = filedialog.askopenfilename(
-                initialdir=os.getcwd(),
-                filetypes=[("geojson", "*.geojson")],
-                title="Select a geojson file containing rois",
+    def save_settings_clicked(self, btn):
+        if self.satellite_selection.value:
+            # Save satellites selected by user
+            sat_list = list(self.satellite_selection.value)
+            # Save dates selected by user
+            dates = [str(self.start_date.value), str(self.end_date.value)]
+            output_epsg = int(self.output_epsg_text.value)
+            max_dist_ref = self.shoreline_buffer_slider.value
+            along_dist = self.alongshore_distance_slider.value
+            dist_clouds = self.cloud_slider.value
+            beach_area = self.beach_area_slider.value
+            min_length_sl = self.min_length_sl_slider.value
+            sand_color = str(self.sand_dropdown.value)
+            pansharpen_enabled = (
+                False if "off" in self.pansharpen_toggle.value.lower() else True
             )
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                try:
-                    self.coastseg_map.load_rois_on_map(file=tk_root.filename)
-                except Exception as error:
-                    exception_handler.handle_exception(error)
-            else:
-                messagebox.showerror(
-                    "ROI Selection Error", "You must select a valid geojson file first!"
+            cloud_thresh = self.cloud_threshold_slider.value
+            settings = {
+                "sat_list": sat_list,
+                "dates": dates,
+                "output_epsg": output_epsg,
+                "max_dist_ref": max_dist_ref,
+                "along_dist": along_dist,
+                "dist_clouds": dist_clouds,
+                "min_beach_area": beach_area,
+                "min_length_sl": min_length_sl,
+                "sand_color": sand_color,
+                "pan_off": pansharpen_enabled,
+                "cloud_thresh": cloud_thresh,
+            }
+            try:
+                self.coastseg_map.save_settings(**settings)
+                self.settings_html.value = self.get_settings_html(
+                    self.coastseg_map.settings
                 )
-
-    @debug_view.capture(clear_output=True)
-    def on_shoreline_button_clicked(self, btn):
-        self.coastseg_map.map.default_style = {"cursor": "wait"}
-        UI.debug_view.clear_output(wait=True)
-        print("Loading shoreline please wait...")
-        try:
-            self.coastseg_map.load_shoreline_on_map()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-        print("Shoreline loaded.")
-        self.coastseg_map.map.default_style = {"cursor": "default"}
+            except Exception as error:
+                exception_handler.handle_exception(error)
+        elif not self.satellite_selection.value:
+            try:
+                raise Exception("Must select at least one satellite first")
+            except Exception as error:
+                exception_handler.handle_exception(error)
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):
@@ -421,63 +792,12 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
-    def save_transects_button_clicked(self, btn):
-        UI.debug_view.clear_output(wait=True)
-        try:
-            self.coastseg_map.save_feature_to_file(
-                self.coastseg_map.transects, "transects"
-            )
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
-    def save_shoreline_button_clicked(self, btn):
-        UI.debug_view.clear_output(wait=True)
-        try:
-            self.coastseg_map.save_feature_to_file(
-                self.coastseg_map.shoreline, "shoreline"
-            )
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
     def on_save_cross_distances_button_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         try:
             self.coastseg_map.save_transects_to_csv()
         except Exception as error:
             exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
-    def on_save_bbox_button_clicked(self, btn):
-        UI.debug_view.clear_output(wait=True)
-        try:
-            self.coastseg_map.save_feature_to_file(
-                self.coastseg_map.bbox, "bounding box"
-            )
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    @debug_view.capture(clear_output=True)
-    def on_load_gdf_clicked(self, button):
-        # Prompt the user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename = filedialog.askopenfilename(
-                initialdir=os.getcwd(),
-                filetypes=[("geojson", "*.geojson")],
-                title="Select a geojson file",
-            )
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                try:
-                    self.coastseg_map.load_gdf_on_map("geodataframe", tk_root.filename)
-                except Exception as error:
-                    exception_handler.handle_exception(error)
-            else:
-                messagebox.showerror(
-                    "File Selection Error",
-                    "You must select a valid geojson file first!",
-                )
 
     @debug_view.capture(clear_output=True)
     def on_load_configs_clicked(self, button):
@@ -492,6 +812,10 @@ class UI:
             if tk_root.filename:
                 try:
                     self.coastseg_map.load_configs(tk_root.filename)
+                    # update setting html with settings loaded in
+                    self.settings_html.value = self.get_settings_html(
+                        self.coastseg_map.settings
+                    )
                 except Exception as error:
                     exception_handler.handle_exception(error)
             else:
@@ -508,20 +832,24 @@ class UI:
             exception_handler.handle_exception(error)
 
     @debug_view.capture(clear_output=True)
-    def on_load_bbox_clicked(self, button):
+    def load_feature_from_file(self, btn):
         # Prompt the user to select a directory of images
         with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename = filedialog.askopenfilename(
+            file = filedialog.askopenfilename(
                 initialdir=os.getcwd(),
                 filetypes=[("geojson", "*.geojson")],
                 title="Select a geojson file containing bbox",
             )
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                try:
-                    self.coastseg_map.load_bbox_on_map(tk_root.filename)
-                except Exception as error:
-                    exception_handler.handle_exception(error)
+            if file:
+                if "shoreline" in btn.description.lower():
+                    print(f"Loading shoreline from file: {file}")
+                    self.coastseg_map.load_feature_on_map("shoreline", file)
+                if "transects" in btn.description.lower():
+                    print(f"Loading transects from file: {file}")
+                    self.coastseg_map.load_feature_on_map("transects", file)
+                if "bbox" in btn.description.lower():
+                    print(f"Loading bounding box from file: {file}")
+                    self.coastseg_map.load_feature_on_map("bbox", file)
             else:
                 messagebox.showerror(
                     "File Selection Error",
@@ -529,40 +857,54 @@ class UI:
                 )
 
     @debug_view.capture(clear_output=True)
-    def save_roi_button_clicked(self, btn):
+    def remove_feature_from_map(self, btn):
         UI.debug_view.clear_output(wait=True)
         try:
-            self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
+            # Prompt the user to select a directory of images
+            if "shoreline" in btn.description.lower():
+                print(f"Removing shoreline")
+                self.coastseg_map.remove_shoreline()
+            if "transects" in btn.description.lower():
+                print(f"Removing  transects")
+                self.coastseg_map.remove_transects()
+            if "bbox" in btn.description.lower():
+                print(f"Removing bounding box")
+                self.coastseg_map.remove_bbox()
+            if "rois" in btn.description.lower():
+                print(f"Removing ROIs")
+                self.coastseg_map.remove_all_rois()
         except Exception as error:
             exception_handler.handle_exception(error)
 
+    @debug_view.capture(clear_output=True)
+    def save_to_file_btn_clicked(self, btn):
+        UI.debug_view.clear_output(wait=True)
+        try:
+            if "shoreline" in btn.description.lower():
+                print(f"Saving shoreline to file")
+                self.coastseg_map.save_feature_to_file(
+                    self.coastseg_map.shoreline, "shoreline"
+                )
+            if "transects" in btn.description.lower():
+                print(f"Saving transects to file")
+                self.coastseg_map.save_feature_to_file(
+                    self.coastseg_map.transects, "transects"
+                )
+            if "bbox" in btn.description.lower():
+                print(f"Saving bounding box to file")
+                self.coastseg_map.save_feature_to_file(
+                    self.coastseg_map.bbox, "bounding box"
+                )
+            if "rois" in btn.description.lower():
+                print(f"Saving ROIs to file")
+                self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
+        except Exception as error:
+            exception_handler.handle_exception(error)
+
+    @debug_view.capture(clear_output=True)
     def remove_all_from_map(self, btn):
         try:
             self.coastseg_map.remove_all()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_transects(self, btn):
-        try:
-            self.coastseg_map.remove_transects()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_bbox_from_map(self, btn):
-        try:
-            self.coastseg_map.remove_bbox()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_shoreline_from_map(self, btn):
-        try:
-            self.coastseg_map.remove_shoreline()
-        except Exception as error:
-            exception_handler.handle_exception(error)
-
-    def remove_all_rois_from_map(self, btn):
-        try:
-            self.coastseg_map.remove_all_rois()
         except Exception as error:
             exception_handler.handle_exception(error)
 

@@ -64,12 +64,10 @@
     "adjust_detection": false,
     "save_figure": true,
     "min_beach_area": 4500,
-    "buffer_size": 550,
     "min_length_sl": 100,
     "cloud_mask_issue": false,
     "sand_color": "default",
     "pan_off": "False",
-    "create_plot": false,
     "max_dist_ref": 25,
     "along_dist": 25
   }

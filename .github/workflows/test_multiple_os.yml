@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [main, workflows]
+    branches: [main]
   pull_request:
-    branches: [main, workflows]
+    branches: [main]
 
 name: Test CoastSeg with Multiple OS python 3.9
 jobs:
@@ -36,10 +36,10 @@ jobs:
       - run: |
           conda info
           conda list
-      - name: Install coastseg 0.0.1
+      - name: Install coastseg 0.0.3
         run: |
           python -m pip install --upgrade pip
-          pip install coastseg==0.0.1
+          pip install coastseg==0.0.3
       - name: Pip install pytest
         run: |
           pip install pytest

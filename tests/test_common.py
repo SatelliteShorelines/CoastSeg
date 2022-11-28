@@ -9,6 +9,47 @@ import numpy as np
 from shapely import geometry
 import pytest
 
+def test_get_transect_points_dict(valid_transects_gdf):
+    """Tests get_transect_points_dict to see if it returns a valid dictionary when given 
+    transects geodataframe and an id
+    Args:
+        valid_transects_gdf (geodataframe): transects geodataframe with ids:[17,30,35]
+    """
+    roi_id = '17'
+    transects_dict = common.get_transect_points_dict(roi_id,valid_transects_gdf)
+    # simulate how roi transect ids would be created 
+    transect_ids=valid_transects_gdf['id'].to_list()
+    roi_transect_ids = ["ROI_"+roi_id +"_"+tid for tid in transect_ids]
+    
+    assert isinstance(transects_dict,dict)
+    assert set(transects_dict.keys()).issubset(set(roi_transect_ids))
+    assert isinstance( transects_dict[roi_transect_ids[0]],np.ndarray)
+    
+    
+
+def test_get_default_dict():
+    # should return dict with fill dict values since keys exist in fill_dict
+    default_str = "unknown"
+    fill_dict = {'1':4,'2':5}
+    keys = ['1','2']
+    actual = common.get_default_dict(default=default_str,
+                                     keys=keys,
+                                     fill_dict=fill_dict)
+    assert actual == fill_dict
+    #should return dict with default values if no keys exist in fill_dict
+    fill_dict = {'4':4,'5':5}
+    expected = {'1':default_str,'2':default_str}
+    actual = common.get_default_dict(default=default_str,
+                                     keys=keys,
+                                     fill_dict=fill_dict)
+    assert actual == expected
+    # should return dict with some default values if some keys exist in fill_dict
+    fill_dict = {'1':4,'5':5}
+    expected = {'1':4,'2':default_str}
+    actual = common.get_default_dict(default=default_str,
+                                     keys=keys,
+                                     fill_dict=fill_dict)
+    assert actual == expected
 
 def test_is_list_empty():
     # empty list to test if it detects it as empty
@@ -284,26 +325,3 @@ def test_extract_roi_by_id(valid_rois_gdf):
     expected_roi = valid_rois_gdf[valid_rois_gdf["id"].astype(int) == roi_id]
     assert actual_roi["geometry"][0] == expected_roi["geometry"][0]
     assert actual_roi["id"][0] == expected_roi["id"][0]
-
-
-def test_gdf_to_polygon(valid_bbox_gdf, valid_rois_gdf):
-    # test if it returns a shapely.geometry.Polygon() given geodataframe and no id given
-    polygon = common.convert_gdf_to_polygon(valid_bbox_gdf, None)
-    bbox_dict = json.loads((valid_bbox_gdf["geometry"].to_json()))
-    assert isinstance(polygon, geometry.Polygon)
-    assert geometry.Polygon(bbox_dict["features"][0]["geometry"]["coordinates"][0])
-    # test if it returns the correct shapely.geometry.Polygon() given a specific id in the geodataframe
-    id = "17"
-    polygon = common.convert_gdf_to_polygon(valid_rois_gdf, id)
-    roi_dict = json.loads(
-        valid_rois_gdf[valid_rois_gdf["id"] == id]["geometry"].to_json()
-    )
-    assert isinstance(polygon, geometry.Polygon)
-    assert geometry.Polygon(roi_dict["features"][0]["geometry"]["coordinates"][0])
-
-
-def test_gdf_to_polygon_invalid(valid_rois_gdf):
-    # should raise exception if id is not in the geodataframe
-    with pytest.raises(Exception):
-        id = 18
-        polygon = common.convert_gdf_to_polygon(valid_rois_gdf, id)

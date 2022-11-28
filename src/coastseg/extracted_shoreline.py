@@ -70,29 +70,36 @@ class Extracted_Shoreline:
 
         logger.info(f"Extracting shorelines for ROI id{self.roi_id}")
         self.extracted_shorelines = self.extract_shorelines(
-            shoreline, roi_settings, settings
+            shoreline,
+            roi_settings,
+            settings,
         )
         if common.is_list_empty(self.extracted_shorelines["shorelines"]):
             raise exceptions.No_Extracted_Shoreline(self.roi_id)
         map_crs = "EPSG:4326"
-        input_crs = "EPSG:" + str(settings["output_epsg"])
-        self.gdf = self.create_geodataframe(input_crs, output_crs=map_crs)
+        # extracted shorelines have map crs so they can be displayed on the map
+        self.gdf = self.create_geodataframe(
+            self.shoreline_settings["output_epsg"], output_crs=map_crs
+        )
 
     def extract_shorelines(
-        self, shoreline_gdf: gpd.geodataframe, roi_settings: dict, settings: dict
+        self,
+        shoreline_gdf: gpd.geodataframe,
+        roi_settings: dict,
+        settings: dict,
     ) -> dict:
         """Returns a dictionary containing the extracted shorelines for roi specified by rois_gdf"""
         # project shorelines's crs from map's crs to output crs given in settings
         map_crs = 4326
-        output_crs = settings["output_epsg"]
         reference_shoreline = get_reference_shoreline(
-            shoreline_gdf, output_crs, map_crs
+            shoreline_gdf, settings["output_epsg"]
         )
         # Add reference shoreline to shoreline_settings
         self.create_shoreline_settings(settings, roi_settings, reference_shoreline)
 
         # gets metadata used to extract shorelines
         metadata = SDS_download.get_metadata(self.shoreline_settings["inputs"])
+        logger.info(f"metadata: {metadata}")
         # extract shorelines from ROI
         extracted_shorelines = SDS_shoreline.extract_shorelines(
             metadata, self.shoreline_settings
@@ -111,7 +118,10 @@ class Extracted_Shoreline:
         return extracted_shorelines
 
     def create_shoreline_settings(
-        self, settings: dict, roi_settings: dict, reference_shoreline: dict
+        self,
+        settings: dict,
+        roi_settings: dict,
+        reference_shoreline: dict,
     ) -> None:
         """sets self.shoreline_settings to dictionary containing settings, reference_shoreline
         and roi_settings
@@ -139,7 +149,6 @@ class Extracted_Shoreline:
         shoreline_settings["adjust_detection"] = False
         # disable adjusting shorelines manually in shoreline_settings
         shoreline_settings["check_detection"] = False
-
         # copy roi_setting for this specific roi
         shoreline_settings["inputs"] = roi_settings
         logger.info(f"shoreline_settings: {shoreline_settings}")
@@ -241,7 +250,7 @@ class Extracted_Shoreline:
 
 
 def get_reference_shoreline(
-    shoreline_gdf: gpd.geodataframe, output_crs: str, input_crs=4326
+    shoreline_gdf: gpd.geodataframe, output_crs: str
 ) -> np.ndarray:
     # project shorelines's espg from map's espg to output espg given in settings
     reprojected_shorlines = shoreline_gdf.to_crs(output_crs)

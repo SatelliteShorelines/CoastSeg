@@ -55,7 +55,7 @@ Create a new environment named `coastseg` with all the required packages by ente
 1. Create an Anaconda environment
 
 - We will install the CoastSeg package and its dependencies in this environment.
-  ```bash 
+  ```bash
   conda create --name coastseg python=3.9 -y
   ```
 
@@ -70,12 +70,11 @@ Create a new environment named `coastseg` with all the required packages by ente
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
 3. Install geopandas with Conda
-   - install [pydensecrf](https://anaconda.org/conda-forge/pydensecrf) because it is a dependency of doodleverse_utils
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
    - Make sure to install both jupyter and geopandas from the conda forge channel to avoid dependency conflicts
      ```bash
-     conda install -c conda-forge jupyter geopandas pydensecrf -y
+     conda install -c conda-forge jupyter geopandas -y
      ```
 4. Install the CoastSeg from PyPi
    ```bash
@@ -87,7 +86,7 @@ Create a new environment named `coastseg` with all the required packages by ente
 ```bash
 conda create --name coastseg python=3.9 -y
 conda activate coastseg
-conda install -c conda-forge jupyter geopandas pydensecrf -y
+conda install -c conda-forge jupyter geopandas -y
 pip install coastseg
 ```
 
@@ -122,13 +121,15 @@ pip install coastseg
 3. Install geopandas with Conda
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
-    ```bash
-    conda install -c conda-forge jupyter geopandas -y
-    ```
+   ```bash
+   conda install -c conda-forge jupyter geopandas -y
+   ```
 4. Clone the CoastSeg Repository
-```bash 
+
+```bash
   git clone https://github.com/SatelliteShorelines/CoastSeg.git
 ```
+
 6. Install the coastseg pip package
 
 - `-e` (editable install flag) install coastseg using the `pyproject.toml` located in coastseg's directory to install the coastseg package. See [pip documentation for -e](https://pip.pypa.io/en/stable/topics/local-project-installs/#:~:text=Editable%20installs%20allow%20you%20to,added%20to%20Python's%20import%20path.) for more information on how editable installations work.
