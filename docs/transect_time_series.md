@@ -21,4 +21,4 @@ You cannot compute time-series of shoreline change along shore-normal transects 
 - This will save a `transect_time_series.csv` which contains the intersection between the transect and the shoreline on each date for each transect.
 - A message will print stating the location where the csv was saved
 - The csv will appear the ROI directory for each ROI that had extracted shorelines and valid intersections between the transect and the extracted shorelines
-  ![Alt text](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/xtract_shorelines_and_transects.gif)
+  ![Alt text](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/extract_shorelines_and_transects.gif)
