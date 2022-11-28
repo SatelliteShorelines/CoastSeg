@@ -1,6 +1,7 @@
 # standard python imports
 import os
 import glob
+
 # internal python imports
 from coastseg import common
 from coastseg.zoo_model import Zoo_Model
@@ -9,7 +10,7 @@ from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 # external python imports
 import ipywidgets
 from IPython.display import display
-from tkinter import  filedialog
+from tkinter import filedialog
 from ipywidgets import Button
 from ipywidgets import HBox
 from ipywidgets import VBox
