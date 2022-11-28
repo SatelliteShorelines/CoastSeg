@@ -1,8 +1,6 @@
 # standard python imports
 import os
 import glob
-import json
-
 # internal python imports
 from coastseg import common
 from coastseg.zoo_model import Zoo_Model
@@ -10,17 +8,14 @@ from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 
 # external python imports
 import ipywidgets
-import geopandas as gpd
-from ipyleaflet import GeoJSON
-from IPython.display import display, clear_output
-from tkinter import Tk, filedialog
+from IPython.display import display
+from tkinter import  filedialog
 from ipywidgets import Button
 from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import HTML
 from ipywidgets import RadioButtons
-from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Checkbox
 from tkinter import messagebox
@@ -58,7 +53,7 @@ class UI_Models:
         model_choices_box = HBox(
             [self.model_input_dropdown, self.model_dropdown, self.model_implementation]
         )
-        checkboxes = HBox([self.GPU_checkbox, self.CRF_checkbox])
+        checkboxes = HBox([self.GPU_checkbox])
         instr_vbox = VBox(
             [
                 self.instr_header,
@@ -111,14 +106,6 @@ class UI_Models:
             value=False, description="Use GPU?", disabled=False, indent=False
         )
         self.GPU_checkbox.observe(self.handle_GPU_checkbox, "value")
-
-        self.CRF_checkbox = Checkbox(
-            value=False,
-            description="Use CRF post-processing",
-            disabled=False,
-            indent=False,
-        )
-        self.CRF_checkbox.observe(self.handle_CRF_checkbox, "value")
 
     def _create_buttons(self):
         # button styles
@@ -195,13 +182,6 @@ class UI_Models:
         else:
             self.model_dict["use_GPU"] = False
             print("Not using the GPU")
-
-    @GPU_view.capture(clear_output=True)
-    def handle_CRF_checkbox(self, change):
-        if change["new"] == True:
-            print("Using CRF post-processing")
-        else:
-            print("Not using CRF post-processing")
 
     def handle_model_type(self, change):
         self.model_dict["model_type"] = change["new"]
