@@ -46,7 +46,6 @@ class Zoo_Model:
         sample_direc: str,
         model_list: list,
         metadatadict: dict,
-        do_crf: bool = False,
     ):
         # look for TTA config
         if "TESTTIMEAUG" not in locals():
@@ -66,7 +65,6 @@ class Zoo_Model:
                 TARGET_SIZE=self.TARGET_SIZE,
                 TESTTIMEAUG=TESTTIMEAUG,
                 WRITE_MODELMETADATA=WRITE_MODELMETADATA,
-                DO_CRF=do_crf,
                 OTSU_THRESHOLD=False,
             )
 

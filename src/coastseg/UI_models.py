@@ -37,7 +37,6 @@ class UI_Models:
         self.model_dict = {
             "sample_direc": None,
             "use_GPU": False,
-            "use_CRF": False,
             "implementation": "ENSEMBLE",
             "model_type": "landsat_6229071",
         }
@@ -200,10 +199,8 @@ class UI_Models:
     @GPU_view.capture(clear_output=True)
     def handle_CRF_checkbox(self, change):
         if change["new"] == True:
-            self.model_dict["use_CRF"] = True
             print("Using CRF post-processing")
         else:
-            self.model_dict["use_CRF"] = False
             print("Not using CRF post-processing")
 
     def handle_model_type(self, change):
@@ -280,7 +277,6 @@ class UI_Models:
                 self.model_dict["sample_direc"],
                 model_list,
                 metadatadict,
-                self.model_dict["use_CRF"],
             )
             # Enable run and open results buttons when model has executed
             self.run_model_button.disabled = False
