@@ -1,7 +1,7 @@
 # standard python imports
 import os
 import glob
-
+import asyncio
 # internal python imports
 from coastseg import common
 from coastseg import zoo_model

@@ -23,16 +23,36 @@ import tensorflow as tf
 logger = logging.getLogger(__name__)
 
 async def fetch(session,url:str,save_path: str):
+    bad_url = r'https://zenodo.org/api/files/70633e17-73c6-4f5e-adb1-062725e6a7c1/sat4class_mndwi_513_v1.json'
+    model_name = url.split('/')[-1]
     chunk_size: int = 128
     async with session.get(url,raise_for_status=True) as r:
-        with open(save_path, "wb") as fd:
-            async for chunk in r.content.iter_chunked(chunk_size):
-                fd.write(chunk)
+        content_length = r.headers.get("Content-Length")
+        if content_length is not None: 
+            content_length = int(content_length)
+            with open(save_path, "wb") as fd:
+                with tqdm.auto.tqdm(
+                    total=content_length,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Downloading {model_name}",
+                    initial=0,
+                    ascii=False,
+                    position = 0,
+                ) as pbar:
+                    async for chunk in r.content.iter_chunked(chunk_size):
+                        fd.write(chunk)                        
+                        pbar.update(len(chunk))    
+        else:
+            with open(save_path, "wb") as fd:
+                async for chunk in r.content.iter_chunked(chunk_size):
+                    fd.write(chunk)
 
 async def fetch_all(session,url_dict):
     tasks = []
     for save_path,url in url_dict.items():
-        task = asyncio.create_task(fetch(session,url,save_path)) 
+        task = asyncio.create_task(fetch(session,url,save_path))
         tasks.append(task)
     await tqdm.asyncio.tqdm.gather(*tasks)
 
@@ -43,9 +63,16 @@ async def async_download_urls(url_dict:dict)->None:
 def run_async_download(url_dict:dict):
     logger.info("run_async_download")
     if platform.system()=='Windows':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    loop = asyncio.get_event_loop()
-    loop.create_task(async_download_urls(url_dict))
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy()) 
+    logger.info("Scheduling task")
+    # loop = asyncio.get_running_loop()
+    # task = loop.create_task(async_download_urls(url_dict))
+    # asyncio.run(async_download_urls(url_dict))
+    loop = asyncio.get_running_loop()
+    result = loop.run_until_complete(async_download_urls(url_dict))
+    logger.info("Scheduled task")
+    logger.info(f"result: {result}")
+
 
 
 def get_GPU(use_GPU:bool)->None:
