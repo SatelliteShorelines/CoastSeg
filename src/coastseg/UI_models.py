@@ -4,7 +4,7 @@ import glob
 
 # internal python imports
 from coastseg import common
-from coastseg.zoo_model import Zoo_Model
+from coastseg import zoo_model
 from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 
 # external python imports
@@ -34,17 +34,17 @@ class UI_Models:
             "sample_direc": None,
             "use_GPU": False,
             "implementation": "ENSEMBLE",
-            "model_type": "landsat_6229071",
+            "model_type": "s2-landsat78-4class_6950472",
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "landsat_6229071",
-            "landsat_6230083",
-            "SWED-RGB_6824384",
-            "coast-train-RGB_6950479",
-            "S2-water-SWED_6950474",
+            "s2-landsat78-4class_6950472",
         ]
-        self.MNDWI_models = ["SWED-MNDWI_6824342"]
+        self.five_band_models = [
+            "sat-5band-4class_7344606",
+        ]
+        self.MNDWI_models = ["s2-landsat78-4class_7352850"]
+        self.NDWI_models = ["s2-landsat78-4class_7352859"]
         # Declare widgets and on click callbacks
         self._create_HTML_widgets()
         self._create_widgets()
@@ -88,7 +88,7 @@ class UI_Models:
         self.model_implementation.observe(self.handle_model_implementation, "value")
 
         self.model_input_dropdown = ipywidgets.RadioButtons(
-            options=["RGB", "MNDWI"],
+            options=["RGB", "MNDWI", "NDWI", "5 Bands"],
             value="RGB",
             description="Model Input:",
             disabled=False,
@@ -188,10 +188,14 @@ class UI_Models:
         self.model_dict["model_type"] = change["new"]
 
     def handle_model_input_change(self, change):
-        if change["new"] == "MNDWI":
-            self.model_dropdown.options = self.MNDWI_models
         if change["new"] == "RGB":
             self.model_dropdown.options = self.RGB_models
+        if change["new"] == "MNDWI":
+            self.model_dropdown.options = self.MNDWI_models
+        if change["new"] == "NDWI":
+            self.model_dropdown.options = self.NDWI_models
+        if change["new"] == "5 Bands":
+            self.model_dropdown.options = self.five_band_models
 
     @model_view.capture(clear_output=True)
     def use_data_button_clicked(self, button):
@@ -228,33 +232,26 @@ class UI_Models:
                 )
             return
         else:
-            if self.model_dict["use_GPU"] == False:
-                print("Not using the GPU")
-                ## to use the CPU (not recommended):
-                os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-            elif self.model_dict["use_GPU"] == True:
-                print("Using the GPU")
-                # use the first available GPU
-                os.environ["CUDA_VISIBLE_DEVICES"] = "0"  #'1'
+            # gets GPU or CPU depending on whether use_GPU is True
+            zoo_model.get_GPU(self.model_dict["use_GPU"])
 
             # Disable run and open results buttons while the model is running
             self.open_results_button.disabled = True
             self.run_model_button.disabled = True
-            # self.model_dict['implementation']=model_implementation.value
             model_choice = self.model_dict["implementation"]
-            zoo_model = Zoo_Model()
+            zoo_model_instance = zoo_model.Zoo_Model()
             # specify dataset_id as well as data type to download selected model
             dataset = "MNDWI" if "MNDWI" in self.model_dropdown.value else "RGB"
             dataset_id = self.model_dict["model_type"]
             # First download the specified model
-            zoo_model.download_model(dataset, dataset_id)
+            zoo_model_instance.download_model(model_choice, dataset_id)
             # Get weights as list
-            Ww = zoo_model.get_weights_list(model_choice)
+            weights_list = zoo_model_instance.get_weights_list(model_choice)
             # Load the model from the config files
-            model, model_list, config_files, model_types = zoo_model.get_model(Ww)
-            metadatadict = zoo_model.get_metadatadict(Ww, config_files, model_types)
+            model, model_list, config_files, model_types = zoo_model_instance.get_model(weights_list)
+            metadatadict = zoo_model_instance.get_metadatadict(weights_list, config_files, model_types)
             # # Compute the segmentation
-            zoo_model.compute_segmentation(
+            zoo_model_instance.compute_segmentation(
                 self.model_dict["sample_direc"],
                 model_list,
                 metadatadict,

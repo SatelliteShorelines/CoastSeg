@@ -1,10 +1,15 @@
 import os
 import glob
+import asyncio
+import platform
+import json
 import logging
 import requests
-import zipfile
-import json
-from tqdm import tqdm
+import aiohttp
+import tqdm
+import tqdm.asyncio
+from tensorflow.python.client import device_lib
+from tensorflow.keras import mixed_precision
 from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.imports import (
     simple_resunet,
@@ -14,9 +19,128 @@ from doodleverse_utils.imports import (
 )
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
 import tensorflow as tf
-from tqdm.auto import tqdm
 
 logger = logging.getLogger(__name__)
+
+async def fetch(session,url:str,save_path: str):
+    chunk_size: int = 128
+    async with session.get(url,raise_for_status=True) as r:
+        with open(save_path, "wb") as fd:
+            async for chunk in r.content.iter_chunked(chunk_size):
+                fd.write(chunk)
+
+async def fetch_all(session,url_dict):
+    tasks = []
+    for save_path,url in url_dict.items():
+        task = asyncio.create_task(fetch(session,url,save_path)) 
+        tasks.append(task)
+    await tqdm.asyncio.tqdm.gather(*tasks)
+
+async def async_download_urls(url_dict:dict)->None:
+    async with aiohttp.ClientSession() as session:
+        await fetch_all(session,url_dict)
+
+def run_async_download(url_dict:dict):
+    logger.info("run_async_download")
+    if platform.system()=='Windows':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    loop = asyncio.get_event_loop()
+    loop.create_task(async_download_urls(url_dict))
+
+
+def get_GPU(use_GPU:bool)->None:
+    if use_GPU == False:
+        logger.info("Not using GPU")
+        print("Not using GPU")
+        # use CPU (not recommended):
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        print(f"physical_devices (GPUs):{physical_devices}")
+        logger.info(f"physical_devices (GPUs):{physical_devices}")
+    elif use_GPU == True:
+        print("Using  GPU")
+        logger.info("Using  GPU")
+        # use first available GPU (@todo I think this line was set just for testing change back to 1)
+        os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+        # read physical GPUs from machine
+        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        print(f"physical_devices (GPUs):{physical_devices}")
+        logger.info(f"physical_devices (GPUs):{physical_devices}")
+        if physical_devices:
+            # Restrict TensorFlow to only use the first GPU
+            try:
+                tf.config.experimental.set_visible_devices(physical_devices, 'GPU')
+            except RuntimeError as e:
+                # Visible devices must be set at program startup
+                logger.error(e)
+                print(e)
+    # set mixed precision
+    mixed_precision.set_global_policy('mixed_float16')
+    # disable memory growth on all GPUs
+    for i in physical_devices:
+        tf.config.experimental.set_memory_growth(i, True)
+        print(f"visible_devices: {tf.config.get_visible_devices()}")
+        logger.info(f"visible_devices: {tf.config.get_visible_devices()}")
+
+def get_url_dict_to_download(models_json_dict:dict)->dict:
+    """Returns dictionary of paths to save files to download
+    and urls to download file
+    
+    ex.
+    {'C:\Home\Project\file.json':"https://website/file.json"}
+
+    Args:
+        models_json_dict (dict): full path to files and links
+
+    Returns:
+        dict: full path to files and links
+    """    
+    url_dict={}
+    print(models_json_dict)
+    for save_path,link in models_json_dict.items():
+        if not os.path.isfile(save_path):
+            url_dict[save_path]=link
+        json_filepath = save_path.replace("_fullmodel.h5",".json")
+        if not os.path.isfile(json_filepath):
+            json_link = link.replace("_fullmodel.h5",".json")
+            url_dict[json_filepath]=json_link
+            
+    return url_dict
+    
+def download_url(url: str, save_path: str, chunk_size: int = 128):
+    """Downloads the model from the given url to the save_path location.
+    Args:
+        url (str): url to model to download
+        save_path (str): directory to save model
+        chunk_size (int, optional):  Defaults to 128.
+    """
+    logger.info(f"url: {url}")
+    logger.info(f"save_path: {save_path}")
+    # make an HTTP request within a context manager
+    with requests.get(url, stream=True) as r:
+        # check header to get content length, in bytes
+        content_length = r.headers.get("Content-Length")
+        # raise an exception for error codes (4xx or 5xx)
+        r.raise_for_status()
+        if content_length is None:
+            with open(save_path, "wb") as fd:
+                for chunk in r.iter_content(chunk_size=chunk_size):
+                    fd.write(chunk)
+        elif content_length is not None:
+            content_length = int(content_length)
+            with open(save_path, "wb") as fd:
+                with tqdm.auto.tqdm(
+                    total=content_length,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc="Downloading Model",
+                    initial=0,
+                    ascii=True,
+                ) as pbar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
 
 
 class Zoo_Model:
@@ -54,7 +178,7 @@ class Zoo_Model:
         # Read in the image filenames as either .npz,.jpg, or .png
         files_to_segment = self.get_files_for_seg(sample_direc)
         # Compute the segmentation for each of the files
-        for file_to_seg in tqdm(files_to_segment):
+        for file_to_seg in tqdm.auto.tqdm(files_to_segment):
             do_seg(
                 file_to_seg,
                 model_list,
@@ -68,13 +192,14 @@ class Zoo_Model:
                 OTSU_THRESHOLD=False,
             )
 
-    def get_model(self, Ww: list):
+
+    def get_model(self, weights_list: list):
         model_list = []
         config_files = []
         model_types = []
-        if Ww == []:
+        if weights_list == []:
             raise Exception("No Model Info Passed")
-        for weights in Ww:
+        for weights in weights_list:
             # "fullmodel" is for serving on zoo they are smaller and more portable between systems than traditional h5 files
             # gym makes a h5 file, then you use gym to make a "fullmodel" version then zoo can read "fullmodel" version
             configfile = weights.replace(".h5", ".json").replace("weights", "config")
@@ -206,9 +331,9 @@ class Zoo_Model:
 
         return model, model_list, config_files, model_types
 
-    def get_metadatadict(self, Ww: list, config_files: list, model_types: list):
+    def get_metadatadict(self, weights_list: list, config_files: list, model_types: list):
         metadatadict = {}
-        metadatadict["model_weights"] = Ww
+        metadatadict["model_weights"] = weights_list
         metadatadict["config_files"] = config_files
         metadatadict["model_types"] = model_types
         return metadatadict
@@ -216,90 +341,104 @@ class Zoo_Model:
     def get_weights_list(self, model_choice: str = "ENSEMBLE"):
         """Returns of the weights files(.h5) within weights_direc"""
         if model_choice == "ENSEMBLE":
-            return glob.glob(self.weights_direc + os.sep + "*.h5")
+            weights_list = glob.glob(self.weights_direc + os.sep + "*.h5")
+            logger.info(f"ENSEMBLE: weights_list: {weights_list}")
+            logger.info(f"ENSEMBLE: {len(weights_list)} sets of model weights were found ")
+            return weights_list
         elif model_choice == "BEST":
+            # read model name (fullmodel.h5) from BEST_MODEL.txt
             with open(self.weights_direc + os.sep + "BEST_MODEL.txt") as f:
-                w = f.readlines()
-            return [self.weights_direc + os.sep + w[0]]
+                model_name = f.readlines()
+            weights_list = [self.weights_direc + os.sep + model_name[0]]
+            logger.info(f"BEST: weights_list: {weights_list}")
+            logger.info(f"BEST: {len(weights_list)} sets of model weights were found ")
+            return weights_list
 
-    def download_model(self, dataset: str = "RGB", dataset_id: str = "landsat_6229071"):
-        zenodo_id = dataset_id.split("_")[-1]
-        root_url = "https://zenodo.org/record/" + zenodo_id + "/files/"
-        # Create the directory to hold the downloaded models from Zenodo
+    def get_downloaded_models_dir(self) -> str:
+        """returns full path to downloaded_models directory and
+        if downloaded_models directory does not exist then it is created
+
+        Returns:
+            str: full path to downloaded_models directory
+        """
+        # directory to hold downloaded models from Zenodo
         script_dir = os.path.dirname(os.path.abspath(__file__))
         downloaded_models_path = os.path.abspath(
             os.path.join(script_dir, "downloaded_models")
         )
+        if not os.path.exists(downloaded_models_path):
+            os.mkdir(downloaded_models_path)
+        logger.info(f"downloaded_models_path: {downloaded_models_path}")
+        return downloaded_models_path
+
+    def download_model(self, model_choice: str, dataset_id: str) -> None:
+        """downloads model specified by zenodo id in dataset_id.
+
+        Downloads best model is model_choice = 'BEST' or all models in
+        zenodo release if model_choice = 'ENSEMBLE'
+
+        Args:
+            model_choice (str): 'BEST' or 'ENSEMBLE'
+            dataset_id (str): name of model followed by underscore zenodo_id'name_of_model_zenodoid'
+        """
+        zenodo_id = dataset_id.split("_")[-1]
+        root_url = "https://zenodo.org/api/records/" + zenodo_id
+        # read raw json and get list of available files in zenodo release
+        response = requests.get(root_url)
+        json_content = json.loads(response.text)
+        files = json_content["files"]
+
+        downloaded_models_path = self.get_downloaded_models_dir()
+        # directory to hold specific model referenced by dataset_id
         self.weights_direc = os.path.abspath(
             os.path.join(downloaded_models_path, dataset_id)
         )
-        if not os.path.exists(downloaded_models_path):
-            os.mkdir(downloaded_models_path)
-        logger.info(f"self.weights_direc:{self.weights_direc}")
         if not os.path.exists(self.weights_direc):
             os.mkdir(self.weights_direc)
-        if dataset == "RGB":
-            # filename = 'rgb.zip'
-            filename = "rgb"
-        elif dataset == "MNDWI":
-            # filename='mndwi.zip'
-            filename = "mndwi"
-        # outfile: where zip folder model is downloaded
-        outfile = os.path.join(os.path.abspath(self.weights_direc), filename)
-        print(f"\n Model located at: {os.path.abspath(outfile)}")
-        # Download the model from Zenodo
-        if not os.path.exists(outfile):
-            zip_file = filename + ".zip"
-            zip_folder = os.path.join(self.weights_direc, zip_file)
-            print(f"\n zip_folder: {zip_folder}")
-            url = root_url + zip_file
-            print("Retrieving model {} ...".format(url))
-            self.download_url(url, zip_folder)
-            print("Unzipping model to {} ...".format(self.weights_direc))
-            with zipfile.ZipFile(zip_folder, "r") as zip_ref:
-                zip_ref.extractall(self.weights_direc)
-            print(f"Removing {zip_folder}")
-            os.remove(zip_folder)
 
-        # if model in subfolder set self.weights_direc to valid subdirectory
-        sub_dirs = os.listdir(self.weights_direc)
-        # There should be no more than 1 sub directory
-        if len(sub_dirs) >= 0:
-            for folder in sub_dirs:
-                folder_path = os.path.join(self.weights_direc, folder)
-                if os.path.isdir(folder_path) and not folder_path.endswith(".zip"):
-                    self.weights_direc = folder_path
-                    break
+        logger.info(f"self.weights_direc:{self.weights_direc}")
+        print(f"\n Model located at: {self.weights_direc}")
+        models_json_dict={}
+        if model_choice.upper() == "BEST":
+            # retrieve best model text file
+            best_model_json = [f for f in files if f["key"] == "BEST_MODEL.txt"][0]
+            logger.info(f"list of best_model_txt: {best_model_json}")
+            best_model_txt_path = self.weights_direc + os.sep + "BEST_MODEL.txt"
+            logger.info(f"BEST: best_model_txt_path : {best_model_txt_path }")
+            
+            # if best BEST_MODEL.txt file not exist then download it
+            if not os.path.isfile(best_model_txt_path):
+                download_url(
+                    best_model_json["links"]["self"],
+                    best_model_txt_path,
+                )
+            # read contents of BEST_MODEL.txt
+            with open(best_model_txt_path) as f:
+                filename = f.read()
 
-        # Ensure all files are unzipped
-        with os.scandir(self.weights_direc) as it:
-            for entry in it:
-                if entry.name.endswith(".zip"):
-                    with zipfile.ZipFile(entry, "r") as zip_ref:
-                        zip_ref.extractall(self.weights_direc)
-                    os.remove(entry)
-
-    def download_url(self, url: str, save_path: str, chunk_size: int = 128):
-        """Downloads the model from the given url to the save_path location.
-        Args:
-            url (str): url to model to download
-            save_path (str): directory to save model
-            chunk_size (int, optional):  Defaults to 128.
-        """
-        # make an HTTP request within a context manager
-        with requests.get(url, stream=True) as r:
-            # check header to get content length, in bytes
-            total_length = int(r.headers.get("Content-Length"))
-            with open(save_path, "wb") as fd:
-                with tqdm(
-                    total=total_length,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc="Downloading Model",
-                    initial=0,
-                    ascii=True,
-                ) as pbar:
-                    for chunk in r.iter_content(chunk_size=chunk_size):
-                        fd.write(chunk)
-                        pbar.update(len(chunk))
+            # check if json and h5 file in BEST_MODEL.txt exist
+            model_json = [f for f in files if f["key"] == filename][0]
+            # path to save model
+            outfile = self.weights_direc + os.sep + filename
+            logger.info(f"BEST: outfile: {outfile}")
+            # path to save file and json data associated with file saved to dict
+            models_json_dict[outfile]=model_json["links"]["self"]
+            url_dict = get_url_dict_to_download(models_json_dict)
+            print(url_dict)
+            run_async_download(url_dict)
+        elif model_choice.upper() == "ENSEMBLE":
+            # get list of all models
+            all_models = [f for f in files if f["key"].endswith(".h5")]
+            logger.info(f"all_models : {all_models }")
+            # check if all h5 files in files are in self.weights_direc
+            for model_json in all_models:
+                outfile = (
+                    self.weights_direc + os.sep + model_json["links"]["self"].split("/")[-1]
+                )
+                logger.info(f"ENSEMBLE: outfile: {outfile}")
+                # path to save file and json data associated with file saved to dict
+                models_json_dict[outfile]=model_json["links"]["self"]
+            print(models_json_dict)
+            url_dict = get_url_dict_to_download(models_json_dict)
+            print(url_dict)
+            run_async_download(url_dict)
