@@ -675,77 +675,31 @@ def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
         print(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
 
 
-def RGB_to_MNDWI(RGB_dir_path: str, NIR_dir_path: str, output_path: str) -> None:
-    """Converts two directories of RGB and NIR imagery to MNDWI imagery in a directory named
-     'MNDWI_outputs'.
+def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
+    """returns resized matrix with shape(rows,cols)
+        for 2d discrete labels
+        for resizing 2d integer arrays
     Args:
-        RGB_dir_path (str): full path to directory containing RGB images
-        NIR_dir_path (str): full path to directory containing NIR images
+        im (np.ndarray): 2d matrix to resize
+        nR (int): number of rows to resize 2d matrix to
+        nC (int): number of columns to resize 2d matrix to
 
-    Original Code from doodleverse_utils by Daniel Buscombe
-    source: https://github.com/Doodleverse/doodleverse_utils
+    Returns:
+        np.ndarray: resized matrix with shape(rows,cols)
     """
-    paths = [RGB_dir_path, NIR_dir_path]
-    files = []
-    for data_path in paths:
-        if not os.path.exists(data_path):
-            raise FileNotFoundError(f"{data_path} not found")
-        f = sorted(glob(data_path + os.sep + "*.jpg"))
-        if len(f) < 1:
-            f = sorted(glob(data_path + os.sep + "images" + os.sep + "*.jpg"))
-        files.append(f)
-    # creates matrix:  bands(RGB) x number of samples(NIR)
-    # files=[['full_RGB_path.jpg','full_NIR_path.jpg'],
-    # ['full_jpg_path.jpg','full_NIR_path.jpg']....]
-    files = np.vstack(files).T
-    # output_path: directory to store MNDWI outputs
-    output_path += os.sep + "MNDWI_outputs"
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-    # Create subfolder to hold MNDWI ouputs in
-    output_path = mk_new_dir("MNDWI_ouputs", output_path)
-
-    for counter, f in enumerate(files):
-        datadict = {}
-        # Read green band from RGB image and cast to float
-        green_band = imread(f[0])[:, :, 1].astype("float")
-        # Read SWIR and cast to float
-        swir = imread(f[1]).astype("float")
-        # Transform 0 to np.NAN
-        green_band[green_band == 0] = np.nan
-        swir[swir == 0] = np.nan
-        # Mask out the NaNs
-        green_band = np.ma.filled(green_band)
-        swir = np.ma.filled(swir)
-
-        # MNDWI imagery formula (Green + SWIR) / (Green + SWIR)
-        mndwi = np.divide(swir - green_band, swir + green_band)
-        # Convert the NaNs to -1
-        mndwi[np.isnan(mndwi)] = -1
-        # Rescale to be between 0 - 255
-        mndwi = rescale_array(mndwi, 0, 255)
-        # Save meta data for savez_compressed()
-        datadict["arr_0"] = mndwi.astype(np.uint8)
-        datadict["num_bands"] = 1
-        datadict["files"] = [fi.split(os.sep)[-1] for fi in f]
-        # Remove the file extension from the name
-        ROOT_STRING = f[0].split(os.sep)[-1].split(".")[0]
-        # save MNDWI as .npz file
-        segfile = (
-            output_path
-            + os.sep
-            + ROOT_STRING
-            + "_noaug_nd_data_000000"
-            + str(counter)
-            + ".npz"
-        )
-        np.savez_compressed(segfile, **datadict)
-        del datadict, mndwi, green_band, swir
-
-        return output_path
+    src_rows = len(matrix)  # source number of rows
+    src_cols = len(matrix[0])  # source number of columns
+    tmp = [
+        [
+            matrix[int(src_rows * r / rows)][int(src_cols * c / cols)]
+            for c in range(cols)
+        ]
+        for r in range(rows)
+    ]
+    return np.array(tmp).reshape((rows, cols))
 
 
-def rescale_array(self, dat, mn, mx):
+def rescale_array(dat, mn, mx):
     """
     rescales an input dat between mn and mx
     Code from doodleverse_utils by Daniel Buscombe

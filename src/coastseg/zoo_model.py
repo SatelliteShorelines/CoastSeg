@@ -4,9 +4,13 @@ import asyncio
 import platform
 import json
 import logging
+from coastseg import common
 import requests
+import skimage
 import aiohttp
 import tqdm
+import numpy as np
+from glob import glob
 import tqdm.asyncio
 import nest_asyncio
 from tensorflow.python.client import device_lib
@@ -22,6 +26,112 @@ from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_mult
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
+
+
+def get_files(RGB_dir_path: str, img_dir_path: str):
+    """returns matrix of files in RGB_dir_path and img_dir_path
+    creates matrix: RGB x number of samples in img_dir_path
+    Example:
+    [['full_RGB_path.jpg','full_NIR_path.jpg'],
+    ['full_jpg_path.jpg','full_NIR_path.jpg']....]
+    Args:
+        RGB_dir_path (str): full path to directory of RGB images
+        img_dir_path (str): full path to directory of non-RGB images
+        usually NIR and SWIR
+
+    Raises:
+        FileNotFoundError: raised if directory is not found
+    """
+    paths = [RGB_dir_path, img_dir_path]
+    files = []
+    for data_path in paths:
+        if not os.path.exists(data_path):
+            raise FileNotFoundError(f"{data_path} not found")
+        f = sorted(glob(data_path + os.sep + "*.jpg"))
+        if len(f) < 1:
+            f = sorted(glob(data_path + os.sep + "images" + os.sep + "*.jpg"))
+        files.append(f)
+    # creates matrix:  bands(RGB) x number of samples
+    files = np.vstack(files).T
+    return files
+
+
+def RGB_to_infrared(
+    RGB_path: str, infrared_path: str, output_path: str, output_type: str
+) -> None:
+    """Converts two directories of RGB and NIR imagery to NDWI imagery in a directory named
+     'NDWI' created at output_path.
+     imagery saved as jpg
+
+     to generate NDWI imagery set infrared_path to full path of NIR images
+     to generate MNDWI imagery set infrared_path to full path of SWIR images
+
+    Args:
+        RGB_path (str): full path to directory containing RGB images
+        infrared_path (str): full path to directory containing NIR or SWIR images
+        output_path (str): full path to directory to create NDWI directory in
+        output_type (str): 'MNDWI' or 'NDWI'
+    Based on code from doodleverse_utils by Daniel Buscombe
+    source: https://github.com/Doodleverse/doodleverse_utils
+    """
+    if output_type.upper() not in ["MNDWI", "NDWI"]:
+        logger.error(
+            f"Invalid output_type given must be MNDWI or NDWI. Cannot be {output_type}"
+        )
+        raise Exception(
+            f"Invalid output_type given must be MNDWI or NDWI. Cannot be {output_type}"
+        )
+    # matrix:bands(RGB) x number of samples(NIR)
+    files = get_files(RGB_path, infrared_path)
+    # output_path: directory to store MNDWI or NDWI outputs
+    output_path += os.sep + output_type.upper()
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
+
+    for file in files:
+        # Read green band from RGB image and cast to float
+        green_band = skimage.io.imread(file[0])[:, :, 1].astype("float")
+        # Read infrared(SWIR or NIR) and cast to float
+        infrared = skimage.io.imread(file[1]).astype("float")
+        # Transform 0 to np.NAN
+        green_band[green_band == 0] = np.nan
+        infrared[infrared == 0] = np.nan
+        # Mask out NaNs
+        green_band = np.ma.filled(green_band)
+        infrared = np.ma.filled(infrared)
+
+        # ensure both matrices have equivalent size
+        if not np.shape(green_band) == np.shape(infrared):
+            gx, gy = np.shape(green_band)
+            nx, ny = np.shape(infrared)
+            # resize both matrices to have equivalent size
+            green_band = common.scale(
+                green_band, np.maximum(gx, nx), np.maximum(gy, ny)
+            )
+            infrared = common.scale(infrared, np.maximum(gx, nx), np.maximum(gy, ny))
+
+        # output_img(MNDWI/NDWI) imagery formula (Green - SWIR) / (Green + SWIR)
+        output_img = np.divide(infrared - green_band, infrared + green_band)
+        # Convert the NaNs to -1
+        output_img[np.isnan(output_img)] = -1
+        # Rescale to be between 0 - 255
+        output_img = common.rescale_array(output_img, 0, 255)
+        print(output_type.upper())
+        # create new filenames by replacing image type(SWIR/NIR) with output_type
+        if output_type.upper() == "MNDWI":
+            new_filename = file[1].split(os.sep)[-1].replace("SWIR", output_type)
+        if output_type.upper() == "NDWI":
+            new_filename = file[1].split(os.sep)[-1].replace("NIR", output_type)
+
+        # save output_img(MNDWI/NDWI) as .jpg in output directory
+        skimage.io.imsave(
+            output_path + os.sep + new_filename,
+            output_img.astype("uint8"),
+            check_contrast=False,
+            quality=100,
+        )
+
+    return output_path
 
 
 async def fetch(session, url: str, save_path: str):
