@@ -8,6 +8,7 @@ import requests
 import aiohttp
 import tqdm
 import tqdm.asyncio
+import nest_asyncio
 from tensorflow.python.client import device_lib
 from tensorflow.keras import mixed_precision
 from doodleverse_utils.prediction_imports import do_seg
@@ -22,13 +23,14 @@ import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
-async def fetch(session,url:str,save_path: str):
-    bad_url = r'https://zenodo.org/api/files/70633e17-73c6-4f5e-adb1-062725e6a7c1/sat4class_mndwi_513_v1.json'
-    model_name = url.split('/')[-1]
+
+async def fetch(session, url: str, save_path: str):
+    bad_url = r"https://zenodo.org/api/files/70633e17-73c6-4f5e-adb1-062725e6a7c1/sat4class_mndwi_513_v1.json"
+    model_name = url.split("/")[-1]
     chunk_size: int = 128
-    async with session.get(url,raise_for_status=True) as r:
+    async with session.get(url, raise_for_status=True) as r:
         content_length = r.headers.get("Content-Length")
-        if content_length is not None: 
+        if content_length is not None:
             content_length = int(content_length)
             with open(save_path, "wb") as fd:
                 with tqdm.auto.tqdm(
@@ -39,80 +41,83 @@ async def fetch(session,url:str,save_path: str):
                     desc=f"Downloading {model_name}",
                     initial=0,
                     ascii=False,
-                    position = 0,
+                    position=0,
                 ) as pbar:
                     async for chunk in r.content.iter_chunked(chunk_size):
-                        fd.write(chunk)                        
-                        pbar.update(len(chunk))    
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
         else:
             with open(save_path, "wb") as fd:
                 async for chunk in r.content.iter_chunked(chunk_size):
                     fd.write(chunk)
 
-async def fetch_all(session,url_dict):
+
+async def fetch_all(session, url_dict):
     tasks = []
-    for save_path,url in url_dict.items():
-        task = asyncio.create_task(fetch(session,url,save_path))
+    for save_path, url in url_dict.items():
+        task = asyncio.create_task(fetch(session, url, save_path))
         tasks.append(task)
     await tqdm.asyncio.tqdm.gather(*tasks)
 
-async def async_download_urls(url_dict:dict)->None:
-    async with aiohttp.ClientSession() as session:
-        await fetch_all(session,url_dict)
 
-def run_async_download(url_dict:dict):
+async def async_download_urls(url_dict: dict) -> None:
+    async with aiohttp.ClientSession() as session:
+        await fetch_all(session, url_dict)
+
+
+def run_async_download(url_dict: dict):
     logger.info("run_async_download")
-    if platform.system()=='Windows':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy()) 
+    if platform.system() == "Windows":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     logger.info("Scheduling task")
-    # loop = asyncio.get_running_loop()
-    # task = loop.create_task(async_download_urls(url_dict))
-    # asyncio.run(async_download_urls(url_dict))
+    # apply a nested loop to jupyter's event loop for async downloading
+    nest_asyncio.apply()
+    # get nested running loop and wait for async downloads to complete
     loop = asyncio.get_running_loop()
     result = loop.run_until_complete(async_download_urls(url_dict))
     logger.info("Scheduled task")
     logger.info(f"result: {result}")
 
 
-
-def get_GPU(use_GPU:bool)->None:
+def get_GPU(use_GPU: bool) -> None:
     if use_GPU == False:
         logger.info("Not using GPU")
         print("Not using GPU")
         # use CPU (not recommended):
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        physical_devices = tf.config.experimental.list_physical_devices("GPU")
         print(f"physical_devices (GPUs):{physical_devices}")
         logger.info(f"physical_devices (GPUs):{physical_devices}")
     elif use_GPU == True:
         print("Using  GPU")
         logger.info("Using  GPU")
         # use first available GPU (@todo I think this line was set just for testing change back to 1)
-        os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
         # read physical GPUs from machine
-        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        physical_devices = tf.config.experimental.list_physical_devices("GPU")
         print(f"physical_devices (GPUs):{physical_devices}")
         logger.info(f"physical_devices (GPUs):{physical_devices}")
         if physical_devices:
             # Restrict TensorFlow to only use the first GPU
             try:
-                tf.config.experimental.set_visible_devices(physical_devices, 'GPU')
+                tf.config.experimental.set_visible_devices(physical_devices, "GPU")
             except RuntimeError as e:
                 # Visible devices must be set at program startup
                 logger.error(e)
                 print(e)
     # set mixed precision
-    mixed_precision.set_global_policy('mixed_float16')
+    mixed_precision.set_global_policy("mixed_float16")
     # disable memory growth on all GPUs
     for i in physical_devices:
         tf.config.experimental.set_memory_growth(i, True)
         print(f"visible_devices: {tf.config.get_visible_devices()}")
         logger.info(f"visible_devices: {tf.config.get_visible_devices()}")
 
-def get_url_dict_to_download(models_json_dict:dict)->dict:
+
+def get_url_dict_to_download(models_json_dict: dict) -> dict:
     """Returns dictionary of paths to save files to download
     and urls to download file
-    
+
     ex.
     {'C:\Home\Project\file.json':"https://website/file.json"}
 
@@ -121,19 +126,19 @@ def get_url_dict_to_download(models_json_dict:dict)->dict:
 
     Returns:
         dict: full path to files and links
-    """    
-    url_dict={}
-    print(models_json_dict)
-    for save_path,link in models_json_dict.items():
+    """
+    url_dict = {}
+    for save_path, link in models_json_dict.items():
         if not os.path.isfile(save_path):
-            url_dict[save_path]=link
-        json_filepath = save_path.replace("_fullmodel.h5",".json")
+            url_dict[save_path] = link
+        json_filepath = save_path.replace("_fullmodel.h5", ".json")
         if not os.path.isfile(json_filepath):
-            json_link = link.replace("_fullmodel.h5",".json")
-            url_dict[json_filepath]=json_link
-            
+            json_link = link.replace("_fullmodel.h5", ".json")
+            url_dict[json_filepath] = json_link
+
     return url_dict
-    
+
+
 def download_url(url: str, save_path: str, chunk_size: int = 128):
     """Downloads the model from the given url to the save_path location.
     Args:
@@ -218,7 +223,6 @@ class Zoo_Model:
                 WRITE_MODELMETADATA=WRITE_MODELMETADATA,
                 OTSU_THRESHOLD=False,
             )
-
 
     def get_model(self, weights_list: list):
         model_list = []
@@ -358,7 +362,9 @@ class Zoo_Model:
 
         return model, model_list, config_files, model_types
 
-    def get_metadatadict(self, weights_list: list, config_files: list, model_types: list):
+    def get_metadatadict(
+        self, weights_list: list, config_files: list, model_types: list
+    ):
         metadatadict = {}
         metadatadict["model_weights"] = weights_list
         metadatadict["config_files"] = config_files
@@ -370,7 +376,9 @@ class Zoo_Model:
         if model_choice == "ENSEMBLE":
             weights_list = glob.glob(self.weights_direc + os.sep + "*.h5")
             logger.info(f"ENSEMBLE: weights_list: {weights_list}")
-            logger.info(f"ENSEMBLE: {len(weights_list)} sets of model weights were found ")
+            logger.info(
+                f"ENSEMBLE: {len(weights_list)} sets of model weights were found "
+            )
             return weights_list
         elif model_choice == "BEST":
             # read model name (fullmodel.h5) from BEST_MODEL.txt
@@ -425,14 +433,14 @@ class Zoo_Model:
 
         logger.info(f"self.weights_direc:{self.weights_direc}")
         print(f"\n Model located at: {self.weights_direc}")
-        models_json_dict={}
+        models_json_dict = {}
         if model_choice.upper() == "BEST":
             # retrieve best model text file
             best_model_json = [f for f in files if f["key"] == "BEST_MODEL.txt"][0]
             logger.info(f"list of best_model_txt: {best_model_json}")
             best_model_txt_path = self.weights_direc + os.sep + "BEST_MODEL.txt"
             logger.info(f"BEST: best_model_txt_path : {best_model_txt_path }")
-            
+
             # if best BEST_MODEL.txt file not exist then download it
             if not os.path.isfile(best_model_txt_path):
                 download_url(
@@ -449,10 +457,11 @@ class Zoo_Model:
             outfile = self.weights_direc + os.sep + filename
             logger.info(f"BEST: outfile: {outfile}")
             # path to save file and json data associated with file saved to dict
-            models_json_dict[outfile]=model_json["links"]["self"]
+            models_json_dict[outfile] = model_json["links"]["self"]
             url_dict = get_url_dict_to_download(models_json_dict)
-            print(url_dict)
-            run_async_download(url_dict)
+            # if any files are not found locally download them asynchronous
+            if url_dict != {}:
+                run_async_download(url_dict)
         elif model_choice.upper() == "ENSEMBLE":
             # get list of all models
             all_models = [f for f in files if f["key"].endswith(".h5")]
@@ -460,12 +469,16 @@ class Zoo_Model:
             # check if all h5 files in files are in self.weights_direc
             for model_json in all_models:
                 outfile = (
-                    self.weights_direc + os.sep + model_json["links"]["self"].split("/")[-1]
+                    self.weights_direc
+                    + os.sep
+                    + model_json["links"]["self"].split("/")[-1]
                 )
                 logger.info(f"ENSEMBLE: outfile: {outfile}")
                 # path to save file and json data associated with file saved to dict
-                models_json_dict[outfile]=model_json["links"]["self"]
-            print(models_json_dict)
+                models_json_dict[outfile] = model_json["links"]["self"]
+            logger.info(f"models_json_dict: {models_json_dict}")
             url_dict = get_url_dict_to_download(models_json_dict)
-            print(url_dict)
-            run_async_download(url_dict)
+            logger.info(f"URLs to download: {url_dict}")
+            # if any files are not found locally download them asynchronous
+            if url_dict != {}:
+                run_async_download(url_dict)

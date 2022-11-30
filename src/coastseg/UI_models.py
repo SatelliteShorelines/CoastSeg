@@ -1,7 +1,7 @@
 # standard python imports
 import os
 import glob
-import asyncio
+
 # internal python imports
 from coastseg import common
 from coastseg import zoo_model
@@ -248,8 +248,12 @@ class UI_Models:
             # Get weights as list
             weights_list = zoo_model_instance.get_weights_list(model_choice)
             # Load the model from the config files
-            model, model_list, config_files, model_types = zoo_model_instance.get_model(weights_list)
-            metadatadict = zoo_model_instance.get_metadatadict(weights_list, config_files, model_types)
+            model, model_list, config_files, model_types = zoo_model_instance.get_model(
+                weights_list
+            )
+            metadatadict = zoo_model_instance.get_metadatadict(
+                weights_list, config_files, model_types
+            )
             # # Compute the segmentation
             zoo_model_instance.compute_segmentation(
                 self.model_dict["sample_direc"],
