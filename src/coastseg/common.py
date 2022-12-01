@@ -391,7 +391,7 @@ def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
     return gpd_data
 
 
-def get_jpgs_from_data(file_ext: str = "RGB") -> str:
+def get_jpgs_from_data() -> str:
     """Returns the folder where all jpgs were copied from the data folder in coastseg.
     This is where the model will save the computed segmentations."""
     # Data folder location
@@ -401,56 +401,26 @@ def get_jpgs_from_data(file_ext: str = "RGB") -> str:
         # Create a new folder to hold all the data
         location = os.getcwd()
         name = "segmentation_data"
+        # new folder "segmentation_data_datetime"
         new_folder = mk_new_dir(name, location)
-        if file_ext == "RGB":
+        # create subdirectories for each image type
+        file_types = ["RGB", "SWIR", "NIR"]
+        for file_type in file_types:
+            new_path = os.path.join(new_folder, file_type)
+            if not os.path.exists(new_path):
+                os.mkdir(new_path)
             glob_str = (
                 src_path
                 + str(os.sep + "**" + os.sep) * 2
                 + "preprocessed"
                 + os.sep
-                + "RGB"
+                + file_type
                 + os.sep
                 + "*.jpg"
             )
-            copy_files_to_dst(src_path, new_folder, glob_str)
-        elif file_ext == "MNDWI":
-            glob_str = (
-                src_path
-                + str(os.sep + "**" + os.sep) * 2
-                + "preprocessed"
-                + os.sep
-                + "RGB"
-                + os.sep
-                + "*RGB*.jpg"
-            )
+            copy_files_to_dst(src_path, new_path, glob_str)
             RGB_path = os.path.join(new_folder, "RGB")
-            if not os.path.exists(RGB_path):
-                os.mkdir(RGB_path)
-            copy_files_to_dst(src_path, RGB_path, glob_str)
-            # Copy the NIR images to the destination
-            glob_str = (
-                src_path
-                + str(os.sep + "**" + os.sep) * 2
-                + "preprocessed"
-                + os.sep
-                + "NIR"
-                + os.sep
-                + "*NIR*.jpg"
-            )
-            NIR_path = os.path.join(new_folder, "NIR")
-            if not os.path.exists(NIR_path):
-                os.mkdir(NIR_path)
-            copy_files_to_dst(src_path, NIR_path, glob_str)
-        elif file_ext is None:
-            glob_str = (
-                src_path
-                + str(os.sep + "**" + os.sep) * 2
-                + "preprocessed"
-                + os.sep
-                + "*.jpg"
-            )
-            copy_files_to_dst(src_path, new_folder, glob_str)
-        return new_folder
+        return RGB_path
     else:
         print("ERROR: Cannot find the data directory in coastseg")
         raise Exception("ERROR: Cannot find the data directory in coastseg")
@@ -471,7 +441,6 @@ def rename_jpgs(src_path: str) -> None:
         # Append folder id to basename of jpg if not already there
         for jpg in jpgs:
             if folder_id not in jpg:
-                # print(jpg)
                 files_renamed = True
                 base, ext = os.path.splitext(jpg)
                 new_name = folder_path + os.sep + base + "_" + folder_id + ext
@@ -547,7 +516,7 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
         all_sitenames_exist = do_rois_have_sitenames(roi_settings, roi_ids)
         all_filepaths_exist = do_rois_filepaths_exist(roi_settings, roi_ids)
         is_downloaded = all_sitenames_exist and all_filepaths_exist
-    # print the correct message depending on whether ROIs were downloaded
+    # print correct message depending on whether ROIs were downloaded
     if is_downloaded:
         print("Located previously downloaded ROI data.")
         logger.info(f"Located previously downloaded ROI data.")
@@ -646,10 +615,10 @@ def generate_datestring() -> str:
 
 
 def mk_new_dir(name: str, location: str):
-    """Create new folder with  datetime stamp at location
+    """Create new folder with name_datetime stamp at location
     Args:
         name (str): name of folder to create
-        location (str): location to create folder
+        location (str): full path to location to create folder
     """
     if os.path.exists(location):
         new_folder = location + os.sep + name + "_" + generate_datestring()
@@ -657,6 +626,39 @@ def mk_new_dir(name: str, location: str):
         return new_folder
     else:
         raise Exception("Location provided does not exist.")
+
+
+def get_RGB_in_path(current_path: str) -> str:
+    """returns full path to RGB directory relative to current path
+    or raises an error
+
+    Args:
+        current_path (str): full path to directory of images to segment
+
+    Raises:
+        Exception: raised if no RGB directory is found or
+        RGB directory is empty
+
+    Returns:
+        str: full path to RGB directory relative to current path
+    """
+    rgb_jpgs = glob.glob(current_path + os.sep + "*RGB*")
+    logger.info(f"rgb_jpgs: {rgb_jpgs}")
+    if rgb_jpgs != []:
+        return current_path
+    elif rgb_jpgs == []:
+        # means current path is not RGB directory
+        parent_dir = os.path.dirname(current_path)
+        logger.info(f"parent_dir: {parent_dir}")
+        dirs = os.listdir(parent_dir)
+        logger.info(f"child dirs: {dirs}")
+        if "RGB" not in dirs:
+            raise Exception(
+                "Invalid directory to run model in. Please select RGB directory"
+            )
+        RGB_path = os.path.join(parent_dir, "RGB")
+        logger.info(f"returning path:{RGB_path}")
+        return RGB_path
 
 
 def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:

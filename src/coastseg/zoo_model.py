@@ -69,7 +69,7 @@ def RGB_to_infrared(
     Args:
         RGB_path (str): full path to directory containing RGB images
         infrared_path (str): full path to directory containing NIR or SWIR images
-        output_path (str): full path to directory to create NDWI directory in
+        output_path (str): full path to directory to create NDWI/MNDWI directory in
         output_type (str): 'MNDWI' or 'NDWI'
     Based on code from doodleverse_utils by Daniel Buscombe
     source: https://github.com/Doodleverse/doodleverse_utils
@@ -85,6 +85,7 @@ def RGB_to_infrared(
     files = get_files(RGB_path, infrared_path)
     # output_path: directory to store MNDWI or NDWI outputs
     output_path += os.sep + output_type.upper()
+    logger.info(f"output_path {output_path}")
     if not os.path.exists(output_path):
         os.mkdir(output_path)
 
@@ -116,7 +117,6 @@ def RGB_to_infrared(
         output_img[np.isnan(output_img)] = -1
         # Rescale to be between 0 - 255
         output_img = common.rescale_array(output_img, 0, 255)
-        print(output_type.upper())
         # create new filenames by replacing image type(SWIR/NIR) with output_type
         if output_type.upper() == "MNDWI":
             new_filename = file[1].split(os.sep)[-1].replace("SWIR", output_type)
@@ -298,13 +298,14 @@ class Zoo_Model:
             list: files to be segmented
         """
         # Read in the image filenames as either .npz,.jpg, or .png
-        sample_filenames = sorted(glob.glob(sample_direc + os.sep + "*.*"))
+        sample_filenames = sorted(glob(sample_direc + os.sep + "*.*"))
+        logger.info(f"files to seg: {sample_filenames}")
         if sample_filenames[0].split(".")[-1] == "npz":
             sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + "*.npz"))
         else:
             sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + "*.jpg"))
             if len(sample_filenames) == 0:
-                sample_filenames = sorted(glob.glob(sample_direc + os.sep + "*.png"))
+                sample_filenames = sorted(glob(sample_direc + os.sep + "*.png"))
         return sample_filenames
 
     def compute_segmentation(
@@ -484,7 +485,7 @@ class Zoo_Model:
     def get_weights_list(self, model_choice: str = "ENSEMBLE"):
         """Returns of the weights files(.h5) within weights_direc"""
         if model_choice == "ENSEMBLE":
-            weights_list = glob.glob(self.weights_direc + os.sep + "*.h5")
+            weights_list = glob(self.weights_direc + os.sep + "*.h5")
             logger.info(f"ENSEMBLE: weights_list: {weights_list}")
             logger.info(
                 f"ENSEMBLE: {len(weights_list)} sets of model weights were found "

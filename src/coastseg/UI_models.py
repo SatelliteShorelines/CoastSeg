@@ -198,28 +198,25 @@ class UI_Models:
             self.model_dropdown.options = self.five_band_models
 
     @model_view.capture(clear_output=True)
-    def use_data_button_clicked(self, button):
-        # Use the data folder as the input for segmentation
-        print("Loading in the jpgs from the data directory")
-        # Copy the jpgs from data to a new folder called segmentation_data_[datetime]
-        if "MNDWI" in self.model_dropdown.value:
-            sample_direc = r"C:\1_USGS\CoastSeg\repos\2_CoastSeg\CoastSeg_fork\Seg2Map\MNDWI_outputs\MNDWI_ouputs_2022-07-21__07_hr_57_min14"
-            # sample_direc = common.get_jpgs_from_data('MNDWI')
-            # RGB_path=sample_direc+os.sep+'RGB'
-            # NIR_path=sample_direc+os.sep+'NIR'
-            # sample_direc = coastseg_map.RGB_to_MNDWI(RGB_path,NIR_path,sample_direc)
+    def use_data_button_clicked(self, button: "ipywidgets.Button") -> None:
+        """Runs on use data button clicked
+        Copies all jpgs from data directory to new directory
+        called segmentation_data. imagery in segmentation data will be used as inputs
+        for models.
+        Args:
+            button (ipywidgets.Button): instance of button
+        """
+        print("Loading in jpgs from  data directory")
+        sample_direc = common.get_jpgs_from_data()
+        jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
+        if jpgs == []:
+            with Tkinter_Window_Creator():
+                messagebox.showinfo(
+                    "No JPGs found",
+                    "\nERROR!\nThe directory contains no jpgs! Please select a directory with jpgs.",
+                )
+        elif jpgs != []:
             self.model_dict["sample_direc"] = sample_direc
-        else:
-            sample_direc = common.get_jpgs_from_data("RGB")
-            jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
-            if jpgs == []:
-                with Tkinter_Window_Creator():
-                    messagebox.showinfo(
-                        "No JPGs found",
-                        "\nERROR!\nThe directory contains no jpgs! Please select a directory with jpgs.",
-                    )
-            elif jpgs != []:
-                self.model_dict["sample_direc"] = sample_direc
         print(f"\nContents of the data directory saved in {sample_direc}")
 
     @run_model_view.capture(clear_output=True)
@@ -234,14 +231,43 @@ class UI_Models:
         else:
             # gets GPU or CPU depending on whether use_GPU is True
             zoo_model.get_GPU(self.model_dict["use_GPU"])
-
             # Disable run and open results buttons while the model is running
             self.open_results_button.disabled = True
             self.run_model_button.disabled = True
             model_choice = self.model_dict["implementation"]
             zoo_model_instance = zoo_model.Zoo_Model()
-            # specify dataset_id as well as data type to download selected model
-            dataset = "MNDWI" if "MNDWI" in self.model_dropdown.value else "RGB"
+
+            print(
+                f"\nolder selected directory of RGBs: {self.model_dict['sample_direc']}\n"
+            )
+            # get path to RGB directory for models
+            # all other necessary files are relative to RGB directory
+            RGB_path = common.get_RGB_in_path(self.model_dict["sample_direc"])
+            self.model_dict["sample_direc"] = RGB_path
+            print(
+                f"current selected directory of RGBs: {self.model_dict['sample_direc']}"
+            )
+
+            # convert RGB to MNDWI or NDWI
+            output_type = self.model_input_dropdown.value
+            print(f"Selected output type: {output_type}")
+            if output_type in ["MNDWI", "NDWI"]:
+                RGB_path = self.model_dict["sample_direc"]
+                output_path = os.path.dirname(RGB_path)
+                filetype = "SWIR"
+                if output_type == "NDWI":
+                    filetype = "NIR"
+                infrared_path = os.path.join(output_path, filetype)
+                zoo_model.RGB_to_infrared(
+                    RGB_path, infrared_path, output_path, output_type
+                )
+                #
+                output_path = os.path.join(output_path, output_type)
+                # set sample_direc to hold location of NDWI imagery
+                self.model_dict["sample_direc"] = output_path
+                print(f"Model outputs will be saved to {output_path}")
+
+            # specify dataset_id to download selected model
             dataset_id = self.model_dict["model_type"]
             # First download the specified model
             zoo_model_instance.download_model(model_choice, dataset_id)
