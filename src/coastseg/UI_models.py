@@ -153,8 +153,8 @@ class UI_Models:
 
         self.instr_select_images = HTML(
             value="<b>2. Select Images Button</b> \
-                <br> - This will open a pop up window where the folder containing the jpgs can be selected.<br>\
-                    - The model will be applied to this folder and the model outputs will be generated within a subdirectory\
+                <br> - This will open a pop up window where the RGB folder must be selected.<br>\
+                    - The model will be applied to the 'model input' folder selected and the model outputs will be generated within a subdirectory\
                     called 'out'<br>\
             - <span style=\"background-color:yellow;color: black;\">WARNING :</span> You will not be able to see the files within the folder you select.<br>\
             ",
