@@ -135,7 +135,6 @@ def RGB_to_infrared(
 
 
 async def fetch(session, url: str, save_path: str):
-    bad_url = r"https://zenodo.org/api/files/70633e17-73c6-4f5e-adb1-062725e6a7c1/sat4class_mndwi_513_v1.json"
     model_name = url.split("/")[-1]
     chunk_size: int = 128
     async with session.get(url, raise_for_status=True) as r:

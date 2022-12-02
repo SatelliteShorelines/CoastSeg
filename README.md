@@ -72,9 +72,9 @@ Create a new environment named `coastseg` with all the required packages by ente
 3. Install geopandas with Conda
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
-   - Make sure to install both jupyter and geopandas from the conda forge channel to avoid dependency conflicts
+   - Make sure to install both jupyterlab and geopandas from the conda forge channel to avoid dependency conflicts
      ```bash
-     conda install -c conda-forge jupyter geopandas -y
+     conda install -c conda-forge geopandas jupyterlab -y
      ```
 4. Install the CoastSeg from PyPi
    ```bash
@@ -86,7 +86,7 @@ Create a new environment named `coastseg` with all the required packages by ente
 ```bash
 conda create --name coastseg python=3.9 -y
 conda activate coastseg
-conda install -c conda-forge jupyter geopandas -y
+conda install -c conda-forge jupyterlavb geopandas -y
 pip install coastseg
 ```
 
@@ -122,7 +122,7 @@ pip install coastseg
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
    ```bash
-   conda install -c conda-forge jupyter geopandas -y
+   conda install -c conda-forge jupyterlab geopandas -y
    ```
 4. Clone the CoastSeg Repository
 
@@ -172,7 +172,7 @@ Hi there! This section is still under active development. So it may not be that 
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
-3. Start the Jupyter Notebook
+3. Start the Jupyter Lab
    ```bash
    jupyter lab custom_map.ipynb
    ```
@@ -317,10 +317,10 @@ To correctly create your development environment make sure you run all these com
 
 3. Activate coastseg development environment
    <br> `conda activate coastseg`
-4. Install Geopandas and Jupyter in this environment
+4. Install Geopandas and jupyterlab in this environment
 
-- Make sure to install jupyter and geopandas from the channel `conda-forge` otherwise there might be compatibility issues
-  <br>`conda install -c conda-forge jupyter geopandas -y`
+- Make sure to install jupyterlab and geopandas from the channel `conda-forge` otherwise there might be compatibility issues
+  <br>`conda install -c conda-forge jupyterlab geopandas -y`
 
 5. Pip install coastseg's dependencies from the local version of coastseg on your computer
    > `pip install -e . -v`
