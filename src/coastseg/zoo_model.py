@@ -14,6 +14,7 @@ from glob import glob
 import tqdm.asyncio
 import nest_asyncio
 from tensorflow.python.client import device_lib
+from skimage.io import imread
 from tensorflow.keras import mixed_precision
 from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.imports import (
@@ -27,6 +28,35 @@ import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
+def get_five_band_imagery(RGB_path:str,MNDWI_path:str,NDWI_path:str,output_path:str):
+    paths = [RGB_path,MNDWI_path,NDWI_path]
+    files = []
+    for data_path in paths:
+        f = sorted(glob(data_path+os.sep+'*.jpg'))
+        if len(f)<1:
+            f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
+        files.append(f)
+
+    # number of bands x number of samples
+    files = np.vstack(files).T
+    #returns path to five band imagery
+    for counter,file in enumerate(files):
+        im=[] # read all images into a list
+        for k in file:
+            im.append(imread(k))
+        datadict={}
+        # create stack which takes care of different sized inputs
+        im=np.dstack(im)
+        datadict['arr_0'] = im.astype(np.uint8)
+        datadict['num_bands'] = im.shape[-1]
+        datadict['files'] = [file_name.split(os.sep)[-1] for file_name in file]
+        ROOT_STRING = file[0].split(os.sep)[-1].split('.')[0]
+        segfile = output_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
+        np.savez_compressed(segfile, **datadict)
+        del datadict, im
+        logger.info(f"segfile: {segfile}")
+    return output_path
+    
 
 def get_files(RGB_dir_path: str, img_dir_path: str):
     """returns matrix of files in RGB_dir_path and img_dir_path
@@ -136,7 +166,8 @@ def RGB_to_infrared(
 
 async def fetch(session, url: str, save_path: str):
     model_name = url.split("/")[-1]
-    chunk_size: int = 128
+    # chunk_size: int = 128
+    chunk_size: int = 2048
     async with session.get(url, raise_for_status=True) as r:
         content_length = r.headers.get("Content-Length")
         if content_length is not None:

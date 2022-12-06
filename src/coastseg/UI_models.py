@@ -39,6 +39,8 @@ class UI_Models:
         # list of RGB and MNDWI models available
         self.RGB_models = [
             "s2-landsat78-4class_6950472",
+            "sat_RGB_2class_7384255",
+            "sat_RGB_4class_6950472",
         ]
         self.five_band_models = [
             "sat-5band-4class_7344606",
@@ -254,18 +256,36 @@ class UI_Models:
             if output_type in ["MNDWI", "NDWI"]:
                 RGB_path = self.model_dict["sample_direc"]
                 output_path = os.path.dirname(RGB_path)
-                filetype = "SWIR"
-                if output_type == "NDWI":
-                    filetype = "NIR"
+                # default filetype is NIR and if NDWI is selected else filetype to SWIR
+                filetype =  "NIR" if output_type == "NDWI" else "SWIR"
                 infrared_path = os.path.join(output_path, filetype)
                 zoo_model.RGB_to_infrared(
                     RGB_path, infrared_path, output_path, output_type
                 )
-                #
+                # newly created imagery (NDWI or MNDWI) is located at output_path 
                 output_path = os.path.join(output_path, output_type)
                 # set sample_direc to hold location of NDWI imagery
                 self.model_dict["sample_direc"] = output_path
                 print(f"Model outputs will be saved to {output_path}")
+            elif output_type in ['5 Bands']:
+                RGB_path = self.model_dict["sample_direc"]
+                output_path = os.path.dirname(RGB_path)
+                NIR_path = os.path.join(output_path, "NIR")
+                NDWI_path  = zoo_model.RGB_to_infrared(
+                    RGB_path, NIR_path, output_path, "NDWI"
+                )
+                SWIR_path = os.path.join(output_path, "SWIR")
+                MNDWI_path  = zoo_model.RGB_to_infrared(
+                    RGB_path, SWIR_path, output_path, "MNDWI"
+                )
+                five_band_path=os.path.join(output_path, "five_band")
+                os.mkdir(five_band_path)
+                five_band_path = zoo_model.get_five_band_imagery(RGB_path,MNDWI_path,NDWI_path,five_band_path)
+                print(f"five band imagery path: {five_band_path}")
+                # set sample_direc to hold location of NDWI imagery
+                self.model_dict["sample_direc"] = five_band_path
+                print(f"Model outputs will be saved to {five_band_path}")
+
 
             # specify dataset_id to download selected model
             dataset_id = self.model_dict["model_type"]
