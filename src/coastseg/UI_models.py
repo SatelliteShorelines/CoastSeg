@@ -1,7 +1,7 @@
 # standard python imports
 import os
 import glob
-
+import logging
 # internal python imports
 from coastseg import common
 from coastseg import zoo_model
@@ -21,6 +21,7 @@ from ipywidgets import Output
 from ipywidgets import Checkbox
 from tkinter import messagebox
 
+logger = logging.getLogger(__name__)
 
 class UI_Models:
     # all instances of UI will share the same debug_view
@@ -239,7 +240,7 @@ class UI_Models:
             model_choice = self.model_dict["implementation"]
             zoo_model_instance = zoo_model.Zoo_Model()
 
-            print(
+            logger.info(
                 f"\nolder selected directory of RGBs: {self.model_dict['sample_direc']}\n"
             )
             # get path to RGB directory for models
@@ -279,9 +280,9 @@ class UI_Models:
                     RGB_path, SWIR_path, output_path, "MNDWI"
                 )
                 five_band_path=os.path.join(output_path, "five_band")
-                os.mkdir(five_band_path)
+                if not os.path.exists(five_band_path):
+                    os.mkdir(five_band_path)
                 five_band_path = zoo_model.get_five_band_imagery(RGB_path,MNDWI_path,NDWI_path,five_band_path)
-                print(f"five band imagery path: {five_band_path}")
                 # set sample_direc to hold location of NDWI imagery
                 self.model_dict["sample_direc"] = five_band_path
                 print(f"Model outputs will be saved to {five_band_path}")
