@@ -36,6 +36,7 @@ class UI_Models:
             "use_GPU": False,
             "implementation": "ENSEMBLE",
             "model_type": "s2-landsat78-4class_6950472",
+            "otsu":False,
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
@@ -55,7 +56,7 @@ class UI_Models:
 
     def create_dashboard(self):
         model_choices_box = HBox(
-            [self.model_input_dropdown, self.model_dropdown, self.model_implementation]
+            [self.model_input_dropdown, self.model_dropdown,self.otsu_radio, self.model_implementation]
         )
         checkboxes = HBox([self.GPU_checkbox])
         instr_vbox = VBox(
@@ -89,6 +90,14 @@ class UI_Models:
             disabled=False,
         )
         self.model_implementation.observe(self.handle_model_implementation, "value")
+
+        self.otsu_radio = RadioButtons(
+            options=["Enabled", "Disabled"],
+            value="Disabled",
+            description="Otsu Threshold:",
+            disabled=False,
+        )
+        self.otsu_radio.observe(self.handle_otsu, "value")
 
         self.model_input_dropdown = ipywidgets.RadioButtons(
             options=["RGB", "MNDWI", "NDWI", "5 Bands"],
@@ -189,6 +198,9 @@ class UI_Models:
 
     def handle_model_type(self, change):
         self.model_dict["model_type"] = change["new"]
+
+    def handle_otsu(self,change):
+        self.model_dict["otsu"]=change["new"]
 
     def handle_model_input_change(self, change):
         if change["new"] == "RGB":
