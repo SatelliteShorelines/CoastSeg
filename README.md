@@ -1,4 +1,8 @@
 # CoastSeg
+![pypi](https://img.shields.io/pypi/v/coastseg?color=%23ec3dc8&style=flat-square)
+</br>
+
+![Tests Passing](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/pip_install_e.yml/badge.svg)
 
 [![Last Commit](https://img.shields.io/github/last-commit/SatelliteShorelines/CoastSeg)](https://github.com/Doodleverse/segmentation_gym/commits/main)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SatelliteShorelines/CoastSeg/graphs/commit-activity)
