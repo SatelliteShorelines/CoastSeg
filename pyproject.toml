@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "0.0.6"
+version = "0.0.7"
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -14,7 +14,7 @@ description = "An interactive jupyter notebook for downloading satellite imagery
 dependencies = [
   "coastsat-package>=0.1.0",
   "area",
-  "doodleverse-utils>=0.0.16",
+  "doodleverse-utils>=0.0.18",
   "tqdm",
   "leafmap",
   "geojson",
@@ -22,7 +22,7 @@ dependencies = [
   "nest-asyncio",
   "tensorflow"]
 license = { file="LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
