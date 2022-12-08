@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [upgrade_workflows]
+    branches: [main]
   pull_request:
-    branches: [upgrade_workflows]
+    branches: [main]
 
 name: Test CoastSeg pip install -e .
 jobs:
