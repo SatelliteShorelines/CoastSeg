@@ -16,15 +16,26 @@ jobs:
       max-parallel: 3
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.9, 3.10, 3.11]
+        os: [ubuntu-latest]
         include:
           - env: ci/envs/39-coastseg.yaml
-            python-version: 3.9
+            os: macos-latest
           - env: ci/envs/310-coastseg.yaml
-            python-version: 3.10
+            os: macos-latest
           - env: ci/envs/311-coastseg.yaml
-            python-version: 3.11
+            os: macos-latest
+          - env: ci/envs/39-coastseg.yaml
+            os: windows-latest
+          - env: ci/envs/310-coastseg.yaml
+            os: windows-latest
+          - env: ci/envs/311-coastseg.yaml
+            os: windows-latest
+          - env: ci/envs/39-coastseg.yaml
+            os: ubuntu-latest
+          - env: ci/envs/310-coastseg.yaml
+            os: ubuntu-latest
+          - env: ci/envs/311-coastseg.yaml
+            os: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
@@ -32,7 +43,6 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           environment-file: ${{ matrix.env }}
-          python-version: ${{ matrix.python-version }}
           miniconda-version: "latest"
       - run: |
           conda info
