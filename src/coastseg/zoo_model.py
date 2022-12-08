@@ -219,20 +219,24 @@ def run_async_download(url_dict: dict):
     logger.info(f"result: {result}")
 
 
-def get_GPU(use_GPU: bool) -> None:
-    if use_GPU == False:
+def get_GPU(num_GPU: str) -> None:
+    num_GPU = str(num_GPU)
+    if num_GPU == "0":
         logger.info("Not using GPU")
         print("Not using GPU")
         # use CPU (not recommended):
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-        physical_devices = tf.config.experimental.list_physical_devices("GPU")
-        print(f"physical_devices (GPUs):{physical_devices}")
-        logger.info(f"physical_devices (GPUs):{physical_devices}")
-    elif use_GPU == True:
-        print("Using  GPU")
-        logger.info("Using  GPU")
-        # use first available GPU (@todo I think this line was set just for testing change back to 1)
+    elif num_GPU == "1":
+        print("Using single GPU")
+        logger.info(f"Using 1 GPU")
+        # use first available GPU 
         os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    elif int(num_GPU) > 1:
+        # use multiple gpus
+        print(f"Using {num_GPU} GPUs")
+        logger.info(f"Using {num_GPU} GPUs")
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(num_GPU)
+    if int(num_GPU) >= 1:
         # read physical GPUs from machine
         physical_devices = tf.config.experimental.list_physical_devices("GPU")
         print(f"physical_devices (GPUs):{physical_devices}")
@@ -245,14 +249,18 @@ def get_GPU(use_GPU: bool) -> None:
                 # Visible devices must be set at program startup
                 logger.error(e)
                 print(e)
-    # set mixed precision
-    mixed_precision.set_global_policy("mixed_float16")
-    # disable memory growth on all GPUs
-    for i in physical_devices:
-        tf.config.experimental.set_memory_growth(i, True)
-        print(f"visible_devices: {tf.config.get_visible_devices()}")
-        logger.info(f"visible_devices: {tf.config.get_visible_devices()}")
-
+        # set mixed precision
+        mixed_precision.set_global_policy("mixed_float16")
+        # disable memory growth on all GPUs
+        for i in physical_devices:
+            tf.config.experimental.set_memory_growth(i, True)
+            print(f"visible_devices: {tf.config.get_visible_devices()}")
+            logger.info(f"visible_devices: {tf.config.get_visible_devices()}")
+        # if multiple GPUs are used use mirror strategy
+        if int(num_GPU) > 1:
+            # Create a MirroredStrategy.
+            strategy = tf.distribute.MirroredStrategy([p.name.split('/physical_device:')[-1] for p in physical_devices], cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
+            print(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
 
 def get_url_dict_to_download(models_json_dict: dict) -> dict:
     """Returns dictionary of paths to save files to download
@@ -343,11 +351,11 @@ class Zoo_Model:
         sample_direc: str,
         model_list: list,
         metadatadict: dict,
+        use_tta:bool,
+        use_otsu:bool,
     ):
-        # look for TTA config
-        if "TESTTIMEAUG" not in locals():
-            TESTTIMEAUG = False
-        WRITE_MODELMETADATA = False
+        print(f"Test Time Augmentation: {use_tta}")
+        print(f"Otsu Threshold: {use_otsu}")
         # Read in the image filenames as either .npz,.jpg, or .png
         files_to_segment = self.get_files_for_seg(sample_direc)
         # Compute the segmentation for each of the files
@@ -360,9 +368,9 @@ class Zoo_Model:
                 NCLASSES=self.NCLASSES,
                 N_DATA_BANDS=self.N_DATA_BANDS,
                 TARGET_SIZE=self.TARGET_SIZE,
-                TESTTIMEAUG=TESTTIMEAUG,
-                WRITE_MODELMETADATA=WRITE_MODELMETADATA,
-                OTSU_THRESHOLD=False,
+                TESTTIMEAUG=use_tta,
+                WRITE_MODELMETADATA = False,
+                OTSU_THRESHOLD=use_otsu,
             )
 
     def get_model(self, weights_list: list):

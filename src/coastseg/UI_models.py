@@ -27,16 +27,16 @@ class UI_Models:
     # all instances of UI will share the same debug_view
     model_view = Output(layout={"border": "1px solid black"})
     run_model_view = Output(layout={"border": "1px solid black"})
-    GPU_view = Output()
 
     def __init__(self):
         # Controls size of ROIs generated on map
         self.model_dict = {
             "sample_direc": None,
-            "use_GPU": False,
+            "use_GPU": "0",
             "implementation": "ENSEMBLE",
             "model_type": "s2-landsat78-4class_6950472",
             "otsu":False,
+            "tta":False,
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
@@ -56,9 +56,11 @@ class UI_Models:
 
     def create_dashboard(self):
         model_choices_box = HBox(
-            [self.model_input_dropdown, self.model_dropdown,self.otsu_radio, self.model_implementation]
+            [self.model_input_dropdown, 
+            self.model_dropdown,
+            self.model_implementation]
         )
-        checkboxes = HBox([self.GPU_checkbox])
+        checkboxes = HBox([self.GPU_dropdown,self.otsu_radio,self.tta_radio])
         instr_vbox = VBox(
             [
                 self.instr_header,
@@ -70,7 +72,6 @@ class UI_Models:
         )
         display(
             checkboxes,
-            UI_Models.GPU_view,
             model_choices_box,
             instr_vbox,
             self.use_data_button,
@@ -99,6 +100,14 @@ class UI_Models:
         )
         self.otsu_radio.observe(self.handle_otsu, "value")
 
+        self.tta_radio = RadioButtons(
+            options=["Enabled", "Disabled"],
+            value="Disabled",
+            description="Test Time Augmentation:",
+            disabled=False,
+        )
+        self.tta_radio.observe(self.handle_tta, "value")
+
         self.model_input_dropdown = ipywidgets.RadioButtons(
             options=["RGB", "MNDWI", "NDWI", "5 Bands"],
             value="RGB",
@@ -115,10 +124,20 @@ class UI_Models:
         )
         self.model_dropdown.observe(self.handle_model_type, "value")
 
-        self.GPU_checkbox = Checkbox(
-            value=False, description="Use GPU?", disabled=False, indent=False
+        # allow user to select number of GPUs
+        self.GPU_dropdown =ipywidgets.IntSlider(
+            value=0,
+            min=0,
+            max=5,
+            step=1,
+            description='GPU(s):',
+            disabled=False,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='d'
         )
-        self.GPU_checkbox.observe(self.handle_GPU_checkbox, "value")
+        self.GPU_dropdown.observe(self.handle_GPU_dropdown, "value")
 
     def _create_buttons(self):
         # button styles
@@ -187,20 +206,27 @@ class UI_Models:
     def handle_model_implementation(self, change):
         self.model_dict["implementation"] = change["new"]
 
-    @GPU_view.capture(clear_output=True)
-    def handle_GPU_checkbox(self, change):
-        if change["new"] == True:
-            self.model_dict["use_GPU"] = True
-            print("Using the GPU")
-        else:
-            self.model_dict["use_GPU"] = False
-            print("Not using the GPU")
 
     def handle_model_type(self, change):
         self.model_dict["model_type"] = change["new"]
 
+    def handle_GPU_dropdown(self, change):
+        if change["new"] == 0:
+            self.model_dict["use_GPU"] = "0"
+        else:
+            self.model_dict["use_GPU"] = str(change["new"])
+
     def handle_otsu(self,change):
-        self.model_dict["otsu"]=change["new"]
+        if change["new"] == "Enabled":
+            self.model_dict["otsu"]=True
+        if change["new"] == "Disabled":
+            self.model_dict["otsu"]=False
+
+    def handle_tta(self,change):
+        if change["new"] == "Enabled":
+            self.model_dict["tta"]=True
+        if change["new"] == "Disabled":
+            self.model_dict["tta"]=False
 
     def handle_model_input_change(self, change):
         if change["new"] == "RGB":
@@ -302,6 +328,8 @@ class UI_Models:
 
             # specify dataset_id to download selected model
             dataset_id = self.model_dict["model_type"]
+            use_otsu = self.model_dict["otsu"]
+            use_tta = self.model_dict["tta"]
             # First download the specified model
             zoo_model_instance.download_model(model_choice, dataset_id)
             # Get weights as list
@@ -318,6 +346,8 @@ class UI_Models:
                 self.model_dict["sample_direc"],
                 model_list,
                 metadatadict,
+                use_tta,
+                use_otsu
             )
             # Enable run and open results buttons when model has executed
             self.run_model_button.disabled = False
