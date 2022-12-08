@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [pypi_workflow]
+    branches: [upgrade_workflows]
   pull_request:
-    branches: [pypi_workflow]
+    branches: [upgrade_workflows]
 
 name: Test CoastSeg
 jobs:
@@ -13,12 +13,11 @@ jobs:
       run:
         shell: bash -l {0}
     strategy:
-      max-parallel: 3
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
         include:
-          # tensorflow suupports up to python 3.10
+          # tensorflow supports up to python 3.10
           - env: ci/envs/39-coastseg.yaml
             os: macos-latest
           - env: ci/envs/310-coastseg.yaml
