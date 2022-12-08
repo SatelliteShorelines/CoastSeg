@@ -18,24 +18,25 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         include:
+          # tensorflow suupports up to python 3.10
           - env: ci/envs/39-coastseg.yaml
             os: macos-latest
           - env: ci/envs/310-coastseg.yaml
             os: macos-latest
-          - env: ci/envs/311-coastseg.yaml
-            os: macos-latest
+          # - env: ci/envs/311-coastseg.yaml
+          #   os: macos-latest
           - env: ci/envs/39-coastseg.yaml
             os: windows-latest
           - env: ci/envs/310-coastseg.yaml
             os: windows-latest
-          - env: ci/envs/311-coastseg.yaml
-            os: windows-latest
+          # - env: ci/envs/311-coastseg.yaml
+          #   os: windows-latest
           - env: ci/envs/39-coastseg.yaml
             os: ubuntu-latest
           - env: ci/envs/310-coastseg.yaml
             os: ubuntu-latest
-          - env: ci/envs/311-coastseg.yaml
-            os: ubuntu-latest
+          # - env: ci/envs/311-coastseg.yaml
+          #   os: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
