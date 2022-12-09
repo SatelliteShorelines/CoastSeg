@@ -15,10 +15,17 @@
 
 ![CoastSeg](https://user-images.githubusercontent.com/3596509/189417290-d5c24681-39b7-4b97-afa8-1392cf759b08.gif)
 
+## What is CoastSeg?
+Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook for downloading satellite imagery with [CoastSat](https://github.com/kvos/CoastSat) and applying segmentation models to the satellite imagery. CoastSeg can use machine learning to find shorelines from imagery, which are automatically loaded onto the map and using provided transects.
+
 - A mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo) models.
 - GUI interface to download satellite imagery using CoastSat from Google Earth Engine
+- A GUI interface for extracting shorelines from satellite imagery
+- A GUI interface for apply  models to satellite imagery
 
-# This Project is Not Finished Yet
+![gif of map with rectangles on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/generate_rois_and_display_area.gif)
+
+## CoastSeg is a Work in Progress :construction:
 
 Hi there! This package is still under active development. Feel free to contribute, but don't use this software expecting a finished product.
 
@@ -156,31 +163,6 @@ conda clean --all
 
 Hi there! This section is still under active development. So it may not be that helpful to you. If you have any suggestions of what you'd tutorials or guides you'd like submit an issue.
 
-- @todo add screenshots and a full guide on how to use coastseg
-
-## How to Start Coastseg
-
-1. Change to the CoastSeg Directory
-
-- In your command prompt or terminal run the `cd` (change directory) command to the CoastSeg directory
-  ```bash
-  cd C:\Users\User1\CoastSeg
-  ```
-
-2. After you' ve installed coastseg's environment activate the `coastseg` environment activate with:
-   ```bash
-   conda activate coastseg
-   ```
-
-<img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
-     alt="coastseg activated in anaconda prompt" width="350" height="150">
-
-3. Start the Jupyter Lab
-   ```bash
-   jupyter lab custom_map.ipynb
-   ```
-
-- @ add screenshot and official notebook
 
 ## How to Sign up to use Google Earth Engine Python API
 
@@ -197,34 +179,9 @@ Note: remember to always activate the environment with conda activate coastsat e
 
 Thanks @kvos for this awesome guide!
 
-## How to Download Imagery
+## How to use CoastSeg
+Check out our [wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
 
-1. Authenticate with Google Earth Engine (GEE)
-
-- @todo show screenshots of login process
-
-2. Select your Download Settings
-3. Load Your Download Settings to CoastSeg
-4. Create the CoastSeg Dashbaord and Map
-5. Draw a bounding box
-6. Click Generate ROIs button
-7. Click ROI's on the map
-8. Click Download ROI's button
-9. Open `data` folder in CoastSeg Directory to View Downloads
-
-- Downloads are organized by ROI id and labeled with the date and time they were downloaded
-
-## How to Load Configs
-
-- @todo add a screenshot of a sample config
-- only `.geojson` files can be loaded as configs
-- Save a config file with `Save Config` button
-
-## How to Save Your Drawings to Geojson
-
-## How to Extract Shorelines
-
-## How to Extract Transects Cross Distances for Extracted Shorelines
 
 ---
 
