@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
 
-name: Test CoastSeg with Multiple OS python 3.9 and pip install -e .
+name: Test CoastSeg pip install -e .
 jobs:
   Test:
     name: ${{ matrix.os }}, ${{ matrix.env }}
@@ -15,23 +15,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        env:
-          - ci/envs/39-coastseg.yaml
-        include:
-          - env: ci/envs/39-coastseg.yaml
-            os: macos-latest
-          - env: ci/envs/39-coastseg.yaml
-            os: windows-latest
-          - env: ci/envs/39-coastseg.yaml
-            os: ubuntu-latest
+        # tensorflow supports up to python 3.10
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        env: [ci/envs/39-coastseg.yaml, ci/envs/310-coastseg.yaml]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Conda
         uses: conda-incubator/setup-miniconda@v2
         with:
           environment-file: ${{ matrix.env }}
-          python-version: 3.9
           miniconda-version: "latest"
       - run: |
           conda info
