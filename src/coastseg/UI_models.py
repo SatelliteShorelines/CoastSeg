@@ -11,17 +11,61 @@ from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 import ipywidgets
 from IPython.display import display
 from tkinter import filedialog
+from tkinter import messagebox
 from ipywidgets import Button
+from ipywidgets import ToggleButton
 from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import HTML
 from ipywidgets import RadioButtons
 from ipywidgets import Output
-from ipywidgets import Checkbox
-from tkinter import messagebox
+from ipyfilechooser import FileChooser
+
 
 logger = logging.getLogger(__name__)
+
+def clear_row(row:HBox):
+    """close widgets in row/column and clear all children
+    Args:
+        row (HBox)(VBox): row or column
+    """          
+    for index in range(len(row.children)):
+        row.children[index].close()
+    row.children = []
+
+def create_file_chooser(callback,title:str=None):
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    data_path = os.path.join(os.getcwd(), "data")
+    if os.path.exists(data_path):
+        data_path = os.path.join(os.getcwd(), "data")
+    else:
+        data_path = os.getcwd()
+    # creates a unique instance of filechooser and button to close filechooser
+    geojson_chooser = FileChooser(data_path)
+    geojson_chooser.dir_icon= os.sep
+    # Switch to folder-only mode
+    geojson_chooser.show_only_dirs = True
+    if title is not None:
+        geojson_chooser.title = f'<b>{title}</b>'
+    geojson_chooser.register_callback(callback)
+    
+    close_button = ToggleButton(
+        value=False,
+        tooltip="Close File Chooser",
+        icon="times",
+        button_style="primary",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    def close_click(change):
+        if change["new"]:
+            geojson_chooser.close()
+            close_button.close()
+
+    close_button.observe(close_click, "value")
+    chooser = HBox([geojson_chooser,close_button])
+    return chooser
 
 class UI_Models:
     # all instances of UI will share the same debug_view
@@ -70,6 +114,7 @@ class UI_Models:
                 self.instr_run_model,
             ]
         )
+        self.file_row = HBox([])
         display(
             checkboxes,
             model_choices_box,
@@ -77,6 +122,7 @@ class UI_Models:
             self.use_data_button,
             self.use_select_images_button,
             self.line_widget,
+            self.file_row,
             UI_Models.model_view,
             self.run_model_button,
             UI_Models.run_model_view,
@@ -353,6 +399,7 @@ class UI_Models:
             self.run_model_button.disabled = False
             self.open_results_button.disabled = False
 
+# @todo remove this because it uses tkinter
     @run_model_view.capture(clear_output=True)
     def open_results_button_clicked(self, button):
         """open_results_button_clicked on click handler for 'open results' button.
@@ -382,32 +429,25 @@ class UI_Models:
                 )
 
     @model_view.capture(clear_output=True)
-    def use_select_images_button_clicked(self, button):
-        # Prompt the user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            # path to data directory containing data downloaded using coastsat
-            data_path = os.path.join(os.getcwd(), "data")
-            if os.path.exists(data_path):
-                data_path = os.path.join(os.getcwd(), "data")
-            else:
-                data_path = os.getcwd()
-            tk_root.filename = filedialog.askdirectory(
-                initialdir=data_path,
-                title="Select directory of images",
-            )
-            # Save the filename as an attribute of the button
-            if tk_root.filename:
-                sample_direc = tk_root.filename
-                print(f"The images in the folder will be segmented :\n{sample_direc} ")
-                jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
-                if jpgs == []:
-                    messagebox.showerror(
-                        "No JPGs Found",
-                        "\nERROR!\nThe directory contains no jpgs! Please select a directory with jpgs.",
-                    )
-                elif jpgs != []:
-                    self.model_dict["sample_direc"] = sample_direc
-            else:
+    def load_callback(self,filechooser:FileChooser)->None:
+        if filechooser.selected:
+            sample_direc = os.path.abspath(filechooser.selected)
+            print(f"The images in the folder will be segmented :\n{sample_direc} ")
+            jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
+            if jpgs == []:
                 messagebox.showerror(
-                    "Invalid directory", "You must select a valid directory first!"
+                    "No JPGs Found",
+                    "\nERROR!\nThe directory contains no jpgs! Please select a directory with jpgs.",
                 )
+            elif jpgs != []:
+                self.model_dict["sample_direc"] = sample_direc
+
+    @model_view.capture(clear_output=True)
+    def use_select_images_button_clicked(self, button):
+        # Prompt the user to select a directory of images     
+        file_chooser = create_file_chooser(self.load_callback,title='Select directory of images')
+        print(f"not in file chooser self.model_dict['sample_direc']: {self.model_dict['sample_direc'] }")
+        # clear row and close all widgets in self.file_row before adding new file_chooser
+        clear_row(self.file_row)
+        # add instance of file_chooser to self.file_row
+        self.file_row.children = [file_chooser]

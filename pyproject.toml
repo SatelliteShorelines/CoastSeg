@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "0.0.9"
+version = "0.0.10"
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -15,6 +15,7 @@ dependencies = [
   "coastsat-package>=0.1.0",
   "area",
   "doodleverse-utils>=0.0.16",
+  "ipyfilechooser>=0.6.0",
   "tqdm",
   "leafmap",
   "geojson",

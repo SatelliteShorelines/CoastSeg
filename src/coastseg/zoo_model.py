@@ -358,6 +358,7 @@ class Zoo_Model:
         print(f"Otsu Threshold: {use_otsu}")
         # Read in the image filenames as either .npz,.jpg, or .png
         files_to_segment = self.get_files_for_seg(sample_direc)
+        print(f"files_to_segment: {files_to_segment}")
         # Compute the segmentation for each of the files
         for file_to_seg in tqdm.auto.tqdm(files_to_segment):
             do_seg(
