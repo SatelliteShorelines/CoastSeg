@@ -22,8 +22,6 @@ def test_imports():
     from coastseg import factory
     from coastseg import map_UI
     from coastseg import UI_models
-    from coastseg import tkinter_window_creator
-    
     
 
 def test_save_config_invalid_inputs(
