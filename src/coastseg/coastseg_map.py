@@ -991,16 +991,24 @@ class CoastSeg_Map:
             new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
-    def load_feature_on_map(self, feature_name, file="", gdf=None, **kwargs) -> None:
-        # feature name can be ['shoreline','transects','bbox','ROIs']
-        # if feature name given is not one of possible features throw exception
-        # create new feature based on feature passed in and using file
+    def load_feature_on_map(self, feature_name:str, file:str="", gdf:gpd.GeoDataFrame=None, **kwargs) -> None:
+        """Loads feature of type feature_name onto the map either from a file or from a geodataframe given by gdf
 
+        if feature_name given is not one "shoreline","transects","bbox", or "rois" throw exception
+        
+        Args:
+            feature_name (str): name of feature must be one of the following
+            "shoreline","transects","bbox","rois"
+            file (str, optional): geojson file containing feature. Defaults to "".
+            gdf (gpd.GeoDataFrame, optional): geodataframe containing feature geometry. Defaults to None.
+        """        
         # if file is passed read gdf from file
         if file != "":
             gdf = common.read_gpd_file(file)
 
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
+        logger.info(f"new_feature: {new_feature}")
+        logger.info(f"feature_name: {feature_name.lower()}")
         on_hover = None
         on_click = None
         if "shoreline" in feature_name.lower():
