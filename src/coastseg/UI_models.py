@@ -6,13 +6,10 @@ import logging
 # internal python imports
 from coastseg import common
 from coastseg import zoo_model
-from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 
 # external python imports
 import ipywidgets
 from IPython.display import display
-from tkinter import filedialog
-from tkinter import messagebox
 from ipywidgets import Button
 from ipywidgets import ToggleButton
 from ipywidgets import HBox
@@ -26,6 +23,35 @@ from ipyfilechooser import FileChooser
 
 logger = logging.getLogger(__name__)
 
+def create_warning_box(title: str = None,msg: str = None):
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    # create title 
+    if title is None:
+        title = "Warning"
+    warning_title = HTML(f'<b>⚠️<u>{title}_</u></b>')
+    # create msg
+    if msg is None:
+        msg = "Something went wrong..." 
+    warning_msg = HTML(f'<b>⚠️{msg}</b>')
+    # create vertical box to hold title and msg
+    warning_content = VBox([warning_title,warning_msg])
+    # define a close button
+    close_button = ToggleButton(
+        value=False,
+        tooltip="Close Warning Box",
+        icon="times",
+        button_style="danger",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    def close_click(change):
+        if change["new"]:
+            warning_content.close()
+            close_button.close()
+
+    close_button.observe(close_click, "value")
+    warning_box = HBox([warning_content, close_button])
+    return warning_box
 
 def clear_row(row: HBox):
     """close widgets in row/column and clear all children
@@ -117,6 +143,7 @@ class UI_Models:
             ]
         )
         self.file_row = HBox([])
+        self.warning_row = HBox([])
         display(
             checkboxes,
             model_choices_box,
@@ -124,6 +151,7 @@ class UI_Models:
             self.use_data_button,
             self.use_select_images_button,
             self.line_widget,
+            self.warning_row,
             self.file_row,
             UI_Models.model_view,
             self.run_model_button,
@@ -194,7 +222,7 @@ class UI_Models:
 
         self.run_model_button = Button(description="Run Model", style=action_style)
         self.run_model_button.on_click(self.run_model_button_clicked)
-        self.use_data_button = Button(description="Use Data Button", style=load_style)
+        self.use_data_button = Button(description="Use Data", style=load_style)
         self.use_data_button.on_click(self.use_data_button_clicked)
         self.use_select_images_button = Button(
             description="Select Your Images", style=load_style
@@ -298,23 +326,17 @@ class UI_Models:
         sample_direc = common.get_jpgs_from_data()
         jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
         if jpgs == []:
-            with Tkinter_Window_Creator():
-                messagebox.showinfo(
-                    "No JPGs found",
-                    "\nERROR!\nThe directory contains no jpgs! Please select a directory with jpgs.",
-                )
+            self.launch_error_box("No JPGs Found",
+                                  "Directory contains no jpgs! Please select a directory with jpgs.")
         elif jpgs != []:
             self.model_dict["sample_direc"] = sample_direc
         print(f"\nContents of the data directory saved in {sample_direc}")
 
     @run_model_view.capture(clear_output=True)
     def run_model_button_clicked(self, button):
-        print("Called Run Model")
         if self.model_dict["sample_direc"] is None:
-            with Tkinter_Window_Creator():
-                messagebox.showinfo(
-                    "", "You must click 'Use Data' or 'Select Images' First"
-                )
+            self.launch_error_box("Cannot Run Model",
+                      "You must click 'Use Data' or 'Select Images' First")
             return
         else:
             # gets GPU or CPU depending on whether use_GPU is True
@@ -401,12 +423,11 @@ class UI_Models:
             self.run_model_button.disabled = False
             self.open_results_button.disabled = False
 
-    # @todo remove this because it uses tkinter
     @run_model_view.capture(clear_output=True)
     def open_results_button_clicked(self, button):
         """open_results_button_clicked on click handler for 'open results' button.
 
-        Opens a tkinter window that shows the model outputs in the folder.
+        prints location of model outputs
 
         Args:
             button (Button): button that was clicked
@@ -414,21 +435,19 @@ class UI_Models:
         Raises:
             FileNotFoundError: raised when the directory where the model outputs are saved does not exist
         """
-        with Tkinter_Window_Creator():
-            if self.model_dict["sample_direc"] is None:
-                messagebox.showinfo("", "You must click 'Run Model' first")
+        if self.model_dict["sample_direc"] is None:
+            self.launch_error_box("Cannot Open Results",
+                      "You must click 'Run Model' first")
+        else:
+            # path to directory containing model outputs
+            model_results_path = os.path.abspath(self.model_dict["sample_direc"])
+            if not os.path.exists(model_results_path):
+                self.launch_error_box("File Not Found",
+                        "The directory for the model outputs could not be found")
+                raise FileNotFoundError
             else:
-                # path to directory containing model outputs
-                model_results_path = os.path.abspath(self.model_dict["sample_direc"])
-                if not os.path.exists(model_results_path):
-                    messagebox.showerror(
-                        "File Not Found",
-                        "The directory for the model outputs could not be found",
-                    )
-                    raise FileNotFoundError
-                filedialog.askopenfiles(
-                    initialdir=model_results_path, title="Open Results"
-                )
+                print(f"Model outputs located at:\n{model_results_path}")
+
 
     @model_view.capture(clear_output=True)
     def load_callback(self, filechooser: FileChooser) -> None:
@@ -437,10 +456,8 @@ class UI_Models:
             print(f"The images in the folder will be segmented :\n{sample_direc} ")
             jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
             if jpgs == []:
-                messagebox.showerror(
-                    "No JPGs Found",
-                    "\nERROR!\nThe directory contains no jpgs! Please select a directory with jpgs.",
-                )
+                self.launch_error_box("File Not Found",
+                        "The directory contains no jpgs! Please select a directory with jpgs.")
             elif jpgs != []:
                 self.model_dict["sample_direc"] = sample_direc
 
@@ -450,10 +467,15 @@ class UI_Models:
         file_chooser = create_file_chooser(
             self.load_callback, title="Select directory of images"
         )
-        print(
-            f"not in file chooser self.model_dict['sample_direc']: {self.model_dict['sample_direc'] }"
-        )
         # clear row and close all widgets in self.file_row before adding new file_chooser
         clear_row(self.file_row)
         # add instance of file_chooser to self.file_row
         self.file_row.children = [file_chooser]
+
+    def launch_error_box(self,title:str=None,msg:str=None):
+        # Show user error message
+        warning_box = create_warning_box(title=title,msg=msg)
+        # clear row and close all widgets in self.file_row before adding new warning_box
+        clear_row(self.warning_row)
+        # add instance of warning_box to self.warning_row
+        self.warning_row.children = [warning_box]
