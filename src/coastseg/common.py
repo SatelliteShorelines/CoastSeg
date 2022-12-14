@@ -25,7 +25,58 @@ from leafmap import check_file_path
 from pyproj import Proj, transform
 import pandas as pd
 
+from ipywidgets import ToggleButton
+from ipywidgets import HBox
+from ipywidgets import VBox
+from ipywidgets import Layout
+from ipywidgets import HTML
+
+
 logger = logging.getLogger(__name__)
+
+
+def create_warning_box(title: str = None, msg: str = None):
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    # create title
+    if title is None:
+        title = "Warning"
+    warning_title = HTML(f"<b>⚠️<u>{title}</u></b>")
+    # create msg
+    if msg is None:
+        msg = "Something went wrong..."
+    warning_msg = HTML(
+        f"____________________________________________________________________________________________\
+                   </br>⚠️{msg}"
+    )
+    # create vertical box to hold title and msg
+    warning_content = VBox([warning_title, warning_msg])
+    # define a close button
+    close_button = ToggleButton(
+        value=False,
+        tooltip="Close Warning Box",
+        icon="times",
+        button_style="danger",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    def close_click(change):
+        if change["new"]:
+            warning_content.close()
+            close_button.close()
+
+    close_button.observe(close_click, "value")
+    warning_box = HBox([warning_content, close_button])
+    return warning_box
+
+
+def clear_row(row: HBox):
+    """close widgets in row/column and clear all children
+    Args:
+        row (HBox)(VBox): row or column
+    """
+    for index in range(len(row.children)):
+        row.children[index].close()
+    row.children = []
 
 
 def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:

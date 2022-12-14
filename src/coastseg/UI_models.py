@@ -23,47 +23,8 @@ from ipyfilechooser import FileChooser
 
 logger = logging.getLogger(__name__)
 
-def create_warning_box(title: str = None,msg: str = None):
-    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
-    # create title 
-    if title is None:
-        title = "Warning"
-    warning_title = HTML(f'<b>⚠️<u>{title}_</u></b>')
-    # create msg
-    if msg is None:
-        msg = "Something went wrong..." 
-    warning_msg = HTML(f'<b>⚠️{msg}</b>')
-    # create vertical box to hold title and msg
-    warning_content = VBox([warning_title,warning_msg])
-    # define a close button
-    close_button = ToggleButton(
-        value=False,
-        tooltip="Close Warning Box",
-        icon="times",
-        button_style="danger",
-        layout=Layout(height="28px", width="28px", padding=padding),
-    )
 
-    def close_click(change):
-        if change["new"]:
-            warning_content.close()
-            close_button.close()
-
-    close_button.observe(close_click, "value")
-    warning_box = HBox([warning_content, close_button])
-    return warning_box
-
-def clear_row(row: HBox):
-    """close widgets in row/column and clear all children
-    Args:
-        row (HBox)(VBox): row or column
-    """
-    for index in range(len(row.children)):
-        row.children[index].close()
-    row.children = []
-
-
-def create_file_chooser(callback, title: str = None):
+def create_dir_chooser(callback, title: str = None):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     data_path = os.path.join(os.getcwd(), "data")
     if os.path.exists(data_path):
@@ -71,17 +32,17 @@ def create_file_chooser(callback, title: str = None):
     else:
         data_path = os.getcwd()
     # creates a unique instance of filechooser and button to close filechooser
-    geojson_chooser = FileChooser(data_path)
-    geojson_chooser.dir_icon = os.sep
+    dir_chooser = FileChooser(data_path)
+    dir_chooser.dir_icon = os.sep
     # Switch to folder-only mode
-    geojson_chooser.show_only_dirs = True
+    dir_chooser.show_only_dirs = True
     if title is not None:
-        geojson_chooser.title = f"<b>{title}</b>"
-    geojson_chooser.register_callback(callback)
+        dir_chooser.title = f"<b>{title}</b>"
+    dir_chooser.register_callback(callback)
 
     close_button = ToggleButton(
         value=False,
-        tooltip="Close File Chooser",
+        tooltip="Close Directory Chooser",
         icon="times",
         button_style="primary",
         layout=Layout(height="28px", width="28px", padding=padding),
@@ -89,11 +50,11 @@ def create_file_chooser(callback, title: str = None):
 
     def close_click(change):
         if change["new"]:
-            geojson_chooser.close()
+            dir_chooser.close()
             close_button.close()
 
     close_button.observe(close_click, "value")
-    chooser = HBox([geojson_chooser, close_button])
+    chooser = HBox([dir_chooser, close_button])
     return chooser
 
 
@@ -173,6 +134,7 @@ class UI_Models:
             value="Disabled",
             description="Otsu Threshold:",
             disabled=False,
+            style={"description_width": "initial"},
         )
         self.otsu_radio.observe(self.handle_otsu, "value")
 
@@ -181,6 +143,7 @@ class UI_Models:
             value="Disabled",
             description="Test Time Augmentation:",
             disabled=False,
+            style={"description_width": "initial"},
         )
         self.tta_radio.observe(self.handle_tta, "value")
 
@@ -326,8 +289,10 @@ class UI_Models:
         sample_direc = common.get_jpgs_from_data()
         jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
         if jpgs == []:
-            self.launch_error_box("No JPGs Found",
-                                  "Directory contains no jpgs! Please select a directory with jpgs.")
+            self.launch_error_box(
+                "No JPGs Found",
+                "Directory contains no jpgs! Please select a directory with jpgs.",
+            )
         elif jpgs != []:
             self.model_dict["sample_direc"] = sample_direc
         print(f"\nContents of the data directory saved in {sample_direc}")
@@ -335,8 +300,9 @@ class UI_Models:
     @run_model_view.capture(clear_output=True)
     def run_model_button_clicked(self, button):
         if self.model_dict["sample_direc"] is None:
-            self.launch_error_box("Cannot Run Model",
-                      "You must click 'Use Data' or 'Select Images' First")
+            self.launch_error_box(
+                "Cannot Run Model", "You must click 'Use Data' or 'Select Images' First"
+            )
             return
         else:
             # gets GPU or CPU depending on whether use_GPU is True
@@ -436,18 +402,20 @@ class UI_Models:
             FileNotFoundError: raised when the directory where the model outputs are saved does not exist
         """
         if self.model_dict["sample_direc"] is None:
-            self.launch_error_box("Cannot Open Results",
-                      "You must click 'Run Model' first")
+            self.launch_error_box(
+                "Cannot Open Results", "You must click 'Run Model' first"
+            )
         else:
             # path to directory containing model outputs
             model_results_path = os.path.abspath(self.model_dict["sample_direc"])
             if not os.path.exists(model_results_path):
-                self.launch_error_box("File Not Found",
-                        "The directory for the model outputs could not be found")
+                self.launch_error_box(
+                    "File Not Found",
+                    "The directory for the model outputs could not be found",
+                )
                 raise FileNotFoundError
             else:
                 print(f"Model outputs located at:\n{model_results_path}")
-
 
     @model_view.capture(clear_output=True)
     def load_callback(self, filechooser: FileChooser) -> None:
@@ -456,26 +424,28 @@ class UI_Models:
             print(f"The images in the folder will be segmented :\n{sample_direc} ")
             jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
             if jpgs == []:
-                self.launch_error_box("File Not Found",
-                        "The directory contains no jpgs! Please select a directory with jpgs.")
+                self.launch_error_box(
+                    "File Not Found",
+                    "The directory contains no jpgs! Please select a directory with jpgs.",
+                )
             elif jpgs != []:
                 self.model_dict["sample_direc"] = sample_direc
 
     @model_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
         # Prompt the user to select a directory of images
-        file_chooser = create_file_chooser(
+        file_chooser = create_dir_chooser(
             self.load_callback, title="Select directory of images"
         )
         # clear row and close all widgets in self.file_row before adding new file_chooser
-        clear_row(self.file_row)
+        common.clear_row(self.file_row)
         # add instance of file_chooser to self.file_row
         self.file_row.children = [file_chooser]
 
-    def launch_error_box(self,title:str=None,msg:str=None):
+    def launch_error_box(self, title: str = None, msg: str = None):
         # Show user error message
-        warning_box = create_warning_box(title=title,msg=msg)
+        warning_box = common.create_warning_box(title=title, msg=msg)
         # clear row and close all widgets in self.file_row before adding new warning_box
-        clear_row(self.warning_row)
+        common.clear_row(self.warning_row)
         # add instance of warning_box to self.warning_row
         self.warning_row.children = [warning_box]
