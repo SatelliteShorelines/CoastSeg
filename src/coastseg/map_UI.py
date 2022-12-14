@@ -874,14 +874,14 @@ class UI:
             try:
                 if filechooser.selected:
                     if "shoreline" in btn.description.lower():
-                        print(f"Loading shoreline from file: {filechooser.selected}")
-                        self.coastseg_map.load_feature_on_map("shoreline", filechooser.selected)
+                        print(f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}")
+                        self.coastseg_map.load_feature_on_map("shoreline",os.path.abspath(filechooser.selected))
                     if "transects" in btn.description.lower():
-                        print(f"Loading transects from file: {filechooser.selected}")
-                        self.coastseg_map.load_feature_on_map("transects", filechooser.selected)
+                        print(f"Loading transects from file: {os.path.abspath(filechooser.selected)}")
+                        self.coastseg_map.load_feature_on_map("transects", os.path.abspath(filechooser.selected))
                     if "bbox" in btn.description.lower():
-                        print(f"Loading bounding box from file: {filechooser.selected}")
-                        self.coastseg_map.load_feature_on_map("bbox", filechooser.selected)
+                        print(f"Loading bounding box from file: {os.path.abspath(filechooser.selected)}")
+                        self.coastseg_map.load_feature_on_map("bbox", os.path.abspath(filechooser.selected))
             except Exception as error:
                 exception_handler.handle_exception(error) 
         # create instance of chooser that calls load_callback
