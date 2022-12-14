@@ -34,17 +34,18 @@ from ipywidgets import Checkbox
 
 logger = logging.getLogger(__name__)
 
-def create_file_chooser(callback,title:str=None):
+
+def create_file_chooser(callback, title: str = None):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # creates a unique instance of filechooser and button to close filechooser
     geojson_chooser = FileChooser(os.getcwd())
     geojson_chooser.dir_icon = os.sep
-    geojson_chooser.filter_pattern = ['*.geojson']
-    geojson_chooser.title = '<b>Select a geojson file</b>'
+    geojson_chooser.filter_pattern = ["*.geojson"]
+    geojson_chooser.title = "<b>Select a geojson file</b>"
     if title is not None:
-        geojson_chooser.title = f'<b>{title}</b>'
+        geojson_chooser.title = f"<b>{title}</b>"
     geojson_chooser.register_callback(callback)
-    
+
     close_button = ToggleButton(
         value=False,
         tooltip="Close File Chooser",
@@ -59,8 +60,9 @@ def create_file_chooser(callback,title:str=None):
             close_button.close()
 
     close_button.observe(close_click, "value")
-    chooser = HBox([geojson_chooser,close_button])
+    chooser = HBox([geojson_chooser, close_button])
     return chooser
+
 
 class UI:
     # all instances of UI will share the same debug_view
@@ -831,11 +833,11 @@ class UI:
         except Exception as error:
             exception_handler.handle_exception(error)
 
-    def clear_row(self,row:HBox):
+    def clear_row(self, row: HBox):
         """close widgets in row/column and clear all children
         Args:
             row (HBox)(VBox): row or column
-        """          
+        """
         for index in range(len(row.children)):
             row.children[index].close()
         row.children = []
@@ -843,7 +845,7 @@ class UI:
     @debug_view.capture(clear_output=True)
     def on_load_configs_clicked(self, button):
         # Prompt user to select a config geojson file
-        def load_callback(filechooser:FileChooser)->None:
+        def load_callback(filechooser: FileChooser) -> None:
             try:
                 if filechooser.selected:
                     self.coastseg_map.load_configs(filechooser.selected)
@@ -851,15 +853,15 @@ class UI:
                         self.coastseg_map.settings
                     )
             except Exception as error:
-                exception_handler.handle_exception(error) 
+                exception_handler.handle_exception(error)
+
         # create instance of chooser that calls load_callback
         file_chooser = create_file_chooser(load_callback)
         # clear row and close all widgets in row_4 before adding new file_chooser
         self.clear_row(self.row_4)
         # add instance of file_chooser to row 4
         self.row_4.children = [file_chooser]
- 
-        
+
     @debug_view.capture(clear_output=True)
     def on_save_config_clicked(self, button):
         try:
@@ -870,34 +872,46 @@ class UI:
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):
         # Prompt user to select a geojson file
-        def load_callback(filechooser:FileChooser)->None:
+        def load_callback(filechooser: FileChooser) -> None:
             try:
                 if filechooser.selected:
                     if "shoreline" in btn.description.lower():
-                        print(f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}")
-                        self.coastseg_map.load_feature_on_map("shoreline",os.path.abspath(filechooser.selected))
+                        print(
+                            f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}"
+                        )
+                        self.coastseg_map.load_feature_on_map(
+                            "shoreline", os.path.abspath(filechooser.selected)
+                        )
                     if "transects" in btn.description.lower():
-                        print(f"Loading transects from file: {os.path.abspath(filechooser.selected)}")
-                        self.coastseg_map.load_feature_on_map("transects", os.path.abspath(filechooser.selected))
+                        print(
+                            f"Loading transects from file: {os.path.abspath(filechooser.selected)}"
+                        )
+                        self.coastseg_map.load_feature_on_map(
+                            "transects", os.path.abspath(filechooser.selected)
+                        )
                     if "bbox" in btn.description.lower():
-                        print(f"Loading bounding box from file: {os.path.abspath(filechooser.selected)}")
-                        self.coastseg_map.load_feature_on_map("bbox", os.path.abspath(filechooser.selected))
+                        print(
+                            f"Loading bounding box from file: {os.path.abspath(filechooser.selected)}"
+                        )
+                        self.coastseg_map.load_feature_on_map(
+                            "bbox", os.path.abspath(filechooser.selected)
+                        )
             except Exception as error:
-                exception_handler.handle_exception(error) 
+                exception_handler.handle_exception(error)
+
         # create instance of chooser that calls load_callback
         if "shoreline" in btn.description.lower():
-            title = 'Select shoreline geojson file'
+            title = "Select shoreline geojson file"
         if "transects" in btn.description.lower():
-            title = 'Select transects geojson file'
+            title = "Select transects geojson file"
         if "bbox" in btn.description.lower():
-            title = 'Select bounding box geojson file'
+            title = "Select bounding box geojson file"
         # create instance of chooser that calls load_callback
-        file_chooser = create_file_chooser(load_callback,title=title)
+        file_chooser = create_file_chooser(load_callback, title=title)
         # clear row and close all widgets in row_4 before adding new file_chooser
         self.clear_row(self.row_4)
         # add instance of file_chooser to row 4
         self.row_4.children = [file_chooser]
-        
 
     @debug_view.capture(clear_output=True)
     def remove_feature_from_map(self, btn):

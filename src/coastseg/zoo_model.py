@@ -28,35 +28,45 @@ import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
-def get_five_band_imagery(RGB_path:str,MNDWI_path:str,NDWI_path:str,output_path:str):
-    paths = [RGB_path,MNDWI_path,NDWI_path]
+
+def get_five_band_imagery(
+    RGB_path: str, MNDWI_path: str, NDWI_path: str, output_path: str
+):
+    paths = [RGB_path, MNDWI_path, NDWI_path]
     files = []
     for data_path in paths:
-        f = sorted(glob(data_path+os.sep+'*.jpg'))
-        if len(f)<1:
-            f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
+        f = sorted(glob(data_path + os.sep + "*.jpg"))
+        if len(f) < 1:
+            f = sorted(glob(data_path + os.sep + "images" + os.sep + "*.jpg"))
         files.append(f)
 
     # number of bands x number of samples
     files = np.vstack(files).T
-    #returns path to five band imagery
-    for counter,file in enumerate(files):
-        im=[] # read all images into a list
+    # returns path to five band imagery
+    for counter, file in enumerate(files):
+        im = []  # read all images into a list
         for k in file:
             im.append(imread(k))
-        datadict={}
+        datadict = {}
         # create stack which takes care of different sized inputs
-        im=np.dstack(im)
-        datadict['arr_0'] = im.astype(np.uint8)
-        datadict['num_bands'] = im.shape[-1]
-        datadict['files'] = [file_name.split(os.sep)[-1] for file_name in file]
-        ROOT_STRING = file[0].split(os.sep)[-1].split('.')[0]
-        segfile = output_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
+        im = np.dstack(im)
+        datadict["arr_0"] = im.astype(np.uint8)
+        datadict["num_bands"] = im.shape[-1]
+        datadict["files"] = [file_name.split(os.sep)[-1] for file_name in file]
+        ROOT_STRING = file[0].split(os.sep)[-1].split(".")[0]
+        segfile = (
+            output_path
+            + os.sep
+            + ROOT_STRING
+            + "_noaug_nd_data_000000"
+            + str(counter)
+            + ".npz"
+        )
         np.savez_compressed(segfile, **datadict)
         del datadict, im
         logger.info(f"segfile: {segfile}")
     return output_path
-    
+
 
 def get_files(RGB_dir_path: str, img_dir_path: str):
     """returns matrix of files in RGB_dir_path and img_dir_path
@@ -229,7 +239,7 @@ def get_GPU(num_GPU: str) -> None:
     elif num_GPU == "1":
         print("Using single GPU")
         logger.info(f"Using 1 GPU")
-        # use first available GPU 
+        # use first available GPU
         os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     elif int(num_GPU) > 1:
         # use multiple gpus
@@ -259,8 +269,12 @@ def get_GPU(num_GPU: str) -> None:
         # if multiple GPUs are used use mirror strategy
         if int(num_GPU) > 1:
             # Create a MirroredStrategy.
-            strategy = tf.distribute.MirroredStrategy([p.name.split('/physical_device:')[-1] for p in physical_devices], cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
+            strategy = tf.distribute.MirroredStrategy(
+                [p.name.split("/physical_device:")[-1] for p in physical_devices],
+                cross_device_ops=tf.distribute.HierarchicalCopyAllReduce(),
+            )
             print(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
+
 
 def get_url_dict_to_download(models_json_dict: dict) -> dict:
     """Returns dictionary of paths to save files to download
@@ -351,8 +365,8 @@ class Zoo_Model:
         sample_direc: str,
         model_list: list,
         metadatadict: dict,
-        use_tta:bool,
-        use_otsu:bool,
+        use_tta: bool,
+        use_otsu: bool,
     ):
         print(f"Test Time Augmentation: {use_tta}")
         print(f"Otsu Threshold: {use_otsu}")
@@ -370,7 +384,7 @@ class Zoo_Model:
                 N_DATA_BANDS=self.N_DATA_BANDS,
                 TARGET_SIZE=self.TARGET_SIZE,
                 TESTTIMEAUG=use_tta,
-                WRITE_MODELMETADATA = False,
+                WRITE_MODELMETADATA=False,
                 OTSU_THRESHOLD=use_otsu,
             )
 

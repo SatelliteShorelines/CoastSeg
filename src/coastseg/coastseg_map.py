@@ -991,17 +991,19 @@ class CoastSeg_Map:
             new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
-    def load_feature_on_map(self, feature_name:str, file:str="", gdf:gpd.GeoDataFrame=None, **kwargs) -> None:
+    def load_feature_on_map(
+        self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs
+    ) -> None:
         """Loads feature of type feature_name onto the map either from a file or from a geodataframe given by gdf
 
         if feature_name given is not one "shoreline","transects","bbox", or "rois" throw exception
-        
+
         Args:
             feature_name (str): name of feature must be one of the following
             "shoreline","transects","bbox","rois"
             file (str, optional): geojson file containing feature. Defaults to "".
             gdf (gpd.GeoDataFrame, optional): geodataframe containing feature geometry. Defaults to None.
-        """        
+        """
         # if file is passed read gdf from file
         if file != "":
             gdf = common.read_gpd_file(file)

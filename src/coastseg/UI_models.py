@@ -2,6 +2,7 @@
 import os
 import glob
 import logging
+
 # internal python imports
 from coastseg import common
 from coastseg import zoo_model
@@ -25,16 +26,18 @@ from ipyfilechooser import FileChooser
 
 logger = logging.getLogger(__name__)
 
-def clear_row(row:HBox):
+
+def clear_row(row: HBox):
     """close widgets in row/column and clear all children
     Args:
         row (HBox)(VBox): row or column
-    """          
+    """
     for index in range(len(row.children)):
         row.children[index].close()
     row.children = []
 
-def create_file_chooser(callback,title:str=None):
+
+def create_file_chooser(callback, title: str = None):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     data_path = os.path.join(os.getcwd(), "data")
     if os.path.exists(data_path):
@@ -43,13 +46,13 @@ def create_file_chooser(callback,title:str=None):
         data_path = os.getcwd()
     # creates a unique instance of filechooser and button to close filechooser
     geojson_chooser = FileChooser(data_path)
-    geojson_chooser.dir_icon= os.sep
+    geojson_chooser.dir_icon = os.sep
     # Switch to folder-only mode
     geojson_chooser.show_only_dirs = True
     if title is not None:
-        geojson_chooser.title = f'<b>{title}</b>'
+        geojson_chooser.title = f"<b>{title}</b>"
     geojson_chooser.register_callback(callback)
-    
+
     close_button = ToggleButton(
         value=False,
         tooltip="Close File Chooser",
@@ -64,8 +67,9 @@ def create_file_chooser(callback,title:str=None):
             close_button.close()
 
     close_button.observe(close_click, "value")
-    chooser = HBox([geojson_chooser,close_button])
+    chooser = HBox([geojson_chooser, close_button])
     return chooser
+
 
 class UI_Models:
     # all instances of UI will share the same debug_view
@@ -79,8 +83,8 @@ class UI_Models:
             "use_GPU": "0",
             "implementation": "ENSEMBLE",
             "model_type": "s2-landsat78-4class_6950472",
-            "otsu":False,
-            "tta":False,
+            "otsu": False,
+            "tta": False,
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
@@ -100,11 +104,9 @@ class UI_Models:
 
     def create_dashboard(self):
         model_choices_box = HBox(
-            [self.model_input_dropdown, 
-            self.model_dropdown,
-            self.model_implementation]
+            [self.model_input_dropdown, self.model_dropdown, self.model_implementation]
         )
-        checkboxes = HBox([self.GPU_dropdown,self.otsu_radio,self.tta_radio])
+        checkboxes = HBox([self.GPU_dropdown, self.otsu_radio, self.tta_radio])
         instr_vbox = VBox(
             [
                 self.instr_header,
@@ -171,17 +173,17 @@ class UI_Models:
         self.model_dropdown.observe(self.handle_model_type, "value")
 
         # allow user to select number of GPUs
-        self.GPU_dropdown =ipywidgets.IntSlider(
+        self.GPU_dropdown = ipywidgets.IntSlider(
             value=0,
             min=0,
             max=5,
             step=1,
-            description='GPU(s):',
+            description="GPU(s):",
             disabled=False,
             continuous_update=False,
-            orientation='horizontal',
+            orientation="horizontal",
             readout=True,
-            readout_format='d'
+            readout_format="d",
         )
         self.GPU_dropdown.observe(self.handle_GPU_dropdown, "value")
 
@@ -252,7 +254,6 @@ class UI_Models:
     def handle_model_implementation(self, change):
         self.model_dict["implementation"] = change["new"]
 
-
     def handle_model_type(self, change):
         self.model_dict["model_type"] = change["new"]
 
@@ -262,17 +263,17 @@ class UI_Models:
         else:
             self.model_dict["use_GPU"] = str(change["new"])
 
-    def handle_otsu(self,change):
+    def handle_otsu(self, change):
         if change["new"] == "Enabled":
-            self.model_dict["otsu"]=True
+            self.model_dict["otsu"] = True
         if change["new"] == "Disabled":
-            self.model_dict["otsu"]=False
+            self.model_dict["otsu"] = False
 
-    def handle_tta(self,change):
+    def handle_tta(self, change):
         if change["new"] == "Enabled":
-            self.model_dict["tta"]=True
+            self.model_dict["tta"] = True
         if change["new"] == "Disabled":
-            self.model_dict["tta"]=False
+            self.model_dict["tta"] = False
 
     def handle_model_input_change(self, change):
         if change["new"] == "RGB":
@@ -342,35 +343,36 @@ class UI_Models:
                 RGB_path = self.model_dict["sample_direc"]
                 output_path = os.path.dirname(RGB_path)
                 # default filetype is NIR and if NDWI is selected else filetype to SWIR
-                filetype =  "NIR" if output_type == "NDWI" else "SWIR"
+                filetype = "NIR" if output_type == "NDWI" else "SWIR"
                 infrared_path = os.path.join(output_path, filetype)
                 zoo_model.RGB_to_infrared(
                     RGB_path, infrared_path, output_path, output_type
                 )
-                # newly created imagery (NDWI or MNDWI) is located at output_path 
+                # newly created imagery (NDWI or MNDWI) is located at output_path
                 output_path = os.path.join(output_path, output_type)
                 # set sample_direc to hold location of NDWI imagery
                 self.model_dict["sample_direc"] = output_path
                 print(f"Model outputs will be saved to {output_path}")
-            elif output_type in ['5 Bands']:
+            elif output_type in ["5 Bands"]:
                 RGB_path = self.model_dict["sample_direc"]
                 output_path = os.path.dirname(RGB_path)
                 NIR_path = os.path.join(output_path, "NIR")
-                NDWI_path  = zoo_model.RGB_to_infrared(
+                NDWI_path = zoo_model.RGB_to_infrared(
                     RGB_path, NIR_path, output_path, "NDWI"
                 )
                 SWIR_path = os.path.join(output_path, "SWIR")
-                MNDWI_path  = zoo_model.RGB_to_infrared(
+                MNDWI_path = zoo_model.RGB_to_infrared(
                     RGB_path, SWIR_path, output_path, "MNDWI"
                 )
-                five_band_path=os.path.join(output_path, "five_band")
+                five_band_path = os.path.join(output_path, "five_band")
                 if not os.path.exists(five_band_path):
                     os.mkdir(five_band_path)
-                five_band_path = zoo_model.get_five_band_imagery(RGB_path,MNDWI_path,NDWI_path,five_band_path)
+                five_band_path = zoo_model.get_five_band_imagery(
+                    RGB_path, MNDWI_path, NDWI_path, five_band_path
+                )
                 # set sample_direc to hold location of NDWI imagery
                 self.model_dict["sample_direc"] = five_band_path
                 print(f"Model outputs will be saved to {five_band_path}")
-
 
             # specify dataset_id to download selected model
             dataset_id = self.model_dict["model_type"]
@@ -393,13 +395,13 @@ class UI_Models:
                 model_list,
                 metadatadict,
                 use_tta,
-                use_otsu
+                use_otsu,
             )
             # Enable run and open results buttons when model has executed
             self.run_model_button.disabled = False
             self.open_results_button.disabled = False
 
-# @todo remove this because it uses tkinter
+    # @todo remove this because it uses tkinter
     @run_model_view.capture(clear_output=True)
     def open_results_button_clicked(self, button):
         """open_results_button_clicked on click handler for 'open results' button.
@@ -429,7 +431,7 @@ class UI_Models:
                 )
 
     @model_view.capture(clear_output=True)
-    def load_callback(self,filechooser:FileChooser)->None:
+    def load_callback(self, filechooser: FileChooser) -> None:
         if filechooser.selected:
             sample_direc = os.path.abspath(filechooser.selected)
             print(f"The images in the folder will be segmented :\n{sample_direc} ")
@@ -444,9 +446,13 @@ class UI_Models:
 
     @model_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
-        # Prompt the user to select a directory of images     
-        file_chooser = create_file_chooser(self.load_callback,title='Select directory of images')
-        print(f"not in file chooser self.model_dict['sample_direc']: {self.model_dict['sample_direc'] }")
+        # Prompt the user to select a directory of images
+        file_chooser = create_file_chooser(
+            self.load_callback, title="Select directory of images"
+        )
+        print(
+            f"not in file chooser self.model_dict['sample_direc']: {self.model_dict['sample_direc'] }"
+        )
         # clear row and close all widgets in self.file_row before adding new file_chooser
         clear_row(self.file_row)
         # add instance of file_chooser to self.file_row

@@ -24,7 +24,13 @@ class Factory:
         elif feature_type.lower() == "rois":
             return create_rois
 
-    def make_feature(self, coastsegmap:"CoastSeg_Map", feature_name:str, gdf:"geodataframe"=None, **kwargs)->Union(Shoreline,Transects,Bounding_Box):
+    def make_feature(
+        self,
+        coastsegmap: "CoastSeg_Map",
+        feature_name: str,
+        gdf: "geodataframe" = None,
+        **kwargs
+    ) -> Union[Shoreline, Transects, Bounding_Box]:
         """creates a feature of type feature_name from a geodataframe given by gdf or
         from scratch if no geodataframe is provided. If no geodataframe is provided and
         a bounding box exists within instance of coastsegmap the feature is created within
@@ -37,7 +43,7 @@ class Factory:
             gdf (geodataframe): geodataframe to create feature from
         Returns:
             Union(Shoreline,Transects,Bounding_Box): new feature created in coastsegmap
-        """        
+        """
         # get function to create feature based on feature requested
         feature_maker = self._get_feature_maker(feature_name)
         # create feature from geodataframe given by gdf
