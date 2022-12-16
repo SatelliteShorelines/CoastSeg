@@ -6,7 +6,6 @@ import json
 import math
 from datetime import datetime
 import logging
-
 from typing import Union
 
 # Internal dependencies imports
@@ -16,13 +15,10 @@ from tqdm.auto import tqdm
 import requests
 from area import area
 import geopandas as gpd
-from shapely import geometry
 import numpy as np
 import geojson
-from skimage.io import imread
 import matplotlib
 from leafmap import check_file_path
-from pyproj import Proj, transform
 import pandas as pd
 
 from ipywidgets import ToggleButton
