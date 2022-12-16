@@ -5,8 +5,7 @@ scikit-image
 scikit-learn
 scipy
 astropy
-jupyter
-ipython
+jupyterlab
 # cartopy
 fiona
 rtree
