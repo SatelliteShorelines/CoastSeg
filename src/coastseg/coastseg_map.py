@@ -79,9 +79,7 @@ class CoastSeg_Map:
         hover_accordion_control = self.create_accordion_widget()
         self.map.add(hover_accordion_control)
         self.warning_box = HBox([])
-        self.warning_widget = WidgetControl(
-            widget=self.warning_box, position="topright"
-        )
+        self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
         self.map.add(self.warning_widget)
 
     def create_map(self):
@@ -555,8 +553,9 @@ class CoastSeg_Map:
         exception_handler.check_selected_set(self.selected_set)
         roi_ids = list(self.selected_set)
         logger.info(f"roi_ids: {roi_ids}")
+        # ensure selected rois have been downloaded
         exception_handler.check_if_rois_downloaded(self.rois.roi_settings, roi_ids)
-
+        # ensure a bounding box exists on the map
         exception_handler.check_if_None(self.bbox, "bounding box")
         # if output_epsg is 4326 or 4327 change output_epsg to most accurate crs
         self.settings["output_epsg"] = self.get_most_accurate_epsg(
@@ -587,7 +586,7 @@ class CoastSeg_Map:
                 )
             except exceptions.Id_Not_Found as id_error:
                 logger.warning(f"exceptions.Id_Not_Found {id_error}")
-                print(f"exceptions.Id_Not_Found:{id_error}. \n Skipping to next ROI")
+                print(f"ROI with id {roi_id} was not found. \n Skipping to next ROI")
             except exceptions.No_Extracted_Shoreline as no_shoreline:
                 extracted_shoreline_dict[roi_id] = None
                 logger.warning(f"{no_shoreline}")
@@ -604,7 +603,8 @@ class CoastSeg_Map:
         self.load_extracted_shorelines_to_map(roi_ids)
 
     def get_selected_rois(self, roi_ids: list) -> gpd.GeoDataFrame:
-        """Returns a geodataframe of all rois selected by roi_ids
+        """Returns a geodataframe of all rois whose ids are in given list
+        roi_ids.
 
         Args:
             roi_ids (list[str]): ids of ROIs
@@ -796,7 +796,7 @@ class CoastSeg_Map:
                 f"{self.selected_set} was not a subset of extracted_shoreline_ids: {extracted_shoreline_ids}"
             )
             raise Exception(
-                f"You must select an ROI and extract it shorelines before you can compute transects"
+                f"You must select an ROI and extract its shorelines before you can compute transects"
             )
         # save cross distances for transects and extracted shorelines to csv file
         # each csv file is saved to ROI directory
@@ -1044,6 +1044,7 @@ class CoastSeg_Map:
         if "rois" in feature_name.lower():
             on_hover = self.update_roi_html
             on_click = self.geojson_onclick_handler
+        # bounding box does not have any hover/click handlers
         # load new feature on map
         layer_name = new_feature.LAYER_NAME
         self.load_on_map(new_feature, layer_name, on_hover, on_click)
