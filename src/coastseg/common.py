@@ -27,8 +27,70 @@ from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import HTML
 
+# widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 logger = logging.getLogger(__name__)
+
+def create_hover_box(title:str,feature_html: HTML=None):
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    # create title
+    title = HTML(f"  <h2>{title} Hover  </h2>")
+    # Default message shown when nothing has been hovered
+    msg = HTML(
+        f"Hover over a feature</br>"
+    )
+    # message tells user that data is available on hover
+    if feature_html.value != "":
+        msg = HTML(
+            f"Hover Data Available</br>"
+        )
+
+    # open button allows user to see hover data
+    uncollapse_button = ToggleButton(
+        value=False,
+        tooltip="Show hover data",
+        icon="angle-down",
+        button_style="info",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    # collapse_button collapses hover data
+    collapse_button = ToggleButton(
+        value=False,
+        tooltip="Show hover data",
+        icon="angle-up",
+        button_style="info",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    #default configuration for container is in collapsed mode
+    container_header=HBox([title,uncollapse_button])
+    container_content = VBox([msg])
+    container = VBox([container_header,container_content])
+
+    # restore default content and hide hover data
+    def collapse(container_content,change):
+        if change["new"]:
+            container_header.children=[title,uncollapse_button]
+            container_content.children =[msg]
+    def uncollapse(container_content,change):
+        if change["new"]:
+            container_header.children=[title,collapse_button]
+            if feature_html.value == "":
+                container_content.children = [msg]
+            elif feature_html.value != "":
+                container_content.children = [feature_html]
+
+    def button_callback(func,*args):
+        logger.info(f"*args {args} ")
+        def callback(value):
+            func(*args,value)
+            # this calls collapse(container_content,value)
+        return callback
+
+    collapse_button.observe(button_callback(collapse,container_content),"value")
+    uncollapse_button.observe(button_callback(uncollapse,container_content),"value")
+    return container
 
 
 def create_warning_box(title: str = None, msg: str = None):

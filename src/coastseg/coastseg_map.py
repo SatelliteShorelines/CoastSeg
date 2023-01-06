@@ -22,7 +22,7 @@ from coastsat import (
 import geopandas as gpd
 from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
-from ipywidgets import Layout, HTML, Accordion
+from ipywidgets import Layout, HTML
 from tqdm.auto import tqdm
 from ipywidgets import HBox
 
@@ -76,11 +76,20 @@ class CoastSeg_Map:
         self.map.add(self.draw_control)
         layer_control = LayersControl(position="topright")
         self.map.add(layer_control)
-        hover_accordion_control = self.create_accordion_widget()
-        self.map.add(hover_accordion_control)
+        # warning box shows errors to the user on the map
         self.warning_box = HBox([])
         self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
         self.map.add(self.warning_widget)
+        # ROI box shows ROI data on hover
+        self.roi_html = HTML("""""")
+        self.roi_box = common.create_hover_box(title="ROI",feature_html = self.roi_html)
+        self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
+        self.map.add(self.roi_widget)
+        # hover box shows hover data for transects and shorelines on hover
+        self.feature_html =  HTML("""""")
+        self.hover_box = common.create_hover_box(title="Feauture",feature_html =self.feature_html)
+        self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
+        self.map.add(self.hover_widget)
 
     def create_map(self):
         """create an interactive map object using the map_settings
@@ -106,22 +115,6 @@ class CoastSeg_Map:
             layout=map_settings["Layout"],
         )
 
-    def create_accordion_widget(self):
-        """creates a accordion style widget controller to hold data of
-        a feature that was last hovered over by user on map.
-        Returns:
-           ipyleaflet.WidgetControl: an widget control for an accordion widget
-        """
-        html = HTML("Hover over a feature on the map")
-        roi_html = HTML("Hover over a ROI on the map")
-        roi_html.layout.margin = "0px 20px 20px 20px"
-        html.layout.margin = "0px 20px 20px 20px"
-        self.accordion = Accordion(
-            children=[html, roi_html], titles=("Features Data", "ROI Data")
-        )
-        self.accordion.set_title(0, "Hover Data")
-        self.accordion.set_title(1, "ROI Data")
-        return WidgetControl(widget=self.accordion, position="topright")
 
     def load_configs(self, filepath: str) -> None:
         """Loads features from geojson config file onto map and loads
@@ -379,19 +372,16 @@ class CoastSeg_Map:
         logger.info(f"Settings: {self.settings}")
 
     def update_transects_html(self, feature, **kwargs):
-        # Modifies html of accordion when transect is hovered over
-        default = "unknown"
+        # Modifies html when transect is hovered over
         keys = [
             "id",
             "slope",
         ]
         # returns a dict with keys in keys and if a key does not exist in feature its value is default str
         values = common.get_default_dict(
-            default=default, keys=keys, fill_dict=feature["properties"]
+            default="unknown", keys=keys, fill_dict=feature["properties"]
         )
-        self.accordion.children[
-            0
-        ].value = """ 
+        self.feature_html.value = """ 
         <h2>Transect</h2>
         <p>Id: {}</p>
         <p>Slope: {}</p>
@@ -401,7 +391,7 @@ class CoastSeg_Map:
         )
 
     def update_extracted_shoreline_html(self, feature, **kwargs):
-        # Modifies html body of accordion when extracted shoreline is hovered over
+        # Modifies html when extracted shoreline is hovered over
         default = "unknown"
         keys = [
             "date",
@@ -410,13 +400,11 @@ class CoastSeg_Map:
             "satname",
         ]
         # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        logger.info(f"feature: {feature}")
+        logger.info(f"Hovered feature: {feature}")
         values = common.get_default_dict(
             default=default, keys=keys, fill_dict=feature["properties"]
         )
-        self.accordion.children[
-            0
-        ].value = """
+        self.feature_html.value = """
         <h2>Extracted Shoreline</h2>
         <p>Date: {}</p>
         <p>Geoaccuracy: {}</p>
@@ -430,7 +418,7 @@ class CoastSeg_Map:
         )
 
     def update_roi_html(self, feature, **kwargs):
-        # Modifies html of accordion when roi is hovered over
+        # Modifies html when roi is hovered over
         default = "unknown"
         keys = [
             "id",
@@ -439,20 +427,20 @@ class CoastSeg_Map:
         values = common.get_default_dict(
             default=default, keys=keys, fill_dict=feature["properties"]
         )
-        logger.info(f"ROI feature: {feature}")
-        roi_area = common.get_area(feature["geometry"])
-        self.accordion.children[
-            1
-        ].value = """ 
+        logger.info(f"Hovered over ROI: {feature}")
+        # convert roi area m^2 to km^2
+        roi_area = common.get_area(feature["geometry"])*10**-6
+        roi_area = round(roi_area,4)
+        self.roi_html.value=""" 
         <h2>ROI</h2>
         <p>Id: {}</p>
-        <p>Area(m²): {}</p>
+        <p>Area(km²): {}</p>
         """.format(
             values["id"], roi_area
         )
 
     def update_shoreline_html(self, feature, **kwargs):
-        # Modifies html of accordion when shoreline is hovered over
+        # Modifies html when shoreline is hovered over
         default_str = "unknown"
         keys = [
             "MEAN_SIG_WAVEHEIGHT",
@@ -468,9 +456,7 @@ class CoastSeg_Map:
         values = common.get_default_dict(
             default=default_str, keys=keys, fill_dict=feature["properties"]
         )
-        self.accordion.children[
-            0
-        ].value = """
+        self.feature_html.value = """
         <h2>Shoreline</h2>
         <p>Mean Sig Waveheight: {}</p>
         <p>Tidal Range: {}</p>
@@ -867,7 +853,6 @@ class CoastSeg_Map:
         self.remove_shoreline()
         self.remove_transects()
         self.remove_all_rois()
-        self.remove_accordion_html()
         self.remove_layer_by_name("geodataframe")
         self.remove_extracted_shorelines()
 
@@ -894,10 +879,6 @@ class CoastSeg_Map:
             self.map.remove_layer(existing_layer)
         logger.info(f"Removed layer {layer_name}")
 
-    def remove_accordion_html(self):
-        """Clear the shoreline html accordion"""
-        self.accordion.children[0].value = "Hover over a feature on the map."
-        self.accordion.children[1].value = "Hover over a ROI on the map."
 
     def remove_shoreline(self):
         del self.shoreline

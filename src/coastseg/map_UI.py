@@ -9,11 +9,10 @@ from coastseg import common
 
 # external python imports
 import ipywidgets
-from IPython.display import display, clear_output
+from IPython.display import display
 from ipyfilechooser import FileChooser
 
 from google.auth import exceptions as google_auth_exceptions
-from ipywidgets import Accordion
 from ipywidgets import Button
 from ipywidgets import ToggleButton
 from ipywidgets import HBox
@@ -179,7 +178,7 @@ class UI:
         self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
         self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
 
-    def get_view_settings_accordion(self) -> Accordion:
+    def get_view_settings_vbox(self) -> VBox:
         # update settings button
         update_settings_btn = Button(
             description="Update Settings", style=self.action_style
@@ -188,11 +187,9 @@ class UI:
         self.settings_html = HTML()
         self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
         view_settings_vbox = VBox([self.settings_html, update_settings_btn])
-        html_settings_accordion = Accordion(children=[view_settings_vbox])
-        html_settings_accordion.set_title(0, "View Settings")
-        return html_settings_accordion
+        return view_settings_vbox
 
-    def get_settings_accordion(self):
+    def get_settings_section(self):
         # declare settings widgets
         dates_vbox = self.get_dates_picker()
         satellite_radio = self.get_satellite_radio()
@@ -209,7 +206,7 @@ class UI:
         settings_button.on_click(self.save_settings_clicked)
         self.output_epsg_text = Text(value="4326", description="Output epsg:")
 
-        # create settings accordion
+        # create settings vbox
         settings_vbox = VBox(
             [
                 dates_vbox,
@@ -226,9 +223,7 @@ class UI:
                 settings_button,
             ]
         )
-        settings_accordion = Accordion(children=[settings_vbox])
-        settings_accordion.set_title(0, "Settings")
-        return settings_accordion
+        return settings_vbox
 
     def get_dates_picker(self):
         # Date Widgets
@@ -512,7 +507,7 @@ class UI:
         self,
         settings: dict,
     ):
-        # Modifies html of accordion when transect is hovered over
+        # updates settings html with currently loaded settings
         default = "unknown"
         keys = [
             "cloud_thresh",
@@ -612,8 +607,8 @@ class UI:
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
-        # create settings accordion
-        settings_accordion = self.get_settings_accordion()
+        # create settings section
+        settings_section = self.get_settings_section()
         # Buttons to load shoreline or transects in bbox on map
         load_buttons = self.load_feature_on_map_buttons()
         remove_buttons = self.remove_buttons()
@@ -656,10 +651,10 @@ class UI:
             layout=Layout(margin="0px 5px 5px 0px"),
         )
 
-        # view settings accordion
-        html_settings_accordion = self.get_view_settings_accordion()
+        # view currently loaded settings
+        static_settings_html = self.get_view_settings_vbox()
 
-        row_0 = HBox([settings_accordion, html_settings_accordion])
+        row_0 = HBox([settings_section, static_settings_html])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         # in this row prints are rendered with UI.debug_view
         row_3 = HBox([self.clear_debug_button, UI.debug_view])
@@ -687,7 +682,7 @@ class UI:
     @debug_view.capture(clear_output=True)
     def update_settings_btn_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
-        # Update settings in view settings accordion
+        # Update settings in view settings section
         try:
             self.settings_html.value = self.get_settings_html(
                 self.coastseg_map.settings
@@ -822,7 +817,7 @@ class UI:
         except google_auth_exceptions.RefreshError as exception:
             print(exception)
             exception_handler.handle_exception(
-                error,
+                exception,
                 self.coastseg_map.warning_box,
                 title="Authentication Error",
                 msg="Please authenticate with Google using the cell above: \n Authenticate and Initialize with Google Earth Engine (GEE)",
