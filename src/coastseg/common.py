@@ -31,6 +31,32 @@ from ipywidgets import HTML
 
 logger = logging.getLogger(__name__)
 
+def create_directory_in_google_drive(path,name)->str:
+    new_path=os.path.join(path,name)
+    if os.path.exists(path):
+        if not os.path.isdir(new_path):
+            os.mkdir(new_path)      
+    return new_path
+
+def get_download_path(root_dir=None):
+    download_path = os.path.join(os.getcwd(),'data')
+    if is_in_google_colab():
+        # you must mount drive and get root directory first
+        download_path = create_directory_in_google_drive(root_dir,"CoastSeg")
+        return download_path
+    else: 
+        # not running in google colab
+        return download_path
+
+def is_in_google_colab()->bool:
+    """
+    Returns True if the code is running in Google Colab, False otherwise.
+    """
+    if os.getenv("COLAB_RELEASE_TAG"):
+        return True
+    else:
+        return False
+
 def create_hover_box(title:str,feature_html: HTML=None):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # create title
