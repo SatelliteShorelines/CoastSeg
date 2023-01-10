@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class ROI:
-    """Roi (Region of Interest) a square where data can be downloaded from"""
+    """ A class that controls all the ROIs on the map """
 
     LAYER_NAME = "ROIs"
     SELECTED_LAYER_NAME = "Selected ROIs"
