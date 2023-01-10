@@ -2,6 +2,7 @@
 import os
 import datetime
 import logging
+from typing import Callable
 
 # internal python imports
 from coastseg import exception_handler
@@ -21,6 +22,7 @@ from ipywidgets import Layout
 from ipywidgets import DatePicker
 from ipywidgets import HTML
 from ipywidgets import RadioButtons
+from ipywidgets import BoundedFloatText
 from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
@@ -29,7 +31,20 @@ from ipywidgets import Output
 logger = logging.getLogger(__name__)
 
 
-def create_file_chooser(callback, title: str = None):
+def create_file_chooser(callback: Callable[[FileChooser], None], title: str = None):
+    """
+    This function creates a file chooser and a button to close the file chooser.
+    It takes a callback function and an optional title as arguments.
+    It only searches for .geojson files.
+
+    Args:
+        callback (Callable[[FileChooser],None]): A callback function that which is called
+        when a file is selected.
+        title (str): Optional title for the file chooser.
+
+    Returns:
+        chooser (HBox): A HBox containing the file chooser and close button.
+    """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # creates a unique instance of filechooser and button to close filechooser
     geojson_chooser = FileChooser(os.getcwd())
@@ -38,6 +53,7 @@ def create_file_chooser(callback, title: str = None):
     geojson_chooser.title = "<b>Select a geojson file</b>"
     if title is not None:
         geojson_chooser.title = f"<b>{title}</b>"
+    # callback function is called when a file is selected
     geojson_chooser.register_callback(callback)
 
     close_button = ToggleButton(
@@ -76,18 +92,13 @@ class UI:
         self.save_style = dict(button_color="#50bf8f")
         self.clear_stlye = dict(button_color="#a3adac")
 
-        # Controls size of ROIs generated on map
-        small_roi_size = 3500
-        large_roi_size = 4000
-        self.fishnet_sizes = {"small": small_roi_size, "large": large_roi_size}
-
         # buttons to load configuration files
         self.load_configs_button = Button(
-            description="Load Config", style=self.load_style
+            description="Load Config", icon="fa-files-o", style=self.load_style
         )
         self.load_configs_button.on_click(self.on_load_configs_clicked)
         self.save_config_button = Button(
-            description="Save Config", style=self.save_style
+            description="Save Config", icon="fa-floppy-o", style=self.save_style
         )
         self.save_config_button.on_click(self.on_save_config_clicked)
 
@@ -105,7 +116,9 @@ class UI:
             disabled=False,
         )
         self.load_file_button = Button(
-            description=f"Load {self.load_file_radio.value} file", style=self.load_style
+            description=f"Load {self.load_file_radio.value} file",
+            icon="fa-file-o",
+            style=self.load_style,
         )
         self.load_file_button.on_click(self.load_feature_from_file)
 
@@ -115,10 +128,12 @@ class UI:
         self.load_file_radio.observe(change_load_file_btn_name, "value")
 
         # Generate buttons
-        self.gen_button = Button(description="Generate ROI", style=self.action_style)
+        self.gen_button = Button(
+            description="Generate ROI", icon="fa-globe", style=self.action_style
+        )
         self.gen_button.on_click(self.gen_roi_clicked)
         self.download_button = Button(
-            description="Download Imagery", style=self.action_style
+            description="Download Imagery", icon="fa-download", style=self.action_style
         )
         self.download_button.on_click(self.download_button_clicked)
         self.extract_shorelines_button = Button(
@@ -143,45 +158,74 @@ class UI:
 
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
-        self.roi_slider_instr = HTML(value="<b>Choose Side Length of ROIs</b>")
-        # define slider widgets that control ROI size
-        self.slider_style = {"description_width": "initial"}
-        self.small_fishnet_slider = ipywidgets.IntSlider(
-            value=small_roi_size,
+        self.roi_slider_instr = HTML(value="<b>Choose Area of ROIs</b>")
+        # controls the ROI units displayed
+        self.units_radio = RadioButtons(
+            options=["m²", "km²"],
+            value="m²",
+            description="Select Units:",
+            disabled=False,
+        )
+        # create two float text boxes that will control size of ROI created
+        self.sm_area_textbox = BoundedFloatText(
+            value=40000,
             min=0,
-            max=10000,
-            step=100,
-            description="Small ROI Length(m)",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
+            max=980000000,
+            step=1000,
+            description=f"Small ROI Area(m²):",
             style={"description_width": "initial"},
+            disabled=False,
+        )
+        self.lg_area_textbox = BoundedFloatText(
+            value=60000,
+            min=0,
+            max=980000000,
+            step=1000,
+            description=f"Large ROI Area(m²):",
+            style={"description_width": "initial"},
+            disabled=False,
         )
 
-        self.large_fishnet_slider = ipywidgets.IntSlider(
-            value=large_roi_size,
-            min=1000,
-            max=10000,
-            step=100,
-            description="Large ROI Length(m)",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
-            style={"description_width": "initial"},
-        )
+        # called when unit radio button is clicked
+        def units_radio_changed(change):
+            """
+            Change the maximum area allowed and the description of the small and large ROI area
+            textboxes when the units radio is changed. When the units for area is m² the max ROI area size
+            is 980000000 and when the units for area is m² max ROI area size
+            is 98.
 
-        # widget handlers
-        self.small_fishnet_slider.observe(self.handle_small_slider_change, "value")
-        self.large_fishnet_slider.observe(self.handle_large_slider_change, "value")
+            Parameters:
+            change (dict): event dictionary fired by clicking the units_radio button
+            """
+            try:
+                MAX_AREA = 980000000
+                # index 0: m², 1:km²
+                index = change["old"]["index"]
+                # change to index 0 m²
+                if index == 0:
+                    MAX_AREA = 980000000
+                    # change to index 1 m²
+                elif index == 1:
+                    MAX_AREA = 98
+                print(MAX_AREA)
+                self.sm_area_textbox.max = MAX_AREA
+                self.lg_area_textbox.max = MAX_AREA
+                self.sm_area_textbox.description = (
+                    f"Small ROI Area({self.units_radio.value}):"
+                )
+                self.lg_area_textbox.description = (
+                    f"Large ROI Area({self.units_radio.value}):"
+                )
+            except Exception as e:
+                print(e)
+
+        # when units radio button is clicked updated units for area textboxes
+        self.units_radio.observe(units_radio_changed)
 
     def get_view_settings_vbox(self) -> VBox:
         # update settings button
         update_settings_btn = Button(
-            description="Update Settings", style=self.action_style
+            description="Refresh Settings", icon="fa-refresh", style=self.action_style
         )
         update_settings_btn.on_click(self.update_settings_btn_clicked)
         self.settings_html = HTML()
@@ -202,7 +246,9 @@ class UI:
         pansharpen_toggle = self.get_pansharpen_toggle()
         cloud_theshold_slider = self.get_cloud_threshold_slider()
 
-        settings_button = Button(description="Save Settings", style=self.action_style)
+        settings_button = Button(
+            description="Save Settings", icon="fa-floppy-o", style=self.action_style
+        )
         settings_button.on_click(self.save_settings_clicked)
         self.output_epsg_text = Text(value="4326", description="Output epsg:")
 
@@ -427,7 +473,9 @@ class UI:
         )
 
         self.save_button = Button(
-            description=f"Save {self.save_radio.value} to file", style=self.save_style
+            description=f"Save {self.save_radio.value}",
+            icon="fa-floppy-o",
+            style=self.save_style,
         )
         self.save_button.on_click(self.save_to_file_btn_clicked)
 
@@ -454,7 +502,9 @@ class UI:
             disabled=False,
         )
         self.load_button = Button(
-            description=f"Load {self.load_radio.value}", style=self.load_style
+            description=f"Load {self.load_radio.value}",
+            icon="fa-file-o",
+            style=self.load_style,
         )
         self.load_button.on_click(self.load_button_clicked)
 
@@ -479,7 +529,9 @@ class UI:
             disabled=False,
         )
         self.remove_button = Button(
-            description=f"Remove {self.remove_radio.value}", style=self.remove_style
+            description=f"Remove {self.remove_radio.value}",
+            icon="fa-ban",
+            style=self.remove_style,
         )
 
         def handle_remove_radio_change(change):
@@ -489,7 +541,7 @@ class UI:
         self.remove_radio.observe(handle_remove_radio_change, "value")
         # define remove all button
         self.remove_all_button = Button(
-            description="Remove all", style=self.remove_style
+            description="Remove all", icon="fa-trash-o", style=self.remove_style
         )
         self.remove_all_button.on_click(self.remove_all_from_map)
 
@@ -569,14 +621,12 @@ class UI:
         """
         self.instr_create_roi = HTML(
             value="<h2><b>Generate ROIs on Map</b></h2> \
-                Use the sliders to control the side length of the ROIs created on the map.\
-                </br><b>No Overlap</b>: Set small slider to 0 and large slider to ROI size.</li>\
-                </br><b>Overlap</b>: Set small slider to a value and large slider to ROI size.</li>\
+                </br><b>No Overlap</b>: Set Small ROI Area to 0 and Large ROI Area to ROI area.</li>\
+                </br><b>Overlap</b>: Set Small ROI Area to a value and Large ROI Area to ROI area.</li>\
                 </br><h3><b><u>How ROIs are Made</u></b></br></h3> \
                 <li>Two grids of ROIs (squares) are created within\
                 </br>the bounding box along the shoreline.\
                 <li>If no shoreline is within the bounding box then ROIs cannot be created.\
-                <li>The slider controls the side length of each ROI.\
                 ",
             layout=Layout(margin="0px 5px 0px 0px"),
         )
@@ -638,46 +688,41 @@ class UI:
             ]
         )
 
-        slider_v_box = VBox(
+        area_control_box = VBox(
             [
                 self.roi_slider_instr,
-                self.small_fishnet_slider,
-                self.large_fishnet_slider,
+                self.units_radio,
+                self.sm_area_textbox,
+                self.lg_area_textbox,
             ]
         )
-        slider_btn_box = VBox([slider_v_box, self.gen_button])
+        ROI_btns_box = VBox([area_control_box, self.gen_button])
         roi_controls_box = VBox(
-            [self.instr_create_roi, slider_btn_box, load_buttons],
+            [self.instr_create_roi, ROI_btns_box, load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
         )
 
         # view currently loaded settings
         static_settings_html = self.get_view_settings_vbox()
 
-        row_0 = HBox([settings_section, static_settings_html])
+        settings_row = HBox([settings_section, static_settings_html])
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         # in this row prints are rendered with UI.debug_view
-        row_3 = HBox([self.clear_debug_button, UI.debug_view])
+        row_2 = HBox([self.clear_debug_button, UI.debug_view])
         self.error_row = HBox([])
-        self.row_4 = HBox([])
-        row_5 = HBox([self.coastseg_map.map])
-        row_6 = HBox([UI.download_view])
+        self.file_chooser_row = HBox([])
+        map_row = HBox([self.coastseg_map.map])
+        download_msgs_row = HBox([UI.download_view])
 
         return display(
-            row_0,
+            settings_row,
             row_1,
-            row_3,
+            row_2,
             self.error_row,
-            self.row_4,
-            row_5,
-            row_6,
+            self.file_chooser_row,
+            download_msgs_row,
+            map_row,
         )
-
-    def handle_small_slider_change(self, change):
-        self.fishnet_sizes["small"] = change["new"]
-
-    def handle_large_slider_change(self, change):
-        self.fishnet_sizes["large"] = change["new"]
 
     @debug_view.capture(clear_output=True)
     def update_settings_btn_clicked(self, btn):
@@ -701,8 +746,9 @@ class UI:
             print("Generating ROIs please wait...")
             self.coastseg_map.load_feature_on_map(
                 "rois",
-                large_len=self.fishnet_sizes["large"],
-                small_len=self.fishnet_sizes["small"],
+                lg_area=self.lg_area_textbox.value,
+                sm_area=self.sm_area_textbox.value,
+                units=self.units_radio.value,
             )
         except Exception as error:
             print("ROIs could not be generated")
@@ -803,8 +849,8 @@ class UI:
 
     @download_view.capture(clear_output=True)
     def download_button_clicked(self, btn):
-        UI.download_view.clear_output()
-        UI.debug_view.clear_output()
+        # UI.download_view.clear_output()
+        # UI.debug_view.clear_output()
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         UI.debug_view.append_stdout("Scroll down past map to see download progress.")
         try:
@@ -860,9 +906,9 @@ class UI:
         # create instance of chooser that calls load_callback
         file_chooser = create_file_chooser(load_callback)
         # clear row and close all widgets in row_4 before adding new file_chooser
-        self.clear_row(self.row_4)
+        self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4
-        self.row_4.children = [file_chooser]
+        self.file_chooser_row.children = [file_chooser]
 
     @debug_view.capture(clear_output=True)
     def on_save_config_clicked(self, button):
@@ -924,9 +970,9 @@ class UI:
         # create instance of chooser that calls load_callback
         file_chooser = create_file_chooser(load_callback, title=title)
         # clear row and close all widgets in row_4 before adding new file_chooser
-        self.clear_row(self.row_4)
+        self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4
-        self.row_4.children = [file_chooser]
+        self.file_chooser_row.children = [file_chooser]
 
     @debug_view.capture(clear_output=True)
     def remove_feature_from_map(self, btn):

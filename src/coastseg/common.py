@@ -31,24 +31,29 @@ from ipywidgets import HTML
 
 logger = logging.getLogger(__name__)
 
-def create_directory_in_google_drive(path,name)->str:
-    new_path=os.path.join(path,name)
+
+def create_directory_in_google_drive(path: str, name: str) -> str:
+    """
+    Creates a new directory with the provided name in the given path.
+    Raises FileNotFoundError if the given path does not exist.
+
+    Parameters:
+    path (str): path to the directory where the new directory will be created
+    name (str): name of the new directory
+
+    Returns:
+    new_path (str): path to the newly created directory
+    """
+    new_path = os.path.join(path, name)
     if os.path.exists(path):
         if not os.path.isdir(new_path):
-            os.mkdir(new_path)      
+            os.mkdir(new_path)
+    else:
+        raise FileNotFoundError(new_path)
     return new_path
 
-def get_download_path(root_dir=None):
-    download_path = os.path.join(os.getcwd(),'data')
-    if is_in_google_colab():
-        # you must mount drive and get root directory first
-        download_path = create_directory_in_google_drive(root_dir,"CoastSeg")
-        return download_path
-    else: 
-        # not running in google colab
-        return download_path
 
-def is_in_google_colab()->bool:
+def is_in_google_colab() -> bool:
     """
     Returns True if the code is running in Google Colab, False otherwise.
     """
@@ -57,19 +62,57 @@ def is_in_google_colab()->bool:
     else:
         return False
 
-def create_hover_box(title:str,feature_html: HTML=None):
+
+def mount_google_drive(name: str = "CoastSeg") -> None:
+    """
+    If the user is running in Google Colab, the Google Drive will be mounted to the root directory
+    "/content/drive/MyDrive" and a new directory will be created with the provided name.
+
+    Parameters:
+    name (str): The name of the directory to be created. Default is 'CoastSeg'.
+
+    Returns:
+    None
+    """
+    if is_in_google_colab():
+        from google.colab import drive
+
+        # default location google drive is mounted to
+        root_dir = "/content/drive/MyDrive"
+        # mount google drive to default home directory
+        drive.mount("/content/drive", force_remount=True)
+        # create directory with provided name in google drive
+        new_path = create_directory_in_google_drive(root_dir, name)
+        # change working directory to directory with name
+        os.chdir(new_path)
+    else:
+        print("Not running in Google Colab.")
+
+
+def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
+    """
+    Creates a box with a title and optional HTML containing information about the feature that was
+    last hovered over.
+    The hover box has two buttons, an 'uncollapse' and 'collapse' button.
+    The 'uncollapse' button opens the hover box to reveal details about the feature that was
+    last hovered over, whereas the 'collapse' button hides the feature_html and just shows the default messages of
+    'Hover over a feature' or 'Hover Data Available'.
+
+    Parameters:
+    title (str): The title of the hover box
+    feature_html (HTML, optional): HTML of the feature to be displayed in the hover box
+
+    Returns:
+    container (VBox): Box with the given title and details about the feature given by feature_html
+    """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # create title
     title = HTML(f"  <h2>{title} Hover  </h2>")
     # Default message shown when nothing has been hovered
-    msg = HTML(
-        f"Hover over a feature</br>"
-    )
+    msg = HTML(f"Hover over a feature</br>")
     # message tells user that data is available on hover
     if feature_html.value != "":
-        msg = HTML(
-            f"Hover Data Available</br>"
-        )
+        msg = HTML(f"Hover Data Available</br>")
 
     # open button allows user to see hover data
     uncollapse_button = ToggleButton(
@@ -89,37 +132,48 @@ def create_hover_box(title:str,feature_html: HTML=None):
         layout=Layout(height="28px", width="28px", padding=padding),
     )
 
-    #default configuration for container is in collapsed mode
-    container_header=HBox([title,uncollapse_button])
+    # default configuration for container is in collapsed mode
+    container_header = HBox([title, uncollapse_button])
     container_content = VBox([msg])
-    container = VBox([container_header,container_content])
+    container = VBox([container_header, container_content])
 
     # restore default content and hide hover data
-    def collapse(container_content,change):
+    def collapse(container_content, change):
         if change["new"]:
-            container_header.children=[title,uncollapse_button]
-            container_content.children =[msg]
-    def uncollapse(container_content,change):
+            container_header.children = [title, uncollapse_button]
+            container_content.children = [msg]
+
+    def uncollapse(container_content, change):
         if change["new"]:
-            container_header.children=[title,collapse_button]
+            container_header.children = [title, collapse_button]
             if feature_html.value == "":
                 container_content.children = [msg]
             elif feature_html.value != "":
                 container_content.children = [feature_html]
 
-    def button_callback(func,*args):
-        logger.info(f"*args {args} ")
+    def button_callback(func, *args):
         def callback(value):
-            func(*args,value)
+            func(*args, value)
             # this calls collapse(container_content,value)
+
         return callback
 
-    collapse_button.observe(button_callback(collapse,container_content),"value")
-    uncollapse_button.observe(button_callback(uncollapse,container_content),"value")
+    collapse_button.observe(button_callback(collapse, container_content), "value")
+    uncollapse_button.observe(button_callback(uncollapse, container_content), "value")
     return container
 
 
-def create_warning_box(title: str = None, msg: str = None):
+def create_warning_box(title: str = None, msg: str = None) -> HBox:
+    """
+    Creates a warning box with a title and message that can be closed with a close button.
+
+    Parameters:
+    title (str, optional): The title of the warning box. Default is 'Warning'.
+    msg (str, optional): The message of the warning box. Default is 'Something went wrong...'.
+
+    Returns:
+    HBox: The warning box containing the title, message and close button.
+    """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # create title
     if title is None:
