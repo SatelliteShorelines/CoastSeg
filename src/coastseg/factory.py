@@ -3,12 +3,9 @@ from math import sqrt
 from typing import Union
 
 from coastseg.bbox import Bounding_Box
-from coastseg import common
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
-from coastseg import exceptions
-from coastseg import extracted_shoreline
 from coastseg import exception_handler
 
 logger = logging.getLogger(__name__)

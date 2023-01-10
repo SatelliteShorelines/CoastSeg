@@ -2,6 +2,24 @@ import pytest
 from coastseg import extracted_shoreline
 import geopandas as gpd
 
+def test_is_list_empty():
+    # empty list to test if it detects it as empty
+    empty_list = [np.ndarray(shape=(0)),np.ndarray(shape=(0))]
+    assert extracted_shoreline.is_list_empty(empty_list) == True
+    # half empty list to test if it detects it as not empty
+    non_empty_list = [np.ndarray(shape=(1,2)),np.ndarray(shape=(0))]
+    assert extracted_shoreline.is_list_empty(non_empty_list) == False
+    # full list to test if it detects it as not empty
+    non_empty_list = [np.ndarray(shape=(2)),np.ndarray(shape=(2))]
+    assert extracted_shoreline.is_list_empty(non_empty_list) == False
+
+
+def test_get_colors():
+    length = 4
+    actual_list = extracted_shoreline.get_colors(length)
+    assert len(actual_list) == length
+    assert isinstance(actual_list,list)
+    assert isinstance(actual_list[0],str)
 
 def test_init_invalid_inputs(valid_roi_settings, valid_shoreline_gdf, valid_settings):
     # Test initialize Extracted_Shoreline with invalid ROI id

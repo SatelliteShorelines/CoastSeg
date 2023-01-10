@@ -17,7 +17,6 @@ from area import area
 import geopandas as gpd
 import numpy as np
 import geojson
-import matplotlib
 from leafmap import check_file_path
 import pandas as pd
 
@@ -262,14 +261,6 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                     pbar.update(len(chunk))
 
 
-def is_list_empty(main_list: list) -> bool:
-    all_empty = True
-    for np_array in main_list:
-        if len(np_array) != 0:
-            all_empty = False
-    return all_empty
-
-
 def get_center_rectangle(coords: list) -> tuple:
     """returns the center point of rectangle specified by points coords
     Args:
@@ -317,13 +308,6 @@ def convert_wgs_to_utm(lon: float, lat: float) -> str:
         return epsg_code
     epsg_code = "327" + utm_band  # South
     return epsg_code
-
-
-def get_colors(length: int) -> list:
-    # returns a list of color hex codes as long as length
-    cmap = matplotlib.pyplot.get_cmap("plasma", length)
-    cmap_list = [matplotlib.colors.rgb2hex(i) for i in cmap.colors]
-    return cmap_list
 
 
 def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
@@ -402,27 +386,6 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         config.to_file(save_path, driver="GeoJSON")
 
 
-def get_default_dict(default, keys: list, fill_dict: dict) -> dict:
-    """returns a dictionary with keys each with
-    default value if the key does not exist in fill_dict. If the key exists
-    in fill_dict then the value replaces the default value.
-
-    Args:
-        default (): default value for each key
-        keys (list): keys for dictionary
-        fill_dict (dict): dictionary used to replace default values
-
-    Returns:
-        dict: dict with given keys and default value for each key that didn't exist in fill_dict
-    """
-    values = {}
-    values = values.fromkeys(keys, default)
-    for key in fill_dict.keys():
-        if key in values:
-            values[key] = fill_dict[key]
-    return values
-
-
 def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
@@ -470,26 +433,6 @@ def get_cross_distance_df(
     # add cross distances for each transect for roi with roi_id
     transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
-
-
-def make_coastsat_compatible(feature: gpd.geodataframe) -> list:
-    """Return the feature as an np.array in the form:
-        [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
-    Args:
-        feature (gpd.geodataframe): clipped portion of shoreline within a roi
-    Returns:
-        list: shorelines in form:
-            [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
-    """
-    features = []
-    # Use explode to break multilinestrings in linestrings
-    feature_exploded = feature.explode()
-    # For each linestring portion of feature convert to lat,lon tuples
-    lat_lng = feature_exploded.apply(
-        lambda row: tuple(np.array(row.geometry).tolist()), axis=1
-    )
-    features = list(lat_lng)
-    return features
 
 
 def create_json_config(inputs: dict, settings: dict) -> dict:

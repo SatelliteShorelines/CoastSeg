@@ -1,8 +1,10 @@
+import sys
 import os
 import json
 import logging
 import copy
 from typing import Union
+from collections import defaultdict
 
 from coastseg.bbox import Bounding_Box
 from coastseg import common
@@ -26,10 +28,17 @@ from ipywidgets import Layout, HTML
 from tqdm.auto import tqdm
 from ipywidgets import HBox
 
+# Development only
+# import memory_profiler
+# from memory_profiler import LogFile
+
 logger = logging.getLogger(__name__)
+# writes to normal logger.... idk why but it works
+# sys.stdout = LogFile("memory_profile_log", reportIncrementFlag=True)
 
 
 class CoastSeg_Map:
+
     def __init__(self, settings: dict = None):
         self.factory = factory.Factory()
         # settings:  used to select data to download and preprocess settings
@@ -395,14 +404,7 @@ class CoastSeg_Map:
 
     def update_transects_html(self, feature, **kwargs):
         # Modifies html when transect is hovered over
-        keys = [
-            "id",
-            "slope",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(
-            default="unknown", keys=keys, fill_dict=feature["properties"]
-        )
+        values = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """ 
         <h2>Transect</h2>
         <p>Id: {}</p>
@@ -414,18 +416,7 @@ class CoastSeg_Map:
 
     def update_extracted_shoreline_html(self, feature, **kwargs):
         # Modifies html when extracted shoreline is hovered over
-        default = "unknown"
-        keys = [
-            "date",
-            "geoaccuracy",
-            "cloud_cover",
-            "satname",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        logger.info(f"Hovered feature: {feature}")
-        values = common.get_default_dict(
-            default=default, keys=keys, fill_dict=feature["properties"]
-        )
+        values = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """
         <h2>Extracted Shoreline</h2>
         <p>Date: {}</p>
@@ -441,18 +432,10 @@ class CoastSeg_Map:
 
     def update_roi_html(self, feature, **kwargs):
         # Modifies html when roi is hovered over
-        default = "unknown"
-        keys = [
-            "id",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(
-            default=default, keys=keys, fill_dict=feature["properties"]
-        )
-        logger.info(f"Hovered over ROI: {feature}")
+        values = defaultdict(lambda: "unknown", feature["properties"])
         # convert roi area m^2 to km^2
         roi_area = common.get_area(feature["geometry"]) * 10**-6
-        roi_area = round(roi_area, 4)
+        roi_area = round(roi_area, 5)
         self.roi_html.value = """ 
         <h2>ROI</h2>
         <p>Id: {}</p>
@@ -463,21 +446,7 @@ class CoastSeg_Map:
 
     def update_shoreline_html(self, feature, **kwargs):
         # Modifies html when shoreline is hovered over
-        default_str = "unknown"
-        keys = [
-            "MEAN_SIG_WAVEHEIGHT",
-            "TIDAL_RANGE",
-            "ERODIBILITY",
-            "river_label",
-            "sinuosity_label",
-            "slope_label",
-            "turbid_label",
-            "CSU_ID",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(
-            default=default_str, keys=keys, fill_dict=feature["properties"]
-        )
+        values = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """
         <h2>Shoreline</h2>
         <p>Mean Sig Waveheight: {}</p>
@@ -930,8 +899,8 @@ class CoastSeg_Map:
         self.remove_layer_by_name(layer_name)
         exception_handler.check_empty_layer(new_layer, layer_name)
         # when feature is hovered over on_hover function is called
-        if on_hover is not None:
-            new_layer.on_hover(on_hover)
+        # if on_hover is not None:
+            # new_layer.on_hover(on_hover)
         if on_click is not None:
             # when feature is clicked on on_click function is called
             new_layer.on_click(on_click)
@@ -1014,7 +983,7 @@ class CoastSeg_Map:
         ]
         logger.info(f"{layers}")
         for new_layer in layers:
-            new_layer.on_hover(self.update_extracted_shoreline_html)
+            # new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
     def load_feature_on_map(
@@ -1039,12 +1008,12 @@ class CoastSeg_Map:
         logger.info(f"feature_name: {feature_name.lower()}")
         on_hover = None
         on_click = None
-        if "shoreline" in feature_name.lower():
-            on_hover = self.update_shoreline_html
-        if "transects" in feature_name.lower():
-            on_hover = self.update_transects_html
+        # if "shoreline" in feature_name.lower():
+        #     on_hover = self.update_shoreline_html
+        # if "transects" in feature_name.lower():
+        #     on_hover = self.update_transects_html
         if "rois" in feature_name.lower():
-            on_hover = self.update_roi_html
+            # on_hover = self.update_roi_html
             on_click = self.geojson_onclick_handler
         # bounding box does not have any hover/click handlers
         # load new feature on map
@@ -1132,7 +1101,7 @@ class CoastSeg_Map:
             ROI.SELECTED_LAYER_NAME,
             selected_layer,
             on_click=self.selected_onclick_handler,
-            on_hover=self.update_roi_html,
+            on_hover=None, #self.update_roi_html,
         )
 
     def selected_onclick_handler(
@@ -1168,7 +1137,7 @@ class CoastSeg_Map:
             ROI.SELECTED_LAYER_NAME,
             selected_layer,
             on_click=self.selected_onclick_handler,
-            on_hover=self.update_roi_html,
+            on_hover=None,# self.update_roi_html,
         )
 
     def save_feature_to_file(

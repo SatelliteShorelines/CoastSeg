@@ -4,12 +4,11 @@ import os
 
 # Internal dependencies imports
 from coastseg.exceptions import DownloadError
-from coastseg import common
+from coastseg.common import read_gpd_file, download_url
 
 # External dependencies imports
 import geopandas as gpd
-import pandas as pd
-import numpy as np
+from pandas import concat, read_csv, DataFrame
 from fiona.errors import DriverError
 from ipyleaflet import GeoJSON
 
@@ -66,7 +65,7 @@ class Shoreline:
             if os.path.exists(shoreline_path):
                 print(f"\n Loading the file {os.path.basename(shoreline_path)} now.")
                 try:
-                    shoreline = common.read_gpd_file(shoreline_path)
+                    shoreline = read_gpd_file(shoreline_path)
                 except DriverError as driver_error:
                     print(driver_error)
                     print(
@@ -94,7 +93,7 @@ class Shoreline:
                 shoreline_path = os.path.abspath(
                     os.path.join(script_dir, "shorelines", file)
                 )
-                shoreline = common.read_gpd_file(shoreline_path)
+                shoreline = read_gpd_file(shoreline_path)
 
             shoreline.drop(
                 shoreline.columns.difference(
@@ -121,7 +120,7 @@ class Shoreline:
             elif not shorelines_in_bbox_gdf.empty:
                 # Combine shorelines from different files into single geodataframe
                 shorelines_in_bbox_gdf = gpd.GeoDataFrame(
-                    pd.concat(
+                    concat(
                         [shorelines_in_bbox_gdf, shoreline_in_bbox], ignore_index=True
                     )
                 )
@@ -178,7 +177,7 @@ class Shoreline:
             logger.info(f"Retrieving file: {outfile}")
             print(f"Retrieving: {url}")
             print(f"Retrieving file: {outfile}")
-            common.download_url(url, outfile, filename=filename)
+            download_url(url, outfile, filename=filename)
 
     def get_intersecting_files(self, bbox: gpd.geodataframe) -> dict:
         """Given bounding box (bbox) returns a list of shoreline filenames whose
@@ -212,7 +211,7 @@ class Shoreline:
                     intersecting_files[filename] = WORLD_DATASET_ID
         return intersecting_files
 
-    def load_total_bounds_df(self, location: str = "usa") -> pd.DataFrame:
+    def load_total_bounds_df(self, location: str = "usa") -> DataFrame:
         """Returns dataframe containing total bounds for each set of shorelines in the csv file specified by location
 
         Args:
@@ -220,7 +219,7 @@ class Shoreline:
             can be either 'world' or 'usa'
 
         Returns:
-            pd.DataFrame:  Returns dataframe containing total bounds for each set of shorelines
+            DataFrame:  Returns dataframe containing total bounds for each set of shorelines
         """
         # Load in the total bounding box from csv
         # Create the directory to hold the downloaded shorelines from Zenodo
@@ -235,7 +234,7 @@ class Shoreline:
             csv_file = "world_shorelines_bounding_boxes.csv"
         # Create full path to csv file
         shoreline_csv = os.path.join(bounding_box_dir, csv_file)
-        total_bounds_df = pd.read_csv(shoreline_csv)
+        total_bounds_df = read_csv(shoreline_csv)
         # print("total_bounds_df",total_bounds_df)
 
         total_bounds_df.index = total_bounds_df["filename"]
