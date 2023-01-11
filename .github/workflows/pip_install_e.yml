@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [main,google_colab_compatible]
+    branches: [main,google_colab_compatible,improvement/minimize_imports]
   pull_request:
     branches: [main]
 
