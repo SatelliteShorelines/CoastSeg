@@ -4,6 +4,7 @@ fishnet_rois.geojson
 rois.geojson
 src/coastseg/shorelines/*
 src/coastseg/downloaded_models/*
+*log_*.txt
 
 # VScode files
 *.vscode

@@ -3,6 +3,7 @@ import json
 import logging
 import copy
 from typing import Union
+from collections import defaultdict
 
 from coastseg.bbox import Bounding_Box
 from coastseg import common
@@ -22,9 +23,10 @@ from coastsat import (
 import geopandas as gpd
 from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
-from ipywidgets import Layout, HTML, Accordion
+from ipywidgets import Layout, HTML
 from tqdm.auto import tqdm
 from ipywidgets import HBox
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +41,26 @@ class CoastSeg_Map:
             "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
             "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
             # quality control:
-            "check_detection": False,  # if True, shows each shoreline detection to the user for validation
-            "adjust_detection": False,  # if True, allows user to adjust the position of each shoreline by changing the threshold
+            # if True, shows each shoreline detection to the user for validation
+            "check_detection": False,
+            # if True, allows user to adjust the position of each shoreline by changing the threshold
+            "adjust_detection": False,
             "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
             # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
-            "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-            "min_length_sl": 100,  # minimum length (in metres) of shoreline perimeter to be valid
-            "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
-            "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+            # minimum area (in metres^2) for an object to be labelled as a beach
+            "min_beach_area": 4500,
+            # minimum length (in metres) of shoreline perimeter to be valid
+            "min_length_sl": 100,
+            # switch this parameter to True if sand pixels are masked (in black) on many images
+            "cloud_mask_issue": False,
+            # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+            "sand_color": "default",
             "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
             "max_dist_ref": 25,
             "along_dist": 25,
             "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
         }
         if settings is not None:
             tmp_settings = {**settings, **self.settings}
@@ -76,11 +86,22 @@ class CoastSeg_Map:
         self.map.add(self.draw_control)
         layer_control = LayersControl(position="topright")
         self.map.add(layer_control)
-        hover_accordion_control = self.create_accordion_widget()
-        self.map.add(hover_accordion_control)
+        # warning box shows errors to the user on the map
         self.warning_box = HBox([])
         self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
         self.map.add(self.warning_widget)
+        # ROI box shows ROI data on hover
+        self.roi_html = HTML("""""")
+        self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html)
+        self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
+        self.map.add(self.roi_widget)
+        # hover box shows hover data for transects and shorelines on hover
+        self.feature_html = HTML("""""")
+        self.hover_box = common.create_hover_box(
+            title="Feature", feature_html=self.feature_html
+        )
+        self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
+        self.map.add(self.hover_widget)
 
     def create_map(self):
         """create an interactive map object using the map_settings
@@ -105,23 +126,6 @@ class CoastSeg_Map:
             zoom=map_settings["zoom"],
             layout=map_settings["Layout"],
         )
-
-    def create_accordion_widget(self):
-        """creates a accordion style widget controller to hold data of
-        a feature that was last hovered over by user on map.
-        Returns:
-           ipyleaflet.WidgetControl: an widget control for an accordion widget
-        """
-        html = HTML("Hover over a feature on the map")
-        roi_html = HTML("Hover over a ROI on the map")
-        roi_html.layout.margin = "0px 20px 20px 20px"
-        html.layout.margin = "0px 20px 20px 20px"
-        self.accordion = Accordion(
-            children=[html, roi_html], titles=("Features Data", "ROI Data")
-        )
-        self.accordion.set_title(0, "Hover Data")
-        self.accordion.set_title(1, "ROI Data")
-        return WidgetControl(widget=self.accordion, position="topright")
 
     def load_configs(self, filepath: str) -> None:
         """Loads features from geojson config file onto map and loads
@@ -247,15 +251,18 @@ class CoastSeg_Map:
         roi_settings = common.create_roi_settings(
             self.settings, selected_layer.data, filepath, date_str
         )
-        # Save download settings dictionary to instance of ROI
+
+        # Save the currently loaded settings to the rois
         self.rois.set_roi_settings(roi_settings)
+        # create a list of settings for each ROI
         inputs_list = list(roi_settings.values())
         logger.info(f"inputs_list {inputs_list}")
-        # 2. For each ROI used download settings to download imagery and save to jpg
+        # 2. For each ROI use download settings to download imagery and save to jpg
         print("Download in process")
         # make a deep copy so settings doesn't get modified by the temp copy
         tmp_settings = copy.deepcopy(self.settings)
-        # for each ROI use inputs dictionary to download imagery and save to jpg
+
+        # for each ROI use the ROI settings to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
             metadata = SDS_download.retrieve_images(inputs_for_roi)
             tmp_settings["inputs"] = inputs_for_roi
@@ -269,8 +276,18 @@ class CoastSeg_Map:
         logger.info("Done downloading")
 
     def load_json_config(self, filepath: str) -> None:
+        """
+        Loads a .json configuration file specified by the user.
+        It replaces the coastseg_map.settings with the settings from the config file,
+        and replaces the roi_settings for each ROI with the contents of the json_data.
+        Finally, it saves the input dictionaries for all ROIs.
+        Parameters:
+        self (object): CoastsegMap instance
+        filepath (str): The filepath to the json config file
+        Returns:
+            None
+        """
         exception_handler.check_if_None(self.rois)
-
         json_data = common.read_json_file(filepath)
         # replace coastseg_map.settings with settings from config file
         self.settings = json_data["settings"]
@@ -379,19 +396,9 @@ class CoastSeg_Map:
         logger.info(f"Settings: {self.settings}")
 
     def update_transects_html(self, feature, **kwargs):
-        # Modifies html of accordion when transect is hovered over
-        default = "unknown"
-        keys = [
-            "id",
-            "slope",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(
-            default=default, keys=keys, fill_dict=feature["properties"]
-        )
-        self.accordion.children[
-            0
-        ].value = """ 
+        # Modifies html when transect is hovered over
+        values = defaultdict(lambda: "unknown", feature["properties"])
+        self.feature_html.value = """ 
         <h2>Transect</h2>
         <p>Id: {}</p>
         <p>Slope: {}</p>
@@ -401,22 +408,9 @@ class CoastSeg_Map:
         )
 
     def update_extracted_shoreline_html(self, feature, **kwargs):
-        # Modifies html body of accordion when extracted shoreline is hovered over
-        default = "unknown"
-        keys = [
-            "date",
-            "geoaccuracy",
-            "cloud_cover",
-            "satname",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        logger.info(f"feature: {feature}")
-        values = common.get_default_dict(
-            default=default, keys=keys, fill_dict=feature["properties"]
-        )
-        self.accordion.children[
-            0
-        ].value = """
+        # Modifies html when extracted shoreline is hovered over
+        values = defaultdict(lambda: "unknown", feature["properties"])
+        self.feature_html.value = """
         <h2>Extracted Shoreline</h2>
         <p>Date: {}</p>
         <p>Geoaccuracy: {}</p>
@@ -430,47 +424,23 @@ class CoastSeg_Map:
         )
 
     def update_roi_html(self, feature, **kwargs):
-        # Modifies html of accordion when roi is hovered over
-        default = "unknown"
-        keys = [
-            "id",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(
-            default=default, keys=keys, fill_dict=feature["properties"]
-        )
-        logger.info(f"ROI feature: {feature}")
-        roi_area = common.get_area(feature["geometry"])
-        self.accordion.children[
-            1
-        ].value = """ 
+        # Modifies html when roi is hovered over
+        values = defaultdict(lambda: "unknown", feature["properties"])
+        # convert roi area m^2 to km^2
+        roi_area = common.get_area(feature["geometry"]) * 10**-6
+        roi_area = round(roi_area, 5)
+        self.roi_html.value = """ 
         <h2>ROI</h2>
         <p>Id: {}</p>
-        <p>Area(m²): {}</p>
+        <p>Area(km²): {}</p>
         """.format(
             values["id"], roi_area
         )
 
     def update_shoreline_html(self, feature, **kwargs):
-        # Modifies html of accordion when shoreline is hovered over
-        default_str = "unknown"
-        keys = [
-            "MEAN_SIG_WAVEHEIGHT",
-            "TIDAL_RANGE",
-            "ERODIBILITY",
-            "river_label",
-            "sinuosity_label",
-            "slope_label",
-            "turbid_label",
-            "CSU_ID",
-        ]
-        # returns a dict with keys in keys and if a key does not exist in feature its value is default str
-        values = common.get_default_dict(
-            default=default_str, keys=keys, fill_dict=feature["properties"]
-        )
-        self.accordion.children[
-            0
-        ].value = """
+        # Modifies html when shoreline is hovered over
+        values = defaultdict(lambda: "unknown", feature["properties"])
+        self.feature_html.value = """
         <h2>Shoreline</h2>
         <p>Mean Sig Waveheight: {}</p>
         <p>Tidal Range: {}</p>
@@ -867,7 +837,6 @@ class CoastSeg_Map:
         self.remove_shoreline()
         self.remove_transects()
         self.remove_all_rois()
-        self.remove_accordion_html()
         self.remove_layer_by_name("geodataframe")
         self.remove_extracted_shorelines()
 
@@ -893,11 +862,6 @@ class CoastSeg_Map:
         if existing_layer is not None:
             self.map.remove_layer(existing_layer)
         logger.info(f"Removed layer {layer_name}")
-
-    def remove_accordion_html(self):
-        """Clear the shoreline html accordion"""
-        self.accordion.children[0].value = "Hover over a feature on the map."
-        self.accordion.children[1].value = "Hover over a ROI on the map."
 
     def remove_shoreline(self):
         del self.shoreline

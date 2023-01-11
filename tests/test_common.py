@@ -9,65 +9,23 @@ import numpy as np
 from shapely import geometry
 import pytest
 
+
 def test_get_transect_points_dict(valid_transects_gdf):
-    """Tests get_transect_points_dict to see if it returns a valid dictionary when given 
+    """Tests get_transect_points_dict to see if it returns a valid dictionary when given
     transects geodataframe and an id
     Args:
         valid_transects_gdf (geodataframe): transects geodataframe with ids:[17,30,35]
     """
-    roi_id = '17'
-    transects_dict = common.get_transect_points_dict(roi_id,valid_transects_gdf)
-    # simulate how roi transect ids would be created 
-    transect_ids=valid_transects_gdf['id'].to_list()
-    roi_transect_ids = ["ROI_"+roi_id +"_"+tid for tid in transect_ids]
-    
-    assert isinstance(transects_dict,dict)
+    roi_id = "17"
+    transects_dict = common.get_transect_points_dict(roi_id, valid_transects_gdf)
+    # simulate how roi transect ids would be created
+    transect_ids = valid_transects_gdf["id"].to_list()
+    roi_transect_ids = ["ROI_" + roi_id + "_" + tid for tid in transect_ids]
+
+    assert isinstance(transects_dict, dict)
     assert set(transects_dict.keys()).issubset(set(roi_transect_ids))
-    assert isinstance( transects_dict[roi_transect_ids[0]],np.ndarray)
-    
-    
+    assert isinstance(transects_dict[roi_transect_ids[0]], np.ndarray)
 
-def test_get_default_dict():
-    # should return dict with fill dict values since keys exist in fill_dict
-    default_str = "unknown"
-    fill_dict = {'1':4,'2':5}
-    keys = ['1','2']
-    actual = common.get_default_dict(default=default_str,
-                                     keys=keys,
-                                     fill_dict=fill_dict)
-    assert actual == fill_dict
-    #should return dict with default values if no keys exist in fill_dict
-    fill_dict = {'4':4,'5':5}
-    expected = {'1':default_str,'2':default_str}
-    actual = common.get_default_dict(default=default_str,
-                                     keys=keys,
-                                     fill_dict=fill_dict)
-    assert actual == expected
-    # should return dict with some default values if some keys exist in fill_dict
-    fill_dict = {'1':4,'5':5}
-    expected = {'1':4,'2':default_str}
-    actual = common.get_default_dict(default=default_str,
-                                     keys=keys,
-                                     fill_dict=fill_dict)
-    assert actual == expected
-
-def test_is_list_empty():
-    # empty list to test if it detects it as empty
-    empty_list = [np.ndarray(shape=(0)),np.ndarray(shape=(0))]
-    assert common.is_list_empty(empty_list) == True
-    # half empty list to test if it detects it as not empty
-    non_empty_list = [np.ndarray(shape=(1,2)),np.ndarray(shape=(0))]
-    assert common.is_list_empty(non_empty_list) == False
-    # full list to test if it detects it as not empty
-    non_empty_list = [np.ndarray(shape=(2)),np.ndarray(shape=(2))]
-    assert common.is_list_empty(non_empty_list) == False
-
-def test_get_colors():
-    length = 4
-    actual_list = common.get_colors(length)
-    assert len(actual_list) == length
-    assert isinstance(actual_list,list)
-    assert isinstance(actual_list[0],str)
 
 def test_do_rois_filepaths_exist(tmp_path):
     # should return false when a filepath exist

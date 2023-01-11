@@ -20,6 +20,7 @@ from ipywidgets import RadioButtons
 from ipywidgets import Output
 from ipyfilechooser import FileChooser
 
+# icons sourced from https://fontawesome.com/v4/icons/
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class UI_Models:
         ]
         self.five_band_models = [
             "sat-5band-4class_7344606",
+            "sat-5band-2-class_7448390",
         ]
         self.MNDWI_models = ["s2-landsat78-4class_7352850"]
         self.NDWI_models = ["s2-landsat78-4class_7352859"]
@@ -183,16 +185,27 @@ class UI_Models:
         load_style = dict(button_color="#69add1")
         action_style = dict(button_color="#ae3cf0")
 
-        self.run_model_button = Button(description="Run Model", style=action_style)
+        self.run_model_button = Button(description="Run Model",
+         style=action_style,
+         icon = "fa-bolt",
+         )
         self.run_model_button.on_click(self.run_model_button_clicked)
-        self.use_data_button = Button(description="Use Data", style=load_style)
+        self.use_data_button = Button(
+            description="Select Data Folder",
+            style={"button_color": "#69add1"},
+            icon="fa-file-image-o",
+        )
         self.use_data_button.on_click(self.use_data_button_clicked)
         self.use_select_images_button = Button(
-            description="Select Your Images", style=load_style
+            description="Select Images",
+            style=load_style,
+            icon="fa-file-image-o",
         )
         self.use_select_images_button.on_click(self.use_select_images_button_clicked)
         self.open_results_button = Button(
-            description="Open Model Results", style=load_style
+            description="Open Model Results",
+            style=load_style,
+            icon="folder-open-o",
         )
         self.open_results_button.on_click(self.open_results_button_clicked)
 
@@ -211,7 +224,7 @@ class UI_Models:
         )
 
         self.instr_use_data = HTML(
-            value="<b>1. Use Data Folder Button</b> \
+            value="<b>1. Select Data Folder Button</b> \
                 <br> - When CoastSat downloads imagery it created a folder called 'data'in the CoastSeg directory.\
                     The jpgs within the 'data' folder will be copied to another folder with a name such as\
                     <span style=\"background-color:LightGray;color: black;\">segmentation_data_2022-07-07__10_hr_04_min58 </span>\
@@ -301,7 +314,8 @@ class UI_Models:
     def run_model_button_clicked(self, button):
         if self.model_dict["sample_direc"] is None:
             self.launch_error_box(
-                "Cannot Run Model", "You must click 'Use Data' or 'Select Images' First"
+                "Cannot Run Model",
+                "You must click 'Use Data Directory' or 'Select Images' First",
             )
             return
         else:

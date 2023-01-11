@@ -1,13 +1,11 @@
 import logging
+from math import sqrt
 from typing import Union
 
 from coastseg.bbox import Bounding_Box
-from coastseg import common
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
-from coastseg import exceptions
-from coastseg import extracted_shoreline
 from coastseg import exception_handler
 
 logger = logging.getLogger(__name__)
@@ -173,14 +171,26 @@ def create_rois(
         exception_handler.check_if_gdf_empty(rois.gdf, "rois")
     else:
         # create rois within bounding box
-        large_len = None
-        small_len = None
-        if "large_len" in kwargs:
-            large_len = kwargs["large_len"]
-        if "small_len" in kwargs:
-            small_len = kwargs["small_len"]
-        if large_len is None or small_len is None:
-            raise Exception("Must provide ROI lengths")
+        lg_area = None
+        sm_area = None
+        units = None
+        if "lg_area" in kwargs:
+            lg_area = kwargs["lg_area"]
+        if "sm_area" in kwargs:
+            sm_area = kwargs["sm_area"]
+        if "units" in kwargs:
+            units = kwargs["units"]
+        if lg_area is None or sm_area is None or units is None:
+            raise Exception("Must provide ROI area and units")
+
+        # if units is kilometers convert to meters
+        if units == "km²":
+            sm_area = sm_area * (10**6)
+            lg_area = lg_area * (10**6)
+
+        # get length of ROI square by taking square root of area
+        small_len = sqrt(sm_area)
+        large_len = sqrt(lg_area)
         rois = coastsegmap.generate_ROIS_fishnet(large_len, small_len)
         # make sure rois created is not empty
         exception_handler.check_if_gdf_empty(rois.gdf, "rois")

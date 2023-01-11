@@ -6,28 +6,30 @@ import copy
 
 # Internal dependencies imports
 from coastseg import exceptions
-from coastseg import common
-
 
 # External dependencies imports
 import geopandas as gpd
-import matplotlib
-import pandas as pd
 import numpy as np
 from ipyleaflet import GeoJSON
-from coastsat import (
-    SDS_tools,
-    SDS_download,
-    SDS_tools,
-    SDS_shoreline,
+from matplotlib.pyplot import get_cmap
+from matplotlib.colors import rgb2hex
+
+
+from coastsat.SDS_tools import (
+    remove_duplicates,
+    remove_inaccurate_georef,
+    output_to_gdf,
 )
+
+from coastsat.SDS_download import get_metadata
+from coastsat.SDS_shoreline import extract_shorelines
 
 
 logger = logging.getLogger(__name__)
 
 
 class Extracted_Shoreline:
-    """Shoreline: contains the shorelines within a region specified by bbox (bounding box)"""
+    """Extracted_Shoreline: contains the extracted shorelines within a Region of Interest (ROI)"""
 
     LAYER_NAME = "extracted_shoreline"
     FILE_NAME = "extracted_shorelines.geojson"
@@ -74,7 +76,7 @@ class Extracted_Shoreline:
             roi_settings,
             settings,
         )
-        if common.is_list_empty(self.extracted_shorelines["shorelines"]):
+        if is_list_empty(self.extracted_shorelines["shorelines"]):
             raise exceptions.No_Extracted_Shoreline(self.roi_id)
         map_crs = "EPSG:4326"
         # extracted shorelines have map crs so they can be displayed on the map
@@ -98,18 +100,16 @@ class Extracted_Shoreline:
         self.create_shoreline_settings(settings, roi_settings, reference_shoreline)
 
         # gets metadata used to extract shorelines
-        metadata = SDS_download.get_metadata(self.shoreline_settings["inputs"])
+        metadata = get_metadata(self.shoreline_settings["inputs"])
         logger.info(f"metadata: {metadata}")
         # extract shorelines from ROI
-        extracted_shorelines = SDS_shoreline.extract_shorelines(
-            metadata, self.shoreline_settings
-        )
+        extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings)
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
-        extracted_shorelines = SDS_tools.remove_duplicates(
+        extracted_shorelines = remove_duplicates(
             extracted_shorelines
         )  # removes duplicates (images taken on the same date by the same satellite)
-        extracted_shorelines = SDS_tools.remove_inaccurate_georef(
+        extracted_shorelines = remove_inaccurate_georef(
             extracted_shorelines, 10
         )  # remove inaccurate georeferencing (set threshold to 10 m)
         logger.info(
@@ -167,9 +167,7 @@ class Extracted_Shoreline:
             converted to output_crs if provided otherwise geodataframe's crs will be
             input_crs
         """
-        extract_shoreline_gdf = SDS_tools.output_to_gdf(
-            self.extracted_shorelines, "lines"
-        )
+        extract_shoreline_gdf = output_to_gdf(self.extracted_shorelines, "lines")
         extract_shoreline_gdf.crs = input_crs
         if output_crs is not None:
             extract_shoreline_gdf = extract_shoreline_gdf.to_crs(output_crs)
@@ -238,7 +236,7 @@ class Extracted_Shoreline:
         map_crs = 4326
         # convert to map crs and turn in json dict
         features_json = json.loads(self.gdf.to_crs(map_crs).to_json())
-        layer_colors = common.get_colors(len(features_json["features"]))
+        layer_colors = get_colors(len(features_json["features"]))
         layer_names = self.get_layer_names()
         layers = []
         for idx, feature in enumerate(features_json["features"]):
@@ -257,10 +255,45 @@ def get_reference_shoreline(
     logger.info(f"reprojected_shorlines.crs: {reprojected_shorlines.crs}")
     logger.info(f"reprojected_shorlines: {reprojected_shorlines}")
     # convert shoreline_in_roi gdf to coastsat compatible format np.array([[lat,lon,0],[lat,lon,0]...])
-    shorelines = common.make_coastsat_compatible(reprojected_shorlines)
+    shorelines = make_coastsat_compatible(reprojected_shorlines)
     # shorelines = [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...]
     # Stack all the tuples into a single list of n rows X 2 columns
     shorelines = np.vstack(shorelines)
     # Add third column of 0s to represent mean sea level
     shorelines = np.insert(shorelines, 2, np.zeros(len(shorelines)), axis=1)
     return shorelines
+
+
+def get_colors(length: int) -> list:
+    # returns a list of color hex codes as long as length
+    cmap = get_cmap("plasma", length)
+    cmap_list = [rgb2hex(i) for i in cmap.colors]
+    return cmap_list
+
+
+def make_coastsat_compatible(feature: gpd.geodataframe) -> list:
+    """Return the feature as an np.array in the form:
+        [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
+    Args:
+        feature (gpd.geodataframe): clipped portion of shoreline within a roi
+    Returns:
+        list: shorelines in form:
+            [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
+    """
+    features = []
+    # Use explode to break multilinestrings in linestrings
+    feature_exploded = feature.explode()
+    # For each linestring portion of feature convert to lat,lon tuples
+    lat_lng = feature_exploded.apply(
+        lambda row: tuple(np.array(row.geometry).tolist()), axis=1
+    )
+    features = list(lat_lng)
+    return features
+
+
+def is_list_empty(main_list: list) -> bool:
+    all_empty = True
+    for np_array in main_list:
+        if len(np_array) != 0:
+            all_empty = False
+    return all_empty

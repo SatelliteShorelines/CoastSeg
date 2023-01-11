@@ -17,7 +17,6 @@ from area import area
 import geopandas as gpd
 import numpy as np
 import geojson
-import matplotlib
 from leafmap import check_file_path
 import pandas as pd
 
@@ -27,11 +26,153 @@ from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import HTML
 
+# widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 logger = logging.getLogger(__name__)
 
 
-def create_warning_box(title: str = None, msg: str = None):
+def create_directory_in_google_drive(path: str, name: str) -> str:
+    """
+    Creates a new directory with the provided name in the given path.
+    Raises FileNotFoundError if the given path does not exist.
+
+    Parameters:
+    path (str): path to the directory where the new directory will be created
+    name (str): name of the new directory
+
+    Returns:
+    new_path (str): path to the newly created directory
+    """
+    new_path = os.path.join(path, name)
+    if os.path.exists(path):
+        if not os.path.isdir(new_path):
+            os.mkdir(new_path)
+    else:
+        raise FileNotFoundError(new_path)
+    return new_path
+
+
+def is_in_google_colab() -> bool:
+    """
+    Returns True if the code is running in Google Colab, False otherwise.
+    """
+    if os.getenv("COLAB_RELEASE_TAG"):
+        return True
+    else:
+        return False
+
+
+def mount_google_drive(name: str = "CoastSeg") -> None:
+    """
+    If the user is running in Google Colab, the Google Drive will be mounted to the root directory
+    "/content/drive/MyDrive" and a new directory will be created with the provided name.
+
+    Parameters:
+    name (str): The name of the directory to be created. Default is 'CoastSeg'.
+
+    Returns:
+    None
+    """
+    if is_in_google_colab():
+        from google.colab import drive
+
+        # default location google drive is mounted to
+        root_dir = "/content/drive/MyDrive"
+        # mount google drive to default home directory
+        drive.mount("/content/drive", force_remount=True)
+        # create directory with provided name in google drive
+        new_path = create_directory_in_google_drive(root_dir, name)
+        # change working directory to directory with name
+        os.chdir(new_path)
+    else:
+        print("Not running in Google Colab.")
+
+
+def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
+    """
+    Creates a box with a title and optional HTML containing information about the feature that was
+    last hovered over.
+    The hover box has two buttons, an 'uncollapse' and 'collapse' button.
+    The 'uncollapse' button opens the hover box to reveal details about the feature that was
+    last hovered over, whereas the 'collapse' button hides the feature_html and just shows the default messages of
+    'Hover over a feature' or 'Hover Data Available'.
+
+    Parameters:
+    title (str): The title of the hover box
+    feature_html (HTML, optional): HTML of the feature to be displayed in the hover box
+
+    Returns:
+    container (VBox): Box with the given title and details about the feature given by feature_html
+    """
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    # create title
+    title = HTML(f"  <h2>{title} Hover  </h2>")
+    # Default message shown when nothing has been hovered
+    msg = HTML(f"Hover over a feature</br>")
+    # message tells user that data is available on hover
+    if feature_html.value != "":
+        msg = HTML(f"Hover Data Available</br>")
+
+    # open button allows user to see hover data
+    uncollapse_button = ToggleButton(
+        value=False,
+        tooltip="Show hover data",
+        icon="angle-down",
+        button_style="info",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    # collapse_button collapses hover data
+    collapse_button = ToggleButton(
+        value=False,
+        tooltip="Show hover data",
+        icon="angle-up",
+        button_style="info",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    # default configuration for container is in collapsed mode
+    container_header = HBox([title, uncollapse_button])
+    container_content = VBox([msg])
+    container = VBox([container_header, container_content])
+
+    # restore default content and hide hover data
+    def collapse(container_content, change):
+        if change["new"]:
+            container_header.children = [title, uncollapse_button]
+            container_content.children = [msg]
+
+    def uncollapse(container_content, change):
+        if change["new"]:
+            container_header.children = [title, collapse_button]
+            if feature_html.value == "":
+                container_content.children = [msg]
+            elif feature_html.value != "":
+                container_content.children = [feature_html]
+
+    def button_callback(func, *args):
+        def callback(value):
+            func(*args, value)
+            # this calls collapse(container_content,value)
+
+        return callback
+
+    collapse_button.observe(button_callback(collapse, container_content), "value")
+    uncollapse_button.observe(button_callback(uncollapse, container_content), "value")
+    return container
+
+
+def create_warning_box(title: str = None, msg: str = None) -> HBox:
+    """
+    Creates a warning box with a title and message that can be closed with a close button.
+
+    Parameters:
+    title (str, optional): The title of the warning box. Default is 'Warning'.
+    msg (str, optional): The message of the warning box. Default is 'Something went wrong...'.
+
+    Returns:
+    HBox: The warning box containing the title, message and close button.
+    """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # create title
     if title is None:
@@ -41,7 +182,7 @@ def create_warning_box(title: str = None, msg: str = None):
     if msg is None:
         msg = "Something went wrong..."
     warning_msg = HTML(
-        f"____________________________________________________________________________________________\
+        f"_______________________________________\
                    </br>⚠️{msg}"
     )
     # create vertical box to hold title and msg
@@ -120,14 +261,6 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                     pbar.update(len(chunk))
 
 
-def is_list_empty(main_list: list) -> bool:
-    all_empty = True
-    for np_array in main_list:
-        if len(np_array) != 0:
-            all_empty = False
-    return all_empty
-
-
 def get_center_rectangle(coords: list) -> tuple:
     """returns the center point of rectangle specified by points coords
     Args:
@@ -175,13 +308,6 @@ def convert_wgs_to_utm(lon: float, lat: float) -> str:
         return epsg_code
     epsg_code = "327" + utm_band  # South
     return epsg_code
-
-
-def get_colors(length: int) -> list:
-    # returns a list of color hex codes as long as length
-    cmap = matplotlib.pyplot.get_cmap("plasma", length)
-    cmap_list = [matplotlib.colors.rgb2hex(i) for i in cmap.colors]
-    return cmap_list
 
 
 def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
@@ -260,27 +386,6 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         config.to_file(save_path, driver="GeoJSON")
 
 
-def get_default_dict(default, keys: list, fill_dict: dict) -> dict:
-    """returns a dictionary with keys each with
-    default value if the key does not exist in fill_dict. If the key exists
-    in fill_dict then the value replaces the default value.
-
-    Args:
-        default (): default value for each key
-        keys (list): keys for dictionary
-        fill_dict (dict): dictionary used to replace default values
-
-    Returns:
-        dict: dict with given keys and default value for each key that didn't exist in fill_dict
-    """
-    values = {}
-    values = values.fromkeys(keys, default)
-    for key in fill_dict.keys():
-        if key in values:
-            values[key] = fill_dict[key]
-    return values
-
-
 def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
@@ -328,26 +433,6 @@ def get_cross_distance_df(
     # add cross distances for each transect for roi with roi_id
     transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
-
-
-def make_coastsat_compatible(feature: gpd.geodataframe) -> list:
-    """Return the feature as an np.array in the form:
-        [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
-    Args:
-        feature (gpd.geodataframe): clipped portion of shoreline within a roi
-    Returns:
-        list: shorelines in form:
-            [([lat,lon],[lat,lon],[lat,lon]),([lat,lon],[lat,lon],[lat,lon])...])
-    """
-    features = []
-    # Use explode to break multilinestrings in linestrings
-    feature_exploded = feature.explode()
-    # For each linestring portion of feature convert to lat,lon tuples
-    lat_lng = feature_exploded.apply(
-        lambda row: tuple(np.array(row.geometry).tolist()), axis=1
-    )
-    features = list(lat_lng)
-    return features
 
 
 def create_json_config(inputs: dict, settings: dict) -> dict:
@@ -715,13 +800,13 @@ def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
         dst_path (str): full path to the images directory in Sniffer
     """
     if not os.path.exists(dst_path):
-        print(f"dst_path: {dst_path} doesn't exist.")
+        raise FileNotFoundError(f"dst_path: {dst_path} doesn't exist.")
     elif not os.path.exists(src_path):
-        print(f"src_path: {src_path} doesn't exist.")
+        raise FileNotFoundError(f"src_path: {src_path} doesn't exist.")
     else:
         for file in glob.glob(glob_str):
             shutil.copy(file, dst_path)
-        print(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
+        logger.info(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
 
 
 def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
