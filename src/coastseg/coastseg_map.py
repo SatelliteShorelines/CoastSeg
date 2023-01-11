@@ -24,6 +24,7 @@ from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
 from ipywidgets import Layout, HTML, Accordion
 from tqdm.auto import tqdm
+from ipywidgets import HBox
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,9 @@ class CoastSeg_Map:
         self.map.add(layer_control)
         hover_accordion_control = self.create_accordion_widget()
         self.map.add(hover_accordion_control)
+        self.warning_box = HBox([])
+        self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
+        self.map.add(self.warning_widget)
 
     def create_map(self):
         """create an interactive map object using the map_settings
@@ -119,17 +123,34 @@ class CoastSeg_Map:
         self.accordion.set_title(1, "ROI Data")
         return WidgetControl(widget=self.accordion, position="topright")
 
-    def load_configs(self, filepath: str):
+    def load_configs(self, filepath: str) -> None:
+        """Loads features from geojson config file onto map and loads
+        config.json file into settings. The config.json should be located into
+        the same directory as the config.geojson file
+        Args:
+            filepath (str): full path to config.geojson file
+        """
+        # load geodataframe from config and load features onto map
         self.load_gdf_config(filepath)
-        # path to config_gdf.json directory
+        # path to directory to search for config_gdf.json file
         search_path = os.path.dirname(os.path.realpath(filepath))
-        # create path config.json file in search_path directory
+        # create path to config.json file in search_path directory
         config_file = common.find_config_json(search_path)
         config_path = os.path.join(search_path, config_file)
         logger.info(f"Loaded json config file from {config_path}")
+        # load settings from config.json file
         self.load_json_config(config_path)
 
-    def load_gdf_config(self, filepath: str):
+    def load_gdf_config(self, filepath: str) -> None:
+        """Load features from geodataframe located in geojson file
+        located at filepath onto map.
+
+        features in config file should contain a column named "type"
+        which contains the name of one of the following possible feature types
+        "roi","shoreline","transect","bbox".
+        Args:
+            filepath (str): full path to config.geojson
+        """
         print(f"Loading {filepath}")
         logger.info(f"Loading {filepath}")
         gdf = common.read_gpd_file(filepath)
@@ -200,7 +221,7 @@ class CoastSeg_Map:
             self.load_feature_on_map("transects", gdf=transect_gdf)
 
     def download_imagery(self) -> None:
-        """download_imagery  downloads selected rois as jpgs
+        """downloads selected rois as jpgs
 
         Raises:
             Exception: raised if settings is missing
@@ -515,8 +536,8 @@ class CoastSeg_Map:
         # ROIs,settings, roi-settings cannot be None or empty
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.shoreline, "shoreline")
-        exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
         exception_handler.check_if_None(self.settings, "settings")
+        exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
         # settings must contain keys in subset
         subset = set(["dates", "sat_list", "landsat_collection"])
         superset = set(list(self.settings.keys()))
@@ -532,8 +553,9 @@ class CoastSeg_Map:
         exception_handler.check_selected_set(self.selected_set)
         roi_ids = list(self.selected_set)
         logger.info(f"roi_ids: {roi_ids}")
+        # ensure selected rois have been downloaded
         exception_handler.check_if_rois_downloaded(self.rois.roi_settings, roi_ids)
-
+        # ensure a bounding box exists on the map
         exception_handler.check_if_None(self.bbox, "bounding box")
         # if output_epsg is 4326 or 4327 change output_epsg to most accurate crs
         self.settings["output_epsg"] = self.get_most_accurate_epsg(
@@ -564,7 +586,7 @@ class CoastSeg_Map:
                 )
             except exceptions.Id_Not_Found as id_error:
                 logger.warning(f"exceptions.Id_Not_Found {id_error}")
-                print(f"exceptions.Id_Not_Found:{id_error}. \n Skipping to next ROI")
+                print(f"ROI with id {roi_id} was not found. \n Skipping to next ROI")
             except exceptions.No_Extracted_Shoreline as no_shoreline:
                 extracted_shoreline_dict[roi_id] = None
                 logger.warning(f"{no_shoreline}")
@@ -581,7 +603,8 @@ class CoastSeg_Map:
         self.load_extracted_shorelines_to_map(roi_ids)
 
     def get_selected_rois(self, roi_ids: list) -> gpd.GeoDataFrame:
-        """Returns a geodataframe of all rois selected by roi_ids
+        """Returns a geodataframe of all rois whose ids are in given list
+        roi_ids.
 
         Args:
             roi_ids (list[str]): ids of ROIs
@@ -652,12 +675,12 @@ class CoastSeg_Map:
                 time-series of cross-shore distance along each of the transects. Not tidally corrected. }
         """
         cross_distance_transects = {}
+        exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.transects, "transects")
         exception_handler.check_empty_dict(
             self.rois.extracted_shorelines, "extracted_shorelines"
         )
-        exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_if_subset(
             set(["along_dist"]), set(list(self.settings.keys())), "settings"
         )
@@ -758,6 +781,7 @@ class CoastSeg_Map:
         exception_handler.check_empty_dict(
             self.rois.extracted_shorelines, "extracted_shorelines"
         )
+        exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
         #  each roi must have a computed transect
         exception_handler.check_empty_dict(
@@ -772,7 +796,7 @@ class CoastSeg_Map:
                 f"{self.selected_set} was not a subset of extracted_shoreline_ids: {extracted_shoreline_ids}"
             )
             raise Exception(
-                f"You must select an ROI and extract it shorelines before you can compute transects"
+                f"You must select an ROI and extract its shorelines before you can compute transects"
             )
         # save cross distances for transects and extracted shorelines to csv file
         # each csv file is saved to ROI directory
@@ -966,10 +990,10 @@ class CoastSeg_Map:
                 Bounding_Box.check_bbox_size(bbox_area)
             except exceptions.BboxTooLargeError as bbox_too_big:
                 self.remove_bbox()
-                exception_handler.handle_bbox_error(bbox_too_big)
+                exception_handler.handle_bbox_error(bbox_too_big, self.warning_box)
             except exceptions.BboxTooSmallError as bbox_too_small:
                 self.remove_bbox()
-                exception_handler.handle_bbox_error(bbox_too_small)
+                exception_handler.handle_bbox_error(bbox_too_small, self.warning_box)
             else:
                 # if no exceptions occur create new bbox, remove old bbox, and load new bbox
                 logger.info(f"Made it with bbox area: {bbox_area}")
@@ -991,16 +1015,26 @@ class CoastSeg_Map:
             new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
-    def load_feature_on_map(self, feature_name, file="", gdf=None, **kwargs) -> None:
-        # feature name can be ['shoreline','transects','bbox','ROIs']
-        # if feature name given is not one of possible features throw exception
-        # create new feature based on feature passed in and using file
+    def load_feature_on_map(
+        self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs
+    ) -> None:
+        """Loads feature of type feature_name onto the map either from a file or from a geodataframe given by gdf
 
+        if feature_name given is not one "shoreline","transects","bbox", or "rois" throw exception
+
+        Args:
+            feature_name (str): name of feature must be one of the following
+            "shoreline","transects","bbox","rois"
+            file (str, optional): geojson file containing feature. Defaults to "".
+            gdf (gpd.GeoDataFrame, optional): geodataframe containing feature geometry. Defaults to None.
+        """
         # if file is passed read gdf from file
         if file != "":
             gdf = common.read_gpd_file(file)
 
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
+        logger.info(f"new_feature: {new_feature}")
+        logger.info(f"feature_name: {feature_name.lower()}")
         on_hover = None
         on_click = None
         if "shoreline" in feature_name.lower():
@@ -1010,6 +1044,7 @@ class CoastSeg_Map:
         if "rois" in feature_name.lower():
             on_hover = self.update_roi_html
             on_click = self.geojson_onclick_handler
+        # bounding box does not have any hover/click handlers
         # load new feature on map
         layer_name = new_feature.LAYER_NAME
         self.load_on_map(new_feature, layer_name, on_hover, on_click)

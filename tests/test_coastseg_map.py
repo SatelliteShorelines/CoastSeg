@@ -21,9 +21,7 @@ def test_imports():
     from coastseg import extracted_shoreline
     from coastseg import factory
     from coastseg import map_UI
-    from coastseg import UI_models
-    from coastseg import tkinter_window_creator
-    
+    from coastseg import models_UI
     
 
 def test_save_config_invalid_inputs(

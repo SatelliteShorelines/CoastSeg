@@ -4,19 +4,18 @@ import datetime
 import logging
 
 # internal python imports
-from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from coastseg import exception_handler
 from coastseg import common
 
 # external python imports
 import ipywidgets
-from coastseg.tkinter_window_creator import Tkinter_Window_Creator
 from IPython.display import display, clear_output
+from ipyfilechooser import FileChooser
+
 from google.auth import exceptions as google_auth_exceptions
-from tkinter import filedialog
-from tkinter import messagebox
 from ipywidgets import Accordion
 from ipywidgets import Button
+from ipywidgets import ToggleButton
 from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
@@ -26,10 +25,38 @@ from ipywidgets import RadioButtons
 from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
-from ipywidgets import Checkbox
 
 
 logger = logging.getLogger(__name__)
+
+
+def create_file_chooser(callback, title: str = None):
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    # creates a unique instance of filechooser and button to close filechooser
+    geojson_chooser = FileChooser(os.getcwd())
+    geojson_chooser.dir_icon = os.sep
+    geojson_chooser.filter_pattern = ["*.geojson"]
+    geojson_chooser.title = "<b>Select a geojson file</b>"
+    if title is not None:
+        geojson_chooser.title = f"<b>{title}</b>"
+    geojson_chooser.register_callback(callback)
+
+    close_button = ToggleButton(
+        value=False,
+        tooltip="Close File Chooser",
+        icon="times",
+        button_style="primary",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    def close_click(change):
+        if change["new"]:
+            geojson_chooser.close()
+            close_button.close()
+
+    close_button.observe(close_click, "value")
+    chooser = HBox([geojson_chooser, close_button], layout=Layout(width="100%"))
+    return chooser
 
 
 class UI:
@@ -73,11 +100,7 @@ class UI:
         )
 
         self.load_file_radio = RadioButtons(
-            options=[
-                "Shoreline",
-                "Transects",
-                "Bbox",
-            ],
+            options=["Shoreline", "Transects", "Bbox", "ROIs"],
             value="Shoreline",
             description="",
             disabled=False,
@@ -94,7 +117,7 @@ class UI:
 
         # Generate buttons
         self.gen_button = Button(description="Generate ROI", style=self.action_style)
-        self.gen_button.on_click(self.on_gen_button_clicked)
+        self.gen_button.on_click(self.gen_roi_clicked)
         self.download_button = Button(
             description="Download Imagery", style=self.action_style
         )
@@ -640,15 +663,19 @@ class UI:
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         # in this row prints are rendered with UI.debug_view
         row_3 = HBox([self.clear_debug_button, UI.debug_view])
-        row_4 = HBox([self.coastseg_map.map])
-        row_5 = HBox([UI.download_view])
+        self.error_row = HBox([])
+        self.row_4 = HBox([])
+        row_5 = HBox([self.coastseg_map.map])
+        row_6 = HBox([UI.download_view])
 
         return display(
             row_0,
             row_1,
             row_3,
-            row_4,
+            self.error_row,
+            self.row_4,
             row_5,
+            row_6,
         )
 
     def handle_small_slider_change(self, change):
@@ -666,24 +693,29 @@ class UI:
                 self.coastseg_map.settings
             )
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # alt method to handle exception by adding error to row
+            # exception_handler.handle_exception(error,self.error_row)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
-    def on_gen_button_clicked(self, btn):
+    def gen_roi_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
-        print("Generating ROIs please wait.")
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         # Generate ROIs along the coastline within the bounding box
         try:
-            print("Creating ROIs")
+            print("Generating ROIs please wait...")
             self.coastseg_map.load_feature_on_map(
                 "rois",
                 large_len=self.fishnet_sizes["large"],
                 small_len=self.fishnet_sizes["small"],
             )
         except Exception as error:
-            exception_handler.handle_exception(error)
-        print("ROIs generated. Please Select at least one ROI and click Save ROI.")
+            print("ROIs could not be generated")
+            # exception_handler.handle_exception(error,self.error_row)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+        else:
+            print("ROIs generated. Please Select at least one ROI and click Save ROI.")
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
@@ -698,7 +730,8 @@ class UI:
                 print("Finding 'Transects'")
                 self.coastseg_map.load_feature_on_map("transects")
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
@@ -738,12 +771,14 @@ class UI:
                     self.coastseg_map.settings
                 )
             except Exception as error:
-                exception_handler.handle_exception(error)
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         elif not self.satellite_selection.value:
             try:
                 raise Exception("Must select at least one satellite first")
             except Exception as error:
-                exception_handler.handle_exception(error)
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):
@@ -753,7 +788,8 @@ class UI:
         try:
             self.coastseg_map.extract_all_shorelines()
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.extract_shorelines_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
@@ -765,7 +801,8 @@ class UI:
         try:
             self.coastseg_map.compute_transects()
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.compute_transect_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
@@ -780,14 +817,16 @@ class UI:
             try:
                 self.coastseg_map.download_imagery()
             except Exception as error:
-                exception_handler.handle_exception(error)
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         except google_auth_exceptions.RefreshError as exception:
             print(exception)
-            with Tkinter_Window_Creator():
-                messagebox.showerror(
-                    "Authentication Error",
-                    "Please authenticate with Google using the cell above: \n  'Authenticate and Initialize with Google Earth Engine (GEE)'",
-                )
+            exception_handler.handle_exception(
+                error,
+                self.coastseg_map.warning_box,
+                title="Authentication Error",
+                msg="Please authenticate with Google using the cell above: \n Authenticate and Initialize with Google Earth Engine (GEE)",
+            )
         self.download_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
@@ -797,64 +836,102 @@ class UI:
         try:
             self.coastseg_map.save_transects_to_csv()
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+
+    def clear_row(self, row: HBox):
+        """close widgets in row/column and clear all children
+        Args:
+            row (HBox)(VBox): row or column
+        """
+        for index in range(len(row.children)):
+            row.children[index].close()
+        row.children = []
 
     @debug_view.capture(clear_output=True)
     def on_load_configs_clicked(self, button):
-        # Prompt user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            tk_root.filename = filedialog.askopenfilename(
-                initialdir=os.getcwd(),
-                filetypes=[("geojson", "*.geojson")],
-                title="Select a geojson file",
-            )
-            # Save filename as an attribute of button
-            if tk_root.filename:
-                try:
-                    self.coastseg_map.load_configs(tk_root.filename)
-                    # update setting html with settings loaded in
+        # Prompt user to select a config geojson file
+        def load_callback(filechooser: FileChooser) -> None:
+            try:
+                if filechooser.selected:
+                    self.coastseg_map.load_configs(filechooser.selected)
                     self.settings_html.value = self.get_settings_html(
                         self.coastseg_map.settings
                     )
-                except Exception as error:
-                    exception_handler.handle_exception(error)
-            else:
-                messagebox.showerror(
-                    "File Selection Error",
-                    "You must select a valid geojson file first!",
-                )
+            except Exception as error:
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+
+        # create instance of chooser that calls load_callback
+        file_chooser = create_file_chooser(load_callback)
+        # clear row and close all widgets in row_4 before adding new file_chooser
+        self.clear_row(self.row_4)
+        # add instance of file_chooser to row 4
+        self.row_4.children = [file_chooser]
 
     @debug_view.capture(clear_output=True)
     def on_save_config_clicked(self, button):
         try:
             self.coastseg_map.save_config()
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):
-        # Prompt the user to select a directory of images
-        with Tkinter_Window_Creator() as tk_root:
-            file = filedialog.askopenfilename(
-                initialdir=os.getcwd(),
-                filetypes=[("geojson", "*.geojson")],
-                title="Select a geojson file containing bbox",
-            )
-            if file:
-                if "shoreline" in btn.description.lower():
-                    print(f"Loading shoreline from file: {file}")
-                    self.coastseg_map.load_feature_on_map("shoreline", file)
-                if "transects" in btn.description.lower():
-                    print(f"Loading transects from file: {file}")
-                    self.coastseg_map.load_feature_on_map("transects", file)
-                if "bbox" in btn.description.lower():
-                    print(f"Loading bounding box from file: {file}")
-                    self.coastseg_map.load_feature_on_map("bbox", file)
-            else:
-                messagebox.showerror(
-                    "File Selection Error",
-                    "You must select a valid geojson file first!",
-                )
+        # Prompt user to select a geojson file
+        def load_callback(filechooser: FileChooser) -> None:
+            try:
+                if filechooser.selected:
+                    if "shoreline" in btn.description.lower():
+                        print(
+                            f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}"
+                        )
+                        self.coastseg_map.load_feature_on_map(
+                            "shoreline", os.path.abspath(filechooser.selected)
+                        )
+                    if "transects" in btn.description.lower():
+                        print(
+                            f"Loading transects from file: {os.path.abspath(filechooser.selected)}"
+                        )
+                        self.coastseg_map.load_feature_on_map(
+                            "transects", os.path.abspath(filechooser.selected)
+                        )
+                    if "bbox" in btn.description.lower():
+                        print(
+                            f"Loading bounding box from file: {os.path.abspath(filechooser.selected)}"
+                        )
+                        self.coastseg_map.load_feature_on_map(
+                            "bbox", os.path.abspath(filechooser.selected)
+                        )
+                    if "rois" in btn.description.lower():
+                        print(
+                            f"Loading ROIs from file: {os.path.abspath(filechooser.selected)}"
+                        )
+                        self.coastseg_map.load_feature_on_map(
+                            "rois", os.path.abspath(filechooser.selected)
+                        )
+            except Exception as error:
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+
+        # change title of filechooser based on feature selected
+        title = "Select a geojson file"
+        # create instance of chooser that calls load_callback
+        if "shoreline" in btn.description.lower():
+            title = "Select shoreline geojson file"
+        if "transects" in btn.description.lower():
+            title = "Select transects geojson file"
+        if "bbox" in btn.description.lower():
+            title = "Select bounding box geojson file"
+        if "rois" in btn.description.lower():
+            title = "Select ROI geojson file"
+        # create instance of chooser that calls load_callback
+        file_chooser = create_file_chooser(load_callback, title=title)
+        # clear row and close all widgets in row_4 before adding new file_chooser
+        self.clear_row(self.row_4)
+        # add instance of file_chooser to row 4
+        self.row_4.children = [file_chooser]
 
     @debug_view.capture(clear_output=True)
     def remove_feature_from_map(self, btn):
@@ -874,7 +951,8 @@ class UI:
                 print(f"Removing ROIs")
                 self.coastseg_map.remove_all_rois()
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def save_to_file_btn_clicked(self, btn):
@@ -899,14 +977,16 @@ class UI:
                 print(f"Saving ROIs to file")
                 self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def remove_all_from_map(self, btn):
         try:
             self.coastseg_map.remove_all()
         except Exception as error:
-            exception_handler.handle_exception(error)
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     def clear_debug_view(self, btn):
         UI.debug_view.clear_output()

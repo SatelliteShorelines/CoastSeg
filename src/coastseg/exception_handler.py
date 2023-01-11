@@ -4,30 +4,27 @@ import traceback
 from typing import Union
 
 # internal python imports
-from coastseg.tkinter_window_creator import Tkinter_Window_Creator
+
 from coastseg import exceptions
 from coastseg import common
 from coastseg.roi import ROI
 
-# external python imports
-from google.auth import exceptions as google_auth_exceptions
-from tkinter import messagebox
 
 logger = logging.getLogger(__name__)
 
 NO_CONFIG_ROIS = (
     "No ROIs were selected. Cannot save ROIs to config until ROIs are selected."
 )
-NO_CONFIG_SETTINGS = "Settings must be loaded before configuration files can be made."
+NO_CONFIG_SETTINGS = "Settings must be loaded before configuration files can be made.\nClick save settings"
 ROIS_NOT_DOWNLOADED = (
     "Not all ROI directories exist on your computer. Try downloading the ROIs again."
 )
 BBOX_NOT_FOUND = "Bounding Box not found on map"
 EMPTY_SELECTED_ROIS = "Must select at least one ROI on the map"
-SETTINGS_NOT_FOUND = "No settings found. Create settings before downloading"
+SETTINGS_NOT_FOUND = "No settings found. Click save settings."
 SHORELINE_NOT_FOUND = "No Shoreline found. Please load a shoreline on the map first."
-NO_INPUT_SETTINGS = (
-    "No inputs settings found. Please click download ROIs first or upload configs"
+NO_ROI_SETTINGS = (
+    "No roi settings found. Click download imagery first or upload configs"
 )
 NO_EXTRACTED_SHORELINES = "No shorelines have been extracted. Extract shorelines first."
 NO_ROIS_WITH_EXTRACTED_SHORELINES = (
@@ -59,7 +56,7 @@ def check_if_subset(subset: set, superset: set, superset_name: str, message: str
     if not subset.issubset(superset):
         logger.error(f"Missing keys {subset-superset} from {superset_name}\n{message}")
         raise ValueError(
-            f"Missing keys {subset-superset} from {superset_name}\n{message}"
+            f"Missing keys {subset-superset} from {superset_name}\n{message}</br>Try clicking save settings"
         )
 
 
@@ -78,7 +75,7 @@ def can_feature_save_to_file(feature, feature_type: str = ""):
 def check_empty_dict(feature, feature_type: str = ""):
     if feature == {}:
         if feature_type == "roi_settings":
-            raise Exception(NO_INPUT_SETTINGS)
+            raise Exception(NO_ROI_SETTINGS)
         if feature_type == "extracted_shorelines":
             raise Exception(NO_EXTRACTED_SHORELINES)
         if feature_type == "cross_distance_transects":
@@ -131,19 +128,27 @@ def check_if_gdf_empty(feature, feature_type: str, message: str = ""):
         raise exceptions.Object_Not_Found(feature_type, message)
 
 
-def handle_exception(error):
-    error_message = f"{error}\n\n" + traceback.format_exc()
+def handle_exception(error, row: "ipywidgets.HBox", title: str = None, msg: str = None):
+    error_message = f"{error}</br>Additional Information</br>" + traceback.format_exc()
     logger.error(f"{traceback.format_exc()}")
     if isinstance(error, exceptions.Object_Not_Found):
         error_message = str(error)
     logger.error(f"{error_message}")
-    with Tkinter_Window_Creator():
-        messagebox.showinfo("Error", error_message)
+    launch_error_box(row, title="Error", msg=error_message)
 
 
 def handle_bbox_error(
-    error_msg: Union[exceptions.BboxTooLargeError, exceptions.BboxTooSmallError]
+    error_msg: Union[exceptions.BboxTooLargeError, exceptions.BboxTooSmallError],
+    row: "ipywidgets.HBox",
 ):
     logger.error(f"Bounding Box Error{error_msg}")
-    with Tkinter_Window_Creator():
-        messagebox.showwarning("Bounding Box Error", f"{str(error_msg)}")
+    launch_error_box(row, title="Error", msg=error_msg)
+
+
+def launch_error_box(row: "ipywidgets.HBox", title: str = None, msg: str = None):
+    # Show user error message
+    warning_box = common.create_warning_box(title=title, msg=msg)
+    # clear row and close all widgets in self.file_row before adding new warning_box
+    common.clear_row(row)
+    # add instance of warning_box to row
+    row.children = [warning_box]
