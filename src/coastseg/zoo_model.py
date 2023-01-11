@@ -274,6 +274,7 @@ def get_GPU(num_GPU: str) -> None:
                 cross_device_ops=tf.distribute.HierarchicalCopyAllReduce(),
             )
             print(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
+            logger.info(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
 
 
 def get_url_dict_to_download(models_json_dict: dict) -> dict:
@@ -368,8 +369,8 @@ class Zoo_Model:
         use_tta: bool,
         use_otsu: bool,
     ):
-        print(f"Test Time Augmentation: {use_tta}")
-        print(f"Otsu Threshold: {use_otsu}")
+        logger.info(f"Test Time Augmentation: {use_tta}")
+        logger.info(f"Otsu Threshold: {use_otsu}")
         # Read in the image filenames as either .npz,.jpg, or .png
         files_to_segment = self.get_files_for_seg(sample_direc)
         logger.info(f"files_to_segment: {files_to_segment}")
@@ -585,6 +586,7 @@ class Zoo_Model:
         # read raw json and get list of available files in zenodo release
         response = requests.get(root_url)
         json_content = json.loads(response.text)
+        logger.info(f"json_content {json_content}")
         files = json_content["files"]
 
         downloaded_models_path = self.get_downloaded_models_dir()
@@ -601,6 +603,8 @@ class Zoo_Model:
         if model_choice.upper() == "BEST":
             # retrieve best model text file
             best_model_json = [f for f in files if f["key"] == "BEST_MODEL.txt"][0]
+            if len(best_model_json) == 0:
+                raise Exception(f"Cannot find BEST_MODEL.txt at {root_url}")
             logger.info(f"list of best_model_txt: {best_model_json}")
             best_model_txt_path = self.weights_direc + os.sep + "BEST_MODEL.txt"
             logger.info(f"BEST: best_model_txt_path : {best_model_txt_path }")
@@ -629,6 +633,8 @@ class Zoo_Model:
         elif model_choice.upper() == "ENSEMBLE":
             # get list of all models
             all_models = [f for f in files if f["key"].endswith(".h5")]
+            if len(all_models) == 0:
+                raise Exception(f"Cannot find any .h5 files at {root_url}")
             logger.info(f"all_models : {all_models }")
             # check if all h5 files in files are in self.weights_direc
             for model_json in all_models:
