@@ -182,7 +182,7 @@ def create_warning_box(title: str = None, msg: str = None) -> HBox:
     if msg is None:
         msg = "Something went wrong..."
     warning_msg = HTML(
-        f"____________________________________________________________________________________________\
+        f"_______________________________________\
                    </br>⚠️{msg}"
     )
     # create vertical box to hold title and msg
