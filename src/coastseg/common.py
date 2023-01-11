@@ -800,13 +800,13 @@ def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
         dst_path (str): full path to the images directory in Sniffer
     """
     if not os.path.exists(dst_path):
-        print(f"dst_path: {dst_path} doesn't exist.")
+        raise FileNotFoundError(f"dst_path: {dst_path} doesn't exist.")
     elif not os.path.exists(src_path):
-        print(f"src_path: {src_path} doesn't exist.")
+        raise FileNotFoundError(f"src_path: {src_path} doesn't exist.")
     else:
         for file in glob.glob(glob_str):
             shutil.copy(file, dst_path)
-        print(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
+        logger.info(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
 
 
 def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:

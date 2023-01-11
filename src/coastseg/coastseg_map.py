@@ -892,8 +892,8 @@ class CoastSeg_Map:
         self.remove_layer_by_name(layer_name)
         exception_handler.check_empty_layer(new_layer, layer_name)
         # when feature is hovered over on_hover function is called
-        # if on_hover is not None:
-        # new_layer.on_hover(on_hover)
+        if on_hover is not None:
+            new_layer.on_hover(on_hover)
         if on_click is not None:
             # when feature is clicked on on_click function is called
             new_layer.on_click(on_click)
@@ -976,7 +976,7 @@ class CoastSeg_Map:
         ]
         logger.info(f"{layers}")
         for new_layer in layers:
-            # new_layer.on_hover(self.update_extracted_shoreline_html)
+            new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
     def load_feature_on_map(
@@ -1001,12 +1001,12 @@ class CoastSeg_Map:
         logger.info(f"feature_name: {feature_name.lower()}")
         on_hover = None
         on_click = None
-        # if "shoreline" in feature_name.lower():
-        #     on_hover = self.update_shoreline_html
-        # if "transects" in feature_name.lower():
-        #     on_hover = self.update_transects_html
+        if "shoreline" in feature_name.lower():
+            on_hover = self.update_shoreline_html
+        if "transects" in feature_name.lower():
+            on_hover = self.update_transects_html
         if "rois" in feature_name.lower():
-            # on_hover = self.update_roi_html
+            on_hover = self.update_roi_html
             on_click = self.geojson_onclick_handler
         # bounding box does not have any hover/click handlers
         # load new feature on map
@@ -1094,7 +1094,7 @@ class CoastSeg_Map:
             ROI.SELECTED_LAYER_NAME,
             selected_layer,
             on_click=self.selected_onclick_handler,
-            on_hover=None,  # self.update_roi_html,
+            on_hover=self.update_roi_html,
         )
 
     def selected_onclick_handler(
@@ -1130,7 +1130,7 @@ class CoastSeg_Map:
             ROI.SELECTED_LAYER_NAME,
             selected_layer,
             on_click=self.selected_onclick_handler,
-            on_hover=None,  # self.update_roi_html,
+            on_hover=self.update_roi_html,
         )
 
     def save_feature_to_file(

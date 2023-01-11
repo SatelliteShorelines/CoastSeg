@@ -29,6 +29,8 @@ from ipywidgets import Output
 
 logger = logging.getLogger(__name__)
 
+# icons sourced from https://fontawesome.com/v4/icons/
+
 
 def create_file_chooser(callback: Callable[[FileChooser], None], title: str = None):
     """
@@ -730,8 +732,10 @@ class UI:
             )
         except Exception as error:
             print("ROIs could not be generated")
+            self.coastseg_map.map.default_style = {"cursor": "default"}
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         else:
+            self.coastseg_map.map.default_style = {"cursor": "default"}
             print("ROIs generated. Please Select at least one ROI and click Save ROI.")
         self.coastseg_map.map.default_style = {"cursor": "default"}
         self.gen_button.disabled = False
