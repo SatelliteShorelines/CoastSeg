@@ -274,6 +274,7 @@ def get_GPU(num_GPU: str) -> None:
                 cross_device_ops=tf.distribute.HierarchicalCopyAllReduce(),
             )
             print(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
+            logger.info(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
 
 
 def get_url_dict_to_download(models_json_dict: dict) -> dict:
@@ -368,8 +369,8 @@ class Zoo_Model:
         use_tta: bool,
         use_otsu: bool,
     ):
-        print(f"Test Time Augmentation: {use_tta}")
-        print(f"Otsu Threshold: {use_otsu}")
+        logger.info(f"Test Time Augmentation: {use_tta}")
+        logger.info(f"Otsu Threshold: {use_otsu}")
         # Read in the image filenames as either .npz,.jpg, or .png
         files_to_segment = self.get_files_for_seg(sample_direc)
         logger.info(f"files_to_segment: {files_to_segment}")
