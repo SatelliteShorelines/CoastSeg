@@ -602,6 +602,8 @@ class Zoo_Model:
         if model_choice.upper() == "BEST":
             # retrieve best model text file
             best_model_json = [f for f in files if f["key"] == "BEST_MODEL.txt"][0]
+            if len(best_model_json) == 0:
+                raise Exception(f"Cannot find BEST_MODEL.txt at {root_url}")
             logger.info(f"list of best_model_txt: {best_model_json}")
             best_model_txt_path = self.weights_direc + os.sep + "BEST_MODEL.txt"
             logger.info(f"BEST: best_model_txt_path : {best_model_txt_path }")
@@ -630,6 +632,8 @@ class Zoo_Model:
         elif model_choice.upper() == "ENSEMBLE":
             # get list of all models
             all_models = [f for f in files if f["key"].endswith(".h5")]
+            if len(all_models) == 0:
+                raise Exception(f"Cannot find any .h5 files at {root_url}")
             logger.info(f"all_models : {all_models }")
             # check if all h5 files in files are in self.weights_direc
             for model_json in all_models:
