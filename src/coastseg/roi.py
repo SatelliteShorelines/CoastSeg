@@ -13,13 +13,7 @@ import pandas as pd
 from shapely import geometry
 from ipyleaflet import GeoJSON
 
-# Development only
-import sys
-import memory_profiler
-from memory_profiler import LogFile
-
 logger = logging.getLogger(__name__)
-sys.stdout = LogFile("memory_profile_log", reportIncrementFlag=True)
 
 
 class ROI:

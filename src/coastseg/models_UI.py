@@ -81,6 +81,7 @@ class UI_Models:
         ]
         self.five_band_models = [
             "sat-5band-4class_7344606",
+            "sat-5band-2-class_7448390",
         ]
         self.MNDWI_models = ["s2-landsat78-4class_7352850"]
         self.NDWI_models = ["s2-landsat78-4class_7352859"]

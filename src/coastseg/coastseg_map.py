@@ -1,4 +1,3 @@
-import sys
 import os
 import json
 import logging
@@ -28,17 +27,11 @@ from ipywidgets import Layout, HTML
 from tqdm.auto import tqdm
 from ipywidgets import HBox
 
-# Development only
-# import memory_profiler
-# from memory_profiler import LogFile
 
 logger = logging.getLogger(__name__)
-# writes to normal logger.... idk why but it works
-# sys.stdout = LogFile("memory_profile_log", reportIncrementFlag=True)
 
 
 class CoastSeg_Map:
-
     def __init__(self, settings: dict = None):
         self.factory = factory.Factory()
         # settings:  used to select data to download and preprocess settings
@@ -105,7 +98,7 @@ class CoastSeg_Map:
         # hover box shows hover data for transects and shorelines on hover
         self.feature_html = HTML("""""")
         self.hover_box = common.create_hover_box(
-            title="Feauture", feature_html=self.feature_html
+            title="Feature", feature_html=self.feature_html
         )
         self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
         self.map.add(self.hover_widget)
@@ -900,7 +893,7 @@ class CoastSeg_Map:
         exception_handler.check_empty_layer(new_layer, layer_name)
         # when feature is hovered over on_hover function is called
         # if on_hover is not None:
-            # new_layer.on_hover(on_hover)
+        # new_layer.on_hover(on_hover)
         if on_click is not None:
             # when feature is clicked on on_click function is called
             new_layer.on_click(on_click)
@@ -1101,7 +1094,7 @@ class CoastSeg_Map:
             ROI.SELECTED_LAYER_NAME,
             selected_layer,
             on_click=self.selected_onclick_handler,
-            on_hover=None, #self.update_roi_html,
+            on_hover=None,  # self.update_roi_html,
         )
 
     def selected_onclick_handler(
@@ -1137,7 +1130,7 @@ class CoastSeg_Map:
             ROI.SELECTED_LAYER_NAME,
             selected_layer,
             on_click=self.selected_onclick_handler,
-            on_hover=None,# self.update_roi_html,
+            on_hover=None,  # self.update_roi_html,
         )
 
     def save_feature_to_file(

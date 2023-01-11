@@ -27,13 +27,7 @@ from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 
-# Development only
-# import sys
-# import memory_profiler
-# from memory_profiler import LogFile
-
 logger = logging.getLogger(__name__)
-# sys.stdout = LogFile("memory_profile_log", reportIncrementFlag=True)
 
 
 def create_file_chooser(callback: Callable[[FileChooser], None], title: str = None):
@@ -75,8 +69,7 @@ def create_file_chooser(callback: Callable[[FileChooser], None], title: str = No
             close_button.close()
 
     close_button.observe(close_click, "value")
-    chooser = HBox([geojson_chooser, close_button],
-                   layout=Layout(width="100%"))
+    chooser = HBox([geojson_chooser, close_button], layout=Layout(width="100%"))
     return chooser
 
 
@@ -145,13 +138,11 @@ class UI:
         self.extract_shorelines_button = Button(
             description="Extract Shorelines", style=self.action_style
         )
-        self.extract_shorelines_button.on_click(
-            self.extract_shorelines_button_clicked)
+        self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
         self.compute_transect_button = Button(
             description="Compute Transects", style=self.action_style
         )
-        self.compute_transect_button.on_click(
-            self.compute_transect_button_clicked)
+        self.compute_transect_button.on_click(self.compute_transect_button_clicked)
         self.save_transect_csv_button = Button(
             description="Save Transects CSV", style=self.action_style
         )
@@ -176,20 +167,20 @@ class UI:
         )
         # create two float text boxes that will control size of ROI created
         self.sm_area_textbox = BoundedFloatText(
-            value=40000,
+            value=1500000,
             min=0,
             max=980000000,
             step=1000,
-            description=f"Small ROI Area(m²):",
+            description="Small ROI Area(m²):",
             style={"description_width": "initial"},
             disabled=False,
         )
         self.lg_area_textbox = BoundedFloatText(
-            value=60000,
+            value=2200000,
             min=0,
             max=980000000,
             step=1000,
-            description=f"Large ROI Area(m²):",
+            description="Large ROI Area(m²):",
             style={"description_width": "initial"},
             disabled=False,
         )
@@ -237,8 +228,7 @@ class UI:
         )
         update_settings_btn.on_click(self.update_settings_btn_clicked)
         self.settings_html = HTML()
-        self.settings_html.value = self.get_settings_html(
-            self.coastseg_map.settings)
+        self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
         view_settings_vbox = VBox([self.settings_html, update_settings_btn])
         return view_settings_vbox
 
@@ -292,8 +282,7 @@ class UI:
             value=datetime.date(2019, 3, 1),  # 2019, 1, 1
             disabled=False,
         )
-        date_instr = HTML(value="<b>Pick a date:</b>",
-                          layout=Layout(padding="10px"))
+        date_instr = HTML(value="<b>Pick a date:</b>", layout=Layout(padding="10px"))
         dates_box = HBox([self.start_date, self.end_date])
         dates_vbox = VBox([date_instr, dates_box])
         return dates_vbox
@@ -316,8 +305,7 @@ class UI:
         return VBox([instr, self.cloud_threshold_slider])
 
     def get_pansharpen_toggle(self):
-        instr = HTML(
-            value="<b>Switch pansharpening off for Landsat 7/8/9 imagery</b>")
+        instr = HTML(value="<b>Switch pansharpening off for Landsat 7/8/9 imagery</b>")
         self.pansharpen_toggle = ipywidgets.ToggleButtons(
             options=["Pansharpen Off", "Pansharpen On"],
             description="",
@@ -724,13 +712,13 @@ class UI:
                 self.coastseg_map.settings
             )
         except Exception as error:
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def gen_roi_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
         self.coastseg_map.map.default_style = {"cursor": "wait"}
+        self.gen_button.disabled = True
         # Generate ROIs along the coastline within the bounding box
         try:
             print("Generating ROIs please wait...")
@@ -742,11 +730,11 @@ class UI:
             )
         except Exception as error:
             print("ROIs could not be generated")
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         else:
             print("ROIs generated. Please Select at least one ROI and click Save ROI.")
         self.coastseg_map.map.default_style = {"cursor": "default"}
+        self.gen_button.disabled = False
 
     @debug_view.capture(clear_output=True)
     def load_button_clicked(self, btn):
@@ -761,8 +749,7 @@ class UI:
                 self.coastseg_map.load_feature_on_map("transects")
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
@@ -803,15 +790,13 @@ class UI:
                 )
             except Exception as error:
                 # renders error message as a box on map
-                exception_handler.handle_exception(
-                    error, self.coastseg_map.warning_box)
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         elif not self.satellite_selection.value:
             try:
                 raise Exception("Must select at least one satellite first")
             except Exception as error:
                 # renders error message as a box on map
-                exception_handler.handle_exception(
-                    error, self.coastseg_map.warning_box)
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):
@@ -822,8 +807,7 @@ class UI:
             self.coastseg_map.extract_all_shorelines()
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.extract_shorelines_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
@@ -836,8 +820,7 @@ class UI:
             self.coastseg_map.compute_transects()
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.compute_transect_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
@@ -846,16 +829,15 @@ class UI:
         # UI.download_view.clear_output()
         # UI.debug_view.clear_output()
         self.coastseg_map.map.default_style = {"cursor": "wait"}
-        UI.debug_view.append_stdout(
-            "Scroll down past map to see download progress.")
+        self.download_button.disabled = True
+        UI.debug_view.append_stdout("Scroll down past map to see download progress.")
         try:
-            self.download_button.disabled = True
             try:
+                self.download_button.disabled = True
                 self.coastseg_map.download_imagery()
             except Exception as error:
                 # renders error message as a box on map
-                exception_handler.handle_exception(
-                    error, self.coastseg_map.warning_box)
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         except google_auth_exceptions.RefreshError as exception:
             print(exception)
             exception_handler.handle_exception(
@@ -874,8 +856,7 @@ class UI:
             self.coastseg_map.save_transects_to_csv()
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     def clear_row(self, row: HBox):
         """close widgets in row/column and clear all children
@@ -898,8 +879,7 @@ class UI:
                     )
             except Exception as error:
                 # renders error message as a box on map
-                exception_handler.handle_exception(
-                    error, self.coastseg_map.warning_box)
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
         # create instance of chooser that calls load_callback
         file_chooser = create_file_chooser(load_callback)
@@ -914,8 +894,7 @@ class UI:
             self.coastseg_map.save_config()
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):
@@ -953,8 +932,7 @@ class UI:
                         )
             except Exception as error:
                 # renders error message as a box on map
-                exception_handler.handle_exception(
-                    error, self.coastseg_map.warning_box)
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
         # change title of filechooser based on feature selected
         title = "Select a geojson file"
@@ -993,8 +971,7 @@ class UI:
                 self.coastseg_map.remove_all_rois()
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def save_to_file_btn_clicked(self, btn):
@@ -1017,12 +994,10 @@ class UI:
                 )
             if "rois" in btn.description.lower():
                 print(f"Saving ROIs to file")
-                self.coastseg_map.save_feature_to_file(
-                    self.coastseg_map.rois, "ROI")
+                self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def remove_all_from_map(self, btn):
@@ -1030,8 +1005,7 @@ class UI:
             self.coastseg_map.remove_all()
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(
-                error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     def clear_debug_view(self, btn):
         UI.debug_view.clear_output()

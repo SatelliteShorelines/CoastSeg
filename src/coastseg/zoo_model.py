@@ -585,6 +585,7 @@ class Zoo_Model:
         # read raw json and get list of available files in zenodo release
         response = requests.get(root_url)
         json_content = json.loads(response.text)
+        logger.info(f"json_content {json_content}")
         files = json_content["files"]
 
         downloaded_models_path = self.get_downloaded_models_dir()
