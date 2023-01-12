@@ -830,8 +830,8 @@ class UI:
 
     @download_view.capture(clear_output=True)
     def download_button_clicked(self, btn):
-        # UI.download_view.clear_output()
-        # UI.debug_view.clear_output()
+        UI.download_view.clear_output()
+        UI.debug_view.clear_output()
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         self.download_button.disabled = True
         UI.debug_view.append_stdout("Scroll down past map to see download progress.")
