@@ -71,14 +71,15 @@ def create_shoreline(
     else:
         # ensure valid bbox exists to create shorelines in
         exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
+        exception_handler.check_if_gdf_empty(
+            coastsegmap.bbox.gdf, "bounding box")
         # if bounding box exists create shoreline within it
         shoreline = Shoreline(coastsegmap.bbox.gdf)
         exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
 
     # Save shoreline to coastseg_map
     logger.info("Shoreline were loaded on map")
-    print("Shoreline were loaded on map")
+    # print("Shorelines were loaded on map")
     coastsegmap.shoreline = shoreline
     return shoreline
 
@@ -103,7 +104,8 @@ def create_transects(
     else:
         # ensure valid bbox exists to create transects in
         exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
+        exception_handler.check_if_gdf_empty(
+            coastsegmap.bbox.gdf, "bounding box")
         # if bounding box exists load transects within it
         transects = Transects(coastsegmap.bbox.gdf)
         exception_handler.check_if_gdf_empty(
@@ -113,7 +115,7 @@ def create_transects(
         )
 
     logger.info("Transects were loaded on map")
-    print("Transects were loaded on map")
+    # print("Transects were loaded on map")
     coastsegmap.transects = transects
     return transects
 
@@ -146,7 +148,6 @@ def create_bbox(
     coastsegmap.remove_bbox()
     coastsegmap.draw_control.clear()
     logger.info("Bounding Box was loaded on map")
-    print("Bounding Box was loaded on map")
     # save bbox to coastseg_map
     coastsegmap.bbox = bbox
     return bbox
