@@ -187,10 +187,11 @@ class UI_Models:
         load_style = dict(button_color="#69add1")
         action_style = dict(button_color="#ae3cf0")
 
-        self.run_model_button = Button(description="Run Model",
-                                       style=action_style,
-                                       icon="fa-bolt",
-                                       )
+        self.run_model_button = Button(
+            description="Run Model",
+            style=action_style,
+            icon="fa-bolt",
+        )
         self.run_model_button.on_click(self.run_model_button_clicked)
         self.use_data_button = Button(
             description="Select Data Folder",

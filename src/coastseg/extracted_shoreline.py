@@ -285,7 +285,7 @@ def make_coastsat_compatible(feature: gpd.geodataframe) -> list:
     feature_exploded = feature.explode()
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
-        lambda row: tuple(np.array(row.geometry).tolist()), axis=1
+        lambda row: tuple(np.array(row.geometry.coords).tolist()), axis=1
     )
     features = list(lat_lng)
     return features
