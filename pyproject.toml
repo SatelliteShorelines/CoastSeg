@@ -12,7 +12,7 @@ authors = [
 # find` directive with `include` or `exclude`
 description = "An interactive jupyter notebook for downloading satellite imagery"
 dependencies = [
-  "coastsat-package>=0.1.1",
+  "coastsat-package>=0.1.2",
   "area",
   "doodleverse-utils>=0.0.18",
   "ipyfilechooser>=0.6.0",
