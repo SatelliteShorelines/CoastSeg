@@ -71,8 +71,7 @@ def create_shoreline(
     else:
         # ensure valid bbox exists to create shorelines in
         exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(
-            coastsegmap.bbox.gdf, "bounding box")
+        exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
         # if bounding box exists create shoreline within it
         shoreline = Shoreline(coastsegmap.bbox.gdf)
         exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
@@ -104,8 +103,7 @@ def create_transects(
     else:
         # ensure valid bbox exists to create transects in
         exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(
-            coastsegmap.bbox.gdf, "bounding box")
+        exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
         # if bounding box exists load transects within it
         transects = Transects(coastsegmap.bbox.gdf)
         exception_handler.check_if_gdf_empty(

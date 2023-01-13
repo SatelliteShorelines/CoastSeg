@@ -129,8 +129,7 @@ class UI_Models:
             description="Select:",
             disabled=False,
         )
-        self.model_implementation.observe(
-            self.handle_model_implementation, "value")
+        self.model_implementation.observe(self.handle_model_implementation, "value")
 
         self.otsu_radio = RadioButtons(
             options=["Enabled", "Disabled"],
@@ -156,8 +155,7 @@ class UI_Models:
             description="Model Input:",
             disabled=False,
         )
-        self.model_input_dropdown.observe(
-            self.handle_model_input_change, names="value")
+        self.model_input_dropdown.observe(self.handle_model_input_change, names="value")
 
         self.model_dropdown = ipywidgets.RadioButtons(
             options=self.RGB_models,
@@ -204,8 +202,7 @@ class UI_Models:
             style=load_style,
             icon="fa-file-image-o",
         )
-        self.use_select_images_button.on_click(
-            self.use_select_images_button_clicked)
+        self.use_select_images_button.on_click(self.use_select_images_button_clicked)
         self.open_results_button = Button(
             description="Open Results",
             style=load_style,
@@ -425,8 +422,7 @@ class UI_Models:
             )
         else:
             # path to directory containing model outputs
-            model_results_path = os.path.abspath(
-                self.model_dict["sample_direc"])
+            model_results_path = os.path.abspath(self.model_dict["sample_direc"])
             if not os.path.exists(model_results_path):
                 self.launch_error_box(
                     "File Not Found",
@@ -440,8 +436,7 @@ class UI_Models:
     def load_callback(self, filechooser: FileChooser) -> None:
         if filechooser.selected:
             sample_direc = os.path.abspath(filechooser.selected)
-            print(
-                f"The images in the folder will be segmented :\n{sample_direc} ")
+            print(f"The images in the folder will be segmented :\n{sample_direc} ")
             jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
             if jpgs == []:
                 self.launch_error_box(
