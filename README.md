@@ -40,7 +40,17 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 ## Quick Start
 To get started with CoastSeg open this [google colab](https://colab.research.google.com/github/2320sharon/2320sharon/blob/main/coastseg_for_google_colab.ipynb) which will open a jupyter notebook online. The notebook will walk you through connecting to Google Earth Engine, connecting to your google drive so you can save your downloaded images, and using the map dashboard to download satellite imagery.
 
-Alternatively, if you want to get started on your local computer follow the installation instructions.
+Alternatively, if you want to get started on your local computer follow the installation instructions, activate the `coastseg` environment, then change to the `CoastSeg` directory `cd coastseg`. Run one of the following notebooks with `jupyter lab` to get started using coastseg. 
+
+**Notebook to Download Satellite Imagery** 
+```bash
+jupyter lab SDS_coastsat_classifier.ipynb
+```
+
+**Notebook to Run Image Segmentation Models**
+```bash
+jupyter lab SDS_unet_classifier.ipynb
+```
 
 ## Installation Instructions
 
