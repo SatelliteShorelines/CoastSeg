@@ -9,7 +9,7 @@ The `.geojson` file contains a geodataframe with crs `espg 4326` that contains a
 
 ---
 
-Config files are automatically saved in the `data` directory within each ROI directory when `Download ROIs` is clicked.
+Config files are automatically saved in the `data` directory within each ROI directory when `Download Imagery` is clicked.
 Config files can be saved at any time when the `Save Config ` button is clicked.
 
 **ROIs Downloaded**
@@ -25,7 +25,7 @@ If the ROIs selected on the map have been downloaded before and exist in the `da
 
 # Loading Config Files
 
-## Load Config Files For Download ROIs
+## Load Config Files For Downloaded ROIs
 
 To load config files for ROIs that have been downloaded before go to the `data` directory within `coastseg` then find the directory of the ROIs you want to upload. Inside that directory, for example the
 `ID_3_datetime10-20-22__07_09_07` directory, there should be `geojson` file named `config_gdf_id_3.geojson`. You should notice the `ID_<ROI ID NUMBER>` in the directory name and the geojson file match, in this case this is ROI id 3. Upload the `config_gdf_id_<roi id number>.geojson`.

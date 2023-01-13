@@ -274,7 +274,9 @@ def get_GPU(num_GPU: str) -> None:
                 cross_device_ops=tf.distribute.HierarchicalCopyAllReduce(),
             )
             print(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
-            logger.info(f"Number of distributed devices: {strategy.num_replicas_in_sync}")
+            logger.info(
+                f"Number of distributed devices: {strategy.num_replicas_in_sync}"
+            )
 
 
 def get_url_dict_to_download(models_json_dict: dict) -> dict:

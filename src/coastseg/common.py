@@ -654,10 +654,10 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
         logger.info(f"Located previously downloaded ROI data.")
     elif is_downloaded == False:
         print(
-            "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
+            "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
         )
         logger.info(
-            f"Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download ROI"
+            f"Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
         )
     return is_downloaded
 

@@ -78,7 +78,7 @@ def create_shoreline(
 
     # Save shoreline to coastseg_map
     logger.info("Shoreline were loaded on map")
-    print("Shoreline were loaded on map")
+    # print("Shorelines were loaded on map")
     coastsegmap.shoreline = shoreline
     return shoreline
 
@@ -113,7 +113,7 @@ def create_transects(
         )
 
     logger.info("Transects were loaded on map")
-    print("Transects were loaded on map")
+    # print("Transects were loaded on map")
     coastsegmap.transects = transects
     return transects
 
@@ -146,7 +146,6 @@ def create_bbox(
     coastsegmap.remove_bbox()
     coastsegmap.draw_control.clear()
     logger.info("Bounding Box was loaded on map")
-    print("Bounding Box was loaded on map")
     # save bbox to coastseg_map
     coastsegmap.bbox = bbox
     return bbox

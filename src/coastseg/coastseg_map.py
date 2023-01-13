@@ -199,7 +199,6 @@ class CoastSeg_Map:
         if bbox_gdf.empty:
             self.bbox = None
             logger.info("No Bounding Box was loaded on map")
-            print("No Bounding Box was loaded on map")
         else:
             self.load_feature_on_map("bbox", gdf=bbox_gdf)
         # Create ROI object from roi_gdf
