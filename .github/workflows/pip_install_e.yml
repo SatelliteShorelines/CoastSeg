@@ -17,11 +17,7 @@ jobs:
       matrix:
         # tensorflow supports up to python 3.10
         os: [ubuntu-latest, windows-latest, macos-latest]
-        env: [
-            # ci/envs/38-coastseg.yaml,
-            ci/envs/39-coastseg.yaml,
-            ci/envs/310-coastseg.yaml,
-          ]
+        env: [ci/envs/39-coastseg.yaml, ci/envs/310-coastseg.yaml]
     steps:
       - uses: actions/checkout@v3
       - name: Setup Conda
