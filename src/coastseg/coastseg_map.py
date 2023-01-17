@@ -994,6 +994,13 @@ class CoastSeg_Map:
         # if file is passed read gdf from file
         if file != "":
             gdf = common.read_gpd_file(file)
+        if 'shoreline' in feature_name.lower() or 'transect' in feature_name.lower():
+            # if 'id' column is not present and 'name' column is replace 'name' with 'id'
+            # id neither exist create a new column named 'id' with row index
+            if 'ID' in gdf.columns:
+                gdf.rename(columns={'ID':'id'},inplace=True)
+            common.replace_column(gdf,new_name='id',replace_col='name')
+
 
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         logger.info(f"new_feature: {new_feature}")

@@ -386,6 +386,31 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         config.to_file(save_path, driver="GeoJSON")
 
 
+def replace_column(df,new_name='id',replace_col=None)->None:
+    """Renames the column named replace_col with new_name. If column named
+    new_name does not exist a new column named new_name is created with the row index.
+
+    NOTE: replace_col is case insensitive, so if replace_col = 'NAME' then any column with 'name','NAME','NaME','Name',etc.
+    will be replaced with new name.
+
+    Args:
+        df (geodataframe): geodataframe with columns
+        new_name (str, optional): new column nam. Defaults to 'id'.
+        replace_col (_type_, optional): column name to replace. Defaults to None.
+    """    
+    # name  of column to replace with new_name
+    if replace_col is not None:
+        if new_name not in df.columns:
+            if replace_col in df.columns.str.lower():
+                col_idx = df.columns.str.lower().get_loc(replace_col)
+                col_name = df.columns[col_idx]
+                df.rename(columns={col_name : new_name},inplace = True)
+    elif replace_col is None:     
+        if new_name not in df.columns:
+            #create a new column with new_name and row index
+            df[new_name] = df.index 
+
+
 def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
