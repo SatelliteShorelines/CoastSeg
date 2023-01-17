@@ -186,7 +186,10 @@ def create_warning_box(title: str = None, msg: str = None) -> HBox:
                    </br>⚠️{msg}"
     )
     # create vertical box to hold title and msg
-    warning_content = VBox([warning_title, warning_msg])
+    warning_content = VBox([warning_title, warning_msg],
+    layout=Layout(max_height='70%',width='70%', max_width="75%",
+    padding="5px 5px 5px 5px"))
+
     # define a close button
     close_button = ToggleButton(
         value=False,
