@@ -25,6 +25,7 @@ from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import HTML
+import ipyevents
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
@@ -106,13 +107,9 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
     """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # create title
-    title = HTML(f"  <h2>{title} Hover  </h2>")
+    title = HTML(f"  <h4>{title} Hover  </h4>")
     # Default message shown when nothing has been hovered
     msg = HTML(f"Hover over a feature</br>")
-    # message tells user that data is available on hover
-    if feature_html.value != "":
-        msg = HTML(f"Hover Data Available</br>")
-
     # open button allows user to see hover data
     uncollapse_button = ToggleButton(
         value=False,
@@ -130,35 +127,38 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
         button_style="info",
         layout=Layout(height="28px", width="28px", padding=padding),
     )
+    # when mouse enters/exits Vbox event is triggered
+    uncollapse_event = ipyevents.Event(
+        source=uncollapse_button, watched_events=["click"]
+    )
+    collapse_event = ipyevents.Event(source=collapse_button, watched_events=["click"])
+    # message tells user that data is available on hover
+    container_content = VBox([msg])
+    if feature_html.value == "":
+        container_content.children = [msg]
+    elif feature_html.value != "":
+        container_content.children = [feature_html]
 
     # default configuration for container is in collapsed mode
     container_header = HBox([title, uncollapse_button])
-    container_content = VBox([msg])
-    container = VBox([container_header, container_content])
+    container = VBox([container_header])
 
-    # restore default content and hide hover data
-    def collapse(container_content, change):
-        if change["new"]:
-            container_header.children = [title, uncollapse_button]
-            container_content.children = [msg]
-
-    def uncollapse(container_content, change):
-        if change["new"]:
-            container_header.children = [title, collapse_button]
+    def handle_uncollapse_event(event):
+        if event["type"] == "click":
             if feature_html.value == "":
                 container_content.children = [msg]
             elif feature_html.value != "":
                 container_content.children = [feature_html]
+            container_header.children = [title, collapse_button]
+            container.children = [container_header, container_content]
 
-    def button_callback(func, *args):
-        def callback(value):
-            func(*args, value)
-            # this calls collapse(container_content,value)
+    def handle_collapse_event(event):
+        if event["type"] == "click":
+            container_header.children = [title, uncollapse_button]
+            container.children = [container_header]
 
-        return callback
-
-    collapse_button.observe(button_callback(collapse, container_content), "value")
-    uncollapse_button.observe(button_callback(uncollapse, container_content), "value")
+    uncollapse_event.on_dom_event(handle_uncollapse_event)
+    collapse_event.on_dom_event(handle_collapse_event)
     return container
 
 
@@ -186,9 +186,10 @@ def create_warning_box(title: str = None, msg: str = None) -> HBox:
                    </br>⚠️{msg}"
     )
     # create vertical box to hold title and msg
-    warning_content = VBox([warning_title, warning_msg],
-    layout=Layout(width='70%', max_width="75%",
-    padding="5px 5px 5px 5px"))
+    warning_content = VBox(
+        [warning_title, warning_msg],
+        layout=Layout(width="70%", max_width="75%", padding="5px 5px 5px 5px"),
+    )
 
     # define a close button
     close_button = ToggleButton(
@@ -389,7 +390,7 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         config.to_file(save_path, driver="GeoJSON")
 
 
-def replace_column(df,new_name='id',replace_col=None)->None:
+def replace_column(df, new_name="id", replace_col=None) -> None:
     """Renames the column named replace_col with new_name. If column named
     new_name does not exist a new column named new_name is created with the row index.
 
@@ -400,18 +401,18 @@ def replace_column(df,new_name='id',replace_col=None)->None:
         df (geodataframe): geodataframe with columns
         new_name (str, optional): new column nam. Defaults to 'id'.
         replace_col (_type_, optional): column name to replace. Defaults to None.
-    """    
+    """
     # name  of column to replace with new_name
     if replace_col is not None:
         if new_name not in df.columns:
             if replace_col in df.columns.str.lower():
                 col_idx = df.columns.str.lower().get_loc(replace_col)
                 col_name = df.columns[col_idx]
-                df.rename(columns={col_name : new_name},inplace = True)
-    elif replace_col is None:     
+                df.rename(columns={col_name: new_name}, inplace=True)
+    elif replace_col is None:
         if new_name not in df.columns:
-            #create a new column with new_name and row index
-            df[new_name] = df.index 
+            # create a new column with new_name and row index
+            df[new_name] = df.index
 
 
 def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:

@@ -163,26 +163,26 @@ class UI:
         # controls the ROI units displayed
         self.units_radio = RadioButtons(
             options=["m²", "km²"],
-            value="m²",
+            value="km²",
             description="Select Units:",
             disabled=False,
         )
         # create two float text boxes that will control size of ROI created
         self.sm_area_textbox = BoundedFloatText(
-            value=1500000,
+            value=1,
             min=0,
-            max=980000000,
-            step=1000,
-            description="Small ROI Area(m²):",
+            max=98,
+            step=1,
+            description="Small ROI Area(km²):",
             style={"description_width": "initial"},
             disabled=False,
         )
         self.lg_area_textbox = BoundedFloatText(
-            value=2200000,
+            value=3,
             min=0,
-            max=980000000,
-            step=1000,
-            description="Large ROI Area(m²):",
+            max=98,
+            step=1,
+            description="Large ROI Area(km²):",
             style={"description_width": "initial"},
             disabled=False,
         )
@@ -200,23 +200,33 @@ class UI:
             """
             try:
                 MAX_AREA = 980000000
-                # index 0: m², 1:km²
-                index = change["old"]["index"]
-                # change to index 0 m²
-                if index == 0:
-                    MAX_AREA = 980000000
-                    # change to index 1 m²
-                elif index == 1:
-                    MAX_AREA = 98
-                print(MAX_AREA)
-                self.sm_area_textbox.max = MAX_AREA
-                self.lg_area_textbox.max = MAX_AREA
-                self.sm_area_textbox.description = (
-                    f"Small ROI Area({self.units_radio.value}):"
-                )
-                self.lg_area_textbox.description = (
-                    f"Large ROI Area({self.units_radio.value}):"
-                )
+                STEP = 1000
+                if change["name"] == "value":
+                    if change["new"] == "m²":
+                        MAX_AREA = 980000000
+                        STEP = 1000
+                        # convert km²to m²
+                        new_sm_val = self.sm_area_textbox.value * (10**6)
+                        new_lg_val = self.lg_area_textbox.value * (10**6)
+                    elif change["new"] == "km²":
+                        MAX_AREA = 98
+                        STEP = 1
+                        # convert m²to km²
+                        new_sm_val = self.sm_area_textbox.value / (10**6)
+                        new_lg_val = self.lg_area_textbox.value / (10**6)
+                    # update the textboxes according to selected units
+                    self.sm_area_textbox.max = MAX_AREA
+                    self.sm_area_textbox.step = STEP
+                    self.lg_area_textbox.max = MAX_AREA
+                    self.lg_area_textbox.step = STEP
+                    self.sm_area_textbox.value = new_sm_val
+                    self.lg_area_textbox.value = new_lg_val
+                    self.sm_area_textbox.description = (
+                        f"Small ROI Area({self.units_radio.value}):"
+                    )
+                    self.lg_area_textbox.description = (
+                        f"Large ROI Area({self.units_radio.value}):"
+                    )
             except Exception as e:
                 print(e)
 
