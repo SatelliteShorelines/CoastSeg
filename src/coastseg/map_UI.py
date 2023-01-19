@@ -254,7 +254,6 @@ class UI:
         shoreline_buffer_slider = self.get_shoreline_buffer_slider()
         cloud_slider = self.get_cloud_slider()
         alongshore_distance_slider = self.get_alongshore_distance_slider()
-        pansharpen_toggle = self.get_pansharpen_toggle()
         cloud_theshold_slider = self.get_cloud_threshold_slider()
 
         settings_button = Button(
@@ -276,7 +275,6 @@ class UI:
                 cloud_slider,
                 alongshore_distance_slider,
                 cloud_theshold_slider,
-                pansharpen_toggle,
                 settings_button,
             ]
         )
@@ -315,16 +313,6 @@ class UI:
             style={"description_width": "initial"},
         )
         return VBox([instr, self.cloud_threshold_slider])
-
-    def get_pansharpen_toggle(self):
-        instr = HTML(value="<b>Switch pansharpening off for Landsat 7/8/9 imagery</b>")
-        self.pansharpen_toggle = ipywidgets.ToggleButtons(
-            options=["Pansharpen Off", "Pansharpen On"],
-            description="",
-            disabled=False,
-            button_style="",
-        )
-        return VBox([instr, self.pansharpen_toggle])
 
     def get_sand_dropbox(self):
         sand_color_instr = HTML(
@@ -585,7 +573,6 @@ class UI:
         <p>min_length_sl: {}</p>
         <p>cloud_mask_issue: {}</p>
         <p>sand_color: {}</p>
-        <p>pan_off: {}</p>
         <p>max_dist_ref: {}</p>
         <p>along_dist: {}</p>
         """.format(
@@ -600,7 +587,6 @@ class UI:
             values["min_length_sl"],
             values["cloud_mask_issue"],
             values["sand_color"],
-            values["pan_off"],
             values["max_dist_ref"],
             values["along_dist"],
         )
@@ -780,9 +766,6 @@ class UI:
             beach_area = self.beach_area_slider.value
             min_length_sl = self.min_length_sl_slider.value
             sand_color = str(self.sand_dropdown.value)
-            pansharpen_enabled = (
-                False if "off" in self.pansharpen_toggle.value.lower() else True
-            )
             cloud_thresh = self.cloud_threshold_slider.value
             settings = {
                 "sat_list": sat_list,
@@ -794,7 +777,6 @@ class UI:
                 "min_beach_area": beach_area,
                 "min_length_sl": min_length_sl,
                 "sand_color": sand_color,
-                "pan_off": pansharpen_enabled,
                 "cloud_thresh": cloud_thresh,
             }
             try:
