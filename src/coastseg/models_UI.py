@@ -85,6 +85,7 @@ class UI_Models:
         ]
         self.MNDWI_models = ["s2-landsat78-4class_7352850"]
         self.NDWI_models = ["s2-landsat78-4class_7352859"]
+
         # Declare widgets and on click callbacks
         self._create_HTML_widgets()
         self._create_widgets()
@@ -94,7 +95,7 @@ class UI_Models:
         model_choices_box = HBox(
             [self.model_input_dropdown, self.model_dropdown, self.model_implementation]
         )
-        checkboxes = HBox([self.GPU_dropdown, self.otsu_radio, self.tta_radio])
+        checkboxes = HBox([self.GPU_checkbox, self.otsu_radio, self.tta_radio])
         instr_vbox = VBox(
             [
                 self.instr_header,
@@ -162,20 +163,11 @@ class UI_Models:
         )
         self.model_dropdown.observe(self.handle_model_type, "value")
 
-        # allow user to select number of GPUs
-        self.GPU_dropdown = ipywidgets.IntSlider(
-            value=0,
-            min=0,
-            max=5,
-            step=1,
-            description="GPU(s):",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
+        # Allow user to enable GPU
+        self.GPU_checkbox = ipywidgets.widgets.Checkbox(
+            value=False, description="Use GPU", disabled=False, indent=False
         )
-        self.GPU_dropdown.observe(self.handle_GPU_dropdown, "value")
+        self.GPU_checkbox.observe(self.handle_GPU_checkbox, "value")
 
     def _create_buttons(self):
         # button styles
@@ -243,11 +235,11 @@ class UI_Models:
     def handle_model_type(self, change):
         self.model_dict["model_type"] = change["new"]
 
-    def handle_GPU_dropdown(self, change):
-        if change["new"] == 0:
+    def handle_GPU_checkbox(self, change):
+        if change["new"] == True:
+            self.model_dict["use_GPU"] = "1"
+        elif change["new"] == False:
             self.model_dict["use_GPU"] = "0"
-        else:
-            self.model_dict["use_GPU"] = str(change["new"])
 
     def handle_otsu(self, change):
         if change["new"] == "Enabled":
