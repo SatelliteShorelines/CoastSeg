@@ -70,13 +70,12 @@ class UI_Models:
             "sample_direc": None,
             "use_GPU": "0",
             "implementation": "ENSEMBLE",
-            "model_type": "s2-landsat78-4class_6950472",
+            "model_type": "sat_RGB_4class_6950472",
             "otsu": False,
             "tta": False,
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "s2-landsat78-4class_6950472",
             "sat_RGB_2class_7384255",
             "sat_RGB_4class_6950472",
         ]
