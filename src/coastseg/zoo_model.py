@@ -241,12 +241,7 @@ def get_GPU(num_GPU: str) -> None:
         logger.info(f"Using 1 GPU")
         # use first available GPU
         os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    elif int(num_GPU) > 1:
-        # use multiple gpus
-        print(f"Using {num_GPU} GPUs")
-        logger.info(f"Using {num_GPU} GPUs")
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(num_GPU)
-    if int(num_GPU) >= 1:
+    if int(num_GPU) == 1:
         # read physical GPUs from machine
         physical_devices = tf.config.experimental.list_physical_devices("GPU")
         print(f"physical_devices (GPUs):{physical_devices}")
