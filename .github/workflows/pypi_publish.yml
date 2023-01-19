@@ -1,7 +1,9 @@
 name: build
+
 on:
     release:
       types: [created]
+      
 jobs:
   build:
     name: Build and deploy to PyPI
