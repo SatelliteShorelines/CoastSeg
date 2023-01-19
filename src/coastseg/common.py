@@ -19,6 +19,7 @@ import numpy as np
 import geojson
 from leafmap import check_file_path
 import pandas as pd
+import shapely
 
 from ipywidgets import ToggleButton
 from ipywidgets import HBox
@@ -462,6 +463,40 @@ def get_cross_distance_df(
     # add cross distances for each transect for roi with roi_id
     transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
+
+
+def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """If the geodataframe has z coordinates in any rows, the z coordinates are dropped.
+    Otherwise the original geodataframe is returned.
+
+    Additionally any multi part geometeries will be exploded into single geometeries.
+    eg. MutliLineStrings will be converted into LineStrings.
+    Args:
+        geodf (gpd.GeoDataFrame): geodataframe to check for z-axis
+
+    Returns:
+        gpd.GeoDataFrame: original dataframe if there is no z axis. If a z axis is found
+        a new geodataframe is returned with z axis dropped.
+    """
+    # if any row has a z coordinate then remove the z_coordinate
+    if geodf["geometry"].has_z.any():
+
+        def remove_z_from_row(row):
+            if row.geometry.has_z:
+                row.geometry = shapely.ops.transform(
+                    lambda x, y, z=None: (x, y), row.geometry
+                )
+                return row
+            else:
+                return row
+
+        # Use explode to break multilinestrings in linestrings
+        feature_exploded = geodf.explode(ignore_index=True)
+        # For each linestring portion of feature convert to lat,lon tuples
+        no_z_gdf = feature_exploded.apply(remove_z_from_row, axis=1)
+        return no_z_gdf
+    else:
+        return geodf
 
 
 def create_json_config(inputs: dict, settings: dict) -> dict:

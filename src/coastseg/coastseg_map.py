@@ -505,6 +505,7 @@ class CoastSeg_Map:
         # ROIs,settings, roi-settings cannot be None or empty
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.shoreline, "shoreline")
+        exception_handler.check_if_None(self.transects, "transects")
         exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
         # settings must contain keys in subset
@@ -994,6 +995,8 @@ class CoastSeg_Map:
         # if file is passed read gdf from file
         if file != "":
             gdf = common.read_gpd_file(file)
+        # convert gdf to the proper format
+        if gdf is not None:
             if (
                 "shoreline" in feature_name.lower()
                 or "transect" in feature_name.lower()
@@ -1003,6 +1006,9 @@ class CoastSeg_Map:
                 if "ID" in gdf.columns:
                     gdf.rename(columns={"ID": "id"}, inplace=True)
                 common.replace_column(gdf, new_name="id", replace_col="name")
+
+            # if a z axis exists remove it
+            gdf = common.remove_z_axis(gdf)
 
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         logger.info(f"new_feature: {new_feature}")
