@@ -99,7 +99,6 @@ class UI_Models:
             [
                 self.instr_header,
                 self.line_widget,
-                self.instr_use_data,
                 self.instr_select_images,
                 self.instr_run_model,
             ]
@@ -110,7 +109,6 @@ class UI_Models:
             checkboxes,
             model_choices_box,
             instr_vbox,
-            self.use_data_button,
             self.use_select_images_button,
             self.line_widget,
             self.warning_row,
@@ -190,12 +188,7 @@ class UI_Models:
             icon="fa-bolt",
         )
         self.run_model_button.on_click(self.run_model_button_clicked)
-        self.use_data_button = Button(
-            description="Select Data Folder",
-            style={"button_color": "#69add1"},
-            icon="fa-file-image-o",
-        )
-        self.use_data_button.on_click(self.use_data_button_clicked)
+
         self.use_select_images_button = Button(
             description="Select Images",
             style=load_style,
@@ -223,19 +216,8 @@ class UI_Models:
             layout=Layout(margin="0px 0px 0px 0px"),
         )
 
-        self.instr_use_data = HTML(
-            value="<b>1. Select Data Folder Button</b> \
-                <br> - When CoastSat downloads imagery it created a folder called 'data'in the CoastSeg directory.\
-                    The jpgs within the 'data' folder will be copied to another folder with a name such as\
-                    <span style=\"background-color:LightGray;color: black;\">segmentation_data_2022-07-07__10_hr_04_min58 </span>\
-                    (the date and time will be the current date and time) <br> \
-                The model will be applied to this folder and the model outputs will be generated within a subdirectory \
-                    called 'out'",
-            layout=Layout(margin="0px 0px 0px 20px"),
-        )
-
         self.instr_select_images = HTML(
-            value="<b>2. Select Images Button</b> \
+            value="<b>1. Select Images Button</b> \
                 <br> - This will open a pop up window where the RGB folder must be selected.<br>\
                     - The model will be applied to the 'model input' folder selected and the model outputs will be generated within a subdirectory\
                     called 'out'<br>\
@@ -245,7 +227,7 @@ class UI_Models:
         )
 
         self.instr_run_model = HTML(
-            value="<b>3. Run Model Button</b> \
+            value="<b>2. Run Model Button</b> \
                 <br> - Make sure to click Select Images Button or Use Data Button.<br>\
                     - The model will be applied to the selected folder and the model outputs will be generated within a subdirectory\
                     called 'out'<br>\
@@ -288,27 +270,6 @@ class UI_Models:
             self.model_dropdown.options = self.NDWI_models
         if change["new"] == "5 Bands":
             self.model_dropdown.options = self.five_band_models
-
-    @model_view.capture(clear_output=True)
-    def use_data_button_clicked(self, button: "ipywidgets.Button") -> None:
-        """Runs on use data button clicked
-        Copies all jpgs from data directory to new directory
-        called segmentation_data. imagery in segmentation data will be used as inputs
-        for models.
-        Args:
-            button (ipywidgets.Button): instance of button
-        """
-        print("Loading in jpgs from  data directory")
-        sample_direc = common.get_jpgs_from_data()
-        jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
-        if jpgs == []:
-            self.launch_error_box(
-                "No JPGs Found",
-                "Directory contains no jpgs! Please select a directory with jpgs.",
-            )
-        elif jpgs != []:
-            self.model_dict["sample_direc"] = sample_direc
-        print(f"\nContents of the data directory saved in {sample_direc}")
 
     @run_model_view.capture(clear_output=True)
     def run_model_button_clicked(self, button):
