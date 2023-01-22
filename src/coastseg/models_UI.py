@@ -83,8 +83,14 @@ class UI_Models:
             "sat-5band-4class_7344606",
             "sat-5band-2class_7448390",
         ]
-        self.MNDWI_models = ["s2-landsat78-4class_7352850"]
-        self.NDWI_models = ["s2-landsat78-4class_7352859"]
+        self.MNDWI_models = [
+            "s2-landsat78-4class_7352850",
+            "s2-landsat78-2class_7557080",
+        ]
+        self.NDWI_models = [
+            "s2-landsat78-4class_7352859",
+            "s2-landsat78-2class_7557072",
+        ]
 
         # Declare widgets and on click callbacks
         self._create_HTML_widgets()
@@ -234,20 +240,19 @@ class UI_Models:
 
     def handle_model_type(self, change):
         print(change)
-        print(change['new'])
+        print(change["new"])
         # 2 class model has not been selected disable otsu threhold
-        if "2class" not in change['new']:
+        if "2class" not in change["new"]:
             if self.otsu_radio.value == "Enabled":
                 self.model_dict["otsu"] = False
                 self.otsu_radio.value = "Disabled"
             self.otsu_radio.disabled = True
         # 2 class model was selected enable otsu threhold radio button
-        if "2class" in change['new']:
+        if "2class" in change["new"]:
             self.otsu_radio.disabled = False
 
         logger.info(f"change: {change}")
         self.model_dict["model_type"] = change["new"]
-
 
     def handle_GPU_checkbox(self, change):
         if change["new"] == True:
