@@ -1024,21 +1024,28 @@ class CoastSeg_Map:
             gdf = common.read_gpd_file(file)
         # convert gdf to the proper format
         if gdf is not None:
+            logger.info("gdf is not None")
             if (
                 "shoreline" in feature_name.lower()
                 or "transect" in feature_name.lower()
             ):
+                logger.info(feature_name.lower())
                 # if 'id' column is not present and 'name' column is replace 'name' with 'id'
                 # id neither exist create a new column named 'id' with row index
                 if "ID" in gdf.columns:
+                    logger.info(f"ID in gdf.columns: {gdf.columns}")
                     gdf.rename(columns={"ID": "id"}, inplace=True)
                 common.replace_column(gdf, new_name="id", replace_col="name")
+                logger.info(f"new gdf: {gdf}")
 
             # if a z axis exists remove it
             gdf = common.remove_z_axis(gdf)
+            logger.info(f"gdf after z-axis removed: {gdf}")
 
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         logger.info(f"new_feature: {new_feature}")
+        logger.info(f"new_feature.gdf: {new_feature.gdf}")
+        logger.info(f" gdf: {gdf}")
         logger.info(f"feature_name: {feature_name.lower()}")
         on_hover = None
         on_click = None

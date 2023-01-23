@@ -76,20 +76,20 @@ class UI_Models:
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "sat_RGB_2class_7384255",
+            "sat_RGB_2class_7448405",
             "sat_RGB_4class_6950472",
         ]
         self.five_band_models = [
-            "sat-5band-4class_7344606",
-            "sat-5band-2class_7448390",
+            "sat_5band_4class_7344606",
+            "sat_5band_2class_7448390",
         ]
         self.MNDWI_models = [
-            "s2-landsat78-4class_7352850",
-            "s2-landsat78-2class_7557080",
+            "sat_MNDWI_4class_7352850",
+            "sat_MNDWI_2class_7557080",
         ]
         self.NDWI_models = [
-            "s2-landsat78-4class_7352859",
-            "s2-landsat78-2class_7557072",
+            "sat_NDWI_4class_7352859",
+            "sat_NDWI_2class_7557072",
         ]
 
         # Declare widgets and on click callbacks
@@ -239,8 +239,6 @@ class UI_Models:
         self.model_dict["implementation"] = change["new"]
 
     def handle_model_type(self, change):
-        print(change)
-        print(change["new"])
         # 2 class model has not been selected disable otsu threhold
         if "2class" not in change["new"]:
             if self.otsu_radio.value == "Enabled":
@@ -279,7 +277,7 @@ class UI_Models:
             self.model_dropdown.options = self.MNDWI_models
         if change["new"] == "NDWI":
             self.model_dropdown.options = self.NDWI_models
-        if change["new"] == "5 Bands":
+        if change["new"] == "RGB+MNDWI+NDWI":
             self.model_dropdown.options = self.five_band_models
 
     @run_model_view.capture(clear_output=True)
@@ -327,7 +325,7 @@ class UI_Models:
                 # set sample_direc to hold location of NDWI imagery
                 self.model_dict["sample_direc"] = output_path
                 print(f"Model outputs will be saved to {output_path}")
-            elif output_type in ["5 Bands"]:
+            elif output_type in ["RGB+MNDWI+NDWI"]:
                 RGB_path = self.model_dict["sample_direc"]
                 output_path = os.path.dirname(RGB_path)
                 NIR_path = os.path.join(output_path, "NIR")

@@ -46,8 +46,10 @@ class Factory:
         feature_maker = self._get_feature_maker(feature_name)
         # create feature from geodataframe given by gdf
         if gdf is not None:
+            logger.info(f"Gdf was: {gdf}")
             return feature_maker(coastsegmap, gdf)
         # if geodataframe not provided then create feature from scratch
+        logger.info(f"Gdf was None")
         return feature_maker(coastsegmap, **kwargs)
 
 

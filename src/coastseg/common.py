@@ -477,6 +477,7 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         a new geodataframe is returned with z axis dropped.
     """
     # if any row has a z coordinate then remove the z_coordinate
+    logger.info(f"Has Z axis: {geodf['geometry'].has_z.any()}")
     if geodf["geometry"].has_z.any():
 
         def remove_z_from_row(row):
