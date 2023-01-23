@@ -482,7 +482,7 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         def remove_z_from_row(row):
             if row.geometry.has_z:
                 row.geometry = shapely.ops.transform(
-                    lambda x, y, z=None: (x, y), row.geometry.coords
+                    lambda x, y, z=None: (x, y), row.geometry
                 )
                 return row
             else:
