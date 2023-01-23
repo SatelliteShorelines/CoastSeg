@@ -400,6 +400,7 @@ class CoastSeg_Map:
                 common.config_to_file(config_json, filepath)
                 # save to config_gdf.geojson
                 common.config_to_file(config_gdf, filepath)
+                print("Saved config files for each ROI")
 
     def save_settings(self, **kwargs):
         """Saves the settings for downloading data in a dictionary
@@ -583,6 +584,7 @@ class CoastSeg_Map:
                 logger.warning(f"{no_shoreline}")
                 print(no_shoreline)
             else:
+                # if no error occurs add the ROI id to the extracted shoreline dictionaries
                 extracted_shoreline_dict[roi_id] = extracted_shorelines
 
         # Save all the extracted_shorelines to ROI
@@ -591,7 +593,7 @@ class CoastSeg_Map:
         # Saves extracted_shorelines to ROI's directory to file 'extracted_shorelines.geojson'
         self.save_extracted_shorelines_to_file(roi_ids)
         # for each ROI that has extracted shorelines load onto map
-        self.load_extracted_shorelines_to_map(roi_ids)
+        # self.load_extracted_shorelines_to_map(roi_ids)
 
     def get_selected_rois(self, roi_ids: list) -> gpd.GeoDataFrame:
         """Returns a geodataframe of all rois whose ids are in given list
