@@ -381,12 +381,10 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         filename = f"config.json"
         save_path = os.path.abspath(os.path.join(file_path, filename))
         write_to_json(save_path, config)
-        print(f"Saved config json: {filename} \nSaved to {save_path}")
         logger.info(f"Saved config json: {filename} \nSaved to {save_path}")
     elif isinstance(config, gpd.GeoDataFrame):
         filename = f"config_gdf.geojson"
         save_path = os.path.abspath(os.path.join(file_path, filename))
-        print(f"Saved config json: {filename} \nSaved to {save_path}")
         logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         config.to_file(save_path, driver="GeoJSON")
 
@@ -436,14 +434,14 @@ def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     """
     features = []
     # Use explode to break multilinestrings in linestrings
-    feature_exploded = feature.explode()
+    feature_exploded = feature.explode(ignore_index=True)
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
         lambda row: {
             "ROI_"
             + str(roi_id)
             + "_"
-            + str(row.id): np.array(np.array(row.geometry).tolist())
+            + str(row.id): np.array(np.array(row.geometry.coords).tolist())
         },
         axis=1,
     )
@@ -484,7 +482,7 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         def remove_z_from_row(row):
             if row.geometry.has_z:
                 row.geometry = shapely.ops.transform(
-                    lambda x, y, z=None: (x, y), row.geometry
+                    lambda x, y, z=None: (x, y), row.geometry.coords
                 )
                 return row
             else:
@@ -714,7 +712,6 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
         is_downloaded = all_sitenames_exist and all_filepaths_exist
     # print correct message depending on whether ROIs were downloaded
     if is_downloaded:
-        print("Located previously downloaded ROI data.")
         logger.info(f"Located previously downloaded ROI data.")
     elif is_downloaded == False:
         print(

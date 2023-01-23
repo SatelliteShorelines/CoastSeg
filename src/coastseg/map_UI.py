@@ -145,17 +145,17 @@ class UI:
             description="Compute Transects", style=self.action_style
         )
         self.compute_transect_button.on_click(self.compute_transect_button_clicked)
-        self.save_transect_csv_button = Button(
-            description="Save Transects CSV", style=self.action_style
-        )
-        self.save_transect_csv_button.on_click(
-            self.on_save_cross_distances_button_clicked
-        )
-        # Remove buttons
+
+        # Clear msin textbox button
         self.clear_debug_button = Button(
             description="Clear TextBox", style=self.clear_stlye
         )
         self.clear_debug_button.on_click(self.clear_debug_view)
+        # Clear download messages button
+        self.clear_downloads_button = Button(
+            description="Clear Downloads", style=self.clear_stlye
+        )
+        self.clear_downloads_button.on_click(self.clear_download_view)
 
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
@@ -660,7 +660,6 @@ class UI:
                 self.download_button,
                 self.extract_shorelines_button,
                 self.compute_transect_button,
-                self.save_transect_csv_button,
                 config_vbox,
             ]
         )
@@ -689,7 +688,7 @@ class UI:
         self.error_row = HBox([])
         self.file_chooser_row = HBox([])
         map_row = HBox([self.coastseg_map.map])
-        download_msgs_row = HBox([UI.download_view])
+        download_msgs_row = HBox([self.clear_downloads_button,UI.download_view])
 
         return display(
             settings_row,
@@ -845,15 +844,6 @@ class UI:
         self.download_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
-    @debug_view.capture(clear_output=True)
-    def on_save_cross_distances_button_clicked(self, btn):
-        UI.debug_view.clear_output(wait=True)
-        try:
-            self.coastseg_map.save_transects_to_csv()
-        except Exception as error:
-            # renders error message as a box on map
-            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
-
     def clear_row(self, row: HBox):
         """close widgets in row/column and clear all children
         Args:
@@ -1005,4 +995,6 @@ class UI:
 
     def clear_debug_view(self, btn):
         UI.debug_view.clear_output()
+
+    def clear_download_view(self, btn):
         UI.download_view.clear_output()

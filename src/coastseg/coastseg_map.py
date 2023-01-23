@@ -143,7 +143,11 @@ class CoastSeg_Map:
         config_path = os.path.join(search_path, config_file)
         logger.info(f"Loaded json config file from {config_path}")
         # load settings from config.json file
-        self.load_json_config(config_path)
+        # ensure coastseg\data location exists
+        data_path = os.path.join(os.getcwd(), "data")
+        if not os.path.exists(data_path):
+            os.makedirs(data_path)
+        self.load_json_config(config_path, data_path)
 
     def load_gdf_config(self, filepath: str) -> None:
         """Load features from geodataframe located in geojson file
@@ -201,10 +205,11 @@ class CoastSeg_Map:
             logger.info("No Bounding Box was loaded on map")
         else:
             self.load_feature_on_map("bbox", gdf=bbox_gdf)
-        # Create ROI object from roi_gdf
+        # make sure there are rois in the config file
         exception_handler.check_if_gdf_empty(
             roi_gdf, "ROIs", "Cannot load empty ROIs onto map"
         )
+        # Create ROI object from roi_gdf
         self.rois = ROI(rois_gdf=roi_gdf)
         self.load_feature_on_map("rois", gdf=roi_gdf)
         # Create Shoreline object from shoreline_gdf
@@ -274,7 +279,7 @@ class CoastSeg_Map:
         self.save_config()
         logger.info("Done downloading")
 
-    def load_json_config(self, filepath: str) -> None:
+    def load_json_config(self, filepath: str, data_path: str) -> None:
         """
         Loads a .json configuration file specified by the user.
         It replaces the coastseg_map.settings with the settings from the config file,
@@ -283,6 +288,7 @@ class CoastSeg_Map:
         Parameters:
         self (object): CoastsegMap instance
         filepath (str): The filepath to the json config file
+        datapath(str): full path to the coastseg data directory
         Returns:
             None
         """
@@ -291,10 +297,25 @@ class CoastSeg_Map:
         # replace coastseg_map.settings with settings from config file
         self.settings = json_data["settings"]
         logger.info(f"Loaded settings from file: {self.settings}")
+
         # replace roi_settings for each ROI with contents of json_data
         roi_settings = {}
+        # flag raised if a single directory is missing
+        missing_directories = []
         for roi_id in json_data["roi_ids"]:
+            # if sitename is empty means user has not downloaded ROI data
+            if json_data[roi_id]["sitename"] != "":
+                sitename = json_data[roi_id]["sitename"]
+                roi_path = os.path.join(data_path, sitename)
+                json_data[roi_id]["filepath"] = data_path
+
+                if not os.path.exists(roi_path):
+                    missing_directories.append(sitename)
+            # copy setting from json file to roi
             roi_settings[str(roi_id)] = json_data[roi_id]
+
+        # if any directories are missing tell the user list of missing directories
+        exception_handler.check_if_dirs_missing(missing_directories)
         # Save input dictionaries for all ROIs
         self.rois.roi_settings = roi_settings
         logger.info(f"roi_settings: {roi_settings}")
@@ -607,6 +628,9 @@ class CoastSeg_Map:
         """
         # create dict of numpy arrays of transect start and end points
         transects = common.get_transect_points_dict(roi_id, transects_gdf)
+        logger.info(
+            f"ROI{roi_id} extracted_shorelines for transects: {extracted_shorelines}"
+        )
         logger.info(f"transects: {transects}")
         # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
         cross_distance = SDS_transects.compute_intersection(
@@ -616,7 +640,6 @@ class CoastSeg_Map:
 
     def compute_transects(self) -> dict:
         """Returns a dict of cross distances for each roi's transects
-
         Args:
             selected_rois (dict): rois selected by the user. Must contain the following fields:
                 {'features': [
@@ -732,6 +755,8 @@ class CoastSeg_Map:
                 )
             # save cross distances for all transects to ROIs
             self.rois.cross_distance_transects = cross_distance_transects
+        # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
+        self.save_transects_to_csv()
 
     def save_transects_to_csv(self) -> None:
         """save_cross_distance_df Saves the cross distances of the transects and

@@ -185,6 +185,21 @@ def coastseg_map_with_selected_roi_layer(
 
 
 @pytest.fixture
+def tmp_data_path(tmp_path) -> str:
+    # filepath to config.geojson file containing geodataframe with rois with ids ["2", "3", "5"] that were downloaded
+    import os
+
+    data_path = os.path.join(tmp_path, "data")
+    os.mkdir(data_path)
+    # simulate the ROI directories
+    os.mkdir(os.path.join(data_path, "ID_2_datetime10-19-22__04_00_34"))
+    os.mkdir(os.path.join(data_path, "ID_3_datetime10-19-22__04_00_34"))
+    os.mkdir(os.path.join(data_path, "ID_5_datetime10-19-22__04_00_34"))
+
+    return os.path.abspath(data_path)
+
+
+@pytest.fixture
 def downloaded_config_geojson_filepath() -> str:
     # filepath to config.geojson file containing geodataframe with rois with ids ["2", "3", "5"] that were downloaded
     return os.path.abspath(
