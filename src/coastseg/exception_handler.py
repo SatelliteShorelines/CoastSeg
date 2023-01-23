@@ -128,6 +128,16 @@ def check_if_gdf_empty(feature, feature_type: str, message: str = ""):
         raise exceptions.Object_Not_Found(feature_type, message)
 
 
+def check_if_dirs_missing(missing_dirs: list, message: str = ""):
+    if len(missing_dirs) != 0:
+        logger.error(
+            f"The following directories that were in the config file are missing: {missing_dirs}."
+        )
+        raise FileNotFoundError(
+            f"The following directories that were in the config file are missing: {missing_dirs}.\n Load them into the data directory or download all the ROIs again. {message}"
+        )
+
+
 def handle_exception(error, row: "ipywidgets.HBox", title: str = None, msg: str = None):
     error_message = f"{error}</br>Additional Information</br>" + traceback.format_exc()
     logger.error(f"{traceback.format_exc()}")
