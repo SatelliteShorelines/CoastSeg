@@ -32,8 +32,11 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 ## Table of Contents 
 - [Quick Start](#quick-start)  
 - [Installation Instructions](#installation-instructions)  
-- [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
+- [How to Use CoastSeg](how-to-use-coastSeg)
+
+## Useful Links
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
+- [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
 - [Google Colab](https://colab.research.google.com/github/2320sharon/2320sharon/blob/main/coastseg_for_google_colab.ipynb)
 - [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/Contribution-Guide)
 
@@ -93,7 +96,7 @@ In order to use Coastseg you need to install Python packages in an environment. 
 ``` bash
 conda create --name coastseg python=3.9 -y
 conda activate coastseg
-conda install -c conda-forge jupyterlab geopandas -y
+conda install -c conda-forge geopandas jupyterlab -y
 pip install coastseg
 ```
 
@@ -110,25 +113,43 @@ conda clean --all
 
 # How to Use CoastSeg
 
-## How to Sign up to use Google Earth Engine Python API
+1. Sign up to use Google Earth Engine Python API
 
 First, you need to request access to Google Earth Engine at https://signup.earthengine.google.com/. It takes about 1 day for Google to approve requests.
 
+2. Authenticate with earthengine
+
 Once your request has been approved, with the `coastseg` environment activated, run the following command on the Anaconda Prompt(or terminal) to link your environment to the GEE server:
 ``` bash
-`earthengine authenticate
+earthengine authenticate
 ```
-
 A web browser will open, login with a gmail account and accept the terms and conditions. Then copy the authorization code into the Anaconda terminal. In the latest version of the earthengine-api, the authentication is done with gcloud. If an error is raised about gcloud missing, go to https://cloud.google.com/sdk/docs/install and install gcloud. After you have installed it, close the Anaconda Prompt and restart it, then activate the environment before running earthengine authenticate again. 
 
-Now you are ready to start using CoastSeg!
+
+3. Activate your conda environment
+
+   ```bash
+   conda activate coastseg
+   ```
+
+- If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
+
+<img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
+     alt="coastseg activated in anaconda prompt" width="350" height="150">
+
+4. Install the CoastSeg from PyPi
+   ```bash
+   cd <location you downloaded coastseg>
+   ex: cd C:\1_repos\CoastSeg
+   ```
+5. Launch Jupyter Lab
+- make you run this command in the coastseg directory so you can choose a notebook to use.
+   ```bash
+   jupyter lab
+   ```
 
 Check out our [wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
 
-
-# Contribution Guide
-1. [How to submit an issue](https://github.com/SatelliteShorelines/CoastSeg/wiki/How-to-Submit-An-Issue)
-2. See our contribution guide to see how to install coastseg for contributing: [contribution guide](#contribution-guide)
 
 # Authors
 
