@@ -27,7 +27,12 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 - An interactive interface for extracting shorelines from satellite imagery
 - An interactive interface to apply segmentation models to satellite imagery
 
-![gif of map with rectangles on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/generate_rois_and_display_area.gif)
+![gif of map with rectangles on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/create_rois_demo.gif)
+- Create ROIs(regions of interest) along the coast and automatically load shorelines on the map.
+- Use Google Earth Engine to automatically download satellite imagery for each ROI clicked on the map. 
+
+![gif of map with extracted shorelines on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/extract_shorelines_and_transects.gif)
+- Coastseg can automatically extract shorelines from downloaded satellite imagery.
 
 ## Table of Contents 
 - [Quick Start](#quick-start)  
