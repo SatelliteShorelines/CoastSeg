@@ -4,6 +4,7 @@ import os
 import json
 import copy
 
+
 # Internal dependencies imports
 from coastseg import exceptions
 
@@ -36,6 +37,54 @@ class Extracted_Shoreline:
 
     def __init__(
         self,
+    ):
+        # gdf: geodataframe containing extracted shoreline for ROI_id
+        self.gdf = gpd.GeoDataFrame()
+        # Use roi id to identify which ROI extracted shorelines derive from
+        self.roi_id = ''
+        # dictionary : dictionary of extracted shorelines
+        # contains keys 'dates', 'shorelines', 'filename', 'cloud_cover', 'geoaccuracy', 'idx', 'MNDWI_threshold', 'satname'
+        self.dictionary = {}
+        # shoreline_settings: dictionary of settings used to extract shoreline
+        self.shoreline_settings = {}
+
+
+    def load_extracted_shorelines(
+        self,
+        extracted_shoreline_dict:dict=None,
+        shoreline_settings: dict = None,
+        extracted_shorelines_gdf: gpd.GeoDataFrame = None,
+    ):
+
+        if not isinstance(extracted_shoreline_dict, dict):
+            raise ValueError(f"extracted_shoreline_dict must be dict. not {type(extracted_shoreline_dict)}")
+        if extracted_shoreline_dict == {}:
+            raise ValueError("extracted_shoreline_dict cannot be empty.")
+
+        if extracted_shorelines_gdf is not None:
+            if not isinstance(extracted_shorelines_gdf, gpd.GeoDataFrame):
+                raise ValueError(
+                    f"extracted_shorelines_gdf must be valid geodataframe. not {type(extracted_shorelines_gdf)}"
+                )
+            if extracted_shorelines_gdf.empty:
+                raise ValueError("extracted_shorelines_gdf cannot be empty.")
+            self.gdf = extracted_shorelines_gdf
+
+        if not isinstance(shoreline_settings, dict):
+            raise ValueError(f"shoreline_settings must be dict. not {type(shoreline_settings)}")
+        if shoreline_settings == {}:
+            raise ValueError("shoreline_settings cannot be empty.")
+
+        # dictionary : dictionary of extracted shorelines
+        self.dictionary = extracted_shoreline_dict
+        # shoreline_settings: dictionary of settings used to extract shoreline
+        self.shoreline_settings = shoreline_settings
+        # Use roi id to identify which ROI extracted shorelines derive from
+        self.roi_id = shoreline_settings['inputs']['roi_id']
+
+        
+    def create_extracted_shorlines(
+        self,
         roi_id: str = None,
         shoreline: gpd.GeoDataFrame = None,
         roi_settings: dict = None,
@@ -65,24 +114,24 @@ class Extracted_Shoreline:
         self.gdf = gpd.GeoDataFrame()
         # Use roi id to identify which ROI extracted shorelines derive from
         self.roi_id = roi_id
-        # extracted_shorelines : dictionary of extracted shorelines
-        self.extracted_shorelines = {}
+        # dictionary : dictionary of extracted shorelines
+        self.dictionary = {}
         # shoreline_settings: dictionary of settings used to extract shoreline
         self.shoreline_settings = {}
 
         logger.info(f"Extracting shorelines for ROI id{self.roi_id}")
-        self.extracted_shorelines = self.extract_shorelines(
+        self.dictionary = self.extract_shorelines(
             shoreline,
             roi_settings,
             settings,
         )
-        if is_list_empty(self.extracted_shorelines["shorelines"]):
+        if is_list_empty(self.dictionary["shorelines"]):
             raise exceptions.No_Extracted_Shoreline(self.roi_id)
         map_crs = "EPSG:4326"
         # extracted shorelines have map crs so they can be displayed on the map
         self.gdf = self.create_geodataframe(
             self.shoreline_settings["output_epsg"], output_crs=map_crs
-        )
+        )    
 
     def extract_shorelines(
         self,
@@ -167,7 +216,7 @@ class Extracted_Shoreline:
             converted to output_crs if provided otherwise geodataframe's crs will be
             input_crs
         """
-        extract_shoreline_gdf = output_to_gdf(self.extracted_shorelines, "lines")
+        extract_shoreline_gdf = output_to_gdf(self.dictionary, "lines")
         extract_shoreline_gdf.crs = input_crs
         if output_crs is not None:
             extract_shoreline_gdf = extract_shoreline_gdf.to_crs(output_crs)
