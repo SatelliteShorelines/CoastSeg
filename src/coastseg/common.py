@@ -86,6 +86,9 @@ def from_file(filepath:str)->dict:
         if 'dates' in readDict:
             tmp =[ datetime.datetime.fromisoformat(dates) for dates in readDict['dates'] ]
             readDict['dates'] = tmp
+        if 'shorelines' in readDict:
+            tmp = [np.array(shoreline) if len(shoreline)> 0 else np.empty((0,2)) for shoreline in readDict['shorelines']]
+            readDict['shorelines'] = tmp
         return readDict
 
     with open(filepath, 'r') as fp:
