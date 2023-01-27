@@ -450,6 +450,7 @@ class CoastSeg_Map:
         # Modifies html when roi is hovered over
         values = defaultdict(lambda: "unknown", feature["properties"])
         # convert roi area m^2 to km^2
+        logger.info(type(feature))
         roi_area = common.get_area(feature["geometry"]) * 10**-6
         roi_area = round(roi_area, 5)
         self.roi_html.value = """ 
@@ -503,54 +504,61 @@ class CoastSeg_Map:
         rois_no_extracted_shorelines = set()
         # for each ROI that has extracted shorelines load onto map
         for roi_id in roi_ids:
-            filepath = self.rois.roi_settings[roi_id]['filepath']
-            sitename = self.rois.roi_settings[roi_id]['sitename']
-            roi_path=os.path.join(filepath,sitename)
-            glob_str = os.path.abspath(
-                roi_path
-                + os.sep
-                + '*shoreline*'
-            )
-            extracted_sl_gdf=None
+            filepath = self.rois.roi_settings[roi_id]["filepath"]
+            sitename = self.rois.roi_settings[roi_id]["sitename"]
+            roi_path = os.path.join(filepath, sitename)
+            glob_str = os.path.abspath(roi_path + os.sep + "*shoreline*")
+            extracted_sl_gdf = None
             shoreline_settings = None
-            extracted_shoreline_dict =  None
+            extracted_shoreline_dict = None
             for file in glob.glob(glob_str):
                 if file.endswith(".geojson"):
                     # load geodataframe
                     extracted_sl_gdf = common.read_gpd_file(file)
                 if file.endswith(".json"):
-                    if 'settings' in os.path.basename(file):
+                    if "settings" in os.path.basename(file):
                         shoreline_settings = common.from_file(file)
-                    if 'dict' in os.path.basename(file):
+                    if "dict" in os.path.basename(file):
                         extracted_shoreline_dict = common.from_file(file)
 
             logger.info(f"ROI {roi_id} extracted_sl_gdf: {extracted_sl_gdf}")
             logger.info(f"ROI {roi_id} shoreline_settings: {shoreline_settings}")
-            logger.info(f"ROI {roi_id} extracted_shoreline_dict: {extracted_shoreline_dict}")
+            logger.info(
+                f"ROI {roi_id} extracted_shoreline_dict: {extracted_shoreline_dict}"
+            )
             # error handling for none
-            if extracted_sl_gdf is None or extracted_sl_gdf is None or extracted_sl_gdf is None:
-                logger.info(f"ROI {roi_id} didn't have extracted shoreline files to load")
+            if (
+                extracted_sl_gdf is None
+                or extracted_sl_gdf is None
+                or extracted_sl_gdf is None
+            ):
+                logger.info(
+                    f"ROI {roi_id} didn't have extracted shoreline files to load"
+                )
                 rois_no_extracted_shorelines.add(roi_id)
                 # set this roi's entry in extracted shorelines dict to None because there was no shoreline extracted
                 self.rois.extracted_shorelines[roi_id] = None
                 continue
             else:
-                extracted_shorelines = extracted_shoreline.Extracted_Shoreline()               
+                extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
                 extracted_shorelines.load_extracted_shorelines(
-                    extracted_shoreline_dict,
-                    shoreline_settings,
-                    extracted_sl_gdf)
+                    extracted_shoreline_dict, shoreline_settings, extracted_sl_gdf
+                )
                 self.rois.extracted_shorelines[roi_id] = extracted_shorelines
-                logger.info(f"ROI {roi_id} successfully loaded extracted shorelines: {self.rois.extracted_shorelines[roi_id].dictionary}")
-        
-        if len(rois_no_extracted_shorelines)>0:
-            print(f"The following ROIs didn't have extracted shoreline files to load: {rois_no_extracted_shorelines}\n")
-        
-        rois_with_shorelines = set(roi_ids)-rois_no_extracted_shorelines
-        if len(rois_with_shorelines)>0:
+                logger.info(
+                    f"ROI {roi_id} successfully loaded extracted shorelines: {self.rois.extracted_shorelines[roi_id].dictionary}"
+                )
+
+        if len(rois_no_extracted_shorelines) > 0:
+            print(
+                f"The following ROIs didn't have extracted shoreline files to load: {rois_no_extracted_shorelines}\n"
+            )
+
+        rois_with_shorelines = set(roi_ids) - rois_no_extracted_shorelines
+        if len(rois_with_shorelines) > 0:
             print(f"Loaded Extracted Shorelines for ROIs {rois_with_shorelines}")
-        elif len(rois_with_shorelines)==0:
-            self.rois.extracted_shorelines={}
+        elif len(rois_with_shorelines) == 0:
+            self.rois.extracted_shorelines = {}
             raise Exception("No extracted shorelines could be loaded")
 
     def save_extracted_shorelines_to_file(self, roi_ids: list) -> None:
@@ -562,16 +570,19 @@ class CoastSeg_Map:
                 filepath = self.rois.roi_settings[roi_id]["filepath"]
                 roi_extract_shoreline.save_to_file(sitename, filepath)
                 if roi_extract_shoreline.shoreline_settings != {}:
-                    savepath = os.path.join(filepath, sitename, 'shoreline_settings.json')
+                    savepath = os.path.join(
+                        filepath, sitename, "shoreline_settings.json"
+                    )
                     logger.info(
-                        f"Saving extracted shoreline settings to file: {savepath}.")
-                    common.to_file(roi_extract_shoreline.shoreline_settings,savepath)
+                        f"Saving extracted shoreline settings to file: {savepath}."
+                    )
+                    common.to_file(roi_extract_shoreline.shoreline_settings, savepath)
                 if roi_extract_shoreline.dictionary != {}:
-                    savepath = os.path.join(filepath, sitename, 'extracted_shorelines_dict.json')
-                    logger.info(
-                        f"Saving extracted shoreline dict to file: {savepath}.")
-                    common.to_file(roi_extract_shoreline.dictionary,savepath)
-
+                    savepath = os.path.join(
+                        filepath, sitename, "extracted_shorelines_dict.json"
+                    )
+                    logger.info(f"Saving extracted shoreline dict to file: {savepath}.")
+                    common.to_file(roi_extract_shoreline.dictionary, savepath)
 
     def get_most_accurate_epsg(self, settings: dict, bbox: gpd.GeoDataFrame) -> int:
         """Returns most accurate epsg code based on lat and lon if output epsg
@@ -641,7 +652,7 @@ class CoastSeg_Map:
                 # Clip shoreline to specific roi
                 shoreline_in_roi = gpd.clip(self.shoreline.gdf, single_roi)
                 # extract shorelines from ROI
-                extracted_shorelines = extracted_shoreline.Extracted_Shoreline()               
+                extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
                 extracted_shorelines.create_extracted_shorlines(
                     roi_id,
                     shoreline_in_roi,
@@ -762,23 +773,23 @@ class CoastSeg_Map:
         roi_ids = list(extracted_shoreline_ids & self.selected_set)
         # if none of the selected ROIs on the map have had their shorelines extracted throw an error
         exception_handler.check_if_list_empty(roi_ids)
-        
+
         # user selected output projection
         output_epsg = "epsg:" + str(self.settings["output_epsg"])
-        #for each ROI save cross distances for each transect that intersects each extracted shoreline
+        # for each ROI save cross distances for each transect that intersects each extracted shoreline
         cross_distance_transects = {}
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
             failure_msg = ""
             cross_distance = None
             try:
-                # get extracted shorelines object for the currently selected ROI 
+                # get extracted shorelines object for the currently selected ROI
                 roi_extracted_shoreline = self.rois.extracted_shorelines[str(roi_id)]
 
                 # if no extracted shoreline exist for ROI's id then cross distance = 0
                 if roi_extracted_shoreline is None:
                     cross_distance = 0
                     failure_msg = f"No shorelines were extracted for {roi_id}"
-                elif roi_extracted_shoreline is not None:                    
+                elif roi_extracted_shoreline is not None:
                     # get transects that intersect with ROI
                     single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
                     transects_in_roi_gdf = gpd.sjoin(
@@ -797,7 +808,7 @@ class CoastSeg_Map:
                     if transects_in_roi_gdf.empty:
                         cross_distance = 0
                         failure_msg = f"No transects intersected {roi_id}"
-                    
+
                     # Check if any extracted shorelines in ROI intersect with transect
                     extracted_shoreline_x_transect = gpd.sjoin(
                         left_df=transects_in_roi_gdf,
@@ -813,7 +824,7 @@ class CoastSeg_Map:
                     # convert transects_in_roi_gdf to output_crs from settings
                     transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
                     # if shoreline and transects in ROI and extracted_shorelines_dict intersect transect
-                    
+
                     # get extracted shorelines dictionary
                     extracted_shorelines_dict = roi_extracted_shoreline.dictionary
                     # compute cross distances of transects and extracted shorelines
@@ -892,7 +903,6 @@ class CoastSeg_Map:
         #     # each csv file is saved to ROI directory
         #     self.save_cross_distance_df(roi_ids, self.rois)
 
-
     def save_csv_per_transect(self, roi_ids: list, rois: ROI) -> None:
         """Saves cross distances of transects and
         extracted shorelines in ROI to csv file within each ROI's directory.
@@ -918,7 +928,9 @@ class CoastSeg_Map:
             cross_distance_transects = rois.cross_distance_transects[roi_id]
 
             logger.info(f"ROI: {roi_id} cross distance : {cross_distance_transects}")
-            logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines_dict}")
+            logger.info(
+                f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines_dict}"
+            )
             # if no cross distance was 0 then skip
             if cross_distance_transects == 0:
                 logger.info(f"ROI: {roi_id} cross distance is 0")
@@ -930,31 +942,32 @@ class CoastSeg_Map:
 
             # for each transect id in cross_distance_transects make a new csv file
             for key in cross_distance_transects.keys():
-                df =  pd.DataFrame()
+                df = pd.DataFrame()
                 out_dict = dict([])
                 # copy shoreline intersects for each transect
                 out_dict[key] = cross_distance_transects[key]
-                out_dict['dates'] = extracted_shorelines_dict['dates']
-                out_dict['satname'] = extracted_shorelines_dict['satname']
-                df =  pd.DataFrame(out_dict)
-                df.index=df['dates']
-                df.pop('dates')
+                out_dict["dates"] = extracted_shorelines_dict["dates"]
+                out_dict["satname"] = extracted_shorelines_dict["satname"]
+                df = pd.DataFrame(out_dict)
+                df.index = df["dates"]
+                df.pop("dates")
                 # save to csv file
                 filepath = rois.roi_settings[roi_id]["filepath"]
                 sitename = rois.roi_settings[roi_id]["sitename"]
-                fn = os.path.join(filepath, sitename, "%s_timeseries_raw.csv"%key)
+                fn = os.path.join(filepath, sitename, "%s_timeseries_raw.csv" % key)
                 logger.info(f"Save time series to {fn}")
                 if os.path.exists(fn):
                     logger.info(f"Overwriting:{fn}")
                     os.remove(fn)
                 df.to_csv(fn, sep=",")
-                logger.info(f"ROI: {roi_id} time-series of shoreline change along transects")
+                logger.info(
+                    f"ROI: {roi_id} time-series of shoreline change along transects"
+                )
                 logger.info(
                     f"Time-series of the shoreline change along the transects saved as:{fn}"
                 )
                 rois_computed_transects.add(roi_id)
         print(f"Computed transects for the following ROIs: {rois_computed_transects}")
-
 
     def save_cross_distance_df(self, roi_ids: list, rois: ROI) -> None:
         """Saves cross distances of transects and
@@ -1025,8 +1038,7 @@ class CoastSeg_Map:
         self.remove_extracted_shorelines()
 
     def remove_extracted_shorelines(self):
-        """Removes extracted shorelines from the map and removes extracted shorelines from ROIs
-        """
+        """Removes extracted shorelines from the map and removes extracted shorelines from ROIs"""
         # empty extracted shorelines dictionary
         if self.rois is not None:
             if self.rois.extracted_shorelines != {}:
@@ -1036,7 +1048,7 @@ class CoastSeg_Map:
         if self.extracted_shoreline_layers != []:
             for layername in self.extracted_shoreline_layers:
                 self.remove_layer_by_name(layername)
-            self.extracted_shoreline_layers=[]
+            self.extracted_shoreline_layers = []
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
@@ -1048,7 +1060,6 @@ class CoastSeg_Map:
         if existing_layer is not None:
             self.map.remove_layer(existing_layer)
         self.bbox = None
-
 
     def remove_layer_by_name(self, layer_name: str):
         existing_layer = self.map.find_layer(layer_name)
@@ -1290,7 +1301,9 @@ class CoastSeg_Map:
             return
         logger.info(f"properties : {properties}")
         logger.info(f"ROI_id : {properties['id']}")
-
+        logger.info(type(event))
+        logger.info(type(id))
+        logger.info(id)
         # Add id of clicked ROI to selected_set
         ROI_id = str(properties["id"])
         self.selected_set.add(ROI_id)

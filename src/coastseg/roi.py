@@ -42,6 +42,17 @@ class ROI:
             self.filename = filename
 
         if rois_gdf is not None:
+            # check if geodataframe column has 'id' column and add one if one doesn't exist
+            if "id" not in rois_gdf.columns:
+                rois_gdf["id"] = list(map(str, rois_gdf.index.tolist()))
+            # get row ids of ROIs with area that's too large
+            drop_ids = common.get_ids_with_invalid_area(rois_gdf)
+            if len(drop_ids) > 0:
+                print("Dropping ROIs that are an invalid size ")
+                logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
+                rois_gdf.drop(index=drop_ids, axis=0, inplace=True)
+            # convert crs of ROIs to the map crs
+            rois_gdf.to_crs("EPSG:4326")
             self.gdf = rois_gdf
             return
 

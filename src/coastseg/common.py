@@ -9,8 +9,6 @@ from typing import Union
 from json import JSONEncoder
 import datetime
 
-
-
 # Internal dependencies imports
 from coastseg import exceptions
 
@@ -67,33 +65,56 @@ def is_in_google_colab() -> bool:
         return False
 
 
-def to_file(data:dict, filepath:str)->None:
+def to_file(data: dict, filepath: str) -> None:
     class DateTimeEncoder(JSONEncoder):
-            #Override the default method
-            def default(self, obj):
-                if isinstance(obj, (datetime.date, datetime.datetime)):
-                    return obj.isoformat()
-                if isinstance(obj, (np.ndarray)):
-                    new_obj = [array.tolist() for array in obj]
-                    return new_obj
-                
-    with open(filepath, 'w') as fp:
-        json.dump(data,fp,cls=DateTimeEncoder)
+        # Override the default method
+        def default(self, obj):
+            if isinstance(obj, (datetime.date, datetime.datetime)):
+                return obj.isoformat()
+            if isinstance(obj, (np.ndarray)):
+                new_obj = [array.tolist() for array in obj]
+                return new_obj
+
+    with open(filepath, "w") as fp:
+        json.dump(data, fp, cls=DateTimeEncoder)
 
 
-def from_file(filepath:str)->dict:
+def get_ids_with_invalid_area(
+    geometry: gpd.GeoDataFrame, max_area: float = 98000000, min_area: float = 0
+) -> set:
+    if isinstance(geometry, gpd.GeoDataFrame):
+        geometry = json.loads(geometry.to_json())
+    if isinstance(geometry, dict):
+        if "features" in geometry.keys():
+            rows_drop = set()
+            for i, feature in enumerate(geometry["features"]):
+                roi_area = get_area(feature["geometry"])
+                if roi_area >= max_area or roi_area <= min_area:
+                    rows_drop.add(i)
+            return rows_drop
+    else:
+        raise TypeError("Must be geodataframe")
+
+
+def from_file(filepath: str) -> dict:
     def DecodeDateTime(readDict):
-        if 'dates' in readDict:
-            tmp =[ datetime.datetime.fromisoformat(dates) for dates in readDict['dates'] ]
-            readDict['dates'] = tmp
-        if 'shorelines' in readDict:
-            tmp = [np.array(shoreline) if len(shoreline)> 0 else np.empty((0,2)) for shoreline in readDict['shorelines']]
-            readDict['shorelines'] = tmp
+        if "dates" in readDict:
+            tmp = [
+                datetime.datetime.fromisoformat(dates) for dates in readDict["dates"]
+            ]
+            readDict["dates"] = tmp
+        if "shorelines" in readDict:
+            tmp = [
+                np.array(shoreline) if len(shoreline) > 0 else np.empty((0, 2))
+                for shoreline in readDict["shorelines"]
+            ]
+            readDict["shorelines"] = tmp
         return readDict
 
-    with open(filepath, 'r') as fp:
-        data=json.load(fp,object_hook=DecodeDateTime)
+    with open(filepath, "r") as fp:
+        data = json.load(fp, object_hook=DecodeDateTime)
     return data
+
 
 def mount_google_drive(name: str = "CoastSeg") -> None:
     """
@@ -467,8 +488,7 @@ def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
     feature_exploded = feature.explode(ignore_index=True)
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
-        lambda row: {str(row.id): np.array(np.array(row.geometry.coords).tolist())
-        },
+        lambda row: {str(row.id): np.array(np.array(row.geometry.coords).tolist())},
         axis=1,
     )
     features = list(lat_lng)
