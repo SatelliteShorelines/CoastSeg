@@ -88,7 +88,7 @@ class UI:
         self.coastseg_map = coastseg_map
         # button styles
         self.remove_style = dict(button_color="red")
-        self.load_style = dict(button_color="#69add1",description_width =  'initial')
+        self.load_style = dict(button_color="#69add1", description_width="initial")
         self.action_style = dict(button_color="#ae3cf0")
         self.save_style = dict(button_color="#50bf8f")
         self.clear_stlye = dict(button_color="#a3adac")
@@ -141,12 +141,14 @@ class UI:
             description="Extract Shorelines", style=self.action_style
         )
         self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
-        
+
         self.load_extracted_shorelines_btn = Button(
             description="Load Shorelines", style=self.load_style
         )
-        self.load_extracted_shorelines_btn.on_click(self.load_extracted_shorelines_clicked)
-        
+        self.load_extracted_shorelines_btn.on_click(
+            self.load_extracted_shorelines_clicked
+        )
+
         self.compute_transect_button = Button(
             description="Compute Transects", style=self.action_style
         )
@@ -528,7 +530,7 @@ class UI:
         )
 
         self.remove_radio = RadioButtons(
-            options=["Shoreline", "Transects", "Bbox", "ROIs","Extracted Shorelines"],
+            options=["Shoreline", "Transects", "Bbox", "ROIs", "Extracted Shorelines"],
             value="Shoreline",
             description="",
             disabled=False,
@@ -695,7 +697,7 @@ class UI:
         self.error_row = HBox([])
         self.file_chooser_row = HBox([])
         map_row = HBox([self.coastseg_map.map])
-        download_msgs_row = HBox([self.clear_downloads_button,UI.download_view])
+        download_msgs_row = HBox([self.clear_downloads_button, UI.download_view])
 
         return display(
             settings_row,
@@ -825,8 +827,6 @@ class UI:
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.load_extracted_shorelines_btn.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
-
-
 
     @debug_view.capture(clear_output=True)
     def compute_transect_button_clicked(self, btn):

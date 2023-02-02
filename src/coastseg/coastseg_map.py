@@ -450,7 +450,6 @@ class CoastSeg_Map:
         # Modifies html when roi is hovered over
         values = defaultdict(lambda: "unknown", feature["properties"])
         # convert roi area m^2 to km^2
-        logger.info(type(feature))
         roi_area = common.get_area(feature["geometry"]) * 10**-6
         roi_area = round(roi_area, 5)
         self.roi_html.value = """ 
@@ -946,8 +945,15 @@ class CoastSeg_Map:
                 out_dict = dict([])
                 # copy shoreline intersects for each transect
                 out_dict[key] = cross_distance_transects[key]
+                logger.info(
+                    f"out dict roi_ids columns : {[roi_id for _ in range(len(extracted_shorelines_dict['dates']))]}"
+                )
+                out_dict["roi_id"] = [
+                    roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
+                ]
                 out_dict["dates"] = extracted_shorelines_dict["dates"]
                 out_dict["satname"] = extracted_shorelines_dict["satname"]
+                logger.info(f"out_dict : {out_dict}")
                 df = pd.DataFrame(out_dict)
                 df.index = df["dates"]
                 df.pop("dates")
