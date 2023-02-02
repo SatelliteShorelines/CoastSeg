@@ -27,7 +27,7 @@ class Factory:
         coastsegmap: "CoastSeg_Map",
         feature_name: str,
         gdf: "geodataframe" = None,
-        **kwargs
+        **kwargs,
     ) -> Union[Shoreline, Transects, Bounding_Box]:
         """creates a feature of type feature_name from a geodataframe given by gdf or
         from scratch if no geodataframe is provided. If no geodataframe is provided and

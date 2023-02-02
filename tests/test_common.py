@@ -17,10 +17,10 @@ def test_get_transect_points_dict(valid_transects_gdf):
         valid_transects_gdf (geodataframe): transects geodataframe with ids:[17,30,35]
     """
     roi_id = "17"
-    transects_dict = common.get_transect_points_dict(roi_id, valid_transects_gdf)
+    transects_dict = common.get_transect_points_dict(valid_transects_gdf)
     # simulate how roi transect ids would be created
     transect_ids = valid_transects_gdf["id"].to_list()
-    roi_transect_ids = ["ROI_" + roi_id + "_" + tid for tid in transect_ids]
+    roi_transect_ids = [tid for tid in transect_ids]
 
     assert isinstance(transects_dict, dict)
     assert set(transects_dict.keys()).issubset(set(roi_transect_ids))

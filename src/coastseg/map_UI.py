@@ -88,7 +88,7 @@ class UI:
         self.coastseg_map = coastseg_map
         # button styles
         self.remove_style = dict(button_color="red")
-        self.load_style = dict(button_color="#69add1")
+        self.load_style = dict(button_color="#69add1", description_width="initial")
         self.action_style = dict(button_color="#ae3cf0")
         self.save_style = dict(button_color="#50bf8f")
         self.clear_stlye = dict(button_color="#a3adac")
@@ -141,6 +141,14 @@ class UI:
             description="Extract Shorelines", style=self.action_style
         )
         self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
+
+        self.load_extracted_shorelines_btn = Button(
+            description="Load Shorelines", style=self.load_style
+        )
+        self.load_extracted_shorelines_btn.on_click(
+            self.load_extracted_shorelines_clicked
+        )
+
         self.compute_transect_button = Button(
             description="Compute Transects", style=self.action_style
         )
@@ -522,7 +530,7 @@ class UI:
         )
 
         self.remove_radio = RadioButtons(
-            options=["Shoreline", "Transects", "Bbox", "ROIs"],
+            options=["Shoreline", "Transects", "Bbox", "ROIs", "Extracted Shorelines"],
             value="Shoreline",
             description="",
             disabled=False,
@@ -659,6 +667,7 @@ class UI:
                 self.instr_download_roi,
                 self.download_button,
                 self.extract_shorelines_button,
+                self.load_extracted_shorelines_btn,
                 self.compute_transect_button,
                 config_vbox,
             ]
@@ -688,7 +697,7 @@ class UI:
         self.error_row = HBox([])
         self.file_chooser_row = HBox([])
         map_row = HBox([self.coastseg_map.map])
-        download_msgs_row = HBox([self.clear_downloads_button,UI.download_view])
+        download_msgs_row = HBox([self.clear_downloads_button, UI.download_view])
 
         return display(
             settings_row,
@@ -804,6 +813,19 @@ class UI:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.extract_shorelines_button.disabled = False
+        self.coastseg_map.map.default_style = {"cursor": "default"}
+
+    @debug_view.capture(clear_output=True)
+    def load_extracted_shorelines_clicked(self, btn):
+        UI.debug_view.clear_output()
+        self.coastseg_map.map.default_style = {"cursor": "wait"}
+        self.load_extracted_shorelines_btn.disabled = True
+        try:
+            self.coastseg_map.load_extracted_shoreline_files()
+        except Exception as error:
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+        self.load_extracted_shorelines_btn.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
@@ -943,16 +965,19 @@ class UI:
         UI.debug_view.clear_output(wait=True)
         try:
             # Prompt the user to select a directory of images
-            if "shoreline" in btn.description.lower():
+            if "extracted shorelines" in btn.description.lower():
+                print(f"Removing extracted shoreline")
+                self.coastseg_map.remove_extracted_shorelines()
+            elif "shoreline" in btn.description.lower():
                 print(f"Removing shoreline")
                 self.coastseg_map.remove_shoreline()
-            if "transects" in btn.description.lower():
+            elif "transects" in btn.description.lower():
                 print(f"Removing  transects")
                 self.coastseg_map.remove_transects()
-            if "bbox" in btn.description.lower():
+            elif "bbox" in btn.description.lower():
                 print(f"Removing bounding box")
                 self.coastseg_map.remove_bbox()
-            if "rois" in btn.description.lower():
+            elif "rois" in btn.description.lower():
                 print(f"Removing ROIs")
                 self.coastseg_map.remove_all_rois()
         except Exception as error:

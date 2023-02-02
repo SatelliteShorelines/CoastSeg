@@ -4,9 +4,10 @@ import glob
 import shutil
 import json
 import math
-from datetime import datetime
 import logging
 from typing import Union
+from json import JSONEncoder
+import datetime
 
 # Internal dependencies imports
 from coastseg import exceptions
@@ -62,6 +63,57 @@ def is_in_google_colab() -> bool:
         return True
     else:
         return False
+
+
+def to_file(data: dict, filepath: str) -> None:
+    class DateTimeEncoder(JSONEncoder):
+        # Override the default method
+        def default(self, obj):
+            if isinstance(obj, (datetime.date, datetime.datetime)):
+                return obj.isoformat()
+            if isinstance(obj, (np.ndarray)):
+                new_obj = [array.tolist() for array in obj]
+                return new_obj
+
+    with open(filepath, "w") as fp:
+        json.dump(data, fp, cls=DateTimeEncoder)
+
+
+def get_ids_with_invalid_area(
+    geometry: gpd.GeoDataFrame, max_area: float = 98000000, min_area: float = 0
+) -> set:
+    if isinstance(geometry, gpd.GeoDataFrame):
+        geometry = json.loads(geometry.to_json())
+    if isinstance(geometry, dict):
+        if "features" in geometry.keys():
+            rows_drop = set()
+            for i, feature in enumerate(geometry["features"]):
+                roi_area = get_area(feature["geometry"])
+                if roi_area >= max_area or roi_area <= min_area:
+                    rows_drop.add(i)
+            return rows_drop
+    else:
+        raise TypeError("Must be geodataframe")
+
+
+def from_file(filepath: str) -> dict:
+    def DecodeDateTime(readDict):
+        if "dates" in readDict:
+            tmp = [
+                datetime.datetime.fromisoformat(dates) for dates in readDict["dates"]
+            ]
+            readDict["dates"] = tmp
+        if "shorelines" in readDict:
+            tmp = [
+                np.array(shoreline) if len(shoreline) > 0 else np.empty((0, 2))
+                for shoreline in readDict["shorelines"]
+            ]
+            readDict["shorelines"] = tmp
+        return readDict
+
+    with open(filepath, "r") as fp:
+        data = json.load(fp, object_hook=DecodeDateTime)
+    return data
 
 
 def mount_google_drive(name: str = "CoastSeg") -> None:
@@ -414,22 +466,21 @@ def replace_column(df, new_name="id", replace_col=None) -> None:
             df[new_name] = df.index
 
 
-def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
+def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
     {
-        'ROI_1_usa_CA_0289-0055-NA1': array([[-13820440.53165404,   4995568.65036405],
+        'usa_CA_0289-0055-NA1': array([[-13820440.53165404,   4995568.65036405],
         [-13820940.93156407,   4995745.1518021 ]]),
-        'ROI_1_usa_CA_0289-0056-NA1': array([[-13820394.24579453,   4995700.97802925],
+        'usa_CA_0289-0056-NA1': array([[-13820394.24579453,   4995700.97802925],
         [-13820900.16320004,   4995862.31860808]])
     }
     Args:
-        roi_id(str): id of roi that transects intersect
         feature (gpd.geodataframe): clipped transects within roi
     Returns:
         dict: dict of np.arrays of transect start and end points
         of form {
-            'ROI<roi_id>_<transect_id>': array([[start point],
+            '<transect_id>': array([[start point],
                         [end point]]),}
     """
     features = []
@@ -437,12 +488,7 @@ def get_transect_points_dict(roi_id: str, feature: gpd.geodataframe) -> dict:
     feature_exploded = feature.explode(ignore_index=True)
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
-        lambda row: {
-            "ROI_"
-            + str(roi_id)
-            + "_"
-            + str(row.id): np.array(np.array(row.geometry.coords).tolist())
-        },
+        lambda row: {str(row.id): np.array(np.array(row.geometry.coords).tolist())},
         axis=1,
     )
     features = list(lat_lng)
@@ -458,7 +504,7 @@ def get_cross_distance_df(
     transects_csv = {}
     # copy dates from extracted shoreline
     transects_csv["dates"] = extracted_shorelines["dates"]
-    # add cross distances for each transect for roi with roi_id
+    # add cross distances for each transect within the ROI
     transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
 
@@ -804,7 +850,7 @@ def create_roi_settings(
 def generate_datestring() -> str:
     """Returns a datetime string in the following format %m-%d-%y__%I_%M_%S
     EX: "ID_0__01-31-22_12_19_45"""
-    date = datetime.now()
+    date = datetime.datetime.now()
     return date.strftime("%m-%d-%y__%I_%M_%S")
 
 
