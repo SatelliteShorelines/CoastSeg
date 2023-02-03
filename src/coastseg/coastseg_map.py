@@ -39,6 +39,9 @@ class CoastSeg_Map:
         # settings:  used to select data to download and preprocess settings
         self.settings = {
             # general parameters:
+            "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
             "cloud_thresh": 0.5,  # threshold on maximum cloud cover
             "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
             "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
@@ -59,10 +62,13 @@ class CoastSeg_Map:
             "sand_color": "default",
             "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
             "max_dist_ref": 25,
-            "along_dist": 25,
-            "landsat_collection": "C02",
-            "dates": ["2017-12-01", "2018-01-01"],
-            "sat_list": ["L8"],
+            "along_dist": 25,  # along-shore distance to use for computing the intersection
+            "min_points": 3,  # minimum number of shoreline points to calculate an intersection
+            "max_std": 15,  # max std for points around transect
+            "max_range": 30,  # max range for points around transect
+            "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
+            "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
+            "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
         }
         if settings is not None:
             tmp_settings = {**settings, **self.settings}

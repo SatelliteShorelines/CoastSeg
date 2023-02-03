@@ -26,6 +26,9 @@ from ipywidgets import BoundedFloatText
 from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
+from ipywidgets import Select
+from ipywidgets import BoundedIntText
+from ipywidgets import Checkbox
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +68,7 @@ def create_file_chooser(callback: Callable[[FileChooser], None], title: str = No
         layout=Layout(height="28px", width="28px", padding=padding),
     )
 
-    def close_click(change):
+    def close_click(change: dict):
         if change["new"]:
             geojson_chooser.close()
             close_button.close()
@@ -123,7 +126,7 @@ class UI:
         )
         self.load_file_button.on_click(self.load_feature_from_file)
 
-        def change_load_file_btn_name(change):
+        def change_load_file_btn_name(change: dict):
             self.load_file_button.description = f"Load {str(change['new'])} file"
 
         self.load_file_radio.observe(change_load_file_btn_name, "value")
@@ -194,9 +197,8 @@ class UI:
             style={"description_width": "initial"},
             disabled=False,
         )
-
         # called when unit radio button is clicked
-        def units_radio_changed(change):
+        def units_radio_changed(change: dict):
             """
             Change the maximum area allowed and the description of the small and large ROI area
             textboxes when the units radio is changed. When the units for area is m² the max ROI area size
@@ -254,37 +256,34 @@ class UI:
 
     def get_settings_section(self):
         # declare settings widgets
-        dates_vbox = self.get_dates_picker()
-        satellite_radio = self.get_satellite_radio()
-        sand_dropbox = self.get_sand_dropbox()
-        min_length_sl_slider = self.get_min_length_sl_slider()
-        beach_area_slider = self.get_beach_area_slider()
-        shoreline_buffer_slider = self.get_shoreline_buffer_slider()
-        cloud_slider = self.get_cloud_slider()
-        alongshore_distance_slider = self.get_alongshore_distance_slider()
-        cloud_theshold_slider = self.get_cloud_threshold_slider()
+        self.settings = {
+            "dates_picker": self.get_dates_picker(),
+            "satellite_radio": self.get_satellite_radio(),
+            "sand_dropbox": self.get_sand_dropbox(),
+            "min_length_sl_slider": self.get_min_length_sl_slider(),
+            "beach_area_slider": self.get_beach_area_slider(),
+            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
+            "cloud_slider": self.get_cloud_slider(),
+            "alongshore_distance_slider": self.get_alongshore_distance_slider(),
+            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+            "along_dist": self.get_alongshore_distance_slider(),
+            "min_points": self.get_min_points_text(),
+            "max_std": self.get_max_std_text(),
+            "max_range": self.get_max_range_text(),
+            "min_chainage": self.get_min_chainage_text(),
+            "multiple_inter": self.get_outliers_mode(),
+            "prc_multiple": self.get_prc_multiple_text(),
+        }
 
         settings_button = Button(
             description="Save Settings", icon="fa-floppy-o", style=self.action_style
         )
         settings_button.on_click(self.save_settings_clicked)
         self.output_epsg_text = Text(value="4326", description="Output epsg:")
-
         # create settings vbox
         settings_vbox = VBox(
-            [
-                dates_vbox,
-                satellite_radio,
-                self.output_epsg_text,
-                sand_dropbox,
-                min_length_sl_slider,
-                beach_area_slider,
-                shoreline_buffer_slider,
-                cloud_slider,
-                alongshore_distance_slider,
-                cloud_theshold_slider,
-                settings_button,
-            ]
+            [widget for widget_name, widget in self.settings.items()]
+            + [self.output_epsg_text, settings_button]
         )
         return settings_vbox
 
@@ -418,6 +417,108 @@ class UI:
         )
         return VBox([beach_area_instr, self.beach_area_slider])
 
+    def get_min_chainage_text(self) -> VBox:
+        # returns slider to control beach area slider
+        label = HTML(
+            value="<b>Max distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned.</b>"
+        )
+
+        # min_chainage: (in metres) furthest distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned.
+        self.min_chainage_text = BoundedFloatText(
+            value=-100.0,
+            min=-500.0,
+            max=-1.0,
+            step=-1.0,
+            description="Max Landward Distance",
+            style={"description_width": "initial"},
+            disabled=False,
+        )
+        return VBox([label, self.min_chainage_text])
+
+    def get_prc_multiple_text(self) -> VBox:
+        # returns slider to control beach area slider
+        label = HTML(
+            value="<b>Percentage of points whose std > max_std that will be set to 'max'.Only in 'auto' mode.</b>"
+        )
+        # percentage of points whose std > max_std that will be set to 'max'
+        # percentage of data points where the std is larger than the user-defined max
+        # 'prc_multiple': percentage to use in 'auto' mode to switch from 'nan' to 'max'
+        self.prc_multiple_text = BoundedFloatText(
+            value=0.1,
+            min=0.0,
+            max=1.0,
+            step=0.01,
+            description="% points' std > max_std:",
+            style={"description_width": "initial"},
+            disabled=False,
+        )
+        return VBox([label, self.prc_multiple_text])
+
+    def get_max_range_text(self) -> VBox:
+        # returns slider to control beach area slider
+        label = HTML(
+            value="<b>Max range for shoreline points within the alongshore range, if range is above this value a NaN is returned for this intersection</b>"
+        )
+        # max_range: (in metres) maximum RANGE for the shoreline points within the alongshore range, if RANGE is above this value a NaN is returned for this intersection.
+        self.max_range_text = BoundedFloatText(
+            value=30.0,
+            min=1.0,
+            max=100.0,
+            step=1.0,
+            description="Max Range",
+            style={"description_width": "initial"},
+            disabled=False,
+        )
+        return VBox([label, self.max_range_text])
+
+    def get_outliers_mode(self) -> VBox:
+        # returns slider to control beach area slider
+        label = HTML(value="<b>How to deal with multiple shoreline intersections.</b>")
+        # controls multiple_inter: ('auto','nan','max') defines how to deal with multiple shoreline intersections
+        self.outliers_mode = Select(
+            options=["auto", "nan", "max"],
+            value="auto",
+            description="Outliers Mode",
+            style={"description_width": "initial"},
+        )
+        return VBox([label, self.outliers_mode])
+
+    def get_max_std_text(self) -> VBox:
+        # returns slider to control beach area slider
+        label = HTML(
+            value="<b>Maximum STD for the shoreline points within the alongshore range</b>"
+        )
+
+        # max_std: (in metres) maximum STD for the shoreline points within the alongshore range, if STD is above this value a NaN is returned for this intersection.
+        self.max_std_text = BoundedFloatText(
+            value=15.0,
+            min=1.0,
+            max=100.0,
+            step=1.0,
+            description="Max Std",
+            style={"description_width": "initial"},
+            disabled=False,
+        )
+        return VBox([label, self.max_std_text])
+
+    def get_min_points_text(self) -> VBox:
+        # returns slider to control beach area slider
+        label = HTML(
+            value="<b>Minimum number of shoreline points to calculate an intersection</b>"
+        )
+
+        # min_points: minimum number of shoreline points to calculate an intersection.
+        self.min_points_text = BoundedIntText(
+            value=3,
+            min=1,
+            max=100,
+            step=1,
+            description="Min Shoreline Points",
+            style={"description_width": "initial"},
+            disabled=False,
+        )
+        return VBox([label, self.min_points_text])
+
     def get_min_length_sl_slider(self):
         # returns slider to control beach area slider
         min_length_sl_instr = HTML(
@@ -443,7 +544,7 @@ class UI:
         # satellite selection widgets
         satellite_instr = HTML(
             value="<b>Pick multiple satellites:</b>\
-                <br> - Pick multiple satellites by holding the control key> \
+                <br> - Pick multiple satellites by holding the control key \
                 <br> - images after 2022/01/01 will be automatically downloaded from Collection 2 ",
             layout=Layout(padding="10px"),
         )
@@ -486,7 +587,7 @@ class UI:
         )
         self.save_button.on_click(self.save_to_file_btn_clicked)
 
-        def save_radio_changed(change):
+        def save_radio_changed(change: dict):
             self.save_button.description = f"Save {str(change['new'])} to file"
 
         self.save_radio.observe(save_radio_changed, "value")
@@ -515,7 +616,7 @@ class UI:
         )
         self.load_button.on_click(self.load_button_clicked)
 
-        def handle_load_radio_change(change):
+        def handle_load_radio_change(change: dict):
             self.load_button.description = f"Load {str(change['new'])}"
 
         self.load_radio.observe(handle_load_radio_change, "value")
@@ -541,7 +642,7 @@ class UI:
             style=self.remove_style,
         )
 
-        def handle_remove_radio_change(change):
+        def handle_remove_radio_change(change: dict):
             self.remove_button.description = f"Remove {str(change['new'])}"
 
         self.remove_button.on_click(self.remove_feature_from_map)
@@ -583,6 +684,12 @@ class UI:
         <p>sand_color: {}</p>
         <p>max_dist_ref: {}</p>
         <p>along_dist: {}</p>
+        <p>min_points: {}</p>
+        <p>max_std: {}</p>
+        <p>max_range: {}</p>
+        <p>min_chainage: {}</p>
+        <p>multiple_inter: {}</p>
+        <p>prc_multiple: {}</p>
         """.format(
             values["sat_list"],
             values["dates"],
@@ -597,6 +704,12 @@ class UI:
             values["sand_color"],
             values["max_dist_ref"],
             values["along_dist"],
+            values["min_points"],
+            values["max_std"],
+            values["max_range"],
+            values["min_chainage"],
+            values["multiple_inter"],
+            values["prc_multiple"],
         )
 
     def _create_HTML_widgets(self):
@@ -642,8 +755,6 @@ class UI:
 
     def create_dashboard(self):
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
-        # create settings section
-        settings_section = self.get_settings_section()
         # Buttons to load shoreline or transects in bbox on map
         load_buttons = self.load_feature_on_map_buttons()
         remove_buttons = self.remove_buttons()
@@ -690,7 +801,12 @@ class UI:
         # view currently loaded settings
         static_settings_html = self.get_view_settings_vbox()
 
-        settings_row = HBox([settings_section, static_settings_html])
+        settings_row = HBox(
+            [
+                self.get_settings_section(),
+                static_settings_html,
+            ]
+        )
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         # in this row prints are rendered with UI.debug_view
         row_2 = HBox([self.clear_debug_button, UI.debug_view])
@@ -762,45 +878,39 @@ class UI:
 
     @debug_view.capture(clear_output=True)
     def save_settings_clicked(self, btn):
-        if self.satellite_selection.value:
-            # Save satellites selected by user
-            sat_list = list(self.satellite_selection.value)
-            # Save dates selected by user
-            dates = [str(self.start_date.value), str(self.end_date.value)]
-            output_epsg = int(self.output_epsg_text.value)
-            max_dist_ref = self.shoreline_buffer_slider.value
-            along_dist = self.alongshore_distance_slider.value
-            dist_clouds = self.cloud_slider.value
-            beach_area = self.beach_area_slider.value
-            min_length_sl = self.min_length_sl_slider.value
-            sand_color = str(self.sand_dropdown.value)
-            cloud_thresh = self.cloud_threshold_slider.value
-            settings = {
-                "sat_list": sat_list,
-                "dates": dates,
-                "output_epsg": output_epsg,
-                "max_dist_ref": max_dist_ref,
-                "along_dist": along_dist,
-                "dist_clouds": dist_clouds,
-                "min_beach_area": beach_area,
-                "min_length_sl": min_length_sl,
-                "sand_color": sand_color,
-                "cloud_thresh": cloud_thresh,
-            }
-            try:
-                self.coastseg_map.save_settings(**settings)
-                self.settings_html.value = self.get_settings_html(
-                    self.coastseg_map.settings
-                )
-            except Exception as error:
-                # renders error message as a box on map
-                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
-        elif not self.satellite_selection.value:
+        if not self.satellite_selection.value:
             try:
                 raise Exception("Must select at least one satellite first")
             except Exception as error:
                 # renders error message as a box on map
                 exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+        settings = {
+            "sat_list": list(self.satellite_selection.value),
+            "dates": [str(self.start_date.value), str(self.end_date.value)],
+            "output_epsg": int(self.output_epsg_text.value),
+            "max_dist_ref": self.shoreline_buffer_slider.value,
+            "along_dist": self.alongshore_distance_slider.value,
+            "dist_clouds": self.cloud_slider.value,
+            "min_beach_area": self.beach_area_slider.value,
+            "min_length_sl": self.min_length_sl_slider.value,
+            "sand_color": str(self.sand_dropdown.value),
+            "cloud_thresh": self.cloud_threshold_slider.value,
+            "along_dist": self.alongshore_distance_slider.value,
+            "min_points": self.min_points_text.value,
+            "max_std": self.max_std_text.value,
+            "max_range": self.max_range_text.value,
+            "min_chainage": self.min_chainage_text.value,
+            "multiple_inter": self.outliers_mode.value,
+            "prc_multiple": self.prc_multiple_text.value,
+        }
+        try:
+            self.coastseg_map.save_settings(**settings)
+            self.settings_html.value = self.get_settings_html(
+                self.coastseg_map.settings
+            )
+        except Exception as error:
+            # renders error message as a box on map
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):
