@@ -40,7 +40,10 @@ def valid_coastseg_map_with_incomplete_settings() -> coastseg_map.CoastSeg_Map:
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
         "max_dist_ref": 25,
     }
-    coastsegmap.settings = pre_process_settings
+    # artifically set the settings to be invalid
+    # don't use set_settings because it will add the missing keys to the dictionary
+    # coastsegmap.set_settings(**pre_process_settings)
+    coastsegmap.settigns = pre_process_settings
     return coastsegmap
 
 
@@ -68,7 +71,7 @@ def valid_coastseg_map_with_settings() -> coastseg_map.CoastSeg_Map:
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
         "max_dist_ref": 25,
     }
-    coastsegmap.save_settings(
+    coastsegmap.set_settings(
         sat_list=sat_list,
         landsat_collection=landsat_collection,
         dates=dates,
@@ -111,7 +114,7 @@ def coastseg_map_with_rois(valid_rois_filepath) -> coastseg_map.CoastSeg_Map:
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
         "max_dist_ref": 25,
     }
-    coastsegmap.save_settings(
+    coastsegmap.set_settings(
         sat_list=sat_list,
         landsat_collection=landsat_collection,
         dates=dates,
@@ -158,7 +161,7 @@ def coastseg_map_with_selected_roi_layer(
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
         "max_dist_ref": 25,
     }
-    coastsegmap.save_settings(
+    coastsegmap.set_settings(
         sat_list=sat_list,
         landsat_collection=landsat_collection,
         dates=dates,

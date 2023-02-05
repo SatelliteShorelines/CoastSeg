@@ -256,7 +256,7 @@ class UI:
 
     def get_settings_section(self):
         # declare settings widgets
-        self.settings = {
+        settings = {
             "dates_picker": self.get_dates_picker(),
             "satellite_radio": self.get_satellite_radio(),
             "sand_dropbox": self.get_sand_dropbox(),
@@ -282,7 +282,7 @@ class UI:
         self.output_epsg_text = Text(value="4326", description="Output epsg:")
         # create settings vbox
         settings_vbox = VBox(
-            [widget for widget_name, widget in self.settings.items()]
+            [widget for widget_name, widget in settings.items()]
             + [self.output_epsg_text, settings_button]
         )
         return settings_vbox
@@ -904,7 +904,7 @@ class UI:
             "prc_multiple": self.prc_multiple_text.value,
         }
         try:
-            self.coastseg_map.save_settings(**settings)
+            self.coastseg_map.set_settings(**settings)
             self.settings_html.value = self.get_settings_html(
                 self.coastseg_map.settings
             )

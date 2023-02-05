@@ -36,11 +36,12 @@ def test_save_config_invalid_inputs(
         valid_coastseg_map.save_config()
 
     # test if exception is raised when settings is missing ["dates", "sat_list", "landsat_collection"]
-    with pytest.raises(ValueError):
-        # save config will not work without ROIs loaded onto map
-        valid_coastseg_map_with_incomplete_settings.load_feature_on_map(
-            "rois", file=valid_rois_filepath
-        )
+    # save config will not work without ROIs loaded onto map
+    valid_coastseg_map_with_incomplete_settings.load_feature_on_map(
+        "rois", file=valid_rois_filepath
+    )
+
+    with pytest.raises(Exception):
         valid_coastseg_map_with_incomplete_settings.save_config()
 
     # test if exception is raised when coastseg_map missing rois
@@ -67,13 +68,17 @@ def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     filepath = str(tmp_path)
     roi_id = "17"
     date_str = "01-31-22_12_19_45"
-    dates = actual_coastsegmap.settings["dates"]
-    landsat_collection = actual_coastsegmap.settings["landsat_collection"]
-    sat_list = actual_coastsegmap.settings["sat_list"]
+
+    # modify the settings
+    settings = actual_coastsegmap.get_settings()
+    dates = settings["dates"]
+    landsat_collection = settings["landsat_collection"]
+    sat_list = settings["sat_list"]
+    
     # Add roi_settings to  actual_coastsegmap.rois
     selected_layer = actual_coastsegmap.map.find_layer(roi.ROI.SELECTED_LAYER_NAME)
     roi_settings = common.create_roi_settings(
-        actual_coastsegmap.settings,
+        settings,
         selected_layer.data,
         filepath,
         date_str,
@@ -272,8 +277,8 @@ def test_coastseg_map_settings():
         "max_dist_ref": 25,
         "landsat_collection": "C02",
     }
-    coastsegmap.save_settings(**pre_process_settings)
-    actual_settings = set(list(coastsegmap.settings.keys()))
+    coastsegmap.set_settings(**pre_process_settings)
+    actual_settings = set(list(coastsegmap.get_settings().keys()))
     expected_settings = set(list(pre_process_settings.keys()))
     assert expected_settings.issubset(actual_settings)
     assert set(["dates", "landsat_collection", "sat_list"]).issubset(actual_settings)

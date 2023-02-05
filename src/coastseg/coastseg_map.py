@@ -34,76 +34,41 @@ logger = logging.getLogger(__name__)
 
 
 class CoastSeg_Map:
-    def __init__(self, settings: dict = None):
-        self.factory = factory.Factory()
+    def __init__(self):
         # settings:  used to select data to download and preprocess settings
-        self.settings = {
-            # general parameters:
-            "landsat_collection": "C02",
-            "dates": ["2017-12-01", "2018-01-01"],
-            "sat_list": ["L8"],
-            "cloud_thresh": 0.5,  # threshold on maximum cloud cover
-            "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
-            "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
-            # quality control:
-            # if True, shows each shoreline detection to the user for validation
-            "check_detection": False,
-            # if True, allows user to adjust the position of each shoreline by changing the threshold
-            "adjust_detection": False,
-            "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
-            # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
-            # minimum area (in metres^2) for an object to be labelled as a beach
-            "min_beach_area": 4500,
-            # minimum length (in metres) of shoreline perimeter to be valid
-            "min_length_sl": 100,
-            # switch this parameter to True if sand pixels are masked (in black) on many images
-            "cloud_mask_issue": False,
-            # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
-            "sand_color": "default",
-            "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-            "max_dist_ref": 25,
-            "along_dist": 25,  # along-shore distance to use for computing the intersection
-            "min_points": 3,  # minimum number of shoreline points to calculate an intersection
-            "max_std": 15,  # max std for points around transect
-            "max_range": 30,  # max range for points around transect
-            "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
-            "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
-            "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
-        }
-        if settings is not None:
-            tmp_settings = {**settings, **self.settings}
-            self.settings = tmp_settings.copy()
-        # selected_set set(str): ids of the selected rois
-        self.selected_set = set()
-        # self.extracted_shoreline_layers : names of extracted shorelines vectors on the map
-        self.extracted_shoreline_layers = []
+        self.settings = {}
+        # create default values for settings
+        self.set_settings()
+
+        # factory is used to create map objects
+        self.factory = factory.Factory()
+
+        # Selections
+        self.selected_set = set()  # ids of the selected rois
+        self.extracted_shoreline_layers = (
+            []
+        )  # names of extracted shorelines vectors on the map
         self.rois = None
-        # self.transect : transect object containing transects loaded on map
+
+        # map objects
         self.transects = None
-        # self.shoreline : shoreline object containing shoreline loaded on map
         self.shoreline = None
-        # Bbox saved by the user
         self.bbox = None
-        # preprocess_settings : dictionary of settings used by coastsat to download imagery
-        self.preprocess_settings = {}
-        # create map if map_settings not provided else use default settings
         self.map = self.create_map()
-        # create controls and add to map
         self.draw_control = self.create_DrawControl(DrawControl())
         self.draw_control.on_draw(self.handle_draw)
         self.map.add(self.draw_control)
         layer_control = LayersControl(position="topright")
         self.map.add(layer_control)
-        # warning box shows errors to the user on the map
+
+        # Warning and information boxes
         self.warning_box = HBox([])
         self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
         self.map.add(self.warning_widget)
-        # ROI box shows ROI data on hover
         self.roi_html = HTML("""""")
         self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html)
         self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
         self.map.add(self.roi_widget)
-        # hover box shows hover data for transects and shorelines on hover
         self.feature_html = HTML("""""")
         self.hover_box = common.create_hover_box(
             title="Feature", feature_html=self.feature_html
@@ -245,34 +210,39 @@ class CoastSeg_Map:
             Exception: raised if no ROIs have been selected
         """
         # settings cannot be None
-        exception_handler.check_if_None(self.settings, "settings")
-        # settings must contain keys in subset
-        subset = set(["dates", "sat_list", "landsat_collection"])
-        superset = set(list(self.settings.keys()))
-        exception_handler.check_if_subset(subset, superset, "settings")
+        settings = self.get_settings()
+        # Ensure the required keys are present in the settings
+        required_settings_keys = set(["dates", "sat_list", "landsat_collection"])
+        superset = set(list(settings.keys()))
+        exception_handler.check_if_subset(required_settings_keys, superset, "settings")
+
         # selected_layer must contain selected ROI
         selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
         exception_handler.check_empty_layer(selected_layer, ROI.SELECTED_LAYER_NAME)
         exception_handler.check_empty_roi_layer(selected_layer)
-        logger.info(f"self.settings: {self.settings}")
+
         logger.info(f"selected_layer: {selected_layer}")
-        # 1. Create a list of download settings for each ROI.
-        # filepath: path to directory where downloaded imagery will be saved. Defaults to data directory in CoastSeg
-        filepath = os.path.abspath(os.path.join(os.getcwd(), "data"))
+
+        # Get the file path where the downloaded imagery will be saved
+        file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
         date_str = common.generate_datestring()
+
+        # Create a list of download settings for each ROI
         roi_settings = common.create_roi_settings(
-            self.settings, selected_layer.data, filepath, date_str
+            settings, selected_layer.data, file_path, date_str
         )
 
-        # Save the currently loaded settings to the rois
+        # Save the ROI settings
         self.rois.set_roi_settings(roi_settings)
+
         # create a list of settings for each ROI
         inputs_list = list(roi_settings.values())
         logger.info(f"inputs_list {inputs_list}")
+
         # 2. For each ROI use download settings to download imagery and save to jpg
         print("Download in process")
         # make a deep copy so settings doesn't get modified by the temp copy
-        tmp_settings = copy.deepcopy(self.settings)
+        tmp_settings = copy.deepcopy(settings)
 
         # for each ROI use the ROI settings to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
@@ -303,8 +273,8 @@ class CoastSeg_Map:
         exception_handler.check_if_None(self.rois)
         json_data = common.read_json_file(filepath)
         # replace coastseg_map.settings with settings from config file
-        self.settings = json_data["settings"]
-        logger.info(f"Loaded settings from file: {self.settings}")
+        self.set_settings(**json_data["settings"])
+        logger.info(f"Loaded settings from file: {self.get_settings()}")
 
         # replace roi_settings for each ROI with contents of json_data
         roi_settings = {}
@@ -341,10 +311,10 @@ class CoastSeg_Map:
             Exception: raised if self.rois is missing
             Exception: raised if selected_layer is missing
         """
-        exception_handler.config_check_if_none(self.settings, "settings")
+        settings = self.get_settings()
         # settings must contain keys in subset
         subset = set(["dates", "sat_list", "landsat_collection"])
-        superset = set(list(self.settings.keys()))
+        superset = set(list(settings.keys()))
         exception_handler.check_if_subset(subset, superset, "settings")
         exception_handler.config_check_if_none(self.rois, "ROIs")
         # selected_layer must contain selected ROI
@@ -355,12 +325,12 @@ class CoastSeg_Map:
             if filepath is None:
                 filepath = os.path.abspath(os.getcwd())
             roi_settings = common.create_roi_settings(
-                self.settings, selected_layer.data, filepath
+                settings, selected_layer.data, filepath
             )
             # Save download settings dictionary to instance of ROI
             self.rois.set_roi_settings(roi_settings)
         # create dictionary to be saved to config.json
-        config_json = common.create_json_config(self.rois.roi_settings, self.settings)
+        config_json = common.create_json_config(self.rois.roi_settings, settings)
         logger.info(f"config_json: {config_json} ")
         # get currently selected rois selected
         roi_ids = config_json["roi_ids"]
@@ -410,19 +380,72 @@ class CoastSeg_Map:
                 common.config_to_file(config_gdf, filepath)
                 print("Saved config files for each ROI")
 
-    def save_settings(self, **kwargs):
-        """Saves the settings for downloading data in a dictionary
-        Pass in data in the form of
-        save_settings(sat_list=sat_list, dates=dates,**preprocess_settings)
-        *You must use the names sat_list, landsat_collection, and dates
+    def set_settings(self, **kwargs):
         """
-        tmp_settings = self.settings.copy()
-        for key, value in kwargs.items():
-            tmp_settings[key] = value
+        Saves the settings for downloading data by updating the `self.settings` dictionary with the provided key-value pairs.
+        If any of the keys are missing, they will be set to their default value as specified in `default_settings`.
 
-        self.settings = tmp_settings.copy()
-        del tmp_settings
+        Example: set_settings(sat_list=sat_list, dates=dates,**more_settings)
+
+        Args:
+        **kwargs: Keyword arguments representing the key-value pairs to be added to or updated in `self.settings`.
+
+        Returns:
+        None
+        """
+        # Check if any of the keys are missing
+        # if any keys are missing set the default value
+        default_settings = {
+            "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
+            "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+            "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+            "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
+            # quality control:
+            # if True, shows each shoreline detection to the user for validation
+            "check_detection": False,
+            # if True, allows user to adjust the position of each shoreline by changing the threshold
+            "adjust_detection": False,
+            "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+            # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
+            # minimum area (in metres^2) for an object to be labelled as a beach
+            "min_beach_area": 4500,
+            # minimum length (in metres) of shoreline perimeter to be valid
+            "min_length_sl": 100,
+            # switch this parameter to True if sand pixels are masked (in black) on many images
+            "cloud_mask_issue": False,
+            # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+            "sand_color": "default",
+            "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+            "max_dist_ref": 25,
+            "along_dist": 25,  # along-shore distance to use for computing the intersection
+            "min_points": 3,  # minimum number of shoreline points to calculate an intersection
+            "max_std": 15,  # max std for points around transect
+            "max_range": 30,  # max range for points around transect
+            "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
+            "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
+            "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
+        }
+        if kwargs:
+            self.settings.update({key: value for key, value in kwargs.items()})
+        self.settings.update(
+            {
+                key: default_settings[key]
+                for key in default_settings
+                if key not in self.settings
+            }
+        )
         logger.info(f"Settings: {self.settings}")
+
+    def get_settings(self):
+        SETTINGS_NOT_FOUND = (
+            "No settings found. Click save settings or load a config file."
+        )
+        logger.info(f"self.settings: {self.settings}")
+        if self.settings is None or self.settings == {}:
+            raise Exception(SETTINGS_NOT_FOUND)
+        return self.settings
 
     def update_transects_html(self, feature, **kwargs):
         # Modifies html when transect is hovered over
@@ -615,14 +638,14 @@ class CoastSeg_Map:
         download_imagery() and extracts a shoreline for each of them
         """
         # ROIs,settings, roi-settings cannot be None or empty
+        settings = self.get_settings()
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.shoreline, "shoreline")
         exception_handler.check_if_None(self.transects, "transects")
-        exception_handler.check_if_None(self.settings, "settings")
         exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
         # settings must contain keys in subset
         subset = set(["dates", "sat_list", "landsat_collection"])
-        superset = set(list(self.settings.keys()))
+        superset = set(list(settings.keys()))
         exception_handler.check_if_subset(subset, superset, "settings")
         # roi_settings must contain roi ids in selected set
         subset = self.selected_set
@@ -640,9 +663,9 @@ class CoastSeg_Map:
         # ensure a bounding box exists on the map
         exception_handler.check_if_None(self.bbox, "bounding box")
         # if output_epsg is 4326 or 4327 change output_epsg to most accurate crs
-        self.settings["output_epsg"] = self.get_most_accurate_epsg(
-            self.settings, self.bbox.gdf
-        )
+        new_espg = self.get_most_accurate_epsg(settings, self.bbox.gdf)
+        # update settings with the new output_epsg
+        self.set_settings(output_epsg=new_espg)
         # update configs with new output_epsg
         self.save_config()
 
@@ -662,7 +685,7 @@ class CoastSeg_Map:
                     roi_id,
                     shoreline_in_roi,
                     roi_settings,
-                    self.settings,
+                    settings,
                 )
                 logger.info(
                     f"extracted_shoreline_dict[{roi_id}]: {extracted_shorelines}"
@@ -727,7 +750,7 @@ class CoastSeg_Map:
         )
         logger.info(f"transects: {transects}")
         # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
-        cross_distance = SDS_transects.compute_intersection(
+        cross_distance = SDS_transects.compute_intersection_QC(
             extracted_shorelines, transects, settings
         )
         return cross_distance
@@ -761,14 +784,14 @@ class CoastSeg_Map:
             { roi_id :  dict
                 time-series of cross-shore distance along each of the transects. Not tidally corrected. }
         """
-        exception_handler.check_if_None(self.settings, "settings")
+        settings = self.get_settings()
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.transects, "transects")
         exception_handler.check_empty_dict(
             self.rois.extracted_shorelines, "extracted_shorelines"
         )
         exception_handler.check_if_subset(
-            set(["along_dist"]), set(list(self.settings.keys())), "settings"
+            set(["along_dist"]), set(list(settings.keys())), "settings"
         )
         # ids of ROIs that have had their shorelines extracted
         extracted_shoreline_ids = set(list(self.rois.extracted_shorelines.keys()))
@@ -780,7 +803,7 @@ class CoastSeg_Map:
         exception_handler.check_if_list_empty(roi_ids)
 
         # user selected output projection
-        output_epsg = "epsg:" + str(self.settings["output_epsg"])
+        output_epsg = "epsg:" + str(settings["output_epsg"])
         # for each ROI save cross distances for each transect that intersects each extracted shoreline
         cross_distance_transects = {}
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
@@ -838,7 +861,7 @@ class CoastSeg_Map:
                             roi_id,
                             extracted_shorelines_dict,
                             transects_in_roi_gdf,
-                            self.settings,
+                            settings,
                         )
                 if cross_distance == 0:
                     logger.warning(failure_msg)
@@ -879,7 +902,7 @@ class CoastSeg_Map:
         exception_handler.check_empty_dict(
             self.rois.extracted_shorelines, "extracted_shorelines"
         )
-        exception_handler.check_if_None(self.settings, "settings")
+        self.get_settings()
         exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
         #  each roi must have a computed transect
         exception_handler.check_empty_dict(
@@ -897,16 +920,8 @@ class CoastSeg_Map:
             )
         # make a csv file for each transect
         self.save_csv_per_transect(roi_ids, self.rois)
-        # save cross distances for transects and extracted shorelines to csv file
-        # each csv file is saved to ROI directory
-        self.save_cross_distance_df(roi_ids, self.rois)
-        # # make a csv file for each transect
-        # if single_transect_per_file==True:
-        #     self.save_csv_per_transect(roi_ids, self.rois)
-        # elif single_transect_per_file==False:
-        #     # save cross distances for transects and extracted shorelines to csv file
-        #     # each csv file is saved to ROI directory
-        #     self.save_cross_distance_df(roi_ids, self.rois)
+        # Create a csv file with all transect cross distances for each ROI
+        self.save_cross_distance_to_file(roi_ids, self.rois)
 
     def save_csv_per_transect(self, roi_ids: list, rois: ROI) -> None:
         """Saves cross distances of transects and
@@ -981,7 +996,7 @@ class CoastSeg_Map:
                 rois_computed_transects.add(roi_id)
         print(f"Computed transects for the following ROIs: {rois_computed_transects}")
 
-    def save_cross_distance_df(self, roi_ids: list, rois: ROI) -> None:
+    def save_cross_distance_to_file(self, roi_ids: list, rois: ROI) -> None:
         """Saves cross distances of transects and
         extracted shorelines in ROI to csv file within each ROI's directory.
         If no shorelines were extracted for an ROI then nothing is saved
