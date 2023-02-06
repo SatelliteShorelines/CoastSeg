@@ -4,7 +4,7 @@ import os
 
 # Internal dependencies imports
 from coastseg.exceptions import DownloadError
-from coastseg.common import read_gpd_file, download_url
+from coastseg.common import read_gpd_file, download_url, remove_z_axis
 
 # External dependencies imports
 import geopandas as gpd
@@ -30,6 +30,8 @@ class Shoreline:
         self.filename = "shoreline.geojson"
         if shoreline is not None:
             if not shoreline.empty:
+                # remove z-axis
+                shoreline = remove_z_axis(shoreline)
                 self.gdf = shoreline
         if bbox is not None:
             if not bbox.empty:
@@ -73,6 +75,10 @@ class Shoreline:
                     )
                     print(
                         "Please raise an issue on GitHub with the shoreline name.\n https://github.com/SatelliteShorelines/CoastSeg/issues \n"
+                    )
+                    logger.error(driver_error)
+                    logger.error(
+                        f"The geojson shoreline file was corrupted\n{shoreline_path}"
                     )
                     continue  # if the geojson file cannot be read then skip this file
             else:
@@ -129,6 +135,8 @@ class Shoreline:
             print("No shoreline found here.")
             logger.warning("No shoreline found here.")
 
+        # remove z-axis
+        shorelines_in_bbox_gdf = remove_z_axis(shorelines_in_bbox_gdf)
         return shorelines_in_bbox_gdf
 
     def style_layer(self, geojson: dict, layer_name: str) -> "ipyleaflet.GeoJSON":

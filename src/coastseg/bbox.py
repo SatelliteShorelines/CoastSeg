@@ -4,6 +4,7 @@ from typing import Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
+from coastseg.common import remove_z_axis
 
 # External dependencies imports
 import geopandas as gpd
@@ -28,6 +29,7 @@ class Bounding_Box:
         self.gdf = None
         self.filename = "bbox.geojson"
         if isinstance(rectangle, gpd.GeoDataFrame):
+            rectangle = remove_z_axis(rectangle)
             self.gdf = rectangle
         elif isinstance(rectangle, dict):
             self.gdf = self.create_geodataframe(rectangle)
@@ -51,6 +53,8 @@ class Bounding_Box:
         geom = [shape(rectangle)]
         geojson_bbox = gpd.GeoDataFrame({"geometry": geom})
         geojson_bbox.crs = crs
+        # remove z-axis
+        geojson_bbox = remove_z_axis(geojson_bbox)
         return geojson_bbox
 
     def style_layer(self, geojson: dict, layer_name: str) -> "ipyleaflet.GeoJSON":

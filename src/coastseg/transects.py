@@ -3,7 +3,7 @@ import logging
 import os
 
 # Internal dependencies imports
-from coastseg import common
+from coastseg.common import remove_z_axis, read_gpd_file
 
 # External dependencies imports
 import geopandas as gpd
@@ -30,7 +30,10 @@ class Transects:
         # if a transects geodataframe provided then copy it
         if transects is not None:
             if not transects.empty:
+                # remove z-axis from transects
+                transects = remove_z_axis(transects)
                 self.gdf = transects
+
         elif bbox is not None:
             if not bbox.empty:
                 self.gdf = self.create_geodataframe(bbox)
@@ -59,7 +62,7 @@ class Transects:
             transect_path = os.path.abspath(
                 os.path.join(script_dir, "transects", transect_file)
             )
-            transects_gdf = common.read_gpd_file(transect_path)
+            transects_gdf = read_gpd_file(transect_path)
             # Get all the transects that intersect with bbox
             transects_in_bbox = gpd.sjoin(
                 left_df=transects_gdf,
@@ -91,6 +94,8 @@ class Transects:
         if all_transects_in_bbox_gdf.empty:
             logger.warning("No transects found here.")
 
+        # remove z-axis from transects
+        all_transects_in_bbox_gdf = remove_z_axis(all_transects_in_bbox_gdf)
         return all_transects_in_bbox_gdf
 
     def style_layer(self, geojson: dict, layer_name: str) -> dict:

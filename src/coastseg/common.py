@@ -27,7 +27,6 @@ from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import HTML
-import ipyevents
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
