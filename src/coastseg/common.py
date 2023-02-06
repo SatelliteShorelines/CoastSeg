@@ -180,11 +180,7 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
         button_style="info",
         layout=Layout(height="28px", width="28px", padding=padding),
     )
-    # when mouse enters/exits Vbox event is triggered
-    uncollapse_event = ipyevents.Event(
-        source=uncollapse_button, watched_events=["click"]
-    )
-    collapse_event = ipyevents.Event(source=collapse_button, watched_events=["click"])
+
     # message tells user that data is available on hover
     container_content = VBox([msg])
     if feature_html.value == "":
@@ -196,22 +192,22 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
     container_header = HBox([title, uncollapse_button])
     container = VBox([container_header])
 
-    def handle_uncollapse_event(event):
-        if event["type"] == "click":
-            if feature_html.value == "":
-                container_content.children = [msg]
-            elif feature_html.value != "":
-                container_content.children = [feature_html]
-            container_header.children = [title, collapse_button]
-            container.children = [container_header, container_content]
+    def uncollapse_click(change: dict):
+        logger.info(change)
+        if feature_html.value == "":
+            container_content.children = [msg]
+        elif feature_html.value != "":
+            container_content.children = [feature_html]
+        container_header.children = [title, collapse_button]
+        container.children = [container_header, container_content]
 
-    def handle_collapse_event(event):
-        if event["type"] == "click":
-            container_header.children = [title, uncollapse_button]
-            container.children = [container_header]
+    def collapse_click(change: dict):
+        logger.info(change)
+        container_header.children = [title, uncollapse_button]
+        container.children = [container_header]
 
-    uncollapse_event.on_dom_event(handle_uncollapse_event)
-    collapse_event.on_dom_event(handle_collapse_event)
+    collapse_button.observe(collapse_click, "value")
+    uncollapse_button.observe(uncollapse_click, "value")
     return container
 
 
