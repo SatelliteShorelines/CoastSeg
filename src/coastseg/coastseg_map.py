@@ -204,6 +204,9 @@ class CoastSeg_Map:
     def download_imagery(self) -> None:
         """downloads selected rois as jpgs
 
+        Creates a directory for each ROI which contains all the downloaded imagery and
+        the metadata files.
+
         Raises:
             Exception: raised if settings is missing
             Exception: raised if 'dates','sat_list', and 'landsat_collection' are not in settings
