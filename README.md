@@ -1,6 +1,5 @@
 # CoastSeg
-[![image](https://colab.research.google.com/assets/colab-badge.svg)]
-(https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb)
+[![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb)
 
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
 [![image](https://pepy.tech/badge/coastseg)](https://pepy.tech/project/coastseg)
