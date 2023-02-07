@@ -293,24 +293,34 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
         chunk_size (int, optional):  Defaults to 128.
     """
     with requests.get(url, stream=True) as r:
+        logger.info(r)
+        logger.info(r.content)
+        logger.info(r.headers)
         if r.status_code == 404:
-            logger.error(f"DownloadError: {save_path}")
+            logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
             raise exceptions.DownloadError(os.path.basename(save_path))
+        if r.status_code == 429:
+            logger.error(f"Error {r.status_code}.DownloadError: {save_path}")
+            raise Exception("Zenodo has denied the request. You may have requested too many files at once.")
         # check header to get content length, in bytes
-        total_length = int(r.headers.get("Content-Length"))
-        with open(save_path, "wb") as fd:
-            with tqdm(
-                total=total_length,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=f"Downloading {filename}",
-                initial=0,
-                ascii=True,
-            ) as pbar:
-                for chunk in r.iter_content(chunk_size=chunk_size):
-                    fd.write(chunk)
-                    pbar.update(len(chunk))
+        content_length = r.headers.get("Content-Length")
+        if content_length:
+            total_length = int(content_length)
+            with open(save_path, "wb") as fd:
+                with tqdm(
+                    total=total_length,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Downloading {filename}",
+                    initial=0,
+                    ascii=True,
+                ) as pbar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
+        else:
+            logger.warning("Content length not found in response headers")
 
 
 def get_center_rectangle(coords: list) -> tuple:
