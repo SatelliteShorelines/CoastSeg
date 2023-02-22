@@ -106,11 +106,11 @@ def check_if_list_empty(items: list):
 
 
 def check_if_empty_string(feature, feature_type: str = "", message: str = ""):
-    if feature is None:
+    if feature == "":
         if feature_type == SESSION_NAME:
             message = SESSION_NAME_NOT_FOUND
         logger.error(f"{feature_type} is empty string")
-        raise Exception(SESSION_NAME_NOT_FOUND)
+        raise Exception(message)
 
 
 def check_if_None(feature, feature_type: str = "", message: str = ""):

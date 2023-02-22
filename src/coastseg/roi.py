@@ -140,7 +140,7 @@ class ROI:
             extracted_shoreline (Extracted_Shoreline): The extracted shoreline dictionary to add.
             roi_id (str): The ID of the ROI to associate the shoreline with.
         """
-        self.extracted_shorelines[roi_id] = extracted_shorelines
+        self.extracted_shorelines[roi_id] = extracted_shoreline
         logger.info(f"New self.extracted_shorelines: {self.extracted_shorelines}")
 
     def create_geodataframe(
