@@ -115,7 +115,7 @@ class Extracted_Shoreline:
         if settings == {}:
             raise ValueError("settings cannot be empty.")
 
-        logger.info(f"Extracting shorelines for ROI id{self.roi_id}")
+        logger.info(f"Extracting shorelines for ROI id{roi_id}")
         self.dictionary = self.extract_shorelines(
             shoreline,
             roi_settings,
@@ -123,7 +123,8 @@ class Extracted_Shoreline:
         )
 
         if is_list_empty(self.dictionary["shorelines"]):
-            raise exceptions.No_Extracted_Shoreline(self.roi_id)
+            logger.warning(f"No extracted shorelines for ROI {roi_id}")
+            raise exceptions.No_Extracted_Shoreline(roi_id)
 
         map_crs = "EPSG:4326"
         # extracted shorelines have map crs so they can be displayed on the map

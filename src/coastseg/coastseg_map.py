@@ -652,8 +652,8 @@ class CoastSeg_Map:
             logger.warning(f"exceptions.Id_Not_Found {id_error}")
             print(f"ROI with id {roi_id} was not found. \n Skipping to next ROI")
         except exceptions.No_Extracted_Shoreline as no_shoreline:
-            logger.warning(f"{no_shoreline}")
-            print(no_shoreline)
+            logger.warning(f"{roi_id}: {no_shoreline}")
+            print(f"{roi_id}: {no_shoreline}")
         except Exception as e:
             logger.warning(
                 f"Exception occurred while extracting shoreline for ROI {roi_id}: {e}"
@@ -661,7 +661,6 @@ class CoastSeg_Map:
             print(
                 f"An error occurred while extracting shoreline for ROI {roi_id}. \n Skipping to next ROI"
             )
-
         return None
 
     def extract_all_shorelines(self) -> None:
@@ -713,11 +712,14 @@ class CoastSeg_Map:
 
         # Save extracted shoreline info to session directory
         session_name = self.get_session_name()
-        session_path = os.path.join(os.getcwd(), "sessions", session_name)
-        logger.info(f"session_path: {session_path}")
-        # save source data
-        self.save_config(session_path)
         for roi_id in roi_ids:
+            ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
+            session_path = os.path.join(os.getcwd(), "sessions", session_name)
+            session_path = common.create_directory(session_path, ROI_directory)
+            logger.info(f"session_path: {session_path}")
+            # save source data
+            self.save_config(session_path)
+
             extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
             logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
             if extracted_shoreline is None:
@@ -785,6 +787,74 @@ class CoastSeg_Map:
         )
         return cross_distance
 
+    def get_cross_distance(self, roi_id: str, settings: dict, output_epsg: str):
+        """
+        Compute the cross shore distance of transects and extracted shorelines for a given ROI.
+
+        Parameters:
+        -----------
+        roi_id : str
+            The ID of the ROI to compute the cross shore distance for.
+        settings : dict
+            A dictionary of settings to be used in the computation.
+        output_epsg : str
+            The EPSG code of the output projection.
+
+        Returns:
+        --------
+        float
+            The computed cross shore distance, or 0 if there was an issue in the computation.
+
+        Raises:
+        -------
+        exceptions.No_Extracted_Shoreline
+            Raised if no shorelines were extracted for the ROI with roi_id
+
+        Usage:
+        ------
+        cross_distance = get_cross_distance(roi_id, settings, output_epsg)
+        """
+        # get extracted shorelines object for the currently selected ROI
+        roi_extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
+        # get transects that intersect with ROI
+        single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
+        transects_in_roi_gdf = self.transects.gdf[
+            self.transects.gdf.intersects(single_roi.unary_union)
+        ]
+        transects_in_roi_gdf = transects_in_roi_gdf[["id", "geometry"]]
+
+        failure_reason = None
+        if roi_extracted_shoreline is None:
+            cross_distance = 0
+            failure_reason = "No extracted shorelines were found"
+        elif transects_in_roi_gdf.empty:
+            cross_distance = 0
+            failure_reason = "No transects intersect"
+        else:
+            extracted_shoreline_x_transect = transects_in_roi_gdf[
+                transects_in_roi_gdf.intersects(roi_extracted_shoreline.gdf.unary_union)
+            ]
+            if extracted_shoreline_x_transect.empty:
+                cross_distance = 0
+                failure_reason = "No extracted shorelines intersected transects"
+            else:
+                # convert transects_in_roi_gdf to output_crs from settings
+                transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
+                # compute cross shore distance of transects and extracted shorelines
+                extracted_shorelines_dict = roi_extracted_shoreline.dictionary
+                cross_distance = self.compute_transects_from_roi(
+                    roi_id,
+                    extracted_shorelines_dict,
+                    transects_in_roi_gdf,
+                    settings,
+                )
+
+        if cross_distance == 0:
+            logger.warning(f"{failure_reason} for ROI {roi_id}")
+            print(f"{failure_reason} for ROI {roi_id}")
+
+        return cross_distance
+
     def compute_transects(self) -> dict:
         """Returns a dict of cross distances for each roi's transects
         Args:
@@ -837,121 +907,12 @@ class CoastSeg_Map:
         # user selected output projection
         output_epsg = "epsg:" + str(settings["output_epsg"])
         # for each ROI save cross distances for each transect that intersects each extracted shoreline
-        cross_distance_transects = {}
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
-            failure_msg = ""
-            cross_distance = None
-            try:
-                # get extracted shorelines object for the currently selected ROI
-                roi_extracted_shoreline = self.rois.get_extracted_shoreline(str(roi_id))
+            # save cross distances by ROI id
+            cross_distance = self.get_cross_distance(str(roi_id), settings, output_epsg)
+            self.rois.add_cross_shore_distances(cross_distance, roi_id)
 
-                # if no extracted shoreline exist for ROI's id then cross distance = 0
-                if roi_extracted_shoreline is None:
-                    cross_distance = 0
-                    failure_msg = f"No shorelines were extracted for {roi_id}"
-                elif roi_extracted_shoreline is not None:
-                    # get transects that intersect with ROI
-                    single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
-                    transects_in_roi_gdf = gpd.sjoin(
-                        left_df=self.transects.gdf,
-                        right_df=single_roi,
-                        how="inner",
-                        predicate="intersects",
-                    )
-                    columns_to_drop = list(
-                        set(transects_in_roi_gdf.columns) - set(["id_left", "geometry"])
-                    )
-                    transects_in_roi_gdf.drop(columns_to_drop, axis=1, inplace=True)
-                    transects_in_roi_gdf.rename(columns={"id_left": "id"}, inplace=True)
-
-                    # if no transects exist within the ROI then cross distance = 0
-                    if transects_in_roi_gdf.empty:
-                        cross_distance = 0
-                        failure_msg = f"No transects intersected {roi_id}"
-
-                    # Check if any extracted shorelines in ROI intersect with transect
-                    extracted_shoreline_x_transect = gpd.sjoin(
-                        left_df=transects_in_roi_gdf,
-                        right_df=roi_extracted_shoreline.gdf,
-                        how="inner",
-                        predicate="intersects",
-                    )
-                    if extracted_shoreline_x_transect.empty:
-                        cross_distance = 0
-                        failure_msg = f"No extracted shorelines intersected transects for {roi_id}"
-                    del extracted_shoreline_x_transect
-
-                    # convert transects_in_roi_gdf to output_crs from settings
-                    transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
-                    # if shoreline and transects in ROI and extracted_shorelines_dict intersect transect
-
-                    # get extracted shorelines dictionary
-                    extracted_shorelines_dict = roi_extracted_shoreline.dictionary
-                    # compute cross distances of transects and extracted shorelines
-                    if cross_distance is None:
-                        cross_distance = self.compute_transects_from_roi(
-                            roi_id,
-                            extracted_shorelines_dict,
-                            transects_in_roi_gdf,
-                            settings,
-                        )
-                if cross_distance == 0:
-                    logger.warning(failure_msg)
-                    print(failure_msg)
-                # save cross distances by ROI id
-                cross_distance_transects[roi_id] = cross_distance
-                logger.info(
-                    f"\ncross_distance_transects[{roi_id}]: {cross_distance_transects[roi_id]}"
-                )
-                # self.rois.save_transects_to_json(roi_id, cross_distance)
-            except exceptions.No_Extracted_Shoreline:
-                logger.warning(
-                    f"ROI id:{roi_id} has no extracted shoreline. No transects computed"
-                )
-                print(
-                    f"ROI id:{roi_id} has no extracted shoreline. No transects computed"
-                )
-            # save cross distances for all transects to ROIs
-            self.rois.cross_distance_transects = cross_distance_transects
         # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
-        self.save_transects_to_csv()
-
-    def save_transects_to_csv(self) -> None:
-        """save_cross_distance_df Saves the cross distances of the transects and
-        extracted shorelines in ROI to csv file within each ROI's directory.
-        If no shorelines were extracted for an ROI then nothing is saved
-        Raises:
-            Exception: No ROIs have been loaded
-            Exception: No transects were loaded
-            Exception: No shorelines have been extracted
-            Exception: No roi settings have been loaded
-            Exception: No rois selected that have had shorelines extracted
-        """
-        # ROIs and transects must exist
-        exception_handler.check_if_None(self.rois, "ROIs")
-        exception_handler.check_if_None(self.transects, "transects")
-        # there must be extracted shorelines for rois
-        exception_handler.check_empty_dict(
-            self.rois.get_all_extracted_shorelines(), "extracted_shorelines"
-        )
-        self.get_settings()
-        exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
-        #  each roi must have a computed transect
-        exception_handler.check_empty_dict(
-            self.rois.cross_distance_transects, "cross_distance_transects"
-        )
-        # only get roi ids that are currently selected on map and have had their shorelines extracted
-        extracted_shoreline_ids = set(
-            list(self.rois.get_all_extracted_shorelines().keys())
-        )
-        roi_ids = list(extracted_shoreline_ids & self.selected_set)
-        if len(roi_ids) == 0:
-            logger.error(
-                f"{self.selected_set} was not a subset of extracted_shoreline_ids: {extracted_shoreline_ids}"
-            )
-            raise Exception(
-                f"You must select an ROI and extract its shorelines before you can compute transects"
-            )
         # make a csv file for each transect
         self.save_csv_per_transect(roi_ids, self.rois)
         # Create a csv file with all transect cross distances for each ROI
@@ -970,8 +931,8 @@ class CoastSeg_Map:
         """
         # set of roi ids that have add their transects successfully computed
         rois_computed_transects = set()
-        for roi_id in roi_ids:
-            roi_extracted_shorelines = rois.extracted_shorelines[roi_id]
+        for roi_id in tqdm(roi_ids, desc="Saving csv for each transect for ROIs"):
+            roi_extracted_shorelines = rois.get_extracted_shoreline(roi_id)
             # if roi does not have extracted shoreline skip it
             if roi_extracted_shorelines is None:
                 logger.info(f"ROI: {roi_id} had no extracted shorelines ")
@@ -979,9 +940,7 @@ class CoastSeg_Map:
 
             # get extracted_shorelines from extracted shoreline object in rois
             extracted_shorelines_dict = roi_extracted_shorelines.dictionary
-            cross_distance_transects = rois.cross_distance_transects[roi_id]
-
-            logger.info(f"ROI: {roi_id} cross distance : {cross_distance_transects}")
+            cross_distance_transects = rois.get_cross_shore_distances(roi_id)
             logger.info(
                 f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines_dict}"
             )
@@ -1012,10 +971,18 @@ class CoastSeg_Map:
                 df = pd.DataFrame(out_dict)
                 df.index = df["dates"]
                 df.pop("dates")
-                # save to csv file
-                filepath = rois.roi_settings[roi_id]["filepath"]
-                sitename = rois.roi_settings[roi_id]["sitename"]
-                fn = os.path.join(filepath, sitename, "%s_timeseries_raw.csv" % key)
+
+                # Save extracted shoreline info to session directory
+                session_name = self.get_session_name()
+                session_path = os.path.join(os.getcwd(), "sessions", session_name)
+                ROI_directory = rois.roi_settings[roi_id]["sitename"]
+                session_path = common.create_directory(session_path, ROI_directory)
+                logger.info(f"session_path: {session_path}")
+                # save source data
+                self.save_config(session_path)
+                # save to csv file session path
+
+                fn = os.path.join(session_path, "%s_timeseries_raw.csv" % key)
                 logger.info(f"Save time series to {fn}")
                 if os.path.exists(fn):
                     logger.info(f"Overwriting:{fn}")
@@ -1041,52 +1008,59 @@ class CoastSeg_Map:
                 'roi_settings': must have keys 'filepath' and 'sitename'
                 'cross_distance_transects': cross distance of transects and extracted shoreline from roi
         """
-        for roi_id in roi_ids:
-            roi_extracted_shorelines = rois.extracted_shorelines[roi_id]
+        for roi_id in tqdm(roi_ids, desc="Saving ROI cross distance transects"):
+            roi_extracted_shorelines = rois.get_extracted_shoreline(roi_id)
             # if roi does not have extracted shoreline skip it
             if roi_extracted_shorelines is None:
-                print(f"ROI: {roi_id} had no extracted shorelines")
                 print(
-                    f"ROI: {roi_id} will not have time-series of shoreline change along transects "
+                    f"ROI: {roi_id} had no extracted shorelines and therfore has no time-series of shoreline change along transects"
                 )
-                logger.info(f"ROI: {roi_id} had no extracted shorelines ")
+                logger.info(
+                    f"ROI: {roi_id} had no extracted shorelines.ROI: {roi_id} will not have time-series of shoreline change along transects."
+                )
                 continue
             # get extracted_shorelines from extracted shoreline object in rois
             extracted_shorelines = roi_extracted_shorelines.dictionary
-            cross_distance_transects = rois.cross_distance_transects[roi_id]
-            logger.info(f"ROI: {roi_id} cross distance : {cross_distance_transects}")
-            logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
-            # if no cross distance was 0 then skip
-            if cross_distance_transects == 0:
-                print(f"ROI: {roi_id} cross distance is 0")
-                print(
-                    f"ROI: {roi_id} will not have time-series of shoreline change along transects "
-                )
-                logger.info(f"ROI: {roi_id} cross distance is 0")
-                continue
             # if no shorelines were extracted then skip
-            if extracted_shorelines is None:
-                print(f"ROI: {roi_id} had no extracted shorelines")
+            if extracted_shorelines == {}:
                 print(
-                    f"ROI: {roi_id} will not have time-series of shoreline change along transects "
+                    f"ROI: {roi_id} had no extracted shorelines and will not have time-series of shoreline change along transects "
                 )
                 logger.info(f"ROI: {roi_id} had no extracted shorelines ")
                 continue
-            # check if cross_distance transects is 0
+
+            cross_distance_transects = rois.get_cross_shore_distances(roi_id)
+            logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
+            # if no cross distance was 0 then skip
+            if cross_distance_transects == 0:
+                print(
+                    f"ROI: {roi_id} cross distance is 0 will not have time-series of shoreline change along transects "
+                )
+                logger.info(f"ROI: {roi_id} cross distance is 0")
+                continue
+
             cross_distance_df = common.get_cross_distance_df(
                 extracted_shorelines, cross_distance_transects
             )
             logger.info(f"ROI: {roi_id} cross_distance_df : {cross_distance_df}")
-            filepath = rois.roi_settings[roi_id]["filepath"]
-            sitename = rois.roi_settings[roi_id]["sitename"]
-            fn = os.path.join(filepath, sitename, "transect_time_series.csv")
-            if os.path.exists(fn):
-                print(f"Overwriting:{fn}")
-                os.remove(fn)
-            cross_distance_df.to_csv(fn, sep=",")
+
+            # Save extracted shoreline info to session directory
+            session_name = self.get_session_name()
+            ROI_directory = rois.roi_settings[roi_id]["sitename"]
+            session_path = os.path.join(os.getcwd(), "sessions", session_name)
+            session_path = common.create_directory(session_path, ROI_directory)
+            logger.info(f"session_path: {session_path}")
+            # save source data
+            self.save_config(session_path)
+
+            filepath = os.path.join(session_path, "transect_time_series.csv")
+            if os.path.exists(filepath):
+                print(f"Overwriting:{filepath}")
+                os.remove(filepath)
+            cross_distance_df.to_csv(filepath, sep=",")
             print(f"ROI: {roi_id} time-series of shoreline change along transects")
             print(
-                f"Time-series of the shoreline change along the transects saved as:{fn}"
+                f"Time-series of the shoreline change along the transects saved as:{filepath}"
             )
 
     def remove_all(self):

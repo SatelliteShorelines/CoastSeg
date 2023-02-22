@@ -20,7 +20,7 @@ class No_Extracted_Shoreline(Exception):
     """
 
     def __init__(
-        self, id: int = None, msg="The ROI id does not have a shoreline to extract."
+        self, id: int = None, msg=f"The ROI does not have a shoreline to extract."
     ):
         self.msg = msg
         if id is not None:
