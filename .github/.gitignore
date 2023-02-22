@@ -1,5 +1,7 @@
 data\*
 sessions\*
+./sessions/*
+/sessions/
 src\*\downloaded_models\*
 *segmentation_data_*
 # Distribution / packaging
