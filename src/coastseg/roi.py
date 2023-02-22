@@ -38,8 +38,8 @@ class ROI:
         self.roi_settings = {}
         # extract_shorelines : dictionary with ROIs' ids as the keys holding the extracted shorelines
         self.extracted_shorelines = {}
-        # cross_distance_transects : dictionary with ROIs' ids as the keys holding the transects cross distances
-        self.cross_distance_transects = {}
+        # cross_shore_distancess : dictionary with of cross-shore distance along each of the transects. Not tidally corrected.
+        self.cross_shore_distances = {}
         self.filename = "rois.geojson"
         if filename:
             self.filename = filename
@@ -142,6 +142,56 @@ class ROI:
         """
         self.extracted_shorelines[roi_id] = extracted_shoreline
         logger.info(f"New self.extracted_shorelines: {self.extracted_shorelines}")
+
+    def get_cross_shore_distances(self, roi_id: str) -> Union[None, dict]:
+        """Returns the cross shore distance for the specified ROI ID.
+
+        Args:
+            roi_id (str): The ID of the ROI to retrieve the shoreline for.
+
+        Returns:
+            Union[None, dict]: Thecross shore distance dictionary for the specified ROI ID, or None if it does not exist.
+        """
+        logger.info(
+            f"ROI: {roi_id} cross distance : {self.cross_shore_distances.get(roi_id)}"
+        )
+        return self.cross_shore_distances.get(roi_id)
+
+    def add_cross_shore_distances(
+        self, cross_shore_distance: dict, roi_id: str
+    ) -> None:
+        """Adds an cross_shore_distance dictionary to the collection, indexed by the specified ROI ID.
+
+        Args:
+            cross_shore_distance (dict): The cross_shore_distance dictionary to add.
+            roi_id (str): The ID of the ROI to associate the cross_shore_distance dictionary
+        """
+        self.cross_shore_distances[roi_id] = cross_shore_distance
+        logger.info(f"Newly added cross_shore_distance: {cross_shore_distance}")
+
+    def get_all_cross_shore_distances(
+        self,
+    ) -> None:
+        """Returns a dictionary of all cross shore distances
+
+        Returns:
+            dict: A dictionary containing all cross shore distances, indexed by ROI ID.
+        """
+        return self.cross_shore_distances
+
+    def remove_cross_shore_distance(
+        self, roi_id: str = None, remove_all: bool = False
+    ) -> None:
+        """Removes the cross shore distance for the specified ROI ID, or all  cross shore distances.
+
+        Args:
+            roi_id (str, optional): The ID of the ROI to remove the shoreline for. Defaults to None.
+            remove_all (bool, optional): Whether to remove all  cross shore distances. Defaults to False.
+        """
+        if roi_id in self.cross_shore_distances:
+            del self.cross_shore_distances[roi_id]
+        if remove_all:
+            self.cross_shore_distances = {}
 
     def create_geodataframe(
         self,
