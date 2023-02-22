@@ -301,7 +301,9 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
             raise exceptions.DownloadError(os.path.basename(save_path))
         if r.status_code == 429:
             logger.error(f"Error {r.status_code}.DownloadError: {save_path}")
-            raise Exception("Zenodo has denied the request. You may have requested too many files at once.")
+            raise Exception(
+                "Zenodo has denied the request. You may have requested too many files at once."
+            )
         # check header to get content length, in bytes
         content_length = r.headers.get("Content-Length")
         if content_length:
@@ -446,6 +448,26 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
         config.to_file(save_path, driver="GeoJSON")
 
 
+def create_directory(file_path: str, name: str) -> str:
+    """Creates a new directory with the given name at the specified file path.
+
+    Args:
+        file_path (str): The file path where the new directory will be created.
+        name (str): The name of the new directory to be created.
+
+    Returns:
+        str: The full path of the new directory created.
+
+    Raises:
+        OSError: If there was an error creating the new directory.
+    """
+    new_directory = os.path.join(file_path, name)
+    # If the directory named 'name' does not exist, create it
+    if not os.path.exists(new_directory):
+        os.makedirs(new_directory)
+    return new_directory
+
+
 def replace_column(df, new_name="id", replace_col=None) -> None:
     """Renames the column named replace_col with new_name. If column named
     new_name does not exist a new column named new_name is created with the row index.
@@ -527,6 +549,10 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         gpd.GeoDataFrame: original dataframe if there is no z axis. If a z axis is found
         a new geodataframe is returned with z axis dropped.
     """
+    if geodf.empty:
+        logger.warning(f"Empty geodataframe has no z-axis")
+        return geodf
+
     # if any row has a z coordinate then remove the z_coordinate
     logger.info(f"Has Z axis: {geodf['geometry'].has_z.any()}")
     if geodf["geometry"].has_z.any():
@@ -585,6 +611,7 @@ def create_json_config(inputs: dict, settings: dict) -> dict:
     config = {**inputs}
     config["roi_ids"] = roi_ids
     config["settings"] = settings
+    logger.info(f"config_json: {config} ")
     return config
 
 

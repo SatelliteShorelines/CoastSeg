@@ -12,6 +12,10 @@ from coastseg.roi import ROI
 
 logger = logging.getLogger(__name__)
 
+SETTINGS = "settings"
+SESSION_NAME = "session name"
+
+
 NO_CONFIG_ROIS = (
     "No ROIs were selected. Cannot save ROIs to config until ROIs are selected."
 )
@@ -20,6 +24,7 @@ ROIS_NOT_DOWNLOADED = (
     "Not all ROI directories exist on your computer. Try downloading the ROIs again."
 )
 BBOX_NOT_FOUND = "Bounding Box not found on map"
+SESSION_NAME_NOT_FOUND = "No session name found.Enter a session name."
 EMPTY_SELECTED_ROIS = "Must select at least one ROI on the map"
 SETTINGS_NOT_FOUND = "No settings found. Click save settings."
 SHORELINE_NOT_FOUND = "No Shoreline found. Please load a shoreline on the map first."
@@ -98,6 +103,14 @@ def check_if_list_empty(items: list):
     if len(items) == 0:
         logger.error(f"{items}\n{NO_ROIS_WITH_EXTRACTED_SHORELINES}")
         raise Exception(NO_ROIS_WITH_EXTRACTED_SHORELINES)
+
+
+def check_if_empty_string(feature, feature_type: str = "", message: str = ""):
+    if feature is None:
+        if feature_type == SESSION_NAME:
+            message = SESSION_NAME_NOT_FOUND
+        logger.error(f"{feature_type} is empty string")
+        raise Exception(SESSION_NAME_NOT_FOUND)
 
 
 def check_if_None(feature, feature_type: str = "", message: str = ""):

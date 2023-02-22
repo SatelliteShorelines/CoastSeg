@@ -200,13 +200,14 @@ def test_transect_compatible_roi(transect_compatible_roi: gpd.GeoDataFrame):
     assert hasattr(actual_roi, "roi_settings")
 
 
-def test_update_extracted_shorelines(valid_ROI: roi.ROI):
+def test_add_extracted_shoreline(valid_ROI: roi.ROI):
     """tests if a ROI will be created from valid rois of type gpd.GeoDataFrame
     Args:
        transect_compatible_roi (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
     """
+    roi_id='23'
     expected_dict = {
-        23: {
+        '23': {
             "filename": ["ms.tif", "2019.tif"],
             "cloud_cover": [0.14, 0.0],
             "geoaccuracy": [7.9, 9.72],
@@ -215,9 +216,11 @@ def test_update_extracted_shorelines(valid_ROI: roi.ROI):
             "satname": ["L8", "L8"],
         }
     }
-    valid_ROI.update_extracted_shorelines(expected_dict)
+    valid_ROI.add_extracted_shoreline(expected_dict[roi_id],roi_id)
+    # valid_ROI.add_extracted_shoreline(expected_dict)
     assert valid_ROI.extracted_shorelines != {}
-    assert valid_ROI.extracted_shorelines == expected_dict
+    # assert valid_ROI.extracted_shorelines == expected_dict
+    assert valid_ROI.get_extracted_shoreline(roi_id) == expected_dict[roi_id]
 
 
 def test_set_roi_settings(valid_ROI: roi.ROI):

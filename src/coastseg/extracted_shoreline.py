@@ -3,10 +3,12 @@ import logging
 import os
 import json
 import copy
+from typing import Union
 
 
 # Internal dependencies imports
 from coastseg import exceptions
+from coastseg import common
 
 # External dependencies imports
 import geopandas as gpd
@@ -84,6 +86,7 @@ class Extracted_Shoreline:
         self.shoreline_settings = shoreline_settings
         # Use roi id to identify which ROI extracted shorelines derive from
         self.roi_id = shoreline_settings["inputs"]["roi_id"]
+        return self
 
     def create_extracted_shorlines(
         self,
@@ -112,28 +115,22 @@ class Extracted_Shoreline:
         if settings == {}:
             raise ValueError("settings cannot be empty.")
 
-        # gdf: geodataframe containing extracted shoreline for ROI_id
-        self.gdf = gpd.GeoDataFrame()
-        # Use roi id to identify which ROI extracted shorelines derive from
-        self.roi_id = roi_id
-        # dictionary : dictionary of extracted shorelines
-        self.dictionary = {}
-        # shoreline_settings: dictionary of settings used to extract shoreline
-        self.shoreline_settings = {}
-
         logger.info(f"Extracting shorelines for ROI id{self.roi_id}")
         self.dictionary = self.extract_shorelines(
             shoreline,
             roi_settings,
             settings,
         )
+
         if is_list_empty(self.dictionary["shorelines"]):
             raise exceptions.No_Extracted_Shoreline(self.roi_id)
+
         map_crs = "EPSG:4326"
         # extracted shorelines have map crs so they can be displayed on the map
         self.gdf = self.create_geodataframe(
             self.shoreline_settings["output_epsg"], output_crs=map_crs
         )
+        return self
 
     def extract_shorelines(
         self,
@@ -148,8 +145,9 @@ class Extracted_Shoreline:
             shoreline_gdf, settings["output_epsg"]
         )
         # Add reference shoreline to shoreline_settings
-        self.create_shoreline_settings(settings, roi_settings, reference_shoreline)
-
+        self.shoreline_settings = self.create_shoreline_settings(
+            settings, roi_settings, reference_shoreline
+        )
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
         logger.info(f"metadata: {metadata}")
@@ -203,7 +201,7 @@ class Extracted_Shoreline:
         # copy roi_setting for this specific roi
         shoreline_settings["inputs"] = roi_settings
         logger.info(f"shoreline_settings: {shoreline_settings}")
-        self.shoreline_settings = shoreline_settings
+        return shoreline_settings
 
     def create_geodataframe(
         self, input_crs: str, output_crs: str = None
@@ -246,6 +244,32 @@ class Extracted_Shoreline:
             driver="GeoJSON",
             encoding="utf-8",
         )
+
+    def to_file(
+        self, filepath: str, filename: str, data: Union[gpd.GeoDataFrame, dict]
+    ):
+        """Save geopandas dataframe to file, or save data to file with common.to_file().
+
+        Args:
+            filepath (str): The directory where the file should be saved.
+            filename (str): The name of the file to be saved.
+            data (Any): The data to be saved to file.
+
+        Raises:
+            ValueError: Raised when data is not a geopandas dataframe and cannot be saved with common.to_file().
+
+        """
+        file_location = os.path.abspath(os.path.join(filepath, filename))
+
+        if isinstance(data, gpd.GeoDataFrame):
+            data.to_file(
+                file_location,
+                driver="GeoJSON",
+                encoding="utf-8",
+            )
+        elif isinstance(data, dict):
+            if data != {}:
+                common.to_file(data, file_location)
 
     def style_layer(
         self, geojson: dict, layer_name: str, color: str

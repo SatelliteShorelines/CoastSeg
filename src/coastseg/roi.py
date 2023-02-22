@@ -2,6 +2,7 @@
 import logging
 import os
 import json
+from typing import Union
 
 # Internal dependencies imports
 from coastseg import common
@@ -12,6 +13,8 @@ import geopandas as gpd
 import pandas as pd
 from shapely import geometry
 from ipyleaflet import GeoJSON
+
+from coastseg.extracted_shoreline import Extracted_Shoreline
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +78,70 @@ class ROI:
                 bbox, shoreline, square_len_lg, square_len_sm
             )
 
+    def get_roi_settings(self, roi_id: str = "") -> dict:
+        """Returns the settings dictionary for the specified region of interest (ROI).
+
+        Args:
+            roi_id (str, optional): The ID of the ROI to retrieve settings for. Defaults to "".
+
+        Returns:
+            dict: A dictionary of settings for the specified ROI, or the entire ROI settings dictionary if roi_id is not provided.
+        """
+        return self.roi_settings if not roi_id else {}
+
     def set_roi_settings(self, roi_settings: dict) -> None:
+        """Sets the ROI settings dictionary to the specified value.
+
+        Args:
+            roi_settings (dict): A dictionary of settings for the ROI.
+        """
         logger.info(f"Saving roi_settings {roi_settings}")
         self.roi_settings = roi_settings
 
-    def update_extracted_shorelines(self, extract_shoreline: dict):
-        self.extracted_shorelines.update(extract_shoreline)
-        logger.info(f"After self.extracted_shorelines : {self.extracted_shorelines}")
+    def get_extracted_shoreline(self, roi_id: str) -> Union[None, dict]:
+        """Returns the extracted shoreline for the specified ROI ID.
+
+        Args:
+            roi_id (str): The ID of the ROI to retrieve the shoreline for.
+
+        Returns:
+            Union[None, dict]: The extracted shoreline dictionary for the specified ROI ID, or None if it does not exist.
+        """
+        return self.extracted_shorelines.get(roi_id)
+
+    def get_all_extracted_shorelines(self) -> dict:
+        """Returns a dictionary of all extracted shorelines.
+
+        Returns:
+            dict: A dictionary containing all extracted shorelines, indexed by ROI ID.
+        """
+        return self.extracted_shorelines
+
+    def remove_extracted_shorelines(
+        self, roi_id: str = None, remove_all: bool = False
+    ) -> None:
+        """Removes the extracted shoreline for the specified ROI ID, or all extracted shorelines.
+
+        Args:
+            roi_id (str, optional): The ID of the ROI to remove the shoreline for. Defaults to None.
+            remove_all (bool, optional): Whether to remove all extracted shorelines. Defaults to False.
+        """
+        if roi_id in self.extracted_shorelines:
+            del self.extracted_shorelines[roi_id]
+        if remove_all:
+            self.extracted_shorelines = {}
+
+    def add_extracted_shoreline(
+        self, extracted_shoreline: Extracted_Shoreline, roi_id: str
+    ) -> None:
+        """Adds an extracted shoreline dictionary to the collection, indexed by the specified ROI ID.
+
+        Args:
+            extracted_shoreline (Extracted_Shoreline): The extracted shoreline dictionary to add.
+            roi_id (str): The ID of the ROI to associate the shoreline with.
+        """
+        self.extracted_shorelines[roi_id] = extracted_shorelines
+        logger.info(f"New self.extracted_shorelines: {self.extracted_shorelines}")
 
     def create_geodataframe(
         self,

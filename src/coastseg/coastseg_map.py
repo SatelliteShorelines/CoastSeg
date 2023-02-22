@@ -3,7 +3,7 @@ import json
 import logging
 import copy
 import glob
-from typing import Union
+from typing import Optional, Union
 from collections import defaultdict
 
 from coastseg.bbox import Bounding_Box
@@ -39,6 +39,7 @@ class CoastSeg_Map:
         self.settings = {}
         # create default values for settings
         self.set_settings()
+        self.session_name = ""
 
         # factory is used to create map objects
         self.factory = factory.Factory()
@@ -75,6 +76,12 @@ class CoastSeg_Map:
         )
         self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
         self.map.add(self.hover_widget)
+
+    def get_session_name(self):
+        return self.session_name
+
+    def set_session_name(self, name: str):
+        self.session_name = name
 
     def create_map(self):
         """create an interactive map object using the map_settings
@@ -516,14 +523,6 @@ class CoastSeg_Map:
             values["CSU_ID"],
         )
 
-    def load_extracted_shorelines_to_map(self, roi_ids: list) -> None:
-        # for each ROI that has extracted shorelines load onto map
-        for roi_id in roi_ids:
-            roi_extract_shoreline = self.rois.extracted_shorelines[roi_id]
-            logger.info(roi_extract_shoreline)
-            if roi_extract_shoreline is not None:
-                self.load_extracted_shorelines_on_map(roi_extract_shoreline)
-
     def load_extracted_shoreline_files(self) -> None:
         exception_handler.config_check_if_none(self.rois, "ROIs")
         # if no rois are selected throw an error
@@ -568,16 +567,16 @@ class CoastSeg_Map:
                 )
                 rois_no_extracted_shorelines.add(roi_id)
                 # set this roi's entry in extracted shorelines dict to None because there was no shoreline extracted
-                self.rois.extracted_shorelines[roi_id] = None
+                self.rois.add_extracted_shoreline(None, roi_id)
                 continue
             else:
                 extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
-                extracted_shorelines.load_extracted_shorelines(
+                extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
                     extracted_shoreline_dict, shoreline_settings, extracted_sl_gdf
                 )
-                self.rois.extracted_shorelines[roi_id] = extracted_shorelines
+                self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
                 logger.info(
-                    f"ROI {roi_id} successfully loaded extracted shorelines: {self.rois.extracted_shorelines[roi_id].dictionary}"
+                    f"ROI {roi_id} successfully loaded extracted shorelines: {self.rois.get_extracted_shoreline(roi_id).dictionary}"
                 )
 
         if len(rois_no_extracted_shorelines) > 0:
@@ -589,31 +588,7 @@ class CoastSeg_Map:
         if len(rois_with_shorelines) > 0:
             print(f"Loaded Extracted Shorelines for ROIs {rois_with_shorelines}")
         elif len(rois_with_shorelines) == 0:
-            self.rois.extracted_shorelines = {}
             raise Exception("No extracted shorelines could be loaded")
-
-    def save_extracted_shorelines_to_file(self, roi_ids: list) -> None:
-        # Saves extracted_shorelines to ROI's directory to file 'extracted_shorelines.geojson'
-        for roi_id in roi_ids:
-            roi_extract_shoreline = self.rois.extracted_shorelines[roi_id]
-            if roi_extract_shoreline is not None:
-                sitename = self.rois.roi_settings[roi_id]["sitename"]
-                filepath = self.rois.roi_settings[roi_id]["filepath"]
-                roi_extract_shoreline.save_to_file(sitename, filepath)
-                if roi_extract_shoreline.shoreline_settings != {}:
-                    savepath = os.path.join(
-                        filepath, sitename, "shoreline_settings.json"
-                    )
-                    logger.info(
-                        f"Saving extracted shoreline settings to file: {savepath}."
-                    )
-                    common.to_file(roi_extract_shoreline.shoreline_settings, savepath)
-                if roi_extract_shoreline.dictionary != {}:
-                    savepath = os.path.join(
-                        filepath, sitename, "extracted_shorelines_dict.json"
-                    )
-                    logger.info(f"Saving extracted shoreline dict to file: {savepath}.")
-                    common.to_file(roi_extract_shoreline.dictionary, savepath)
 
     def get_most_accurate_epsg(self, settings: dict, bbox: gpd.GeoDataFrame) -> int:
         """Returns most accurate epsg code based on lat and lon if output epsg
@@ -635,6 +610,60 @@ class CoastSeg_Map:
             logger.info(f"New output_epsg:{output_epsg}")
         return output_epsg
 
+    def extract_shoreline_for_roi(
+        self,
+        roi_id: str,
+        rois_gdf: gpd.GeoDataFrame,
+        shoreline_gdf: gpd.GeoDataFrame,
+        settings: dict,
+    ) -> Optional[extracted_shoreline.Extracted_Shoreline]:
+        """
+        Extracts the shoreline for a given ROI and returns the extracted shoreline object.
+
+        Parameters:
+        - roi_id (str): the ID of the ROI to extract the shoreline from
+        - rois_gdf (geopandas.GeoDataFrame): the GeoDataFrame containing all the ROIs
+        - shoreline_gdf (geopandas.GeoDataFrame): the GeoDataFrame containing the shoreline
+        - settings (dict): the settings to use for the shoreline extraction
+
+        Returns:
+        - extracted_shoreline.Extracted_Shoreline or None: the extracted shoreline object for the ROI, or None if an error occurs
+
+        Raises:
+        - No exceptions are raised by this function.
+        """
+        try:
+            logger.info(f"Extracting shorelines from ROI with the id: {roi_id}")
+            roi_settings = self.rois.roi_settings[roi_id]
+            single_roi = common.extract_roi_by_id(rois_gdf, roi_id)
+            # Clip shoreline to specific roi
+            shoreline_in_roi = gpd.clip(shoreline_gdf, single_roi)
+            # extract shorelines from ROI
+            extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
+            extracted_shorelines = extracted_shorelines.create_extracted_shorlines(
+                roi_id,
+                shoreline_in_roi,
+                roi_settings,
+                settings,
+            )
+            logger.info(f"extracted_shoreline_dict[{roi_id}]: {extracted_shorelines}")
+            return extracted_shorelines
+        except exceptions.Id_Not_Found as id_error:
+            logger.warning(f"exceptions.Id_Not_Found {id_error}")
+            print(f"ROI with id {roi_id} was not found. \n Skipping to next ROI")
+        except exceptions.No_Extracted_Shoreline as no_shoreline:
+            logger.warning(f"{no_shoreline}")
+            print(no_shoreline)
+        except Exception as e:
+            logger.warning(
+                f"Exception occurred while extracting shoreline for ROI {roi_id}: {e}"
+            )
+            print(
+                f"An error occurred while extracting shoreline for ROI {roi_id}. \n Skipping to next ROI"
+            )
+
+        return None
+
     def extract_all_shorelines(self) -> None:
         """Use this function when the user interactively downloads rois
         Iterates through all the ROIS downloaded by the user as indicated by the roi_settings generated by
@@ -642,6 +671,7 @@ class CoastSeg_Map:
         """
         # ROIs,settings, roi-settings cannot be None or empty
         settings = self.get_settings()
+        exception_handler.check_if_empty_string(self.get_session_name(), "session name")
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.shoreline, "shoreline")
         exception_handler.check_if_None(self.transects, "transects")
@@ -665,6 +695,7 @@ class CoastSeg_Map:
         exception_handler.check_if_rois_downloaded(self.rois.roi_settings, roi_ids)
         # ensure a bounding box exists on the map
         exception_handler.check_if_None(self.bbox, "bounding box")
+
         # if output_epsg is 4326 or 4327 change output_epsg to most accurate crs
         new_espg = self.get_most_accurate_epsg(settings, self.bbox.gdf)
         # update settings with the new output_epsg
@@ -672,44 +703,40 @@ class CoastSeg_Map:
         # update configs with new output_epsg
         self.save_config()
 
-        # extracted_shoreline_dict: holds extracted shorelines for each ROI
-        extracted_shoreline_dict = {}
         # get selected ROIs on map and extract shoreline for each of them
         for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
-            try:
-                print(f"Extracting shorelines from ROI with the id:{roi_id}")
-                roi_settings = self.rois.roi_settings[roi_id]
-                single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
-                # Clip shoreline to specific roi
-                shoreline_in_roi = gpd.clip(self.shoreline.gdf, single_roi)
-                # extract shorelines from ROI
-                extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
-                extracted_shorelines.create_extracted_shorlines(
-                    roi_id,
-                    shoreline_in_roi,
-                    roi_settings,
-                    settings,
-                )
-                logger.info(
-                    f"extracted_shoreline_dict[{roi_id}]: {extracted_shorelines}"
-                )
-            except exceptions.Id_Not_Found as id_error:
-                logger.warning(f"exceptions.Id_Not_Found {id_error}")
-                print(f"ROI with id {roi_id} was not found. \n Skipping to next ROI")
-            except exceptions.No_Extracted_Shoreline as no_shoreline:
-                extracted_shoreline_dict[roi_id] = None
-                logger.warning(f"{no_shoreline}")
-                print(no_shoreline)
-            else:
-                # if no error occurs add the ROI id to the extracted shoreline dictionaries
-                logger.info(f"Extracted shoreline for ROI {roi_id}")
-                extracted_shoreline_dict[roi_id] = extracted_shorelines
+            print(f"Extracting shorelines from ROI with the id:{roi_id}")
+            extracted_shorelines = self.extract_shoreline_for_roi(
+                roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings()
+            )
+            self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
 
-        # Save all the extracted_shorelines to ROI
-        self.rois.update_extracted_shorelines(extracted_shoreline_dict)
-        logger.info(f"rois.extracted_shorelines {self.rois.extracted_shorelines}")
-        # Saves extracted_shorelines to ROI's directory to file 'extracted_shorelines.geojson'
-        self.save_extracted_shorelines_to_file(roi_ids)
+        # Save extracted shoreline info to session directory
+        session_name = self.get_session_name()
+        session_path = os.path.join(os.getcwd(), "sessions", session_name)
+        logger.info(f"session_path: {session_path}")
+        # save source data
+        self.save_config(session_path)
+        for roi_id in roi_ids:
+            extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
+            logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
+            if extracted_shoreline is None:
+                logger.info(f"No extracted shorelines for ROI: {roi_id}")
+                continue
+            extracted_shoreline.to_file(
+                session_path, "extracted_shorelines.geojson", extracted_shoreline.gdf
+            )
+            extracted_shoreline.to_file(
+                session_path,
+                "shoreline_settings.json",
+                extracted_shoreline.shoreline_settings,
+            )
+            extracted_shoreline.to_file(
+                session_path,
+                "extracted_shorelines_dict.json",
+                extracted_shoreline.dictionary,
+            )
+
         # for each ROI that has extracted shorelines load onto map
         # self.load_extracted_shorelines_to_map(roi_ids)
 
@@ -791,13 +818,15 @@ class CoastSeg_Map:
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.transects, "transects")
         exception_handler.check_empty_dict(
-            self.rois.extracted_shorelines, "extracted_shorelines"
+            self.rois.get_all_extracted_shorelines(), "extracted_shorelines"
         )
         exception_handler.check_if_subset(
             set(["along_dist"]), set(list(settings.keys())), "settings"
         )
         # ids of ROIs that have had their shorelines extracted
-        extracted_shoreline_ids = set(list(self.rois.extracted_shorelines.keys()))
+        extracted_shoreline_ids = set(
+            list(self.rois.get_all_extracted_shorelines().keys())
+        )
         logger.info(f"extracted_shoreline_ids:{extracted_shoreline_ids}")
 
         # Get ROI ids that are selected on map and have had their shorelines extracted
@@ -814,7 +843,7 @@ class CoastSeg_Map:
             cross_distance = None
             try:
                 # get extracted shorelines object for the currently selected ROI
-                roi_extracted_shoreline = self.rois.extracted_shorelines[str(roi_id)]
+                roi_extracted_shoreline = self.rois.get_extracted_shoreline(str(roi_id))
 
                 # if no extracted shoreline exist for ROI's id then cross distance = 0
                 if roi_extracted_shoreline is None:
@@ -903,7 +932,7 @@ class CoastSeg_Map:
         exception_handler.check_if_None(self.transects, "transects")
         # there must be extracted shorelines for rois
         exception_handler.check_empty_dict(
-            self.rois.extracted_shorelines, "extracted_shorelines"
+            self.rois.get_all_extracted_shorelines(), "extracted_shorelines"
         )
         self.get_settings()
         exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
@@ -912,7 +941,9 @@ class CoastSeg_Map:
             self.rois.cross_distance_transects, "cross_distance_transects"
         )
         # only get roi ids that are currently selected on map and have had their shorelines extracted
-        extracted_shoreline_ids = set(list(self.rois.extracted_shorelines.keys()))
+        extracted_shoreline_ids = set(
+            list(self.rois.get_all_extracted_shorelines().keys())
+        )
         roi_ids = list(extracted_shoreline_ids & self.selected_set)
         if len(roi_ids) == 0:
             logger.error(
@@ -1071,9 +1102,7 @@ class CoastSeg_Map:
         """Removes extracted shorelines from the map and removes extracted shorelines from ROIs"""
         # empty extracted shorelines dictionary
         if self.rois is not None:
-            if self.rois.extracted_shorelines != {}:
-                del self.rois.extracted_shorelines
-            self.rois.extracted_shorelines = {}
+            self.rois.remove_extracted_shorelines(remove_all=True)
         # remove extracted shoreline vectors from the map
         if self.extracted_shoreline_layers != []:
             for layername in self.extracted_shoreline_layers:
@@ -1094,7 +1123,7 @@ class CoastSeg_Map:
     def remove_layer_by_name(self, layer_name: str):
         existing_layer = self.map.find_layer(layer_name)
         if existing_layer is not None:
-            self.map.remove_layer(existing_layer)
+            self.map.remove(existing_layer)
         logger.info(f"Removed layer {layer_name}")
 
     def remove_shoreline(self):
@@ -1200,6 +1229,14 @@ class CoastSeg_Map:
         if self.draw_control.last_action == "deleted":
             self.remove_bbox()
 
+    def load_extracted_shorelines_to_map(self, roi_ids: list) -> None:
+        # for each ROI that has extracted shorelines load onto map
+        for roi_id in roi_ids:
+            roi_extract_shoreline = self.rois.get_extracted_shoreline(roi_id)
+            logger.info(roi_extract_shoreline)
+            if roi_extract_shoreline is not None:
+                self.load_extracted_shorelines_on_map(roi_extract_shoreline)
+
     def load_extracted_shorelines_on_map(self, extracted_shoreline):
         # Loads stylized extracted shorelines onto map for single roi
         layers = extracted_shoreline.get_styled_layers()
@@ -1248,6 +1285,8 @@ class CoastSeg_Map:
             # if a z axis exists remove it
             gdf = common.remove_z_axis(gdf)
             logger.info(f"gdf after z-axis removed: {gdf}")
+            bounds = gdf.total_bounds
+            self.map.zoom_to_bounds(bounds)
 
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         logger.info(f"new_feature: {new_feature}")
