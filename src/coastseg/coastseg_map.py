@@ -174,22 +174,30 @@ class CoastSeg_Map:
         ]
         transect_settings = common.filter_dict_by_keys(new_settings, keys=transect_keys)
         if transect_settings != {}:
+            logger.info(f"Loading transect_settings: {transect_settings}")
             self.set_settings(**transect_settings)
             logger.info(f"Loaded transect_settings from {filepath}")
 
         shoreline_keys = [
             "cloud_thresh",
-            "cloud mask issue",
+            "cloud_mask_issue",
             "min_beach_area",
-            "min_beach_sl",
-            "output_espg",
+            "min_length_sl",
+            "output_epsg",
             "sand_color",
             "pan_off",
+            "max_dist_ref",
+            "dist_clouds",
         ]
         shoreline_settings = common.filter_dict_by_keys(
             new_settings, keys=shoreline_keys
         )
+        shoreline_settings["save_figure"] = True
+        shoreline_settings["check_detection"] = False
+        shoreline_settings["adjust_detection"] = False
+
         if shoreline_settings != {}:
+            logger.info(f"Loading shoreline_settings: {shoreline_settings}")
             self.set_settings(**shoreline_settings)
             logger.info(f"Loaded shoreline_settings from {filepath}")
 
@@ -1031,6 +1039,23 @@ class CoastSeg_Map:
             if extracted_shoreline is None:
                 logger.info(f"No extracted shorelines for ROI: {roi_id}")
                 continue
+            # move extracted shoreline figures to session directory
+            data_path = extracted_shoreline.shoreline_settings["inputs"]["filepath"]
+            sitename = extracted_shoreline.shoreline_settings["inputs"]["sitename"]
+            extracted_shoreline_figure_path = os.path.join(
+                data_path, sitename, "jpg_files", "detection"
+            )
+            logger.info(
+                f"extracted_shoreline_figure_path: {extracted_shoreline_figure_path}"
+            )
+
+            if os.path.exists(extracted_shoreline_figure_path):
+                dst_path = os.path.join(session_path, "jpg_files", "detection")
+                logger.info(f"dst_path : {dst_path }")
+                common.move_files(
+                    extracted_shoreline_figure_path, dst_path, delete_src=True
+                )
+
             extracted_shoreline.to_file(
                 session_path, "extracted_shorelines.geojson", extracted_shoreline.gdf
             )

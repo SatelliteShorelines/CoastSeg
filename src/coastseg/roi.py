@@ -283,7 +283,7 @@ class ROI:
         bbox: gpd.GeoDataFrame,
         square_size: float,
         input_espg="epsg:4326",
-        output_espg="epsg:4326",
+        output_epsg="epsg:4326",
     ) -> gpd.geodataframe:
         """Creates a fishnet of square shaped ROIs with side length= square_size
 
@@ -291,7 +291,7 @@ class ROI:
             bbox (geopandas.geodataframe.GeoDataFrame): bounding box(bbox) where the ROIs will be generated
             square_size (float): side length of square ROI in meters
             input_espg (str, optional): espg code bbox is currently in. Defaults to "epsg:4326".
-            output_espg (str, optional): espg code the ROIs will output to. Defaults to "epsg:4326".
+            output_epsg (str, optional): espg code the ROIs will output to. Defaults to "epsg:4326".
 
         Returns:
             gpd.geodataframe: geodataframe containing all the ROIs
@@ -302,7 +302,7 @@ class ROI:
         projected_bbox_gdf = bbox.to_crs(projected_espg)
         # create fishnet of rois
         fishnet = self.create_fishnet(
-            projected_bbox_gdf, projected_espg, output_espg, square_size
+            projected_bbox_gdf, projected_espg, output_epsg, square_size
         )
         return fishnet
 
@@ -310,7 +310,7 @@ class ROI:
         self,
         bbox_gdf: gpd.GeoDataFrame,
         input_espg: str,
-        output_espg: str,
+        output_epsg: str,
         square_size: float = 1000,
     ) -> gpd.geodataframe:
         """Returns a fishnet of ROIs that intersects the bounding box specified by bbox_gdf where each ROI(square) has a side length = square size(meters)
@@ -318,7 +318,7 @@ class ROI:
         Args:
             bbox_gdf (gpd.geodataframe): Bounding box that fishnet intersects.
             input_espg (str): espg string that bbox_gdf is projected in
-            output_espg (str): espg to convert the fishnet of ROIs to.
+            output_epsg (str): espg to convert the fishnet of ROIs to.
             square_size (int, optional): Size of each square in fishnet(meters). Defaults to 1000.
 
         Returns:
@@ -348,9 +348,9 @@ class ROI:
         # create geodataframe to hold all the (rois)squares
         fishnet = gpd.GeoDataFrame(geom_array, columns=["geometry"]).set_crs(input_espg)
         logger.info(
-            f"\n ROIs area before conversion to {output_espg}:\n {fishnet.area}"
+            f"\n ROIs area before conversion to {output_epsg}:\n {fishnet.area}"
         )
-        fishnet = fishnet.to_crs(output_espg)
+        fishnet = fishnet.to_crs(output_epsg)
         return fishnet
 
     def get_fishnet_gdf(

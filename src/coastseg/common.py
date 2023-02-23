@@ -627,6 +627,31 @@ def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
     return new_dict
 
 
+def move_files(src_dir: str, dst_dir: str, delete_src: bool = False) -> None:
+    """
+    Moves every file in a source directory to a destination directory, and has the option to delete the source directory when finished.
+
+    The function uses the `shutil` library to move the files from the source directory to the destination directory. If the `delete_src` argument is set to `True`, the function will delete the source directory after all the files have been moved.
+
+    Args:
+    - src_dir (str): The path of the source directory.
+    - dst_dir (str): The path of the destination directory.
+    - delete_src (bool, optional): A flag indicating whether to delete the source directory after the files have been moved. Default is `False`.
+
+    Returns:
+    - None
+    """
+    logger.info(f"Moving files from {src_dir} to dst_dir. Delete Source:{delete_src}")
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+    for filename in os.listdir(src_dir):
+        src_file = os.path.join(src_dir, filename)
+        dst_file = os.path.join(dst_dir, filename)
+        shutil.move(src_file, dst_file)
+    if delete_src:
+        os.rmdir(src_dir)
+
+
 def get_cross_distance_df(
     extracted_shorelines: dict, cross_distance_transects: dict
 ) -> pd.DataFrame:

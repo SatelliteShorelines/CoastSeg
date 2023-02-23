@@ -25,40 +25,6 @@ from ipyfilechooser import FileChooser
 logger = logging.getLogger(__name__)
 
 
-def create_dir_chooser(callback, title: str = None):
-    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
-    data_path = os.path.join(os.getcwd(), "data")
-    if os.path.exists(data_path):
-        data_path = os.path.join(os.getcwd(), "data")
-    else:
-        data_path = os.getcwd()
-    # creates a unique instance of filechooser and button to close filechooser
-    dir_chooser = FileChooser(data_path)
-    dir_chooser.dir_icon = os.sep
-    # Switch to folder-only mode
-    dir_chooser.show_only_dirs = True
-    if title is not None:
-        dir_chooser.title = f"<b>{title}</b>"
-    dir_chooser.register_callback(callback)
-
-    close_button = ToggleButton(
-        value=False,
-        tooltip="Close Directory Chooser",
-        icon="times",
-        button_style="primary",
-        layout=Layout(height="28px", width="28px", padding=padding),
-    )
-
-    def close_click(change):
-        if change["new"]:
-            dir_chooser.close()
-            close_button.close()
-
-    close_button.observe(close_click, "value")
-    chooser = HBox([dir_chooser, close_button])
-    return chooser
-
-
 class UI_Models:
     # all instances of UI will share the same debug_view
     model_view = Output(layout={"border": "1px solid black"})
@@ -418,7 +384,7 @@ class UI_Models:
     @model_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
         # Prompt the user to select a directory of images
-        file_chooser = create_dir_chooser(
+        file_chooser = common.create_dir_chooser(
             self.load_callback, title="Select directory of images"
         )
         # clear row and close all widgets in self.file_row before adding new file_chooser

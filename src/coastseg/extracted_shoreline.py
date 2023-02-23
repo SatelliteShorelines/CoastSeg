@@ -221,13 +221,28 @@ class Extracted_Shoreline:
             reference_shoreline (dict): reference shoreline
         """
         # deepcopy settings to shoreline_settings so it can be modified
-        shoreline_settings = copy.deepcopy(settings)
+        # shoreline_settings = copy.deepcopy(settings)
+        shoreline_keys = [
+            "cloud_thresh",
+            "cloud_mask_issue",
+            "min_beach_area",
+            "min_length_sl",
+            "output_epsg",
+            "sand_color",
+            "pan_off",
+            "max_dist_ref",
+            "dist_clouds",
+        ]
+        logger.info(f"settings used to create shoreline settings: {settings}")
+        shoreline_settings = common.filter_dict_by_keys(settings, keys=shoreline_keys)
+        logger.info(f"Loading shoreline_settings: {shoreline_settings}")
         # Add reference shoreline and shoreline buffer distance for this specific ROI
         shoreline_settings["reference_shoreline"] = reference_shoreline
         # disable adjusting shorelines manually in shoreline_settings
         shoreline_settings["adjust_detection"] = False
         # disable adjusting shorelines manually in shoreline_settings
         shoreline_settings["check_detection"] = False
+        shoreline_settings["save_figure"] = True
         # copy roi_setting for this specific roi
         shoreline_settings["inputs"] = roi_settings
         logger.info(f"shoreline_settings: {shoreline_settings}")
