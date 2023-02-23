@@ -139,7 +139,6 @@ class CoastSeg_Map:
         Args:
             filepath (str): full path to config.geojson
         """
-        print(f"Loading {filepath}")
         logger.info(f"Loading {filepath}")
         gdf = common.read_gpd_file(filepath)
         # Extract ROIs from gdf and create new dataframe
@@ -710,35 +709,7 @@ class CoastSeg_Map:
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
 
-        # Save extracted shoreline info to session directory
-        session_name = self.get_session_name()
-        for roi_id in roi_ids:
-            ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-            session_path = os.path.join(os.getcwd(), "sessions", session_name)
-            session_path = common.create_directory(session_path, ROI_directory)
-            logger.info(f"session_path: {session_path}")
-            # save source data
-            self.save_config(session_path)
-
-            extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
-            logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
-            if extracted_shoreline is None:
-                logger.info(f"No extracted shorelines for ROI: {roi_id}")
-                continue
-            extracted_shoreline.to_file(
-                session_path, "extracted_shorelines.geojson", extracted_shoreline.gdf
-            )
-            extracted_shoreline.to_file(
-                session_path,
-                "shoreline_settings.json",
-                extracted_shoreline.shoreline_settings,
-            )
-            extracted_shoreline.to_file(
-                session_path,
-                "extracted_shorelines_dict.json",
-                extracted_shoreline.dictionary,
-            )
-
+        self.save_session(roi_ids, save_transects=False)
         # for each ROI that has extracted shorelines load onto map
         # self.load_extracted_shorelines_to_map(roi_ids)
 
@@ -855,6 +826,48 @@ class CoastSeg_Map:
 
         return cross_distance
 
+    def save_timeseries_csv(self, session_path: str, roi_id: str, rois: ROI) -> None:
+        """Saves cross distances of transects and
+        extracted shorelines in ROI to csv file within each ROI's directory.
+        If no shorelines were extracted for an ROI then nothing is saved
+        Args:
+            roi_ids (list): list of roi ids
+            rois (ROI): ROI instance containing keys:
+                'extracted_shorelines': extracted shoreline from roi
+                'cross_distance_transects': cross distance of transects and extracted shoreline from roi
+        """
+        roi_extracted_shorelines = rois.get_extracted_shoreline(roi_id)
+        # if roi does not have extracted shoreline skip it
+        if roi_extracted_shorelines is None:
+            return
+        # get extracted_shorelines from extracted shoreline object in rois
+        extracted_shorelines = roi_extracted_shorelines.dictionary
+        # if no shorelines were extracted then skip
+        if extracted_shorelines == {}:
+            return
+        cross_distance_transects = rois.get_cross_shore_distances(roi_id)
+        logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
+        # if no cross distance was 0 then skip
+        if cross_distance_transects == 0:
+            print(
+                f"ROI: {roi_id} cross distance is 0 will not have time-series of shoreline change along transects "
+            )
+            logger.info(f"ROI: {roi_id} cross distance is 0")
+            return
+        cross_distance_df = common.get_cross_distance_df(
+            extracted_shorelines, cross_distance_transects
+        )
+        logger.info(f"ROI: {roi_id} cross_distance_df : {cross_distance_df}")
+
+        filepath = os.path.join(session_path, "transect_time_series.csv")
+        if os.path.exists(filepath):
+            print(f"Overwriting:{filepath}")
+            os.remove(filepath)
+        cross_distance_df.to_csv(filepath, sep=",")
+        print(
+            f"ROI: {roi_id} Time-series of the shoreline change along the transects saved as:{filepath}"
+        )
+
     def compute_transects(self) -> dict:
         """Returns a dict of cross distances for each roi's transects
         Args:
@@ -885,6 +898,7 @@ class CoastSeg_Map:
                 time-series of cross-shore distance along each of the transects. Not tidally corrected. }
         """
         settings = self.get_settings()
+        exception_handler.check_if_empty_string(self.get_session_name(), "session name")
         exception_handler.check_if_None(self.rois, "ROIs")
         exception_handler.check_if_None(self.transects, "transects")
         exception_handler.check_empty_dict(
@@ -912,11 +926,110 @@ class CoastSeg_Map:
             cross_distance = self.get_cross_distance(str(roi_id), settings, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
 
-        # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
-        # make a csv file for each transect
-        self.save_csv_per_transect(roi_ids, self.rois)
-        # Create a csv file with all transect cross distances for each ROI
-        self.save_cross_distance_to_file(roi_ids, self.rois)
+        self.save_session(roi_ids)
+        # # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
+        # # make a csv file for each transect
+        # self.save_csv_per_transect(roi_ids, self.rois)
+        # # Create a csv file with all transect cross distances for each ROI
+        # self.save_cross_distance_to_file(roi_ids, self.rois)
+
+    def save_session(self, roi_ids: list[str], save_transects: bool = True):
+        # Save extracted shoreline info to session directory
+        session_name = self.get_session_name()
+        for roi_id in roi_ids:
+            ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
+            session_path = common.get_session_path(session_name, ROI_directory)
+            # save source data
+            self.save_config(session_path)
+            # save extracted shorelines
+            extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
+            logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
+            if extracted_shoreline is None:
+                logger.info(f"No extracted shorelines for ROI: {roi_id}")
+                continue
+            extracted_shoreline.to_file(
+                session_path, "extracted_shorelines.geojson", extracted_shoreline.gdf
+            )
+            extracted_shoreline.to_file(
+                session_path,
+                "shoreline_settings.json",
+                extracted_shoreline.shoreline_settings,
+            )
+            extracted_shoreline.to_file(
+                session_path,
+                "extracted_shorelines_dict.json",
+                extracted_shoreline.dictionary,
+            )
+
+            # save transects to session folder
+            if save_transects:
+                # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
+                self.save_timeseries_csv(session_path, roi_id, self.rois)
+                self.save_csv_per_transect_for_roi(session_path, roi_id, self.rois)
+
+                # save transect settings to file
+                transect_settings = common.get_transect_settings(self.get_settings())
+                transect_settings_path = os.path.join(
+                    session_path, "transects_settings.json"
+                )
+                common.to_file(transect_settings, transect_settings_path)
+
+    def save_csv_per_transect_for_roi(
+        self, session_path: str, roi_id: list, rois: ROI
+    ) -> None:
+        """Saves cross distances of transects and
+        extracted shorelines in ROI to csv file within each ROI's directory.
+        If no shorelines were extracted for an ROI then nothing is saved
+        Args:
+            roi_ids (list): list of roi ids
+            rois (ROI): ROI instance containing keys:
+                'extracted_shorelines': extracted shoreline from roi
+                'cross_distance_transects': cross distance of transects and extracted shoreline from roi
+        """
+        # set of roi ids that have add their transects successfully computed
+        roi_extracted_shorelines = rois.get_extracted_shoreline(roi_id)
+        # if roi does not have extracted shoreline skip it
+        if roi_extracted_shorelines is None:
+            return
+        # get extracted_shorelines from extracted shoreline object in rois
+        extracted_shorelines_dict = roi_extracted_shorelines.dictionary
+        cross_distance_transects = rois.get_cross_shore_distances(roi_id)
+        logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines_dict}")
+        # if no cross distance was 0 then skip
+        if cross_distance_transects == 0:
+            return
+        # if no shorelines were extracted then skip
+        if extracted_shorelines_dict == {}:
+            return
+        # for each transect id in cross_distance_transects make a new csv file
+        for key in cross_distance_transects.keys():
+            df = pd.DataFrame()
+            out_dict = dict([])
+            # copy shoreline intersects for each transect
+            out_dict[key] = cross_distance_transects[key]
+            logger.info(
+                f"out dict roi_ids columns : {[roi_id for _ in range(len(extracted_shorelines_dict['dates']))]}"
+            )
+            out_dict["roi_id"] = [
+                roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
+            ]
+            out_dict["dates"] = extracted_shorelines_dict["dates"]
+            out_dict["satname"] = extracted_shorelines_dict["satname"]
+            logger.info(f"out_dict : {out_dict}")
+            df = pd.DataFrame(out_dict)
+            df.index = df["dates"]
+            df.pop("dates")
+
+            # save to csv file session path
+            fn = os.path.join(session_path, "%s_timeseries_raw.csv" % key)
+            logger.info(f"Save time series to {fn}")
+            if os.path.exists(fn):
+                logger.info(f"Overwriting:{fn}")
+                os.remove(fn)
+            df.to_csv(fn, sep=",")
+            logger.info(
+                f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
+            )
 
     def save_csv_per_transect(self, roi_ids: list, rois: ROI) -> None:
         """Saves cross distances of transects and

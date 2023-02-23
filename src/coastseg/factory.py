@@ -199,7 +199,6 @@ def create_rois(
     # clean drawn feature from map
     coastsegmap.remove_all_rois()
     logger.info("ROIs was loaded on map")
-    print("ROIs were loaded on map")
     # save rois to coastseg_map
     coastsegmap.rois = rois
     return rois

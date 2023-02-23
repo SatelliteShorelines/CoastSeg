@@ -33,6 +33,25 @@ from ipywidgets import HTML
 logger = logging.getLogger(__name__)
 
 
+def get_transect_settings(settings: dict) -> dict:
+    transect_settings = {}
+    transect_settings["max_std"] = settings.get("max_std")
+    transect_settings["min_points"] = settings.get("min_points")
+    transect_settings["along_dist"] = settings.get("along_dist")
+    transect_settings["max_range"] = settings.get("max_range")
+    transect_settings["min_chainage"] = settings.get("min_chainage")
+    transect_settings["multiple_inter"] = settings.get("multiple_inter")
+    transect_settings["prc_multiple"] = settings.get("prc_multiple")
+    return transect_settings
+
+
+def get_session_path(session_name: str, ROI_directory: str) -> str:
+    session_path = os.path.join(os.getcwd(), "sessions", session_name)
+    session_path = create_directory(session_path, ROI_directory)
+    logger.info(f"session_path: {session_path}")
+    return session_path
+
+
 def create_directory_in_google_drive(path: str, name: str) -> str:
     """
     Creates a new directory with the provided name in the given path.
