@@ -2,7 +2,6 @@
 import os
 import datetime
 import logging
-from typing import Callable
 from collections import defaultdict
 
 # internal python imports
@@ -36,49 +35,6 @@ logger = logging.getLogger(__name__)
 # icons sourced from https://fontawesome.com/v4/icons/
 
 
-def create_file_chooser(callback: Callable[[FileChooser], None], title: str = None):
-    """
-    This function creates a file chooser and a button to close the file chooser.
-    It takes a callback function and an optional title as arguments.
-    It only searches for .geojson files.
-
-    Args:
-        callback (Callable[[FileChooser],None]): A callback function that which is called
-        when a file is selected.
-        title (str): Optional title for the file chooser.
-
-    Returns:
-        chooser (HBox): A HBox containing the file chooser and close button.
-    """
-    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
-    # creates a unique instance of filechooser and button to close filechooser
-    geojson_chooser = FileChooser(os.getcwd())
-    geojson_chooser.dir_icon = os.sep
-    geojson_chooser.filter_pattern = ["*.geojson"]
-    geojson_chooser.title = "<b>Select a geojson file</b>"
-    if title is not None:
-        geojson_chooser.title = f"<b>{title}</b>"
-    # callback function is called when a file is selected
-    geojson_chooser.register_callback(callback)
-
-    close_button = ToggleButton(
-        value=False,
-        tooltip="Close File Chooser",
-        icon="times",
-        button_style="primary",
-        layout=Layout(height="28px", width="28px", padding=padding),
-    )
-
-    def close_click(change: dict):
-        if change["new"]:
-            geojson_chooser.close()
-            close_button.close()
-
-    close_button.observe(close_click, "value")
-    chooser = HBox([geojson_chooser, close_button], layout=Layout(width="100%"))
-    return chooser
-
-
 class UI:
     # all instances of UI will share the same debug_view
     # this means that UI and coastseg_map must have a 1:1 relationship
@@ -102,6 +58,13 @@ class UI:
             description="Load Config", icon="fa-files-o", style=self.load_style
         )
         self.load_configs_button.on_click(self.on_load_configs_clicked)
+
+        # buttons to load configuration files
+        self.load_session_button = Button(
+            description="Load Session", icon="fa-files-o", style=self.load_style
+        )
+        self.load_session_button.on_click(self.on_load_session_clicked)
+
         self.save_config_button = Button(
             description="Save Config", icon="fa-floppy-o", style=self.save_style
         )
@@ -273,6 +236,10 @@ class UI:
 
             if os.path.exists(new_session_path):
                 print(f"Session {session_name} already exists at {new_session_path}")
+                self.set_session_name(session_name)
+                print(
+                    f"{session_name} saved. Warning any existing files will be overwritten."
+                )
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} was created at {new_session_path}")
                 logger.info(f"new_session_path: {new_session_path}")
@@ -293,7 +260,9 @@ class UI:
         )
         update_settings_btn.on_click(self.update_settings_btn_clicked)
         self.settings_html = HTML()
-        self.settings_html.value = self.get_settings_html(self.coastseg_map.settings)
+        self.settings_html.value = self.get_settings_html(
+            self.coastseg_map.get_settings()
+        )
         view_settings_vbox = VBox([self.settings_html, update_settings_btn])
         return view_settings_vbox
 
@@ -813,7 +782,12 @@ class UI:
             ]
         )
         config_vbox = VBox(
-            [self.instr_config_btns, self.load_configs_button, self.save_config_button]
+            [
+                self.instr_config_btns,
+                self.load_configs_button,
+                self.load_session_button,
+                self.save_config_button,
+            ]
         )
         download_vbox = VBox(
             [
@@ -874,7 +848,7 @@ class UI:
         # Update settings in view settings section
         try:
             self.settings_html.value = self.get_settings_html(
-                self.coastseg_map.settings
+                self.coastseg_map.get_settings()
             )
         except Exception as error:
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
@@ -948,7 +922,7 @@ class UI:
         try:
             self.coastseg_map.set_settings(**settings)
             self.settings_html.value = self.get_settings_html(
-                self.coastseg_map.settings
+                self.coastseg_map.get_settings()
             )
         except Exception as error:
             # renders error message as a box on map
@@ -1028,6 +1002,37 @@ class UI:
         row.children = []
 
     @debug_view.capture(clear_output=True)
+    def on_load_session_clicked(self, button):
+        # Prompt user to select a config geojson file
+        def load_callback(filechooser: FileChooser) -> None:
+            try:
+                if filechooser.selected:
+                    self.coastseg_map.load_session(filechooser.selected)
+                    logger.info(f"filechooser.selected: {filechooser.selected}")
+                    session_name = os.path.basename(
+                        os.path.abspath(filechooser.selected)
+                    )
+                    logger.info(f"session_name: {session_name}")
+                    self.session_name_text.value = session_name
+                    self.settings_html.value = self.get_settings_html(
+                        self.coastseg_map.get_settings()
+                    )
+            except Exception as error:
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+
+        # create instance of chooser that calls load_callback
+        dir_chooser = common.create_dir_chooser(
+            load_callback,
+            title="Select Session Directory",
+            starting_directory="sessions",
+        )
+        # clear row and close all widgets in row_4 before adding new file_chooser
+        self.clear_row(self.file_chooser_row)
+        # add instance of file_chooser to row 4
+        self.file_chooser_row.children = [dir_chooser]
+
+    @debug_view.capture(clear_output=True)
     def on_load_configs_clicked(self, button):
         # Prompt user to select a config geojson file
         def load_callback(filechooser: FileChooser) -> None:
@@ -1035,14 +1040,14 @@ class UI:
                 if filechooser.selected:
                     self.coastseg_map.load_configs(filechooser.selected)
                     self.settings_html.value = self.get_settings_html(
-                        self.coastseg_map.settings
+                        self.coastseg_map.get_settings()
                     )
             except Exception as error:
                 # renders error message as a box on map
                 exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
         # create instance of chooser that calls load_callback
-        file_chooser = create_file_chooser(load_callback)
+        file_chooser = common.create_file_chooser(load_callback)
         # clear row and close all widgets in row_4 before adding new file_chooser
         self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4
@@ -1106,7 +1111,7 @@ class UI:
         if "rois" in btn.description.lower():
             title = "Select ROI geojson file"
         # create instance of chooser that calls load_callback
-        file_chooser = create_file_chooser(load_callback, title=title)
+        file_chooser = common.create_file_chooser(load_callback, title=title)
         # clear row and close all widgets in row_4 before adding new file_chooser
         self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4

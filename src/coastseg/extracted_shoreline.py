@@ -3,6 +3,7 @@ import logging
 import os
 import json
 import copy
+from glob import glob
 from typing import Union
 
 
@@ -29,6 +30,34 @@ from coastsat.SDS_shoreline import extract_shorelines
 
 
 logger = logging.getLogger(__name__)
+
+
+def load_extracted_shoreline_from_files(dir_path):
+
+    extracted_sl_gdf = None
+    shoreline_settings = None
+    extracted_shoreline_dict = None
+
+    shoreline_glob = os.path.join(dir_path, "*shoreline*")
+    for file in glob(shoreline_glob):
+        if file.endswith(".geojson"):
+            extracted_sl_gdf = common.read_gpd_file(file)
+        if file.endswith(".json"):
+            if "settings" in os.path.basename(file):
+                shoreline_settings = common.from_file(file)
+            if "dict" in os.path.basename(file):
+                extracted_shoreline_dict = common.from_file(file)
+
+    if extracted_sl_gdf is None or extracted_sl_gdf is None or extracted_sl_gdf is None:
+        logger.warning(f"No extracted shorelnes could be loaded from {dir_path}")
+        return None
+    # load extracted shorelines from file
+    extracted_shorelines = Extracted_Shoreline()
+    extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
+        extracted_shoreline_dict, shoreline_settings, extracted_sl_gdf
+    )
+    logger.info(f"Loaded extracted shorelines from: {dir_path}")
+    return extracted_shorelines
 
 
 class Extracted_Shoreline:

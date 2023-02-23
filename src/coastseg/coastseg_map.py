@@ -107,6 +107,92 @@ class CoastSeg_Map:
             layout=map_settings["Layout"],
         )
 
+    def load_session(self, session_path: str) -> None:
+        session_name = os.path.basename(os.path.abspath(session_path))
+        self.set_session_name(session_name)
+        for count, dir_name in enumerate(os.listdir(session_path)):
+            dir_path = os.path.join(session_path, dir_name)
+            # only load in settings from first ROI since all settings SHOULD be same for a session
+            if os.path.isdir(dir_path):
+                if count == 0:
+                    for file_name in os.listdir(dir_path):
+                        file_path = os.path.join(dir_path, file_name)
+                        if os.path.isfile(file_path):
+                            if file_name == "config_gdf.geojson":
+                                self.load_configs(file_path)
+                            elif file_name == "transects_settings.json":
+                                self.load_settings(file_path)
+                                print(f"Loaded transect settings")
+                            elif file_name == "shoreline_settings.json":
+                                self.load_settings(file_path)
+                                print(f"Loaded shoreline settings")
+
+                for file_name in os.listdir(dir_path):
+                    file_path = os.path.join(dir_path, file_name)
+                    if os.path.isfile(file_path):
+                        if file_name == "transects_settings.json":
+                            self.load_settings(file_path)
+                            print(f"Loaded transect settings")
+                        elif file_name == "shoreline_settings.json":
+                            self.load_settings(file_path)
+                            print(f"Loaded shoreline settings")
+
+                # for every directory load extracted shorelines and transect files
+                extracted_shorelines = (
+                    extracted_shoreline.load_extracted_shoreline_from_files(dir_path)
+                )
+                # get roi id from directory name
+                roi_id = os.path.basename(dir_path).split("_")[1]
+                self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+                # do you need to load transects from file?
+                # what would this even look like? Loading the dict from json? We still have the function
+
+    def load_settings(self, filepath: str = "", new_settings: dict = {}):
+        """
+        Load settings from a JSON file. Only loads settings for transects and shorelines.
+        If no JSON file is provided then load then load from new_settings.
+
+        Args:
+            filepath: The path to the JSON file containing the new settings.
+            new_settings: A dictionary of new settings to apply.
+
+        Returns:
+            None.
+        """
+        if os.path.exists(filepath):
+            new_settings = common.read_json_file(filepath)
+
+        # load in transect settings if found
+        transect_keys = [
+            "max_std",
+            "min_points",
+            "along_dist",
+            "max_range",
+            "min_chainage",
+            "multiple_inter",
+            "prc_multiple",
+        ]
+        transect_settings = common.filter_dict_by_keys(new_settings, keys=transect_keys)
+        if transect_settings != {}:
+            self.set_settings(**transect_settings)
+            logger.info(f"Loaded transect_settings from {filepath}")
+
+        shoreline_keys = [
+            "cloud_thresh",
+            "cloud mask issue",
+            "min_beach_area",
+            "min_beach_sl",
+            "output_espg",
+            "sand_color",
+            "pan_off",
+        ]
+        shoreline_settings = common.filter_dict_by_keys(
+            new_settings, keys=shoreline_keys
+        )
+        if shoreline_settings != {}:
+            self.set_settings(**shoreline_settings)
+            logger.info(f"Loaded shoreline_settings from {filepath}")
+
     def load_configs(self, filepath: str) -> None:
         """Loads features from geojson config file onto map and loads
         config.json file into settings. The config.json should be located into
@@ -124,9 +210,7 @@ class CoastSeg_Map:
         logger.info(f"Loaded json config file from {config_path}")
         # load settings from config.json file
         # ensure coastseg\data location exists
-        data_path = os.path.join(os.getcwd(), "data")
-        if not os.path.exists(data_path):
-            os.makedirs(data_path)
+        data_path = common.create_directory(os.getcwd(), "data")
         self.load_json_config(config_path, data_path)
 
     def load_gdf_config(self, filepath: str) -> None:

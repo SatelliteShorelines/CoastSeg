@@ -5,12 +5,14 @@ import shutil
 import json
 import math
 import logging
+from typing import Callable
 from typing import Union
 from json import JSONEncoder
 import datetime
 
 # Internal dependencies imports
 from coastseg import exceptions
+
 
 from tqdm.auto import tqdm
 import requests
@@ -21,6 +23,7 @@ import geojson
 from leafmap import check_file_path
 import pandas as pd
 import shapely
+from ipyfilechooser import FileChooser
 
 from ipywidgets import ToggleButton
 from ipywidgets import HBox
@@ -31,6 +34,81 @@ from ipywidgets import HTML
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 logger = logging.getLogger(__name__)
+
+
+def create_file_chooser(callback: Callable[[FileChooser], None], title: str = None):
+    """
+    This function creates a file chooser and a button to close the file chooser.
+    It takes a callback function and an optional title as arguments.
+    It only searches for .geojson files.
+
+    Args:
+        callback (Callable[[FileChooser],None]): A callback function that which is called
+        when a file is selected.
+        title (str): Optional title for the file chooser.
+
+    Returns:
+        chooser (HBox): A HBox containing the file chooser and close button.
+    """
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    # creates a unique instance of filechooser and button to close filechooser
+    geojson_chooser = FileChooser(os.getcwd())
+    geojson_chooser.dir_icon = os.sep
+    geojson_chooser.filter_pattern = ["*.geojson"]
+    geojson_chooser.title = "<b>Select a geojson file</b>"
+    if title is not None:
+        geojson_chooser.title = f"<b>{title}</b>"
+    # callback function is called when a file is selected
+    geojson_chooser.register_callback(callback)
+
+    close_button = ToggleButton(
+        value=False,
+        tooltip="Close File Chooser",
+        icon="times",
+        button_style="primary",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    def close_click(change: dict):
+        if change["new"]:
+            geojson_chooser.close()
+            close_button.close()
+
+    close_button.observe(close_click, "value")
+    chooser = HBox([geojson_chooser, close_button], layout=Layout(width="100%"))
+    return chooser
+
+
+def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    inital_path = os.path.join(os.getcwd(), starting_directory)
+    if not os.path.exists(inital_path):
+        inital_path = os.getcwd()
+    # creates a unique instance of filechooser and button to close filechooser
+    dir_chooser = FileChooser(inital_path)
+    dir_chooser.dir_icon = os.sep
+    # Switch to folder-only mode
+    dir_chooser.show_only_dirs = True
+    if title is not None:
+        dir_chooser.title = f"<b>{title}</b>"
+    dir_chooser.register_callback(callback)
+
+    close_button = ToggleButton(
+        value=False,
+        tooltip="Close Directory Chooser",
+        icon="times",
+        button_style="primary",
+        layout=Layout(height="28px", width="28px", padding=padding),
+    )
+
+    def close_click(change):
+        if change["new"]:
+            dir_chooser.close()
+            close_button.close()
+
+    close_button.observe(close_click, "value")
+    chooser = HBox([dir_chooser, close_button])
+    return chooser
 
 
 def get_transect_settings(settings: dict) -> dict:
@@ -227,6 +305,11 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
     collapse_button.observe(collapse_click, "value")
     uncollapse_button.observe(uncollapse_click, "value")
     return container
+
+
+def filter_dict_by_keys(original_dict: dict, keys: list) -> dict:
+    filtered_dict = {k: v for k, v in original_dict.items() if k in keys}
+    return filtered_dict
 
 
 def create_warning_box(title: str = None, msg: str = None) -> HBox:
