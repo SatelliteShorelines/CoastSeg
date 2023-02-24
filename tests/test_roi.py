@@ -44,14 +44,14 @@ def test_fishnet_intersection(
 ):
     # tests if a valid fishnet geodataframe intersects with given shoreline geodataframe
     square_size = 1000
-    output_espg = "epsg:4326"
+    output_epsg = "epsg:4326"
     fishnet_gdf = valid_ROI.create_rois(valid_bbox_gdf, square_size)
     # check if fishnet intersects the shoreline
     fishnet_gdf = valid_ROI.fishnet_intersection(fishnet_gdf, valid_shoreline_gdf)
     assert isinstance(fishnet_gdf, gpd.GeoDataFrame)
     assert fishnet_gdf.empty == False
     assert isinstance(fishnet_gdf.crs, pyproj.CRS)
-    assert fishnet_gdf.crs == output_espg
+    assert fishnet_gdf.crs == output_epsg
     assert set(fishnet_gdf.columns) == set(["geometry"])
     # drop unneeded columns before checking
     columns_to_drop = list(valid_shoreline_gdf.columns.difference(["geometry"]))
@@ -70,7 +70,7 @@ def test_get_fishnet(
 ):
     # tests if a valid fishnet geodataframe intersects with given shoreline geodataframe
     square_size = 1000
-    output_espg = "epsg:4326"
+    output_epsg = "epsg:4326"
     # check if fishnet intersects the shoreline
     fishnet_gdf = valid_ROI.get_fishnet_gdf(
         bbox_gdf=valid_bbox_gdf,
@@ -79,7 +79,7 @@ def test_get_fishnet(
     )
     assert isinstance(fishnet_gdf, gpd.GeoDataFrame)
     assert isinstance(fishnet_gdf.crs, pyproj.CRS)
-    assert fishnet_gdf.crs == output_espg
+    assert fishnet_gdf.crs == output_epsg
     assert set(fishnet_gdf.columns) == set(["geometry"])
     # drop unneeded columns before checking
     columns_to_drop = list(valid_shoreline_gdf.columns.difference(["geometry"]))
@@ -136,7 +136,7 @@ def test_create_fishnet(valid_bbox_gdf: gpd.GeoDataFrame, valid_ROI: roi.ROI):
     # tests if a valid geodataframe is created with square sizes approx. equal to given square_size
     square_size = 1000
     input_espg = "epsg:32610"
-    output_espg = "epsg:4326"
+    output_epsg = "epsg:4326"
 
     # convert bbox to input_espg to most accurate espg to create fishnet with
     valid_bbox_gdf = valid_bbox_gdf.to_crs(input_espg)
@@ -145,13 +145,13 @@ def test_create_fishnet(valid_bbox_gdf: gpd.GeoDataFrame, valid_ROI: roi.ROI):
     actual_fishnet = valid_ROI.create_fishnet(
         valid_bbox_gdf,
         input_espg=input_espg,
-        output_espg=output_espg,
+        output_epsg=output_epsg,
         square_size=square_size,
     )
     assert isinstance(actual_fishnet, gpd.GeoDataFrame)
     assert set(actual_fishnet.columns) == set(["geometry"])
     assert isinstance(actual_fishnet.crs, pyproj.CRS)
-    assert actual_fishnet.crs == output_espg
+    assert actual_fishnet.crs == output_epsg
     # reproject back to input_espg to check if square sizes are correct
     actual_fishnet = actual_fishnet.to_crs(input_espg)
     # pick a square out of the fishnet ensure is approx. equal to square size
@@ -170,16 +170,16 @@ def test_create_rois(valid_ROI: roi.ROI, valid_bbox_gdf: gpd.GeoDataFrame):
     square_size = 1000
     # espg code of the valid_bbox_gdf
     input_espg = "epsg:4326"
-    output_espg = "epsg:4326"
+    output_epsg = "epsg:4326"
     actual_roi_gdf = valid_ROI.create_rois(
         bbox=valid_bbox_gdf,
         input_espg=input_espg,
-        output_espg=output_espg,
+        output_epsg=output_epsg,
         square_size=square_size,
     )
     assert isinstance(actual_roi_gdf, gpd.GeoDataFrame)
     assert isinstance(actual_roi_gdf.crs, pyproj.CRS)
-    assert actual_roi_gdf.crs == output_espg
+    assert actual_roi_gdf.crs == output_epsg
     assert set(actual_roi_gdf.columns) == set(["geometry"])
 
 

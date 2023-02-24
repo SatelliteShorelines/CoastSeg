@@ -432,12 +432,12 @@ class CoastSeg_Map:
             # Save download settings dictionary to instance of ROI
             self.rois.set_roi_settings(roi_settings)
         # create dictionary to be saved to config.json
-        config_json = common.create_json_config(self.rois.roi_settings, settings)
-        logger.info(f"config_json: {config_json} ")
-        # get currently selected rois selected
-        roi_ids = config_json["roi_ids"]
-        selected_rois = self.get_selected_rois(roi_ids)
-        logger.info(f"selected_rois: {selected_rois} ")
+        roi_ids = list(self.selected_set)
+        selected_roi_settings = {}
+        for roi_id in roi_ids:
+            selected_roi_settings[roi_id] = self.rois.roi_settings[roi_id]
+
+        config_json = common.create_json_config(selected_roi_settings, settings)
         shorelines_gdf = None
         transects_gdf = None
         bbox_gdf = None
@@ -448,6 +448,8 @@ class CoastSeg_Map:
         if self.bbox is not None:
             bbox_gdf = self.bbox.gdf
         # save all selected rois, shorelines, transects and bbox to config geodataframe
+        selected_rois = self.get_selected_rois(roi_ids)
+        logger.info(f"selected_rois: {selected_rois} ")
         config_gdf = common.create_config_gdf(
             selected_rois, shorelines_gdf, transects_gdf, bbox_gdf
         )

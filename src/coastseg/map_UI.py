@@ -681,7 +681,7 @@ class UI:
             self.sand_dropdown.value = settings["sand_color"]
 
         if "min_length_sl" in settings:
-            self.min_length_sl_slider = settings["min_length_sl"]
+            self.min_length_sl_slider.value = settings["min_length_sl"]
 
         if "dist_clouds" in settings:
             self.cloud_slider.value = settings["dist_clouds"]
