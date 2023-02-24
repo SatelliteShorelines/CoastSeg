@@ -36,7 +36,11 @@ from ipywidgets import HTML
 logger = logging.getLogger(__name__)
 
 
-def create_file_chooser(callback: Callable[[FileChooser], None], title: str = None):
+def create_file_chooser(
+    callback: Callable[[FileChooser], None],
+    title: str = None,
+    filter_pattern: str = None,
+):
     """
     This function creates a file chooser and a button to close the file chooser.
     It takes a callback function and an optional title as arguments.
@@ -54,7 +58,11 @@ def create_file_chooser(callback: Callable[[FileChooser], None], title: str = No
     # creates a unique instance of filechooser and button to close filechooser
     geojson_chooser = FileChooser(os.getcwd())
     geojson_chooser.dir_icon = os.sep
+
     geojson_chooser.filter_pattern = ["*.geojson"]
+    if filter_pattern:
+        geojson_chooser.filter_pattern = [filter_pattern]
+
     geojson_chooser.title = "<b>Select a geojson file</b>"
     if title is not None:
         geojson_chooser.title = f"<b>{title}</b>"
@@ -190,6 +198,27 @@ def get_ids_with_invalid_area(
             return rows_drop
     else:
         raise TypeError("Must be geodataframe")
+
+
+def load_cross_distances_from_file(dir_path):
+    transect_dict = None
+    glob_str = os.path.join(dir_path, "*transects_cross_distances.json*")
+    for file in glob.glob(glob_str):
+        if os.path.basename(file) == "transects_cross_distances.json":
+            transect_dict = from_file(file)
+
+    if transect_dict is None:
+        logger.warning(
+            f"No transect cross shore distances could be loaded from {dir_path}"
+        )
+        return None
+
+    # convert lists to np.array for each transect
+    for key in transect_dict.keys():
+        tmp = np.array(transect_dict[key])
+        transect_dict[key] = tmp
+    logger.info(f"Loaded transect cross shore distances from: {dir_path}")
+    return transect_dict
 
 
 def from_file(filepath: str) -> dict:
@@ -558,7 +587,7 @@ def create_directory(file_path: str, name: str) -> str:
         name (str): The name of the new directory to be created.
 
     Returns:
-        str: The full path of the new directory created.
+        str: The full path of the new directory created or existing directory if it already existed.
 
     Raises:
         OSError: If there was an error creating the new directory.

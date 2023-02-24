@@ -65,6 +65,11 @@ class UI:
         )
         self.load_session_button.on_click(self.on_load_session_clicked)
 
+        self.load_settings_button = Button(
+            description="Load settings", icon="fa-file-o", style=self.load_style
+        )
+        self.load_settings_button.on_click(self.on_load_settings_clicked)
+
         self.save_config_button = Button(
             description="Save Config", icon="fa-floppy-o", style=self.save_style
         )
@@ -104,17 +109,11 @@ class UI:
             description="Download Imagery", icon="fa-download", style=self.action_style
         )
         self.download_button.on_click(self.download_button_clicked)
+
         self.extract_shorelines_button = Button(
             description="Extract Shorelines", style=self.action_style
         )
         self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
-
-        self.load_extracted_shorelines_btn = Button(
-            description="Load Shorelines", style=self.load_style
-        )
-        self.load_extracted_shorelines_btn.on_click(
-            self.load_extracted_shorelines_clicked
-        )
 
         self.compute_transect_button = Button(
             description="Compute Transects", style=self.action_style
@@ -207,14 +206,6 @@ class UI:
         # when units radio button is clicked updated units for area textboxes
         self.units_radio.observe(units_radio_changed)
 
-    def set_session_name(self, name: str):
-        self.session_name = str(name).strip()
-
-    def get_session_name(
-        self,
-    ):
-        return self.session_name
-
     def get_session_selection(self):
         output = Output()
         self.session_name_text = ipywidgets.Text(
@@ -231,23 +222,16 @@ class UI:
         def enter_clicked(btn):
             # create the session directory
             session_name = str(self.session_name_text.value).strip()
-            session_path = common.create_directory(os.getcwd(), "sessions")
+            session_path = os.path.join(os.getcwd(), "sessions")
             new_session_path = os.path.join(session_path, session_name)
-
             if os.path.exists(new_session_path):
-                print(f"Session {session_name} already exists at {new_session_path}")
-                self.set_session_name(session_name)
                 print(
-                    f"{session_name} saved. Warning any existing files will be overwritten."
+                    f"Session {session_name} already exists at {new_session_path}\n Warning any existing files will be overwritten."
                 )
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} was created at {new_session_path}")
-                logger.info(f"new_session_path: {new_session_path}")
-                self.set_session_name(session_name)
-                new_session_path = common.create_directory(
-                    session_path, str(session_name).strip()
-                )
-                self.coastseg_map.set_session_name(str(session_name).strip())
+                new_session_path = common.create_directory(session_path, session_name)
+            self.coastseg_map.set_session_name(session_name)
 
         enter_button.on_click(enter_clicked)
         session_name_controls = HBox([self.session_name_text, enter_button])
@@ -286,15 +270,16 @@ class UI:
             "prc_multiple": self.get_prc_multiple_text(),
         }
 
-        settings_button = Button(
+        self.settings_button = Button(
             description="Save Settings", icon="fa-floppy-o", style=self.action_style
         )
-        settings_button.on_click(self.save_settings_clicked)
+        self.settings_button.on_click(self.save_settings_clicked)
         self.output_epsg_text = Text(value="4326", description="Output epsg:")
+        self.settings_btn_row = VBox([self.settings_button, self.load_settings_button])
         # create settings vbox
         settings_vbox = VBox(
             [widget for widget_name, widget in settings.items()]
-            + [self.output_epsg_text, settings_button]
+            + [self.output_epsg_text, self.settings_btn_row]
         )
         return settings_vbox
 
@@ -674,6 +659,63 @@ class UI:
         )
         return remove_buttons
 
+    def update_settings_selection(
+        self,
+        settings: dict,
+    ):
+        if "dates" in settings:
+            self.start_date.value = datetime.date(
+                *(map(int, settings["dates"][0].split("-")))
+            )
+            self.end_date.value == datetime.date(
+                *(map(int, settings["dates"][1].split("-")))
+            )
+
+        if "cloud_thresh" in settings:
+            self.cloud_threshold_slider.value = settings["cloud_thresh"]
+
+        if "sat_list" in settings:
+            self.satellite_selection.value = settings["sat_list"]
+
+        if "sand_color" in settings:
+            self.sand_dropdown.value = settings["sand_color"]
+
+        if "min_length_sl" in settings:
+            self.min_length_sl_slider = settings["min_length_sl"]
+
+        if "dist_clouds" in settings:
+            self.cloud_slider.value = settings["dist_clouds"]
+
+        if "output_epsg" in settings:
+            self.output_epsg_text.value = str(settings["output_epsg"])
+
+        if "min_beach_area" in settings:
+            self.beach_area_slider.value = settings["min_beach_area"]
+
+        if "max_dist_ref" in settings:
+            self.shoreline_buffer_slider.value = settings["max_dist_ref"]
+
+        if "along_dist" in settings:
+            self.alongshore_distance_slider.value = settings["along_dist"]
+
+        if "max_std" in settings:
+            self.max_std_text.value = settings["max_std"]
+
+        if "max_range" in settings:
+            self.max_range_text.value = settings["max_range"]
+
+        if "min_chainage" in settings:
+            self.min_chainage_text.value = settings["min_chainage"]
+
+        if "multiple_inter" in settings:
+            self.outliers_mode.value = settings["multiple_inter"]
+
+        if "prc_multiple" in settings:
+            self.prc_multiple_text.value = settings["prc_multiple"]
+
+        if "min_points" in settings:
+            self.min_points_text.value = settings["min_points"]
+
     def get_settings_html(
         self,
         settings: dict,
@@ -794,7 +836,6 @@ class UI:
                 self.instr_download_roi,
                 self.download_button,
                 self.extract_shorelines_button,
-                self.load_extracted_shorelines_btn,
                 self.compute_transect_button,
                 self.get_session_selection(),
                 config_vbox,
@@ -815,13 +856,10 @@ class UI:
             layout=Layout(margin="0px 5px 5px 0px"),
         )
 
-        # view currently loaded settings
-        static_settings_html = self.get_view_settings_vbox()
-
-        settings_row = HBox(
+        self.settings_row = HBox(
             [
                 self.get_settings_section(),
-                static_settings_html,
+                self.get_view_settings_vbox(),
             ]
         )
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
@@ -833,7 +871,7 @@ class UI:
         download_msgs_row = HBox([self.clear_downloads_button, UI.download_view])
 
         return display(
-            settings_row,
+            self.settings_row,
             row_1,
             row_2,
             self.error_row,
@@ -924,6 +962,7 @@ class UI:
             self.settings_html.value = self.get_settings_html(
                 self.coastseg_map.get_settings()
             )
+            self.update_settings_selection(self.coastseg_map.get_settings())
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
@@ -939,19 +978,6 @@ class UI:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.extract_shorelines_button.disabled = False
-        self.coastseg_map.map.default_style = {"cursor": "default"}
-
-    @debug_view.capture(clear_output=True)
-    def load_extracted_shorelines_clicked(self, btn):
-        UI.debug_view.clear_output()
-        self.coastseg_map.map.default_style = {"cursor": "wait"}
-        self.load_extracted_shorelines_btn.disabled = True
-        try:
-            self.coastseg_map.load_extracted_shoreline_files()
-        except Exception as error:
-            # renders error message as a box on map
-            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
-        self.load_extracted_shorelines_btn.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
@@ -1002,6 +1028,37 @@ class UI:
         row.children = []
 
     @debug_view.capture(clear_output=True)
+    def on_load_settings_clicked(self, button):
+        self.settings_chooser_row = HBox([])
+        # Prompt user to select a config geojson file
+        def load_callback(filechooser: FileChooser) -> None:
+            try:
+                if filechooser.selected:
+                    self.coastseg_map.load_settings(filechooser.selected)
+                    self.settings_html.value = self.get_settings_html(
+                        self.coastseg_map.get_settings()
+                    )
+                    self.update_settings_selection(self.coastseg_map.get_settings())
+            except Exception as error:
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+
+        # create instance of chooser that calls load_callback
+        file_chooser = common.create_file_chooser(
+            load_callback, title="Select a settings json file", filter_pattern="*.json"
+        )
+        # clear row and close all widgets in row_4 before adding new file_chooser
+        self.clear_row(self.settings_chooser_row)
+
+        # add instance of file_chooser to row 4
+        self.settings_chooser_row.children = [file_chooser]
+        self.settings_btn_row.children = [
+            self.settings_button,
+            self.load_settings_button,
+            self.settings_chooser_row,
+        ]
+
+    @debug_view.capture(clear_output=True)
     def on_load_session_clicked(self, button):
         # Prompt user to select a config geojson file
         def load_callback(filechooser: FileChooser) -> None:
@@ -1017,6 +1074,7 @@ class UI:
                     self.settings_html.value = self.get_settings_html(
                         self.coastseg_map.get_settings()
                     )
+                    self.update_settings_selection(self.coastseg_map.get_settings())
             except Exception as error:
                 # renders error message as a box on map
                 exception_handler.handle_exception(error, self.coastseg_map.warning_box)
@@ -1042,6 +1100,7 @@ class UI:
                     self.settings_html.value = self.get_settings_html(
                         self.coastseg_map.get_settings()
                     )
+                    self.update_settings_selection(self.coastseg_map.get_settings())
             except Exception as error:
                 # renders error message as a box on map
                 exception_handler.handle_exception(error, self.coastseg_map.warning_box)

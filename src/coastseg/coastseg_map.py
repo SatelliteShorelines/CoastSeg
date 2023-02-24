@@ -144,8 +144,9 @@ class CoastSeg_Map:
                 # get roi id from directory name
                 roi_id = os.path.basename(dir_path).split("_")[1]
                 self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
-                # do you need to load transects from file?
-                # what would this even look like? Loading the dict from json? We still have the function
+                # load cross distances from file
+                cross_distances = common.load_cross_distances_from_file(dir_path)
+                self.rois.add_cross_shore_distances(cross_distances, roi_id)
 
     def load_settings(self, filepath: str = "", new_settings: dict = {}):
         """
@@ -1019,11 +1020,6 @@ class CoastSeg_Map:
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
 
         self.save_session(roi_ids)
-        # # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
-        # # make a csv file for each transect
-        # self.save_csv_per_transect(roi_ids, self.rois)
-        # # Create a csv file with all transect cross distances for each ROI
-        # self.save_cross_distance_to_file(roi_ids, self.rois)
 
     def save_session(self, roi_ids: list[str], save_transects: bool = True):
         # Save extracted shoreline info to session directory
@@ -1075,6 +1071,10 @@ class CoastSeg_Map:
                 # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
                 self.save_timeseries_csv(session_path, roi_id, self.rois)
                 self.save_csv_per_transect_for_roi(session_path, roi_id, self.rois)
+
+                save_path = os.path.join(session_path, "transects_cross_distances.json")
+                cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
+                common.to_file(cross_shore_distance, save_path)
 
                 # save transect settings to file
                 transect_settings = common.get_transect_settings(self.get_settings())

@@ -1,7 +1,5 @@
 # Standard library imports
 import logging
-import os
-import json
 from typing import Union
 
 # Internal dependencies imports
@@ -13,6 +11,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely import geometry
 from ipyleaflet import GeoJSON
+
 
 from coastseg.extracted_shoreline import Extracted_Shoreline
 
@@ -376,25 +375,20 @@ class ROI:
         fishnet_intersection = self.fishnet_intersection(fishnet, shoreline_gdf)
         return fishnet_intersection
 
-    def save_transects_to_json(self, roi_id: int, cross_distance: dict):
-        if cross_distance == 0:
-            print(f"Did not save transects to json for ROI:{roi_id}")
-            logger.info(f"Did not save transects to json for ROI:{roi_id}")
-            return
-        sitename = str(self.roi_settings[roi_id]["sitename"])
-        logger.info(f"sitename: {sitename}")
-        filename = f"transects_cross_distances" + str(roi_id) + ".json"
-        logger.info(f"filename: {filename}")
-        save_path = os.path.abspath(
-            os.path.join(os.getcwd(), "data", sitename, filename)
-        )
-        logger.info(f"save_path: {save_path}")
-        for key in cross_distance.keys():
-            tmp = cross_distance[key].tolist()
-            cross_distance[key] = tmp
-        logger.info(f"cross_distance: {cross_distance}")
+    # def save_transects_to_json(self, roi_id: int, cross_distance: dict,save_path:str):
+    #     if cross_distance == 0:
+    #         print(f"Did not save transects to json for ROI:{roi_id}")
+    #         logger.info(f"Did not save transects to json for ROI:{roi_id}")
+    #         return
+    #     filename = f"transects_cross_distances" + str(roi_id) + ".json"
+    #     save_path = os.path.join(save_path,  filename)
+    #     logger.info(f"save_path: {save_path}")
+    #     for key in cross_distance.keys():
+    #         tmp = cross_distance[key].tolist()
+    #         cross_distance[key] = tmp
+    #     logger.info(f"cross_distance: {cross_distance}")
 
-        with open(save_path, "w") as f:
-            json.dump(cross_distance, f)
-        print(f"\nSaved transects to json for ROI: {roi_id} {save_path}")
-        logger.info(f"Saved transects to json for ROI: {roi_id} {save_path}")
+    #     with open(save_path, "w") as f:
+    #         json.dump(cross_distance, f)
+    #     print(f"\nSaved transects to json for ROI: {roi_id} {save_path}")
+    #     logger.info(f"Saved transects to json for ROI: {roi_id} {save_path}")
