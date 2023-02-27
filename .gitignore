@@ -6,6 +6,13 @@ src/coastseg/shorelines/*
 src/coastseg/downloaded_models/*
 *log_*.txt
 
+data\*
+sessions\*
+./sessions/*
+/sessions/
+src\*\downloaded_models\*
+*segmentation_data_*
+
 # VScode files
 *.vscode
 ## db: data downloaded by notebooks
