@@ -5,7 +5,7 @@ import shutil
 import json
 import math
 import logging
-from typing import Callable
+from typing import Callable, List
 from typing import Union
 from json import JSONEncoder
 import datetime
@@ -454,6 +454,37 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                         pbar.update(len(chunk))
         else:
             logger.warning("Content length not found in response headers")
+
+
+def filter_files(files: List[str], avoid_patterns: List[str]) -> List[str]:
+    """
+    Filter a list of filepaths based on a list of avoid patterns.
+
+    Args:
+        files: A list of filepaths to filter.
+        avoid_patterns: A list of regular expression patterns to avoid.
+
+    Returns:
+        A list of filepaths whose filenames do not match any of the patterns in avoid_patterns.
+
+    Examples:
+        >>> files = ['/path/to/file1.txt', '/path/to/file2.txt', '/path/to/avoid_file.txt']
+        >>> avoid_patterns = ['.*avoid.*']
+        >>> filtered_files = filter_files(files, avoid_patterns)
+        >>> print(filtered_files)
+        ['/path/to/file1.txt', '/path/to/file2.txt']
+
+    """
+    filtered_files = []
+    for file in files:
+        # Check if the file's name matches any of the avoid patterns
+        for pattern in avoid_patterns:
+            if re.match(pattern, os.path.basename(file)):
+                break
+        else:
+            # If the file's name does not match any of the avoid patterns, add it to the filtered files list
+            filtered_files.append(file)
+    return filtered_files
 
 
 def get_center_rectangle(coords: list) -> tuple:
@@ -1057,36 +1088,35 @@ def mk_new_dir(name: str, location: str):
 
 
 def get_RGB_in_path(current_path: str) -> str:
-    """returns full path to RGB directory relative to current path
-    or raises an error
+    """
+    Returns the full path to the RGB directory relative to the given current path, or raises an error if no RGB directory
+    is found or if the RGB directory is empty.
 
     Args:
-        current_path (str): full path to directory of images to segment
+        current_path (str): The full path to the directory of images to segment.
 
     Raises:
-        Exception: raised if no RGB directory is found or
-        RGB directory is empty
+        Exception: Raised if no RGB directory is found or if the RGB directory is empty.
 
     Returns:
-        str: full path to RGB directory relative to current path
+        str: The full path to the RGB directory relative to the current path.
     """
     rgb_jpgs = glob.glob(current_path + os.sep + "*RGB*")
     logger.info(f"rgb_jpgs: {rgb_jpgs}")
-    if rgb_jpgs != []:
+    if rgb_jpgs:
         return current_path
-    elif rgb_jpgs == []:
-        # means current path is not RGB directory
-        parent_dir = os.path.dirname(current_path)
-        logger.info(f"parent_dir: {parent_dir}")
-        dirs = os.listdir(parent_dir)
-        logger.info(f"child dirs: {dirs}")
-        if "RGB" not in dirs:
-            raise Exception(
-                "Invalid directory to run model in. Please select RGB directory"
-            )
-        RGB_path = os.path.join(parent_dir, "RGB")
-        logger.info(f"returning path:{RGB_path}")
-        return RGB_path
+
+    parent_dir = os.path.dirname(current_path)
+    logger.info(f"parent_dir: {parent_dir}")
+    dirs = os.listdir(parent_dir)
+    logger.info(f"child dirs: {dirs}")
+    if "RGB" not in dirs:
+        raise Exception("Invalid directory. Please select an RGB directory.")
+    rgb_path = os.path.join(parent_dir, "RGB")
+    if not os.listdir(rgb_path):
+        raise Exception("RGB directory is empty.")
+    logger.info(f"returning path:{rgb_path}")
+    return rgb_path
 
 
 def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:

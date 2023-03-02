@@ -4,6 +4,7 @@ import asyncio
 import platform
 import json
 import logging
+from typing import List
 from coastseg import common
 import requests
 import skimage
@@ -17,16 +18,43 @@ from tensorflow.python.client import device_lib
 from skimage.io import imread
 from tensorflow.keras import mixed_precision
 from doodleverse_utils.prediction_imports import do_seg
-from doodleverse_utils.imports import (
+from doodleverse_utils.model_imports import (
     simple_resunet,
-    simple_unet,
     custom_resunet,
     custom_unet,
+    simple_unet,
+    simple_resunet,
+    simple_satunet,
+    segformer,
 )
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
+
+
+def get_imagery_directory(img_type: str, RGB_path: str) -> str:
+    logger.info(f"img_type: {img_type}")
+    logger.info(f"RGB_path: {RGB_path}")
+    output_path = os.path.dirname(RGB_path)
+    if img_type == "RGB+MNDWI+NDWI":
+        NIR_path = os.path.join(output_path, "NIR")
+        NDWI_path = RGB_to_infrared(RGB_path, NIR_path, output_path, "NDWI")
+        SWIR_path = os.path.join(output_path, "SWIR")
+        MNDWI_path = RGB_to_infrared(RGB_path, SWIR_path, output_path, "MNDWI")
+        five_band_path = common.create_directory(output_path, "five_band")
+        output_path = get_five_band_imagery(
+            RGB_path, MNDWI_path, NDWI_path, five_band_path
+        )
+    # default filetype is NIR and if NDWI is selected else filetype to SWIR
+    elif img_type == "NDWI":
+        NIR_path = os.path.join(output_path, "NIR")
+        output_path = RGB_to_infrared(RGB_path, NIR_path, output_path, "NDWI")
+    elif img_type == "MNDWI":
+        SWIR_path = os.path.join(output_path, "SWIR")
+        output_path = RGB_to_infrared(RGB_path, SWIR_path, output_path, "MNDWI")
+    logger.info(f"output_path: {output_path}")
+    return output_path
 
 
 def get_five_band_imagery(
@@ -335,27 +363,93 @@ def download_url(url: str, save_path: str, chunk_size: int = 128):
                         pbar.update(len(chunk))
 
 
+def get_sorted_files_with_extension(
+    sample_direc: str, file_extensions: List[str]
+) -> List[str]:
+    """
+    Get a sorted list of paths to files that have one of the file_extensions.
+    It will return the first set of files that matches the first file_extension, so put the
+    file_extension list in order of priority
+
+    Args:
+        sample_direc: A string representing the directory path to search for images.
+        file_extensions: A list of file extensions to search for.
+
+    Returns:
+        A list of file paths for sample images found in the directory.
+
+    """
+    sample_filenames = []
+    for ext in file_extensions:
+        filenames = sorted(tf.io.gfile.glob(os.path.join(sample_direc, f"*{ext}")))
+        sample_filenames.extend(filenames)
+        if sample_filenames:
+            break
+    return sample_filenames
+
+
 class Zoo_Model:
     def __init__(self):
         self.weights_direc = None
 
-    def get_files_for_seg(self, sample_direc: str) -> list:
-        """Returns list of files to be segmented
+    def run_model(
+        self,
+        model_implementation: str,
+        src_directory: str,
+        model_name: str,
+        use_GPU: str,
+        use_otsu: bool,
+        use_tta: bool,
+    ):
+        logger.info(f"Selected directory of RGBs: {src_directory}")
+        logger.info(f"model_name: {model_name}")
+        logger.info(f"model_implementation: {model_implementation}")
+        logger.info(f"use_GPU: {use_GPU}")
+        logger.info(f"use_otsu: {use_otsu}")
+        logger.info(f"use_tta: {use_tta}")
+
+        self.download_model(model_implementation, model_name)
+        print("")
+        weights_list = self.get_weights_list(model_implementation)
+
+        # Load the model from the config files
+        model, model_list, config_files, model_types = self.get_model(weights_list)
+        metadatadict = self.get_metadatadict(weights_list, config_files, model_types)
+        logger.info(f"metadatadict: {metadatadict}")
+        # Compute the segmentation
+        self.compute_segmentation(
+            src_directory,
+            model_list,
+            metadatadict,
+            model_types,
+            use_tta,
+            use_otsu,
+        )
+
+    def get_files_for_seg(
+        self, sample_direc: str, avoid_patterns: List[str] = []
+    ) -> list:
+        """
+        Returns a list of files to be segmented.
+
+        The function reads in the image filenames as either (`.npz`) OR (`.jpg`, or `.png`)
+        and returns a sorted list of the file paths.
+
         Args:
-            sample_direc (str): directory containing files to be segmented
+        - sample_direc (str): The directory containing files to be segmented.
+        - avoid_patterns (List[str], optional): A list of file names to be avoided.Don't include any file extensions. Default is [].
 
         Returns:
-            list: files to be segmented
+        - list: A list of files to be segmented.
         """
-        # Read in the image filenames as either .npz,.jpg, or .png
-        sample_filenames = sorted(glob(sample_direc + os.sep + "*.*"))
+        logger.info(f"Searching directory for files: {sample_direc}")
+        file_extensions = [".npz", ".jpg", ".png"]
+        sample_filenames = get_sorted_files_with_extension(
+            sample_direc, file_extensions
+        )
+        # filter out files whose filenames match any of the avoid_patterns
+        sample_filenames = common.filter_files(sample_filenames, avoid_patterns)
         logger.info(f"files to seg: {sample_filenames}")
-        if sample_filenames[0].split(".")[-1] == "npz":
-            sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + "*.npz"))
-        else:
-            sample_filenames = sorted(tf.io.gfile.glob(sample_direc + os.sep + "*.jpg"))
-            if len(sample_filenames) == 0:
-                sample_filenames = sorted(glob(sample_direc + os.sep + "*.png"))
         return sample_filenames
 
     def compute_segmentation(
@@ -363,6 +457,7 @@ class Zoo_Model:
         sample_direc: str,
         model_list: list,
         metadatadict: dict,
+        model_types,
         use_tta: bool,
         use_otsu: bool,
     ):
@@ -371,12 +466,18 @@ class Zoo_Model:
         # Read in the image filenames as either .npz,.jpg, or .png
         files_to_segment = self.get_files_for_seg(sample_direc)
         logger.info(f"files_to_segment: {files_to_segment}")
+        if model_types[0] != "segformer":
+            ### mixed precision
+            from tensorflow.keras import mixed_precision
+
+            mixed_precision.set_global_policy("mixed_float16")
         # Compute the segmentation for each of the files
         for file_to_seg in tqdm.auto.tqdm(files_to_segment):
             do_seg(
                 file_to_seg,
                 model_list,
                 metadatadict,
+                model_types[0],
                 sample_direc=sample_direc,
                 NCLASSES=self.NCLASSES,
                 N_DATA_BANDS=self.N_DATA_BANDS,
@@ -505,10 +606,32 @@ class Zoo_Model:
                         num_layers=4,
                         strides=(1, 1),
                     )
+                elif MODEL == "satunet":
+                    model = simple_satunet(
+                        (self.TARGET_SIZE[0], self.TARGET_SIZE[1], self.N_DATA_BANDS),
+                        kernel=(2, 2),
+                        num_classes=self.NCLASSES,  # [NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        filters=FILTERS,
+                        num_layers=4,
+                        strides=(1, 1),
+                    )
+                elif MODEL == "segformer":
+                    id2label = {}
+                    for k in range(self.NCLASSES):
+                        id2label[k] = str(k)
+                    model = segformer(id2label, num_classes=self.NCLASSES)
+                    model.compile(optimizer="adam")
                 # 242,812
                 else:
                     raise Exception(
-                        f"An unknown model type {MODEL} was received. Please select a valid model."
+                        f"An unknown model type {MODEL} was received. Please select a valid model.\n \
+                        Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'"
                     )
 
                 # Load in the custom loss function from doodleverse_utils
