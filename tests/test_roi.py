@@ -128,7 +128,7 @@ def test_roi_from_bbox_and_shorelines(valid_bbox_gdf, valid_shoreline_gdf):
     assert set(actual_roi.gdf.columns) == set(["geometry", "id"])
     assert actual_roi.filename == "rois.geojson"
     assert hasattr(actual_roi, "extracted_shorelines")
-    assert hasattr(actual_roi, "cross_distance_transects")
+    assert hasattr(actual_roi, "cross_shore_distances")
     assert hasattr(actual_roi, "roi_settings")
 
 
@@ -196,7 +196,7 @@ def test_transect_compatible_roi(transect_compatible_roi: gpd.GeoDataFrame):
     assert actual_roi.gdf.dtypes["id"] == "object"
     assert actual_roi.filename == "rois.geojson"
     assert hasattr(actual_roi, "extracted_shorelines")
-    assert hasattr(actual_roi, "cross_distance_transects")
+    assert hasattr(actual_roi, "cross_shore_distances")
     assert hasattr(actual_roi, "roi_settings")
 
 
