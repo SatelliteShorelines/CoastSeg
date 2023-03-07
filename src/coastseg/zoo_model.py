@@ -536,6 +536,7 @@ class Zoo_Model:
                 TESTTIMEAUG=use_tta,
                 WRITE_MODELMETADATA=False,
                 OTSU_THRESHOLD=use_otsu,
+                profile="meta",
             )
 
     def get_model(self, weights_list: list):
