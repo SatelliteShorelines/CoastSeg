@@ -53,6 +53,8 @@ class UI:
         self.save_style = dict(button_color="#50bf8f")
         self.clear_stlye = dict(button_color="#a3adac")
 
+        self.session_name = ""
+
         # buttons to load configuration files
         self.load_configs_button = Button(
             description="Load Config", icon="fa-files-o", style=self.load_style
@@ -205,6 +207,41 @@ class UI:
 
         # when units radio button is clicked updated units for area textboxes
         self.units_radio.observe(units_radio_changed)
+
+    def set_session_name(self, name: str):
+        self.session_name = str(name).strip()
+
+    def get_session_name(
+        self,
+    ):
+        return self.session_name
+
+    def get_session_selection(self):
+        output = Output()
+        self.session_name_text = ipywidgets.Text(
+            value="",
+            placeholder="Enter a session name",
+            description="Session Name:",
+            disabled=False,
+            style={"description_width": "initial"},
+        )
+
+        enter_button = ipywidgets.Button(description="Enter")
+
+        @output.capture(clear_output=True)
+        def enter_clicked(btn):
+            session_name = str(self.session_name_text.value).strip()
+            session_path = common.create_directory(os.getcwd(), "sessions")
+            new_session_path = os.path.join(session_path, session_name)
+            if os.path.exists(new_session_path):
+                print(f"Session {session_name} already exists at {new_session_path}")
+            elif not os.path.exists(new_session_path):
+                print(f"Session {session_name} will be created at {new_session_path}")
+                self.set_session_name(session_name)
+
+        enter_button.on_click(enter_clicked)
+        session_name_controls = HBox([self.session_name_text, enter_button])
+        return VBox([session_name_controls, output])
 
     def get_session_selection(self):
         output = Output()

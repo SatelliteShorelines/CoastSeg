@@ -57,11 +57,47 @@ class UI_Models:
             "sat_NDWI_4class_7352859",
             "sat_NDWI_2class_7557072",
         ]
+        self.session_name = ""
 
         # Declare widgets and on click callbacks
         self._create_HTML_widgets()
         self._create_widgets()
         self._create_buttons()
+
+    def set_session_name(self, name: str):
+        self.session_name = str(name).strip()
+
+    def get_session_name(
+        self,
+    ):
+        return self.session_name
+
+    def get_session_selection(self):
+        output = Output()
+        self.session_name_text = ipywidgets.Text(
+            value="",
+            placeholder="Enter a session name",
+            description="Session Name:",
+            disabled=False,
+            style={"description_width": "initial"},
+        )
+
+        enter_button = ipywidgets.Button(description="Enter")
+
+        @output.capture(clear_output=True)
+        def enter_clicked(btn):
+            session_name = str(self.session_name_text.value).strip()
+            session_path = common.create_directory(os.getcwd(), "sessions")
+            new_session_path = os.path.join(session_path, session_name)
+            if os.path.exists(new_session_path):
+                print(f"Session {session_name} already exists at {new_session_path}")
+            elif not os.path.exists(new_session_path):
+                print(f"Session {session_name} will be created at {new_session_path}")
+                self.set_session_name(session_name)
+
+        enter_button.on_click(enter_clicked)
+        session_name_controls = HBox([self.session_name_text, enter_button])
+        return VBox([session_name_controls, output])
 
     def create_dashboard(self):
         model_choices_box = HBox(
@@ -81,6 +117,7 @@ class UI_Models:
         display(
             checkboxes,
             model_choices_box,
+            self.get_session_selection(),
             instr_vbox,
             self.use_select_images_button,
             self.line_widget,
@@ -243,6 +280,13 @@ class UI_Models:
             )
             return
         print("Running the model. Please wait.")
+        session_name = self.get_session_name()
+        if session_name == "":
+            self.launch_error_box(
+                "Cannot Run Model",
+                "Must enter a session name first",
+            )
+            return
         model_implementation = self.model_dict["implementation"]
         model_name = self.model_dict["model_type"]
         use_otsu = self.model_dict["otsu"]
@@ -257,15 +301,14 @@ class UI_Models:
         # convert RGB to MNDWI, NDWI,or 5 band
         output_type = self.model_input_dropdown.value
         logger.info(f"output_type: {output_type}")
-        if output_type != "RGB":
-            self.model_dict["sample_direc"] = zoo_model.get_imagery_directory(
-                output_type, RGB_path
-            )
-
+        self.model_dict["sample_direc"] = zoo_model.get_imagery_directory(
+            output_type, RGB_path
+        )
         print(f"Model outputs will be saved to {self.model_dict['sample_direc']}")
 
         zoo_model_instance.run_model(
             model_implementation,
+            session_name,
             self.model_dict["sample_direc"],
             model_name=model_name,
             use_GPU="0",

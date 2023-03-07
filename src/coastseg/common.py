@@ -573,19 +573,29 @@ def read_json_file(filename: str) -> dict:
     return data
 
 
-def find_config_json(search_path) -> bool:
+def find_config_json(search_path: str, search_pattern: str = None) -> str:
+    """Searches for a `config.json` file in the specified directory
+
+    Args:
+        search_path (str): the directory path to search for the `config.json` file
+
+    Returns:
+        str: the file path to the `config.json` file
+
+    Raises:
+        FileNotFoundError: if a `config.json` file is not found in the specified directory
+    """
     logger.info(f"searching directory for config.json: {search_path}")
+    if search_pattern == None:
+        search_pattern = r"^config\.json$"
+    config_regex = re.compile(search_pattern, re.IGNORECASE)
+    logger.info(f"search_pattern: {search_pattern}")
 
-    def use_regex(input_text):
-        pattern = re.compile(r"config.*\.json", re.IGNORECASE)
-        if pattern.match(input_text) is not None:
-            return True
-        return False
-
-    for item in os.listdir(search_path):
-        if use_regex(item):
-            logger.info(f"{item} matched regex")
-            return item
+    for file in os.listdir(search_path):
+        if config_regex.match(file):
+            logger.info(f"{file} matched regex")
+            file_path = os.path.join(search_path, file)
+            return file_path
 
     raise FileNotFoundError(f"config.json file was not found at {search_path}")
 

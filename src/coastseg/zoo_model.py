@@ -2,6 +2,7 @@ import os
 import glob
 import asyncio
 import platform
+import shutil
 import json
 import logging
 from typing import List
@@ -37,7 +38,9 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
     logger.info(f"img_type: {img_type}")
     logger.info(f"RGB_path: {RGB_path}")
     output_path = os.path.dirname(RGB_path)
-    if img_type == "RGB+MNDWI+NDWI":
+    if img_type == "RGB":
+        output_path = RGB_path
+    elif img_type == "RGB+MNDWI+NDWI":
         NIR_path = os.path.join(output_path, "NIR")
         NDWI_path = RGB_to_infrared(RGB_path, NIR_path, output_path, "NDWI")
         SWIR_path = os.path.join(output_path, "SWIR")
@@ -395,6 +398,7 @@ class Zoo_Model:
     def run_model(
         self,
         model_implementation: str,
+        session_name: str,
         src_directory: str,
         model_name: str,
         use_GPU: str,
@@ -402,6 +406,7 @@ class Zoo_Model:
         use_tta: bool,
     ):
         logger.info(f"Selected directory of RGBs: {src_directory}")
+        logger.info(f"session name: {session_name}")
         logger.info(f"model_name: {model_name}")
         logger.info(f"model_implementation: {model_implementation}")
         logger.info(f"use_GPU: {use_GPU}")
@@ -412,10 +417,45 @@ class Zoo_Model:
         print("")
         weights_list = self.get_weights_list(model_implementation)
 
+        sessions_path = common.create_directory(os.getcwd(), "sessions")
+        session_path = common.create_directory(sessions_path, session_name)
+
         # Load the model from the config files
         model, model_list, config_files, model_types = self.get_model(weights_list)
         metadatadict = self.get_metadatadict(weights_list, config_files, model_types)
         logger.info(f"metadatadict: {metadatadict}")
+
+        model_dict = {
+            "sample_direc": None,
+            "use_GPU": use_GPU,
+            "sample_direc": src_directory,
+            "implementation": model_implementation,
+            "model_type": model_name,
+            "otsu": False,
+            "tta": False,
+        }
+
+        # get the roi directory
+        parent_directory = src_directory
+        for _ in range(3):
+            parent_directory = os.path.dirname(parent_directory)
+        print(f"parent_directory : {parent_directory }")
+
+        search_pattern = r"config_gdf.*\.geojson"
+        config_gdf_path = common.find_config_json(parent_directory, search_pattern)
+        config_json_path = common.find_config_json(parent_directory, r"^config\.json$")
+
+        # copy config files to session directory
+        dst_file = os.path.join(session_path, "config_gdf.geojson")
+        logger.info(f"dst_config_gdf: {dst_file}")
+        shutil.copy(config_gdf_path, dst_file)
+        dst_file = os.path.join(session_path, "config.json")
+        logger.info(f"dst_config.json: {dst_file}")
+        shutil.copy(config_json_path, dst_file)
+
+        model_settings_path = os.path.join(sessions_path, "model_settings.json")
+        common.write_to_json(model_settings_path, model_dict)
+
         # Compute the segmentation
         self.compute_segmentation(
             src_directory,
@@ -425,6 +465,17 @@ class Zoo_Model:
             use_tta,
             use_otsu,
         )
+
+        outputs_path = os.path.join(src_directory, "out")
+        logger.info(f"Moving from {outputs_path} files to {session_path}")
+
+        if not os.path.exists(outputs_path):
+            logger.info(f"No model outputs were generated")
+            print(f"No model outputs were generated")
+            return
+
+        # copy files from out to session folder
+        common.move_files(outputs_path, session_path, delete_src=True)
 
     def get_files_for_seg(
         self, sample_direc: str, avoid_patterns: List[str] = []
