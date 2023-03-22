@@ -159,7 +159,7 @@ class UI_Models:
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
-            icon="fa-file-image-o",
+            icon="fa-tint",
         )
         self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
         
@@ -187,13 +187,13 @@ class UI_Models:
         # get session directory location
         # print("Correcting tides... please wait") 
         session_directory = self.session_directory
-        print(f"session_directory: {session_directory}")
+        logger.info(f"session_directory: {session_directory}")
         # get roi_id
         #@todo find a better way to load the roi id
         config_json_location = common.find_file_recurively(session_directory,'config.json')
         config = common.from_file(config_json_location)
         roi_id = config.get("roi_id","")
-        print(f"roi_id: {roi_id}")
+        logger.info(f"roi_id: {roi_id}")
 
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
@@ -446,7 +446,7 @@ class UI_Models:
     def select_session_button_clicked(self, button):
         # Prompt the user to select a directory of images
         file_chooser = common.create_dir_chooser(
-            self.selected_session_callback, title="Select directory of model outputs",starting_directory='sessions'
+            self.selected_session_callback, title="Select session directory",starting_directory='sessions'
         )
         # clear row and close all widgets in self.file_row before adding new file_chooser
         common.clear_row(self.file_row)
