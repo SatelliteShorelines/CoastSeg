@@ -473,42 +473,6 @@ def get_url_dict_to_download(models_json_dict: dict) -> dict:
     return url_dict
 
 
-def download_url(url: str, save_path: str, chunk_size: int = 128):
-    """Downloads the model from the given url to the save_path location.
-    Args:
-        url (str): url to model to download
-        save_path (str): directory to save model
-        chunk_size (int, optional):  Defaults to 128.
-    """
-    logger.info(f"url: {url}")
-    logger.info(f"save_path: {save_path}")
-    # make an HTTP request within a context manager
-    with requests.get(url, stream=True) as r:
-        # check header to get content length, in bytes
-        content_length = r.headers.get("Content-Length")
-        # raise an exception for error codes (4xx or 5xx)
-        r.raise_for_status()
-        if content_length is None:
-            with open(save_path, "wb") as fd:
-                for chunk in r.iter_content(chunk_size=chunk_size):
-                    fd.write(chunk)
-        elif content_length is not None:
-            content_length = int(content_length)
-            with open(save_path, "wb") as fd:
-                with tqdm.auto.tqdm(
-                    total=content_length,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc="Downloading Model",
-                    initial=0,
-                    ascii=True,
-                ) as pbar:
-                    for chunk in r.iter_content(chunk_size=chunk_size):
-                        fd.write(chunk)
-                        pbar.update(len(chunk))
-
-
 def get_sorted_files_with_extension(
     sample_direc: str, file_extensions: List[str]
 ) -> List[str]:
@@ -1149,10 +1113,10 @@ class Zoo_Model:
         logger.info(f"model_path for BEST_MODEL.txt: {BEST_MODEL_txt_path}")
         # if best BEST_MODEL.txt file not exist then download it
         if not os.path.isfile(BEST_MODEL_txt_path):
-            download_url(
+            common.download_url(
                 best_model_json["links"]["self"],
                 BEST_MODEL_txt_path,
-                progress_bar_name="Downloading best_model.txt"
+                "Downloading best_model.txt"
             )
         
         with open(BEST_MODEL_txt_path, "r") as f:
