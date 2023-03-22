@@ -164,11 +164,11 @@ class Shoreline:
             hover_style={"color": "white", "dashArray": "4", "fillOpacity": 0.7},
         )
 
-    def download_shoreline(self, filename: str, dataset_id: str = "6917358"):
+    def download_shoreline(self, filename: str, dataset_id: str = "7761607"):
         """Downloads the shoreline file from zenodo
         Args:
             filename (str): name of file to download
-            dataset_id (str, optional): zenodo id of file. Defaults to '6917358'."""
+            dataset_id (str, optional): zenodo id of file. Defaults to '7761607'."""
         root_url = "https://zenodo.org/record/" + dataset_id + "/files/"
         # Create the directory to hold the downloaded shorelines from Zenodo
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -198,7 +198,7 @@ class Shoreline:
             dict: intersecting_files containing filenames whose contents intersect with bbox
         """
         WORLD_DATASET_ID = "6917963"
-        USA_DATASET_ID = "7033367"
+        USA_DATASET_ID = "7761607"
         # filenames where transects/shoreline's bbox intersect bounding box drawn by user
         intersecting_files = {}
         # dataframe containing total bounding box for each shoreline file
