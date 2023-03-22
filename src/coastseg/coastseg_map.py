@@ -949,16 +949,8 @@ class CoastSeg_Map:
             )
             logger.info(f"ROI: {roi_id} cross distance is 0")
             return
-        cross_distance_df = common.get_cross_distance_df(
-            extracted_shorelines, cross_distance_transects
-        )
-        logger.info(f"ROI: {roi_id} cross_distance_df : {cross_distance_df}")
-
-        filepath = os.path.join(session_path, "transect_time_series.csv")
-        if os.path.exists(filepath):
-            print(f"Overwriting:{filepath}")
-            os.remove(filepath)
-        cross_distance_df.to_csv(filepath, sep=",")
+        
+        filepath = common.save_transect_intersections(session_path,extracted_shorelines, cross_distance_transects)
         print(
             f"ROI: {roi_id} Time-series of the shoreline change along the transects saved as:{filepath}"
         )
@@ -1028,6 +1020,7 @@ class CoastSeg_Map:
         session_name = self.get_session_name()
         for roi_id in roi_ids:
             ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
+            # create session directory
             session_path = common.get_session_path(session_name, ROI_directory)
             # save source data
             self.save_config(session_path)
@@ -1038,35 +1031,7 @@ class CoastSeg_Map:
                 logger.info(f"No extracted shorelines for ROI: {roi_id}")
                 continue
             # move extracted shoreline figures to session directory
-            data_path = extracted_shoreline.shoreline_settings["inputs"]["filepath"]
-            sitename = extracted_shoreline.shoreline_settings["inputs"]["sitename"]
-            extracted_shoreline_figure_path = os.path.join(
-                data_path, sitename, "jpg_files", "detection"
-            )
-            logger.info(
-                f"extracted_shoreline_figure_path: {extracted_shoreline_figure_path}"
-            )
-
-            if os.path.exists(extracted_shoreline_figure_path):
-                dst_path = os.path.join(session_path, "jpg_files", "detection")
-                logger.info(f"dst_path : {dst_path }")
-                common.move_files(
-                    extracted_shoreline_figure_path, dst_path, delete_src=True
-                )
-
-            extracted_shoreline.to_file(
-                session_path, "extracted_shorelines.geojson", extracted_shoreline.gdf
-            )
-            extracted_shoreline.to_file(
-                session_path,
-                "shoreline_settings.json",
-                extracted_shoreline.shoreline_settings,
-            )
-            extracted_shoreline.to_file(
-                session_path,
-                "extracted_shorelines_dict.json",
-                extracted_shoreline.dictionary,
-            )
+            common.save_extracted_shorelines(extracted_shoreline,session_path)
 
             # save transects to session folder
             if save_transects:

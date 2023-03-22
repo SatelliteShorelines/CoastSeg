@@ -6,6 +6,7 @@ import logging
 # internal python imports
 from coastseg import common
 from coastseg import zoo_model
+from coastseg import settings_UI
 
 # external python imports
 import ipywidgets
@@ -31,6 +32,8 @@ class UI_Models:
     run_model_view = Output(layout={"border": "1px solid black"})
 
     def __init__(self):
+        self.settings_dashboard = settings_UI.Settings_UI()
+        self.zoo_model_instance = zoo_model.Zoo_Model()
         # Controls size of ROIs generated on map
         self.model_dict = {
             "sample_direc": None,
@@ -58,11 +61,16 @@ class UI_Models:
             "sat_NDWI_2class_7557072",
         ]
         self.session_name = ""
+        self.session_directory = ""
 
         # Declare widgets and on click callbacks
         self._create_HTML_widgets()
         self._create_widgets()
         self._create_buttons()
+ 
+
+    def get_model_instance(self):
+        return self.zoo_model_instance
 
     def set_session_name(self, name: str):
         self.session_name = str(name).strip()
@@ -110,11 +118,14 @@ class UI_Models:
                 self.line_widget,
                 self.instr_select_images,
                 self.instr_run_model,
+                self.select_model_session_button,
+                self.extract_shorelines_button,
             ]
         )
         self.file_row = HBox([])
         self.warning_row = HBox([])
         display(
+            self.settings_dashboard.render(),
             checkboxes,
             model_choices_box,
             self.get_session_selection(),
@@ -126,7 +137,6 @@ class UI_Models:
             UI_Models.model_view,
             self.run_model_button,
             UI_Models.run_model_view,
-            self.open_results_button,
         )
 
     def _create_widgets(self):
@@ -184,18 +194,25 @@ class UI_Models:
         )
         self.run_model_button.on_click(self.run_model_button_clicked)
 
+        self.extract_shorelines_button = Button(
+            description="Extract Shorelines", style=action_style
+        )
+        self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
+
         self.use_select_images_button = Button(
             description="Select Images",
             style=load_style,
             icon="fa-file-image-o",
         )
         self.use_select_images_button.on_click(self.use_select_images_button_clicked)
-        self.open_results_button = Button(
-            description="Open Results",
+
+        self.select_model_session_button = Button(
+            description="Select Model Session",
             style=load_style,
-            icon="folder-open-o",
+            icon="fa-file-image-o",
         )
-        self.open_results_button.on_click(self.open_results_button_clicked)
+        self.select_model_session_button.on_click(self.select_session_button_clicked)
+
 
     def _create_HTML_widgets(self):
         """create HTML widgets that display the instructions.
@@ -273,13 +290,14 @@ class UI_Models:
 
     @run_model_view.capture(clear_output=True)
     def run_model_button_clicked(self, button):
+        # user must have selected imagery first
         if self.model_dict["sample_direc"] is None:
             self.launch_error_box(
                 "Cannot Run Model",
                 "You must click 'Select Images' first",
             )
             return
-        print("Running the model. Please wait.")
+        # user must have selected imagery first
         session_name = self.get_session_name()
         if session_name == "":
             self.launch_error_box(
@@ -287,82 +305,74 @@ class UI_Models:
                 "Must enter a session name first",
             )
             return
-        model_implementation = self.model_dict["implementation"]
-        model_name = self.model_dict["model_type"]
-        use_otsu = self.model_dict["otsu"]
-        use_tta = self.model_dict["tta"]
-
-        zoo_model_instance = zoo_model.Zoo_Model()
-
-        # get full path to directory named 'RGB' containing RGBs
-        RGB_path = common.find_directory_recurively(self.model_dict["sample_direc"],name='RGB')
-        self.model_dict["sample_direc"] = RGB_path
-
-        # convert RGB to MNDWI, NDWI,or 5 band
-        output_type = self.model_input_dropdown.value
-        logger.info(f"output_type: {output_type}")
-        self.model_dict["sample_direc"] = zoo_model.get_imagery_directory(
-            output_type, RGB_path
-        )
-        print(f"Model outputs will be saved to {self.model_dict['sample_direc']}")
+        print("Running the model. Please wait.")
+        zoo_model_instance =  self.get_model_instance()
+        img_type = self.model_input_dropdown.value
 
         zoo_model_instance.run_model(
-            model_implementation,
+            img_type,
+            self.model_dict["implementation"],
             session_name,
             self.model_dict["sample_direc"],
-            model_name=model_name,
+            model_name=self.model_dict["model_type"],
             use_GPU="0",
-            use_otsu=use_otsu,
-            use_tta=use_tta,
+            use_otsu=self.model_dict["otsu"],
+            use_tta=self.model_dict["tta"],
         )
 
     @run_model_view.capture(clear_output=True)
-    def open_results_button_clicked(self, button):
-        """open_results_button_clicked on click handler for 'open results' button.
-
-        prints location of model outputs
-
-        Args:
-            button (Button): button that was clicked
-
-        Raises:
-            FileNotFoundError: raised when the directory where the model outputs are saved does not exist
-        """
-        if self.model_dict["sample_direc"] is None:
+    def extract_shorelines_button_clicked(self, button):
+        # user must have selected imagery first
+        session_name = self.get_session_name()
+        if session_name == "":
             self.launch_error_box(
-                "Cannot Open Results", "You must click 'Run Model' first"
+                "Cannot Extract Shorelines",
+                "Must enter a session name first",
             )
-        else:
-            # path to directory containing model outputs
-            model_results_path = os.path.abspath(self.model_dict["sample_direc"])
-            if not os.path.exists(model_results_path):
-                self.launch_error_box(
-                    "File Not Found",
-                    "The directory for the model outputs could not be found",
-                )
-                raise FileNotFoundError
-            else:
-                print(f"Model outputs located at:\n{model_results_path}")
+            return
+        # must select a directory of model outputs
+        if self.session_directory == "":
+            self.launch_error_box(
+                "Cannot Extract Shorelines",
+                "Must click select model session first",
+            )
+            return  
+        print("Running the model. Please wait.")
+        shoreline_settings=self.settings_dashboard.get_settings()
+        # get session directory location
+        session_directory = self.session_directory
+        zoo_model_instance =  self.get_model_instance()
+        # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
+        zoo_model_instance.extract_shorelines(shoreline_settings,session_directory,session_name)
+
+
 
     @model_view.capture(clear_output=True)
     def load_callback(self, filechooser: FileChooser) -> None:
         if filechooser.selected:
-            sample_direc = os.path.abspath(filechooser.selected)
-            print(f"The images in the folder will be segmented :\n{sample_direc} ")
-            jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
-            if jpgs == []:
-                self.launch_error_box(
-                    "File Not Found",
-                    "The directory contains no jpgs! Please select a directory with jpgs.",
-                )
-            elif jpgs != []:
-                self.model_dict["sample_direc"] = sample_direc
+            self.model_dict["sample_direc"] = os.path.abspath(filechooser.selected)
+
+    @model_view.capture(clear_output=True)
+    def selected_session_callback(self, filechooser: FileChooser) -> None:
+        if filechooser.selected:
+            self.session_directory = os.path.abspath(filechooser.selected)
 
     @model_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
         # Prompt the user to select a directory of images
         file_chooser = common.create_dir_chooser(
             self.load_callback, title="Select directory of images"
+        )
+        # clear row and close all widgets in self.file_row before adding new file_chooser
+        common.clear_row(self.file_row)
+        # add instance of file_chooser to self.file_row
+        self.file_row.children = [file_chooser]
+
+    @model_view.capture(clear_output=True)
+    def select_session_button_clicked(self, button):
+        # Prompt the user to select a directory of images
+        file_chooser = common.create_dir_chooser(
+            self.selected_session_callback, title="Select directory of model outputs",starting_directory='sessions'
         )
         # clear row and close all widgets in self.file_row before adding new file_chooser
         common.clear_row(self.file_row)

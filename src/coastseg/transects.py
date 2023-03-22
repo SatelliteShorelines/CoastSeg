@@ -51,6 +51,10 @@ class Transects:
         Returns:
             gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs
         """
+        columns_to_drop = list(
+                set(bbox.columns) - set([ "geometry"])
+            )
+        bbox.drop(columns_to_drop, axis=1, inplace=True)
         # geodataframe to hold all transects in bbox
         all_transects_in_bbox_gdf = gpd.GeoDataFrame()
         intersecting_transect_files = self.get_intersecting_files(bbox)

@@ -2,11 +2,18 @@ import os
 import glob
 import asyncio
 import platform
-import shutil
 import json
 import logging
 from typing import List
+import pathlib
+import shutil
+
+from coastseg import transects
+from coastsat import SDS_transects
 from coastseg import common
+from coastseg import downloads
+from coastseg import sessions
+
 import requests
 import skimage
 import aiohttp
@@ -33,10 +40,84 @@ import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
+def get_files_to_download(available_files: List[dict], filenames: List[str], model_id: str, model_path: str) -> dict:
+    """Constructs a dictionary of file paths and their corresponding download links, based on the available files and a list of desired filenames.
+
+    Args:
+    - available_files: A list of dictionaries representing the metadata of available files, including the file key and download links.
+    - filenames: A list of strings representing the desired filenames.
+    - model_id: A string representing the ID of the model being downloaded.
+    - model_path: A string representing the path to the directory where the files will be downloaded.
+
+    Returns:
+    A dictionary with file paths as keys and their corresponding download links as values.
+    Raises a ValueError if any of the desired filenames are not available in the available_files list.
+    """
+    if  isinstance(filenames,str):
+        filenames=[filenames]
+    url_dict={}
+    for filename in filenames:
+        response = next((f for f in available_files if f["key"] == filename), None)
+        if response is None:
+            raise ValueError(f"Cannot find {filename} at {model_id}")
+        link = response["links"]["self"]
+        file_path = os.path.join(model_path,filename)
+        url_dict[file_path] = link
+    return url_dict
+
+def check_if_files_exist(files_dict: dict) -> dict:
+    """Checks if each file in a given dictionary of file paths and download links already exists in the local filesystem.
+
+    Args:
+    - files_dict: A dictionary with file paths as keys and their corresponding download links as values.
+
+    Returns:
+    A dictionary with file paths as keys and their corresponding download links as values, for any files that do not exist in the local filesystem.
+    """
+    url_dict = {}
+    for save_path, link in files_dict.items():
+        if not os.path.isfile(save_path):
+            url_dict[save_path] = link
+    return url_dict
+
+
+def get_zenodo_release(zenodo_id: str) -> dict:
+    """
+    Retrieves the JSON data for the Zenodo release with the given ID.
+    """
+    root_url = f"https://zenodo.org/api/records/{zenodo_id}"
+    response = requests.get(root_url)
+    response.raise_for_status()
+    return response.json()
+
 
 def get_imagery_directory(img_type: str, RGB_path: str) -> str:
+    """
+    Returns directory of the newly created imagery. Available imagery conversions:
+
+    1. 'NDWI' for 'NIR'
+    2. 'MNDWI' for 'SWIR'
+    3. 'RGB+MNDWI+NDWI' for 'RGB','NIR','SWIR'
+    4. 'RGB' for 'RGB'
+
+    Note:
+        Directories containing 'NIR','NIR' and 'RGB' imagery must be at the same level as the 'RGB' imagery.
+        ex.
+        home/
+            RGB
+            NIR
+            SWIR
+    
+    Args:
+        img_type (str): The type of imagery to generate. Available options: 'RGB', 'NDWI', 'MNDWI',or 'RGB+MNDWI+NDWI'
+        RGB_path (str): The path to the RGB imagery directory.
+        
+    Returns:
+        str: The path to the output directory for the specified imagery type.
+    """
     logger.info(f"img_type: {img_type}")
     logger.info(f"RGB_path: {RGB_path}")
+    img_type= img_type.upper()
     output_path = os.path.dirname(RGB_path)
     if img_type == "RGB":
         output_path = RGB_path
@@ -56,6 +137,8 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
     elif img_type == "MNDWI":
         SWIR_path = os.path.join(output_path, "SWIR")
         output_path = RGB_to_infrared(RGB_path, SWIR_path, output_path, "MNDWI")
+    else:
+        raise ValueError(f"{img_type} not reconigzed as one of the valid types 'RGB', 'NDWI', 'MNDWI',or 'RGB+MNDWI+NDWI'")
     logger.info(f"output_path: {output_path}")
     return output_path
 
@@ -130,7 +213,7 @@ def get_files(RGB_dir_path: str, img_dir_path: str):
 def RGB_to_infrared(
     RGB_path: str, infrared_path: str, output_path: str, output_type: str
 ) -> None:
-    """Converts two directories of RGB and NIR imagery to NDWI imagery in a directory named
+    """Converts two directories of RGB and (NIR/SWIR) imagery to (NDWI/MNDWI) imagery in a directory named
      'NDWI' created at output_path.
      imagery saved as jpg
 
@@ -155,7 +238,7 @@ def RGB_to_infrared(
     # matrix:bands(RGB) x number of samples(NIR)
     files = get_files(RGB_path, infrared_path)
     # output_path: directory to store MNDWI or NDWI outputs
-    output_path += os.sep + output_type.upper()
+    output_path = os.path.join(output_path,output_type.upper())
     logger.info(f"output_path {output_path}")
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -393,10 +476,227 @@ def get_sorted_files_with_extension(
 
 class Zoo_Model:
     def __init__(self):
-        self.weights_direc = None
+        self.weights_directory = None
+        self.model_types = []
+        self.model_list = []
+        self.metadata_dict = {}
+        self.settings = {}
+        # create default settings
+        self.set_settings()
+
+    def set_settings(self, **kwargs):
+        """
+        Saves the settings for downloading data by updating the `self.settings` dictionary with the provided key-value pairs.
+        If any of the keys are missing, they will be set to their default value as specified in `default_settings`.
+
+        Example: set_settings(sat_list=sat_list, dates=dates,**more_settings)
+
+        Args:
+        **kwargs: Keyword arguments representing the key-value pairs to be added to or updated in `self.settings`.
+
+        Returns:
+        None
+        """
+        # Check if any of the keys are missing
+        # if any keys are missing set the default value
+        default_settings = {
+            "cloud_thresh": 0.5,  # threshold on maximum cloud cover
+            "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+            "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
+            "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
+            # minimum area (in metres^2) for an object to be labelled as a beach
+            "min_beach_area": 4500,
+            # minimum length (in metres) of shoreline perimeter to be valid
+            "min_length_sl": 100,
+            # switch this parameter to True if sand pixels are masked (in black) on many images
+            "cloud_mask_issue": False,
+            # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+            "sand_color": "default",
+            "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+            "max_dist_ref": 25,
+            "along_dist": 25,  # along-shore distance to use for computing the intersection
+            "min_points": 3,  # minimum number of shoreline points to calculate an intersection
+            "max_std": 15,  # max std for points around transect
+            "max_range": 30,  # max range for points around transect
+            "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
+            "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
+            "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
+        }
+        if kwargs:
+            self.settings.update({key: value for key, value in kwargs.items()})
+        self.settings.update(
+            {
+                key: default_settings[key]
+                for key in default_settings
+                if key not in self.settings
+            }
+        )
+        logger.info(f"Settings: {self.settings}")
+
+    def get_settings(self):
+        SETTINGS_NOT_FOUND = (
+            "No settings found. Click save settings or load a config file."
+        )
+        logger.info(f"self.settings: {self.settings}")
+        if self.settings is None or self.settings == {}:
+            raise Exception(SETTINGS_NOT_FOUND)
+        return self.settings
+
+
+    def preprocess_data(self, src_directory:str, model_dict:dict,img_type:str)->dict:
+        """
+        Preprocesses the data in the source directory and updates the model dictionary with the processed data.
+
+        Args:
+            src_directory (str): The path to the source directory containing the ROI's data
+            model_dict (dict): The dictionary containing the model configuration and parameters.
+            img_type (str): The type of imagery to generate. Must be one of "RGB", "NDWI", "MNDWI", or "RGB+MNDWI+NDWI".
+
+        Returns:
+            dict: The updated model dictionary containing the paths to the processed data.
+        """
+        logger.info(f"img_type: {img_type}")
+        # get full path to directory named 'RGB' containing RGBs
+        RGB_path = common.find_directory_recurively( src_directory,name='RGB')
+        # convert RGB to MNDWI, NDWI,or 5 band
+        model_dict["sample_direc"] = get_imagery_directory(
+            img_type, RGB_path
+        )
+        logger.info(f"model_dict: {model_dict}")
+        return model_dict
+
+
+
+    def extract_shorelines(self,extract_shoreline_settings:dict,session_path:str,session_name:str)->None:
+        logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
+        self.set_settings(**extract_shoreline_settings)
+        extract_shoreline_settings = self.get_settings()
+        # create session path to store extracted shorelines and transects
+        sessions_path = common.create_directory(os.getcwd(), "sessions")
+        new_session_path = common.create_directory(sessions_path, session_name)
+        config_json_location = common.find_file_recurively(session_path,'config.json')
+        config_geojson_location = common.find_file_recurively(session_path,'config_gdf.geojson')
+        model_settings_location =common.find_file_recurively(session_path,'model_settings.json')
+        logger.info(f"config_geojson_location: {config_geojson_location}")
+        # read source directory from model settings
+        model_settings = common.from_file(model_settings_location)
+        source_directory = model_settings['sample_direc']
+        # load roi settings from the config file
+        roi_id = common.extract_roi_id(source_directory)
+        config = common.from_file(config_json_location)
+        roi_settings=config.get(roi_id,{})
+        logger.info(f"roi_settings: {roi_settings}")
+        if roi_settings == {}:
+            raise ValueError(f"{roi_id} roi settings did not exist")
+        # read ROI from config geojson file
+        config_gdf = common.read_gpd_file(config_geojson_location)
+        roi_gdf = config_gdf[config_gdf['id']==roi_id]
+        if roi_gdf.empty:
+            raise ValueError(f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}")
+        # load shorelines for ROI
+        from coastseg import shoreline
+        shoreline_for_roi = shoreline.Shoreline(roi_gdf)
+        from coastseg import extracted_shoreline
+        extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
+        # extract shorelines with most accurate crs
+        new_espg = common.get_most_accurate_epsg(extract_shoreline_settings, roi_gdf)
+        extract_shoreline_settings['output_epsg']=new_espg
+        self.set_settings(output_epsg=new_espg)
+
+        extracted_shorelines = extracted_shorelines.create_extracted_shorlines_from_session(
+            roi_id,
+            shoreline_for_roi.gdf,
+            roi_settings,
+            extract_shoreline_settings,
+            session_path,
+        )
+
+        # load transects for ROI
+        transects_in_roi=transects.Transects(roi_gdf)
+        # convert transects gdf to output crs
+        output_epsg = extract_shoreline_settings['output_epsg']
+        transects_gdf = transects_in_roi.gdf[["id", "geometry"]]
+        transects_gdf = transects_gdf.to_crs(output_epsg)
+        # compute intersection between extracted shorelines and transects
+        transects_dict = common.get_transect_points_dict(transects_gdf)
+        cross_distance_transects = SDS_transects.compute_intersection_QC(
+                    extracted_shorelines.dictionary, transects_dict, extract_shoreline_settings
+        )
+        print(f"cross_distance: {cross_distance_transects}")
+        # move all these files over the session directory 
+        common.save_extracted_shorelines(extracted_shorelines,new_session_path)
+        filepath = common.save_transect_intersections(new_session_path,extracted_shorelines.dictionary, cross_distance_transects)
+        # save csv per transect
+        #@todo
+        config_json = common.create_json_config(roi_settings, extract_shoreline_settings)
+        common.config_to_file(config_json, new_session_path)
+        config_gdf = common.create_config_gdf(roi_gdf,extracted_shorelines.gdf,transects_in_roi.gdf)
+        common.config_to_file(config_gdf, new_session_path)
+        model_settings_path = os.path.join(new_session_path, "model_settings.json")
+        shutil.copy(model_settings_location, model_settings_path)
+
+
+    def postprocess_data(self,preprocessed_data:dict,session:sessions.Session,src_directory):
+        # get roi_ids
+        session_path = session.path
+        outputs_path = os.path.join(preprocessed_data['sample_direc'],'out')
+        if not os.path.exists(outputs_path):
+            logger.warning(f"No model outputs were generated")
+            print(f"No model outputs were generated")
+            return
+        logger.info(f"Moving from {outputs_path} files to {session_path}")
+
+        common.copy_configs(src_directory,session_path)
+        model_settings_path = os.path.join(session_path, "model_settings.json")
+        common.write_to_json(model_settings_path, preprocessed_data)
+        
+        # copy files from out to session folder
+        common.move_files(outputs_path, session_path, delete_src=True)
+        session.save(session.path)
+
+
+    def prepare_model(self,
+                      model_implementation: str,
+                      model_id:str):
+        """
+        Prepares the model for use by downloading the required files and loading the model.
+        
+        Args:
+            model_implementation (str): The model implementation either 'BEST' or 'ENSEMBLE'
+            model_id (str): The ID of the model.
+        """
+        # create the model directory
+        self.weights_directory = self.get_model_directory(model_id)
+        logger.info(f"self.weights_directory:{self.weights_directory}")
+        
+        self.download_model(model_implementation, model_id,self.weights_directory)
+        weights_list = self.get_weights_list(model_implementation)
+
+        # Load the model from the config files
+        model, model_list, config_files, model_types = self.get_model(weights_list)
+
+        self.model_types = model_types
+        self.model_list = model_list
+        self.metadata_dict = self.get_metadatadict(weights_list, config_files, model_types)
+        logger.info(f"self.metadatadict: {self.metadata_dict}")
+
+    def get_metadatadict(
+        self, weights_list: list, config_files: list, model_types: list
+    )->dict:
+        metadatadict = {}
+        metadatadict["model_weights"] = weights_list
+        metadatadict["config_files"] = config_files
+        metadatadict["model_types"] = model_types
+        return metadatadict
+
+    def get_classes(self,model_directory_path:str):
+        class_path= os.path.join(model_directory_path,"classes.txt")
+        classes = common.read_text_file(class_path)
+        return classes
 
     def run_model(
         self,
+        img_type:str,
         model_implementation: str,
         session_name: str,
         src_directory: str,
@@ -413,69 +713,40 @@ class Zoo_Model:
         logger.info(f"use_otsu: {use_otsu}")
         logger.info(f"use_tta: {use_tta}")
 
-        self.download_model(model_implementation, model_name)
-        print("")
-        weights_list = self.get_weights_list(model_implementation)
-
-        sessions_path = common.create_directory(os.getcwd(), "sessions")
-        session_path = common.create_directory(sessions_path, session_name)
-
-        # Load the model from the config files
-        model, model_list, config_files, model_types = self.get_model(weights_list)
-        metadatadict = self.get_metadatadict(weights_list, config_files, model_types)
-        logger.info(f"metadatadict: {metadatadict}")
-
+        self.prepare_model(model_implementation,model_name)
         model_dict = {
             "sample_direc": None,
             "use_GPU": use_GPU,
             "sample_direc": src_directory,
             "implementation": model_implementation,
             "model_type": model_name,
-            "otsu": False,
-            "tta": False,
+            "otsu": use_otsu,
+            "tta": use_tta,
         }
+        logger.info(f"model_dict: {model_dict}")
+        # create a session
+        session = sessions.Session()
+        sessions_path = common.create_directory(os.getcwd(), "sessions")
+        session_path = common.create_directory(sessions_path, session_name)
 
-        # get the roi directory
-        parent_directory = src_directory
-        for _ in range(3):
-            parent_directory = os.path.dirname(parent_directory)
-        print(f"parent_directory : {parent_directory }")
+        session.path = session_path
+        session.name = session_name
 
-        search_pattern = r"config_gdf.*\.geojson"
-        config_gdf_path = common.find_config_json(parent_directory, search_pattern)
-        config_json_path = common.find_config_json(parent_directory, r"^config\.json$")
+        preprocessed_data=self.preprocess_data(src_directory,model_dict,img_type)
 
-        # copy config files to session directory
-        dst_file = os.path.join(session_path, "config_gdf.geojson")
-        logger.info(f"dst_config_gdf: {dst_file}")
-        shutil.copy(config_gdf_path, dst_file)
-        dst_file = os.path.join(session_path, "config.json")
-        logger.info(f"dst_config.json: {dst_file}")
-        shutil.copy(config_json_path, dst_file)
-
-        model_settings_path = os.path.join(sessions_path, "model_settings.json")
-        common.write_to_json(model_settings_path, model_dict)
-
-        # Compute the segmentation
         self.compute_segmentation(
-            src_directory,
-            model_list,
-            metadatadict,
-            model_types,
-            use_tta,
-            use_otsu,
+            preprocessed_data,
         )
+        self.postprocess_data(preprocessed_data,session,src_directory)
+        # save session data after postprocessing data
+        session.save(session_path)
 
-        outputs_path = os.path.join(src_directory, "out")
-        logger.info(f"Moving from {outputs_path} files to {session_path}")
 
-        if not os.path.exists(outputs_path):
-            logger.info(f"No model outputs were generated")
-            print(f"No model outputs were generated")
-            return
-
-        # copy files from out to session folder
-        common.move_files(outputs_path, session_path, delete_src=True)
+    def get_model_directory(self,model_id:str):
+        # Create a directory to hold the downloaded models
+        downloaded_models_path = self.get_downloaded_models_dir()
+        model_directory = common.create_directory(downloaded_models_path,model_id)
+        return model_directory
 
     def get_files_for_seg(
         self, sample_direc: str, avoid_patterns: List[str] = []
@@ -505,30 +776,25 @@ class Zoo_Model:
 
     def compute_segmentation(
         self,
-        sample_direc: str,
-        model_list: list,
-        metadatadict: dict,
-        model_types,
-        use_tta: bool,
-        use_otsu: bool,
+        preprocessed_data:dict,
     ):
-        logger.info(f"Test Time Augmentation: {use_tta}")
-        logger.info(f"Otsu Threshold: {use_otsu}")
-        # Read in the image filenames as either .npz,.jpg, or .png
+        sample_direc = preprocessed_data['sample_direc']
+        use_tta = preprocessed_data['tta']
+        use_otsu = preprocessed_data['otsu']
+        # Create list of files of types .npz,.jpg, or .png to run model on
         files_to_segment = self.get_files_for_seg(sample_direc)
         logger.info(f"files_to_segment: {files_to_segment}")
-        if model_types[0] != "segformer":
+        if self.model_types[0] != "segformer":
             ### mixed precision
             from tensorflow.keras import mixed_precision
-
             mixed_precision.set_global_policy("mixed_float16")
         # Compute the segmentation for each of the files
         for file_to_seg in tqdm.auto.tqdm(files_to_segment):
             do_seg(
                 file_to_seg,
-                model_list,
-                metadatadict,
-                model_types[0],
+                self.model_list,
+                self.metadata_dict,
+                self.model_types[0],
                 sample_direc=sample_direc,
                 NCLASSES=self.NCLASSES,
                 N_DATA_BANDS=self.N_DATA_BANDS,
@@ -548,10 +814,10 @@ class Zoo_Model:
         for weights in weights_list:
             # "fullmodel" is for serving on zoo they are smaller and more portable between systems than traditional h5 files
             # gym makes a h5 file, then you use gym to make a "fullmodel" version then zoo can read "fullmodel" version
-            configfile = weights.replace(".h5", ".json").replace("weights", "config")
-            if "fullmodel" in configfile:
-                configfile = configfile.replace("_fullmodel", "")
-            with open(configfile) as f:
+            config_file = weights.replace(".h5", ".json").replace("weights", "config")
+            if "fullmodel" in config_file:
+                config_file = config_file.replace("_fullmodel", "")
+            with open(config_file) as f:
                 config = json.load(f)
             self.TARGET_SIZE = config.get("TARGET_SIZE")
             MODEL = config.get("MODEL")
@@ -693,25 +959,71 @@ class Zoo_Model:
 
                 model.load_weights(weights)
 
-            model_types.append(MODEL)
-            model_list.append(model)
-            config_files.append(configfile)
+            self.model_types.append(MODEL)
+            self.model_list.append(model)
+            config_files.append(config_file)
 
-        return model, model_list, config_files, model_types
+        return model, self.model_list, config_files, self.model_types
 
     def get_metadatadict(
         self, weights_list: list, config_files: list, model_types: list
-    ):
+    )->dict:
+        """Returns a dictionary containing metadata about the models.
+
+        Args:
+            weights_list (list): A list of model weights.
+            config_files (list): A list of model configuration files.
+            model_types (list): A list of model types.
+
+        Returns:
+            dict: A dictionary containing metadata about the models. The keys
+            are 'model_weights', 'config_files', and 'model_types', and the
+            values are the corresponding input lists.
+
+        Example:
+            weights = ['weights1.h5', 'weights2.h5']
+            configs = ['config1.json', 'config2.json']
+            types = ['unet', 'resunet']
+            metadata = get_metadatadict(weights, configs, types)
+            print(metadata)
+            # Output: {'model_weights': ['weights1.h5', 'weights2.h5'],
+            #          'config_files': ['config1.json', 'config2.json'],
+            #          'model_types': ['unet', 'resunet']}
+        """
         metadatadict = {}
         metadatadict["model_weights"] = weights_list
         metadatadict["config_files"] = config_files
         metadatadict["model_types"] = model_types
         return metadatadict
 
-    def get_weights_list(self, model_choice: str = "ENSEMBLE"):
-        """Returns of the weights files(.h5) within weights_direc"""
+    def get_weights_list(self, model_choice: str = "ENSEMBLE") -> List[str]:
+        """Returns a list of the model weights files (.h5) within the weights directory.
+
+        Args:
+            model_choice (str, optional): The type of model weights to return.
+                Valid choices are 'ENSEMBLE' (default) to return all available
+                weights files or 'BEST' to return only the best model weights file.
+
+        Returns:
+            list: A list of strings representing the file paths to the model weights
+            files in the weights directory.
+
+        Raises:
+            FileNotFoundError: If the BEST_MODEL.txt file is not found in the weights directory.
+
+        Example:
+            trainer = ModelTrainer(weights_direc='/path/to/weights')
+            weights_list = trainer.get_weights_list(model_choice='ENSEMBLE')
+            print(weights_list)
+            # Output: ['/path/to/weights/model1.h5', '/path/to/weights/model2.h5', ...]
+
+            best_weights_list = trainer.get_weights_list(model_choice='BEST')
+            print(best_weights_list)
+            # Output: ['/path/to/weights/best_model.h5']
+        """
         if model_choice == "ENSEMBLE":
-            weights_list = glob(self.weights_direc + os.sep + "*.h5")
+            
+            weights_list = glob(os.path.join(self.weights_directory,"*.h5"))
             logger.info(f"ENSEMBLE: weights_list: {weights_list}")
             logger.info(
                 f"ENSEMBLE: {len(weights_list)} sets of model weights were found "
@@ -719,9 +1031,9 @@ class Zoo_Model:
             return weights_list
         elif model_choice == "BEST":
             # read model name (fullmodel.h5) from BEST_MODEL.txt
-            with open(self.weights_direc + os.sep + "BEST_MODEL.txt") as f:
+            with open(os.path.join(self.weights_directory,"BEST_MODEL.txt")) as f:
                 model_name = f.readlines()
-            weights_list = [self.weights_direc + os.sep + model_name[0]]
+            weights_list = [os.path.join(self.weights_directory,model_name[0])]
             logger.info(f"BEST: weights_list: {weights_list}")
             logger.info(f"BEST: {len(weights_list)} sets of model weights were found ")
             return weights_list
@@ -743,84 +1055,125 @@ class Zoo_Model:
         logger.info(f"downloaded_models_path: {downloaded_models_path}")
         return downloaded_models_path
 
-    def download_model(self, model_choice: str, dataset_id: str) -> None:
-        """downloads model specified by zenodo id in dataset_id.
+    def download_best(self,available_files:List[dict], model_path:str, model_id:str):
+        """
+        Downloads the best model file and its corresponding JSON and classes.txt files from the given list of available files.
+        
+        Args:
+            available_files (list): A list of files available to download.
+            model_path (str): The local directory where the downloaded files will be stored.
+            model_id (str): The ID of the model being downloaded.
+        
+        Raises:
+            ValueError: If BEST_MODEL.txt file is not found in the given model_id.
+        
+        Returns:
+            None
+        """
+        download_dict = {}
+        # download best_model.txt and read the name of the best model
+        best_model_json = next((f for f in available_files if f["key"] == "BEST_MODEL.txt"), None)
+        if best_model_json is None:
+            raise ValueError(f"Cannot find BEST_MODEL.txt in {model_id}")
+        # download best model file to check if it exists
+        BEST_MODEL_txt_path = os.path.join(model_path, "BEST_MODEL.txt")
+        logger.info(f"model_path for BEST_MODEL.txt: {BEST_MODEL_txt_path}")
+        # if best BEST_MODEL.txt file not exist then download it
+        if not os.path.isfile(BEST_MODEL_txt_path):
+            download_url(
+                best_model_json["links"]["self"],
+                BEST_MODEL_txt_path,
+                progress_bar_name="Downloading best_model.txt"
+            )
+        
+        with open(BEST_MODEL_txt_path, "r") as f:
+            best_model_filename = f.read().strip()
+        # get the json data of the best model _fullmodel.h5 file
+        best_json_filename = best_model_filename.replace("_fullmodel.h5", ".json")
+        
+        # download best model files(.h5, .json) file 
+        download_filenames =[best_json_filename,best_model_filename]
+        download_dict.update(get_files_to_download(available_files,download_filenames,model_id,model_path))
+
+        download_dict = check_if_files_exist(download_dict)
+        # download the files that don't exist
+        logger.info(f"URLs to download: {download_dict}")
+        # if any files are not found locally download them asynchronous
+        if download_dict != {}:
+            downloads.run_async_function(
+                downloads.async_download_url_dict,
+                url_dict = download_dict
+            )
+
+    def download_ensemble(self, available_files:List[dict], model_path:str, model_id:str):
+        """
+        Downloads all the model files and their corresponding JSON and classes.txt files from the given list of available files, for an ensemble model.
+        
+        Args:
+            available_files (list): A list of files available to download.
+            model_path (str): The local directory where the downloaded files will be stored.
+            model_id (str): The ID of the model being downloaded.
+        
+        Raises:
+            Exception: If no .h5 files or corresponding .json files are found in the given model_id.
+        
+        Returns:
+            None
+        """
+        download_dict = {}
+        # get json and models
+        all_models_reponses = [f for f in available_files if f["key"].endswith(".h5")]
+        all_model_names = [f["key"] for f in all_models_reponses]
+        json_file_names = [model_name.replace("_fullmodel.h5", ".json") for model_name in all_model_names]
+        all_json_reponses = []
+        for available_file in available_files:
+            for json_file in json_file_names:
+                if json_file == available_file['key']:
+                    all_json_reponses.append(available_file)
+        if len(all_models_reponses) == 0:
+            raise Exception(f"Cannot find any .h5 files at {model_id}")
+        if len(all_json_reponses) == 0:
+            raise Exception(f"Cannot find corresponding .json files for .h5 files at {model_id}")
+        
+        logger.info(f"all_models_reponses : {all_models_reponses }")
+        logger.info(f"all_json_reponses : {all_json_reponses }")
+        for response in  all_models_reponses + all_json_reponses:
+            # get the link of the best model
+            link = response["links"]["self"]
+            filename = response['key']
+            filepath = os.path.join(model_path, filename)
+            download_dict[filepath] = link
+
+        download_dict.update(get_files_to_download(available_files,[],model_id,model_path))
+        download_dict = check_if_files_exist(download_dict)
+        # download the files that don't exist
+        logger.info(f"URLs to download: {download_dict}")
+        # if any files are not found locally download them asynchronous
+        if download_dict != {}:
+            downloads.run_async_function(
+                downloads.async_download_url_dict,
+                url_dict = download_dict
+            )
+
+    def download_model(self, model_choice: str, model_id: str,model_path:str=None) -> None:
+        """downloads model specified by zenodo id in model_id.
 
         Downloads best model is model_choice = 'BEST' or all models in
         zenodo release if model_choice = 'ENSEMBLE'
 
         Args:
             model_choice (str): 'BEST' or 'ENSEMBLE'
-            dataset_id (str): name of model followed by underscore zenodo_id'name_of_model_zenodoid'
+            model_id (str): name of model followed by underscore zenodo_id ex.'orthoCT_RGB_2class_7574784'
+            model_path (str): path to directory to save the downloaded files to
         """
-        zenodo_id = dataset_id.split("_")[-1]
-        root_url = "https://zenodo.org/api/records/" + zenodo_id
-        # read raw json and get list of available files in zenodo release
-        response = requests.get(root_url)
-        json_content = json.loads(response.text)
-        logger.info(f"json_content {json_content}")
-        files = json_content["files"]
+        # Extract the Zenodo ID from the dataset ID
+        zenodo_id = model_id.split("_")[-1]
+        # get list of files available in zenodo release
+        json_content = get_zenodo_release(zenodo_id)
+        available_files = json_content["files"]
 
-        downloaded_models_path = self.get_downloaded_models_dir()
-        # directory to hold specific model referenced by dataset_id
-        self.weights_direc = os.path.abspath(
-            os.path.join(downloaded_models_path, dataset_id)
-        )
-        if not os.path.exists(self.weights_direc):
-            os.mkdir(self.weights_direc)
-
-        logger.info(f"self.weights_direc:{self.weights_direc}")
-        print(f"\n Model located at: {self.weights_direc}")
-        models_json_dict = {}
+        # Download the best model if best or all models if ensemble 
         if model_choice.upper() == "BEST":
-            # retrieve best model text file
-            best_model_json = [f for f in files if f["key"] == "BEST_MODEL.txt"][0]
-            if len(best_model_json) == 0:
-                raise Exception(f"Cannot find BEST_MODEL.txt at {root_url}")
-            logger.info(f"list of best_model_txt: {best_model_json}")
-            best_model_txt_path = self.weights_direc + os.sep + "BEST_MODEL.txt"
-            logger.info(f"BEST: best_model_txt_path : {best_model_txt_path }")
-
-            # if best BEST_MODEL.txt file not exist then download it
-            if not os.path.isfile(best_model_txt_path):
-                download_url(
-                    best_model_json["links"]["self"],
-                    best_model_txt_path,
-                )
-            # read contents of BEST_MODEL.txt
-            with open(best_model_txt_path) as f:
-                filename = f.read()
-
-            # check if json and h5 file in BEST_MODEL.txt exist
-            model_json = [f for f in files if f["key"] == filename][0]
-            # path to save model
-            outfile = self.weights_direc + os.sep + filename
-            logger.info(f"BEST: outfile: {outfile}")
-            # path to save file and json data associated with file saved to dict
-            models_json_dict[outfile] = model_json["links"]["self"]
-            url_dict = get_url_dict_to_download(models_json_dict)
-            # if any files are not found locally download them asynchronous
-            if url_dict != {}:
-                run_async_download(url_dict)
+            self.download_best(available_files,model_path,model_id)
         elif model_choice.upper() == "ENSEMBLE":
-            # get list of all models
-            all_models = [f for f in files if f["key"].endswith(".h5")]
-            if len(all_models) == 0:
-                raise Exception(f"Cannot find any .h5 files at {root_url}")
-            logger.info(f"all_models : {all_models }")
-            # check if all h5 files in files are in self.weights_direc
-            for model_json in all_models:
-                outfile = (
-                    self.weights_direc
-                    + os.sep
-                    + model_json["links"]["self"].split("/")[-1]
-                )
-                logger.info(f"ENSEMBLE: outfile: {outfile}")
-                # path to save file and json data associated with file saved to dict
-                models_json_dict[outfile] = model_json["links"]["self"]
-            logger.info(f"models_json_dict: {models_json_dict}")
-            url_dict = get_url_dict_to_download(models_json_dict)
-            logger.info(f"URLs to download: {url_dict}")
-            # if any files are not found locally download them asynchronous
-            if url_dict != {}:
-                run_async_download(url_dict)
+            self.download_ensemble(available_files,model_path,model_id)

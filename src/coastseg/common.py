@@ -14,6 +14,7 @@ import datetime
 from coastseg import exceptions
 
 
+
 from tqdm.auto import tqdm
 import requests
 from area import area
@@ -35,6 +36,16 @@ from ipywidgets import HTML
 
 logger = logging.getLogger(__name__)
 
+def copy_configs(src,dst):
+    # copy config.geojson and config.json files from souce to destination directories
+    config_gdf_path = find_config_json(src, r"config_gdf.*\.geojson")
+    config_json_path = find_config_json(src, r"^config\.json$")
+    dst_file = os.path.join(dst, "config_gdf.geojson")
+    logger.info(f"dst_config_gdf: {dst_file}")
+    shutil.copy(config_gdf_path, dst_file)
+    dst_file = os.path.join(dst, "config.json")
+    logger.info(f"dst_config.json: {dst_file}")
+    shutil.copy(config_json_path, dst_file)
 
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
@@ -85,6 +96,24 @@ def create_file_chooser(
     close_button.observe(close_click, "value")
     chooser = HBox([geojson_chooser, close_button], layout=Layout(width="100%"))
     return chooser
+
+def get_most_accurate_epsg(settings: dict, bbox: gpd.GeoDataFrame) -> int:
+    """Returns most accurate epsg code based on lat and lon if output epsg
+    was 4326 or 4327
+    Args:
+        settings (dict): settings for map must contain output_epsg
+        bbox (gpd.GeoDataFrame): geodataframe for bounding box on map
+    Returns:
+        int: epsg code that is most accurate or unchanged if crs not 4326 or 4327
+    """
+    output_epsg = settings["output_epsg"]
+    logger.info(f"Old output_epsg:{output_epsg}")
+    # coastsat cannot use 4326 to extract shorelines so modify output_epsg
+    if output_epsg == 4326 or output_epsg == 4327:
+        geometry = bbox.iloc[0]["geometry"]
+        output_epsg = get_epsg_from_geometry(geometry)
+        logger.info(f"New output_epsg:{output_epsg}")
+    return output_epsg
 
 
 def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
@@ -220,6 +249,21 @@ def load_cross_distances_from_file(dir_path):
     logger.info(f"Loaded transect cross shore distances from: {dir_path}")
     return transect_dict
 
+def extract_roi_id(path:str)->str:
+    """extracts the ROI ID from the path
+
+    Args:
+        path (str): path containing ROI directory
+
+    Returns:
+        str: ID of the ROI within the path
+    """
+    pattern = r'ID_([A-Za-z0-9]+)'
+    match = re.search(pattern, path)
+    if match:
+        return match.group(1)
+    else:
+        return None
 
 def from_file(filepath: str) -> dict:
     def DecodeDateTime(readDict):
@@ -339,6 +383,7 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
 def filter_dict_by_keys(original_dict: dict, keys: list) -> dict:
     filtered_dict = {k: v for k, v in original_dict.items() if k in keys}
     return filtered_dict
+
 
 
 def create_warning_box(title: str = None, msg: str = None) -> HBox:
@@ -732,6 +777,16 @@ def get_cross_distance_df(
     transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
 
+def save_transect_intersections(save_path:str,extracted_shorelines:dict,cross_distance_transects:dict)->str:
+    cross_distance_df = get_cross_distance_df(
+            extracted_shorelines, cross_distance_transects
+    )
+    filepath = os.path.join(save_path, "transect_time_series.csv")
+    if os.path.exists(filepath):
+        print(f"Overwriting:{filepath}")
+        os.remove(filepath)
+    cross_distance_df.to_csv(filepath, sep=",")
+    return filepath
 
 def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """If the geodataframe has z coordinates in any rows, the z coordinates are dropped.
@@ -771,6 +826,36 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     else:
         return geodf
 
+def save_extracted_shorelines(extracted_shorelines,save_path:str):
+            data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
+            sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
+            extracted_shoreline_figure_path = os.path.join(
+                data_path, sitename, "jpg_files", "detection"
+            )
+            logger.info(
+                f"extracted_shoreline_figure_path: {extracted_shoreline_figure_path}"
+            )
+
+            if os.path.exists(extracted_shoreline_figure_path):
+                dst_path = os.path.join(save_path, "jpg_files", "detection")
+                logger.info(f"dst_path : {dst_path }")
+                move_files(
+                    extracted_shoreline_figure_path, dst_path, delete_src=True
+                )
+
+            extracted_shorelines.to_file(
+                save_path, "extracted_shorelines.geojson", extracted_shorelines.gdf
+            )
+            extracted_shorelines.to_file(
+                save_path,
+                "shoreline_settings.json",
+                extracted_shorelines.shoreline_settings,
+            )
+            extracted_shorelines.to_file(
+                save_path,
+                "extracted_shorelines_dict.json",
+                extracted_shorelines.dictionary,
+            )
 
 def create_json_config(inputs: dict, settings: dict) -> dict:
     """returns config dictionary with the settings, currently selected_roi ids, and
@@ -837,8 +922,9 @@ def create_config_gdf(
 
 def write_to_json(filepath: str, settings: dict):
     """ "Write the  settings dictionary to json file"""
-    with open(filepath, "w", encoding="utf-8") as output_file:
-        json.dump(settings, output_file)
+    to_file(settings,filepath)
+    # with open(filepath, "w", encoding="utf-8") as output_file:
+    #     json.dump(settings, output_file)
 
 
 def read_geojson_file(geojson_file: str) -> dict:
@@ -1096,37 +1182,58 @@ def mk_new_dir(name: str, location: str):
     else:
         raise Exception("Location provided does not exist.")
 
-
-def get_RGB_in_path(current_path: str) -> str:
+def find_directory_recurively(path:str='.',name:str="RGB")->str:
     """
-    Returns the full path to the RGB directory relative to the given current path, or raises an error if no RGB directory
-    is found or if the RGB directory is empty.
-
+    Recursively search for a directory named "RGB" in the given path or its subdirectories.
+    
     Args:
-        current_path (str): The full path to the directory of images to segment.
-
-    Raises:
-        Exception: Raised if no RGB directory is found or if the RGB directory is empty.
-
+        path (str): The starting directory to search in. Defaults to current directory.
+        
     Returns:
-        str: The full path to the RGB directory relative to the current path.
+        str: The path of the first directory named "RGB" found, or None if not found.
     """
-    rgb_jpgs = glob.glob(current_path + os.sep + "*RGB*")
-    logger.info(f"rgb_jpgs: {rgb_jpgs}")
-    if rgb_jpgs:
-        return current_path
+    dir_location=None
+    if os.path.basename(path) == name:
+        dir_location = path
+    else:
+        for dirpath, dirnames, filenames in os.walk(path):
+            if name in dirnames:
+                    dir_location = os.path.join(dirpath, name)
+                
+    if not os.listdir(dir_location):
+        raise Exception(f"{name} directory is empty.")
+    
+    if not dir_location:
+        raise Exception(f"{name} directory could not be found")
+    
+    return dir_location
 
-    parent_dir = os.path.dirname(current_path)
-    logger.info(f"parent_dir: {parent_dir}")
-    dirs = os.listdir(parent_dir)
-    logger.info(f"child dirs: {dirs}")
-    if "RGB" not in dirs:
-        raise Exception("Invalid directory. Please select an RGB directory.")
-    rgb_path = os.path.join(parent_dir, "RGB")
-    if not os.listdir(rgb_path):
-        raise Exception("RGB directory is empty.")
-    logger.info(f"returning path:{rgb_path}")
-    return rgb_path
+def find_file_recurively(path:str='.',name:str="RGB")->str:
+    """
+    Recursively search for a file named "RGB" in the given path or its subdirectories.
+    
+    Args:
+        path (str): The starting directory to search in. Defaults to current directory.
+        
+    Returns:
+        str: The path of the first directory named "RGB" found, or None if not found.
+    """
+    file_location=None
+    if os.path.basename(path) == name:
+        file_location = path
+    else:
+        for dirpath, dirnames, filenames in os.walk(path):
+            if name in filenames:
+                    file_location = os.path.join(dirpath, name)
+                    return file_location
+                
+    if not os.listdir(file_location):
+        raise Exception(f"{name} directory is empty.")
+    
+    if not file_location:
+        raise Exception(f"{name} directory could not be found")
+    
+    return file_location
 
 
 def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
