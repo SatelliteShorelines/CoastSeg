@@ -7,6 +7,7 @@ from collections import defaultdict
 # internal python imports
 from coastseg import exception_handler
 from coastseg import common
+from coastseg import zoo_model
 
 # external python imports
 import ipywidgets
@@ -29,6 +30,7 @@ from ipywidgets import Output
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
 from ipywidgets import Checkbox
+from ipywidgets import FloatText
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,8 @@ class UI:
         self.clear_stlye = dict(button_color="#a3adac")
 
         self.session_name = ""
+        self.session_directory = ""
+        self.tides_file = ""
 
         # buttons to load configuration files
         self.load_configs_button = Button(
@@ -207,6 +211,75 @@ class UI:
 
         # when units radio button is clicked updated units for area textboxes
         self.units_radio.observe(units_radio_changed)
+
+    def launch_error_box(self, title: str = None, msg: str = None):
+        # Show user error message
+        warning_box = common.create_warning_box(title=title, msg=msg)
+        # clear row and close all widgets in row before adding new warning_box
+        common.clear_row(self.error_row)
+        # add instance of warning_box to self.error_row
+        self.error_row.children = [warning_box]
+
+    def create_tidal_correction_widget(self):
+        load_style = dict(button_color="#69add1", description_width="initial")
+        
+        self.beach_slope_text=FloatText(value=0.1, description="Beach Slope")
+        self.reference_elevation_text=FloatText(value=0.585, description="Elevation")
+
+        self.select_tides_button = Button(
+            description="Select Tides",
+            style=load_style,
+            icon="fa-file-image-o",
+        )
+        self.select_tides_button.on_click(self.select_tides_button_clicked)
+
+        self.tidally_correct_button = Button(
+            description="Correct Tides",
+            style=load_style,
+            icon="fa-file-image-o",
+        )
+        self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
+        
+        return VBox([self.beach_slope_text,
+              self.reference_elevation_text,
+              self.select_tides_button,
+              self.tidally_correct_button,])
+
+    @debug_view.capture(clear_output=True)
+    def tidally_correct_button_clicked(self, button):
+        if self.tides_file == "":
+            self.launch_error_box(
+                "Cannot correct tides",
+                "Must enter a select a tide file first",
+            )
+            return  
+
+        print("Correcting tides... please wait") 
+        beach_slope = self.beach_slope_text.value
+        reference_elevation = self.reference_elevation_text.value
+        self.coastseg_map.compute_tidal_corrections(self.tides_file,beach_slope,reference_elevation)
+        # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
+
+
+    @debug_view.capture(clear_output=True)
+    def select_tides_button_clicked(self, button):
+        # Prompt the user to select a directory of images
+        file_chooser = common.create_file_chooser(
+            self.load_tide_callback,
+              title="Select csv file",
+            filter_pattern='*csv',
+              starting_directory="sessions"
+        )
+        # clear row and close all widgets in self.file_chooser_row before adding new file_chooser
+        common.clear_row(self.file_chooser_row)
+        # add instance of file_chooser to self.file_chooser_row
+        self.file_chooser_row.children = [file_chooser]
+
+    @debug_view.capture(clear_output=True)
+    def load_tide_callback(self, filechooser: FileChooser) -> None:
+        if filechooser.selected:
+            self.tides_file = os.path.abspath(filechooser.selected)
+
 
     def set_session_name(self, name: str):
         self.session_name = str(name).strip()
@@ -875,6 +948,7 @@ class UI:
                 self.extract_shorelines_button,
                 self.compute_transect_button,
                 self.get_session_selection(),
+                self.create_tidal_correction_widget(),
                 config_vbox,
             ]
         )

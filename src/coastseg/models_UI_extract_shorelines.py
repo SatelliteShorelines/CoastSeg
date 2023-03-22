@@ -20,6 +20,8 @@ from ipywidgets import HTML
 from ipywidgets import RadioButtons
 from ipywidgets import Output
 from ipyfilechooser import FileChooser
+from ipywidgets import Text
+from ipywidgets import FloatText
 
 # icons sourced from https://fontawesome.com/v4/icons/
 
@@ -62,11 +64,13 @@ class UI_Models:
         ]
         self.session_name = ""
         self.session_directory = ""
+        self.tides_file = ""
 
         # Declare widgets and on click callbacks
         self._create_HTML_widgets()
         self._create_widgets()
         self._create_buttons()
+        self.create_tidal_correction_widget()
  
 
     def get_model_instance(self):
@@ -133,10 +137,93 @@ class UI_Models:
             self.line_widget,
             self.warning_row,
             self.file_row,
+            self.create_tidal_correction_widget(),
             UI_Models.model_view,
             self.run_model_button,
             UI_Models.run_model_view,
         )
+
+    def create_tidal_correction_widget(self):
+        load_style = dict(button_color="#69add1", description_width="initial")
+        
+        self.beach_slope_text=FloatText(value=0.1, description="Beach Slope")
+        self.reference_elevation_text=FloatText(value=0.585, description="Elevation")
+
+        self.select_tides_button = Button(
+            description="Select Tides",
+            style=load_style,
+            icon="fa-file-image-o",
+        )
+        self.select_tides_button.on_click(self.select_tides_button_clicked)
+
+        self.tidally_correct_button = Button(
+            description="Correct Tides",
+            style=load_style,
+            icon="fa-file-image-o",
+        )
+        self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
+        
+        return VBox([self.beach_slope_text,
+              self.reference_elevation_text,
+              self.select_tides_button,
+              self.tidally_correct_button,])
+
+    @run_model_view.capture(clear_output=True)
+    def tidally_correct_button_clicked(self, button):
+        # user must have selected imagery first
+        # must select a directory of model outputs
+        if self.session_directory == "":
+            self.launch_error_box(
+                "Cannot correct tides",
+                "Must click select session first",
+            )
+            return
+        if self.tides_file == "":
+            self.launch_error_box(
+                "Cannot correct tides",
+                "Must enter a select a tide file first",
+            )
+            return  
+        # get session directory location
+        # print("Correcting tides... please wait") 
+        session_directory = self.session_directory
+        print(f"session_directory: {session_directory}")
+        # get roi_id
+        #@todo find a better way to load the roi id
+        config_json_location = common.find_file_recurively(session_directory,'config.json')
+        config = common.from_file(config_json_location)
+        roi_id = config.get("roi_id","")
+        print(f"roi_id: {roi_id}")
+
+        beach_slope = self.beach_slope_text.value
+        reference_elevation = self.reference_elevation_text.value
+        # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
+        zoo_model.compute_tidal_corrections(roi_id,
+                                            session_directory,
+                                            session_directory,
+                                            self.tides_file,
+                                            beach_slope,
+                                            reference_elevation)
+
+
+    @model_view.capture(clear_output=True)
+    def select_tides_button_clicked(self, button):
+        # Prompt the user to select a directory of images
+        file_chooser = common.create_file_chooser(
+            self.load_tide_callback,
+              title="Select csv file",
+            filter_pattern='*csv',
+              starting_directory="sessions"
+        )
+        # clear row and close all widgets in self.file_row before adding new file_chooser
+        common.clear_row(self.file_row)
+        # add instance of file_chooser to self.file_row
+        self.file_row.children = [file_chooser]
+
+    @model_view.capture(clear_output=True)
+    def load_tide_callback(self, filechooser: FileChooser) -> None:
+        if filechooser.selected:
+            self.tides_file = os.path.abspath(filechooser.selected)
 
     def _create_widgets(self):
         self.model_implementation = RadioButtons(
@@ -206,7 +293,7 @@ class UI_Models:
         self.use_select_images_button.on_click(self.use_select_images_button_clicked)
 
         self.select_model_session_button = Button(
-            description="Open model outputs",
+            description="Select Session",
             style=load_style,
         )
         self.select_model_session_button.on_click(self.select_session_button_clicked)
@@ -333,8 +420,6 @@ class UI_Models:
         zoo_model_instance =  self.get_model_instance()
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
         zoo_model_instance.extract_shorelines(shoreline_settings,session_directory,session_name)
-
-
 
     @model_view.capture(clear_output=True)
     def load_callback(self, filechooser: FileChooser) -> None:

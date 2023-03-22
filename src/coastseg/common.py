@@ -13,8 +13,6 @@ import datetime
 # Internal dependencies imports
 from coastseg import exceptions
 
-
-
 from tqdm.auto import tqdm
 import requests
 from area import area
@@ -51,6 +49,7 @@ def create_file_chooser(
     callback: Callable[[FileChooser], None],
     title: str = None,
     filter_pattern: str = None,
+    starting_directory: str = None
 ):
     """
     This function creates a file chooser and a button to close the file chooser.
@@ -67,7 +66,11 @@ def create_file_chooser(
     """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # creates a unique instance of filechooser and button to close filechooser
-    geojson_chooser = FileChooser(os.getcwd())
+    inital_path = os.getcwd()
+    if starting_directory:
+        inital_path = os.path.join(inital_path, starting_directory)
+    geojson_chooser = FileChooser(inital_path)
+
     geojson_chooser.dir_icon = os.sep
 
     geojson_chooser.filter_pattern = ["*.geojson"]
@@ -777,11 +780,11 @@ def get_cross_distance_df(
     transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
 
-def save_transect_intersections(save_path:str,extracted_shorelines:dict,cross_distance_transects:dict)->str:
+def save_transect_intersections(save_path:str,extracted_shorelines:dict,cross_distance_transects:dict,filename:str="transect_time_series.csv")->str:
     cross_distance_df = get_cross_distance_df(
             extracted_shorelines, cross_distance_transects
     )
-    filepath = os.path.join(save_path, "transect_time_series.csv")
+    filepath = os.path.join(save_path, filename)
     if os.path.exists(filepath):
         print(f"Overwriting:{filepath}")
         os.remove(filepath)
@@ -829,7 +832,8 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def create_csv_per_transect(roi_id:str,
                             save_path:str,
                             cross_distance_transects:dict,
-                            extracted_shorelines_dict:dict):
+                            extracted_shorelines_dict:dict,
+                            filename:str="_timeseries_raw.csv"):
     for key in cross_distance_transects.keys():
         df = pd.DataFrame()
         out_dict = dict([])
@@ -848,7 +852,8 @@ def create_csv_per_transect(roi_id:str,
         df.index = df["dates"]
         df.pop("dates")
         # save to csv file session path
-        fn = os.path.join(save_path, "%s_timeseries_raw.csv" % key)
+        csv_filename = f"{key}{filename}"
+        fn = os.path.join(save_path, csv_filename)
         logger.info(f"Save time series to {fn}")
         if os.path.exists(fn):
             logger.info(f"Overwriting:{fn}")

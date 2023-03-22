@@ -6,6 +6,7 @@ import json
 import logging
 from typing import List
 import pathlib
+from datetime import datetime, timedelta
 import shutil
 
 from coastseg import transects
@@ -19,6 +20,7 @@ import skimage
 import aiohttp
 import tqdm
 import numpy as np
+import pandas as pd
 from glob import glob
 import tqdm.asyncio
 import nest_asyncio
@@ -36,9 +38,66 @@ from doodleverse_utils.model_imports import (
     segformer,
 )
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
+import pytz
+from coastsat import SDS_transects
+from coastsat import SDS_tools
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
+
+def tidal_corrections(roi_id,beach_slope,reference_elevation,extract_shorelines_dict,cross_distance:dict,tide_data:pd.DataFrame,save_path):
+    # tides for each date in extracted shorelines
+    tides_for_dates = get_tides_level(extract_shorelines_dict['dates'],tide_data)
+    correction = (tides_for_dates-reference_elevation)/beach_slope
+    
+    cross_distance_tidally_corrected = {}
+    for key in cross_distance.keys():
+        cross_distance_tidally_corrected[key] = cross_distance[key] + correction
+        
+    common.create_csv_per_transect(roi_id,save_path,cross_distance_tidally_corrected,extract_shorelines_dict,filename="_timeseries_tidally_corrected.csv")
+    common.save_transect_intersections(save_path,extract_shorelines_dict,cross_distance_tidally_corrected,filename="timeseries_tidally_corrected.csv")
+
+# tides for each date in extracted shorelines
+def get_tides_level(extracted_shoreline_dates:np.array,tide_data:pd.DataFrame)->np.array:
+    """Gets the tide level for each of the dates that a shoreline was extracted
+    Args:
+        extract_shorelines_dict (np.array): dates for each extracted shoreliens
+        tide_data (pd.DataFrame): dates and tide levels
+    Returns:
+        np.array: tide level for each of the dates that a shoreline was extracted
+    """    
+    tide_dates = [pytz.utc.localize(_.to_pydatetime()) for _ in tide_data['dates']]
+    tides = np.array(tide_data['tides'])
+    tides_for_dates = SDS_tools.get_closest_datapoint(extracted_shoreline_dates, tide_dates, tides)
+    return tides_for_dates
+
+def compute_tidal_corrections(roi_id:str,
+                              src_location:str,
+                              save_path:str,
+                              tides_location:str,
+                              beach_slope:float,
+                              reference_elevation:float)->None:
+    """ Tidaly corrects the intersections between the transects and the extracted shorelines
+    Args:
+        roi_id (str): id of the roi
+        src_location (str): directory containing extracted shorelines and transects
+        save_path (str): directory to save tideally corrected data to
+        tides_location (str): path to csv file containing tides
+        beach_slope (float): beach slope at the ROI's location
+        reference_elevation (float): reference_elevation at the ROI's location
+    """
+    print("Correcting tides... please wait")    
+    tide_data = pd.read_csv(tides_location, parse_dates=['dates'])
+    if 'tides' not in tide_data.columns or 'dates' not in tide_data.columns:
+        logger.error(f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'")
+        raise Exception(f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'")
+    # load transect cross distances from file
+    cross_distance = common.load_cross_distances_from_file(src_location)
+    # load extract shorelines from file
+    extract_shorelines_location = os.path.join(src_location,'extracted_shorelines_dict.json')
+    extract_shorelines_dict = common.from_file(extract_shorelines_location)
+    # tidally correct transect shorelines intersections
+    tidal_corrections(roi_id,beach_slope,reference_elevation,extract_shorelines_dict,cross_distance,tide_data,save_path)
 
 def get_files_to_download(available_files: List[dict], filenames: List[str], model_id: str, model_path: str) -> dict:
     """Constructs a dictionary of file paths and their corresponding download links, based on the available files and a list of desired filenames.
@@ -631,6 +690,8 @@ class Zoo_Model:
         else:
             common.create_csv_per_transect(roi_id,new_session_path,cross_distance_transects,extracted_shorelines.dictionary)
             common.save_transect_intersections(new_session_path,extracted_shorelines.dictionary, cross_distance_transects)
+            save_path = os.path.join(new_session_path, "transects_cross_distances.json")
+            common.to_file(cross_distance_transects, save_path)
         
         # save extracted shorelines, detection jpgs, configs, model settings files to the session directory 
         common.save_extracted_shorelines(extracted_shorelines,new_session_path)
