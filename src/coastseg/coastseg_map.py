@@ -684,26 +684,6 @@ class CoastSeg_Map:
         elif len(rois_with_shorelines) == 0:
             raise Exception("No extracted shorelines could be loaded")
 
-    def get_most_accurate_epsg(self, settings: dict, bbox: gpd.GeoDataFrame) -> int:
-        """Returns most accurate epsg code based on lat and lon if output epsg
-        was 4326 or 4327
-
-        Args:
-            settings (dict): settings for map must contain output_epsg
-            bbox (gpd.GeoDataFrame): geodataframe for bounding box on map
-
-        Returns:
-            int: epsg code that is most accurate or unchanged if crs not 4326 or 4327
-        """
-        output_epsg = settings["output_epsg"]
-        logger.info(f"Old output_epsg:{output_epsg}")
-        # coastsat cannot use 4326 to extract shorelines so modify output_epsg
-        if output_epsg == 4326 or output_epsg == 4327:
-            geometry = bbox.iloc[0]["geometry"]
-            output_epsg = common.get_epsg_from_geometry(geometry)
-            logger.info(f"New output_epsg:{output_epsg}")
-        return output_epsg
-
     def extract_shoreline_for_roi(
         self,
         roi_id: str,
@@ -790,7 +770,7 @@ class CoastSeg_Map:
         exception_handler.check_if_None(self.bbox, "bounding box")
 
         # if output_epsg is 4326 or 4327 change output_epsg to most accurate crs
-        new_espg = self.get_most_accurate_epsg(settings, self.bbox.gdf)
+        new_espg = common.get_most_accurate_epsg(settings, self.bbox.gdf)
         # update settings with the new output_epsg
         self.set_settings(output_epsg=new_espg)
         # update configs with new output_epsg
@@ -1062,7 +1042,7 @@ class CoastSeg_Map:
                 'extracted_shorelines': extracted shoreline from roi
                 'cross_distance_transects': cross distance of transects and extracted shoreline from roi
         """
-        # set of roi ids that have add their transects successfully computed
+        # get extracted shorelines for this roi id
         roi_extracted_shorelines = rois.get_extracted_shoreline(roi_id)
         # if roi does not have extracted shoreline skip it
         if roi_extracted_shorelines is None:
@@ -1078,34 +1058,7 @@ class CoastSeg_Map:
         if extracted_shorelines_dict == {}:
             return
         # for each transect id in cross_distance_transects make a new csv file
-        for key in cross_distance_transects.keys():
-            df = pd.DataFrame()
-            out_dict = dict([])
-            # copy shoreline intersects for each transect
-            out_dict[key] = cross_distance_transects[key]
-            logger.info(
-                f"out dict roi_ids columns : {[roi_id for _ in range(len(extracted_shorelines_dict['dates']))]}"
-            )
-            out_dict["roi_id"] = [
-                roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
-            ]
-            out_dict["dates"] = extracted_shorelines_dict["dates"]
-            out_dict["satname"] = extracted_shorelines_dict["satname"]
-            logger.info(f"out_dict : {out_dict}")
-            df = pd.DataFrame(out_dict)
-            df.index = df["dates"]
-            df.pop("dates")
-
-            # save to csv file session path
-            fn = os.path.join(session_path, "%s_timeseries_raw.csv" % key)
-            logger.info(f"Save time series to {fn}")
-            if os.path.exists(fn):
-                logger.info(f"Overwriting:{fn}")
-                os.remove(fn)
-            df.to_csv(fn, sep=",")
-            logger.info(
-                f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
-            )
+        common.create_csv_per_transect(roi_id,session_path,cross_distance_transects,extracted_shorelines_dict)
 
     def save_csv_per_transect(self, roi_ids: list, rois: ROI) -> None:
         """Saves cross distances of transects and

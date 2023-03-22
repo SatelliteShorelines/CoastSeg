@@ -114,7 +114,6 @@ class UI_Models:
         checkboxes = HBox([self.otsu_radio, self.tta_radio])
         instr_vbox = VBox(
             [
-                self.instr_header,
                 self.line_widget,
                 self.instr_select_images,
                 self.instr_run_model,
@@ -184,7 +183,7 @@ class UI_Models:
 
     def _create_buttons(self):
         # button styles
-        load_style = dict(button_color="#69add1")
+        load_style = dict(button_color="#69add1", description_width="initial")
         action_style = dict(button_color="#ae3cf0")
 
         self.run_model_button = Button(
@@ -207,9 +206,8 @@ class UI_Models:
         self.use_select_images_button.on_click(self.use_select_images_button_clicked)
 
         self.select_model_session_button = Button(
-            description="Select Model Session",
+            description="Open model outputs",
             style=load_style,
-            icon="fa-file-image-o",
         )
         self.select_model_session_button.on_click(self.select_session_button_clicked)
 
@@ -223,16 +221,10 @@ class UI_Models:
             value="____________________________________________________"
         )
 
-        self.instr_header = HTML(
-            value="<h4>Click ONE of the following buttons:</h4>",
-            layout=Layout(margin="0px 0px 0px 0px"),
-        )
-
         self.instr_select_images = HTML(
             value="<b>1. Select Images Button</b> \
-                <br> - This will open a pop up window where the RGB folder must be selected.<br>\
-                    - The model will be applied to the 'model input' folder selected and the model outputs will be generated within a subdirectory\
-                    called 'out'<br>\
+                <br> - Select an ROI directory containing downloaded imagery.<br>\
+                    - The model will be applied to the imagery and the outputs will be saved in the sessions directory under the session name entered.<br>\
             - <span style=\"background-color:yellow;color: black;\">WARNING :</span> You will not be able to see the files within the folder you select.<br>\
             ",
             layout=Layout(margin="0px 0px 0px 20px"),
@@ -240,11 +232,8 @@ class UI_Models:
 
         self.instr_run_model = HTML(
             value="<b>2. Run Model Button</b> \
-                <br> - Make sure to click Select Images Button or Use Data Button.<br>\
-                    - The model will be applied to the selected folder and the model outputs will be generated within a subdirectory\
-                    called 'out'<br>\
-            - <span style=\"background-color:yellow;color: black;\">WARNING :</span> You should not run multiple models on the same folder. Otherwise not all the model outputs\
-            will be saved to the folder.<br>\
+                <br> - Make sure to click Select Images Button.<br>\
+                    - The model will be applied to the imagery and the outputs will be saved in the sessions directory under the session name entered.<br>\
             ",
             layout=Layout(margin="0px 0px 0px 20px"),
         )
@@ -337,7 +326,7 @@ class UI_Models:
                 "Must click select model session first",
             )
             return  
-        print("Running the model. Please wait.")
+        print("Extracting shorelines. Please wait.")
         shoreline_settings=self.settings_dashboard.get_settings()
         # get session directory location
         session_directory = self.session_directory

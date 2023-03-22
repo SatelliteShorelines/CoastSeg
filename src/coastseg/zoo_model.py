@@ -623,11 +623,17 @@ class Zoo_Model:
                     extracted_shorelines.dictionary, transects_dict, extract_shoreline_settings
         )
         print(f"cross_distance: {cross_distance_transects}")
-        # move all these files over the session directory 
+
+        # save transect shoreline intersections to csv file if they exist
+        if cross_distance_transects == 0:
+            logger.warning("No transect shoreline intersections.")
+            print("No transect shoreline intersections.")
+        else:
+            common.create_csv_per_transect(roi_id,new_session_path,cross_distance_transects,extracted_shorelines.dictionary)
+            common.save_transect_intersections(new_session_path,extracted_shorelines.dictionary, cross_distance_transects)
+        
+        # save extracted shorelines, detection jpgs, configs, model settings files to the session directory 
         common.save_extracted_shorelines(extracted_shorelines,new_session_path)
-        filepath = common.save_transect_intersections(new_session_path,extracted_shorelines.dictionary, cross_distance_transects)
-        # save csv per transect
-        #@todo
         config_json = common.create_json_config(roi_settings, extract_shoreline_settings)
         common.config_to_file(config_json, new_session_path)
         config_gdf = common.create_config_gdf(roi_gdf,extracted_shorelines.gdf,transects_in_roi.gdf)

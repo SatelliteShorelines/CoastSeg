@@ -826,6 +826,39 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     else:
         return geodf
 
+def create_csv_per_transect(roi_id:str,
+                            save_path:str,
+                            cross_distance_transects:dict,
+                            extracted_shorelines_dict:dict):
+    for key in cross_distance_transects.keys():
+        df = pd.DataFrame()
+        out_dict = dict([])
+        # copy shoreline intersects for each transect
+        out_dict[key] = cross_distance_transects[key]
+        logger.info(
+            f"out dict roi_ids columns : {[roi_id for _ in range(len(extracted_shorelines_dict['dates']))]}"
+        )
+        out_dict["roi_id"] = [
+            roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
+        ]
+        out_dict["dates"] = extracted_shorelines_dict["dates"]
+        out_dict["satname"] = extracted_shorelines_dict["satname"]
+        logger.info(f"out_dict : {out_dict}")
+        df = pd.DataFrame(out_dict)
+        df.index = df["dates"]
+        df.pop("dates")
+        # save to csv file session path
+        fn = os.path.join(save_path, "%s_timeseries_raw.csv" % key)
+        logger.info(f"Save time series to {fn}")
+        if os.path.exists(fn):
+            logger.info(f"Overwriting:{fn}")
+            os.remove(fn)
+        df.to_csv(fn, sep=",")
+        logger.info(
+            f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
+        )
+
+
 def save_extracted_shorelines(extracted_shorelines,save_path:str):
             data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
             sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
