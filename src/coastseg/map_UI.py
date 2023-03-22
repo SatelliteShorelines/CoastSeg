@@ -236,7 +236,7 @@ class UI:
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
-            icon="fa-file-image-o",
+            icon="fa-tint",
         )
         self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
         

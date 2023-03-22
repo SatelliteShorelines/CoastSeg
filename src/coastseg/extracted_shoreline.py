@@ -203,7 +203,7 @@ def extract_shorelines_for_session(session_path:str,metadata:dict, settings:dict
 
             # classify image in 4 classes (sand, whitewater, water, other) with NN classifier
             npz_file = get_npz_tile(filenames[i],session_path,satname)
-            print(f"npz_file: {npz_file}")
+            logger.info(f"npz_file: {npz_file}")
             # indexes of [0,1,2] in the npz file represent water, whitewater, and sand classes.
             #@todo derive the order of the classes from the modelcard
             # class_indices=[sand, whitewater, water] indexes in segmentation
@@ -219,7 +219,6 @@ def extract_shorelines_for_session(session_path:str,metadata:dict, settings:dict
                 else:
                     # use classification to refine threshold and extract the sand/water interface
                     contours_mwi, t_mndwi = SDS_shoreline.find_wl_contours2(im_ms, im_labels, cloud_mask, im_ref_buffer)
-                    print("find_wl_contours2")
             except Exception as e:
                 print(e)
                 print('\nCould not map shoreline for this image: ' + filenames[i])

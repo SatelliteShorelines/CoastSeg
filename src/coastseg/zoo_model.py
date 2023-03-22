@@ -98,6 +98,7 @@ def compute_tidal_corrections(roi_id:str,
     extract_shorelines_dict = common.from_file(extract_shorelines_location)
     # tidally correct transect shorelines intersections
     tidal_corrections(roi_id,beach_slope,reference_elevation,extract_shorelines_dict,cross_distance,tide_data,save_path)
+    print(f"Finished tidal corrections. Results are located at {save_path}")
 
 def get_files_to_download(available_files: List[dict], filenames: List[str], model_id: str, model_path: str) -> dict:
     """Constructs a dictionary of file paths and their corresponding download links, based on the available files and a list of desired filenames.
@@ -681,7 +682,7 @@ class Zoo_Model:
         cross_distance_transects = SDS_transects.compute_intersection_QC(
                     extracted_shorelines.dictionary, transects_dict, extract_shoreline_settings
         )
-        print(f"cross_distance: {cross_distance_transects}")
+        logger.info(f"cross_distance: {cross_distance_transects}")
 
         # save transect shoreline intersections to csv file if they exist
         if cross_distance_transects == 0:
@@ -701,6 +702,7 @@ class Zoo_Model:
         common.config_to_file(config_gdf, new_session_path)
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
         shutil.copy(model_settings_location, model_settings_path)
+        print(f"Saved extracted shorelines to {new_session_path}")
 
 
     def postprocess_data(self,preprocessed_data:dict,session:sessions.Session,src_directory):
