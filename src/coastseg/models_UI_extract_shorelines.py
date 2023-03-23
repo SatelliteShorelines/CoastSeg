@@ -447,6 +447,8 @@ class UI_Models:
 
     def handle_model_type(self, change):
         # 2 class model has not been selected disable otsu threhold
+        self.model_dict["model_type"] = change["new"]
+        logger.info(f"self.model_dict['model_type']: {self.model_dict['model_type']}")
         if "2class" not in change["new"]:
             if self.otsu_radio.value == "Enabled":
                 self.model_dict["otsu"] = False
@@ -455,9 +457,7 @@ class UI_Models:
         # 2 class model was selected enable otsu threhold radio button
         if "2class" in change["new"]:
             self.otsu_radio.disabled = False
-
         logger.info(f"change: {change}")
-        self.model_dict["model_type"] = change["new"]
 
     def handle_otsu(self, change):
         if change["new"] == "Enabled":
@@ -501,7 +501,16 @@ class UI_Models:
         print("Running the model. Please wait.")
         zoo_model_instance =  self.get_model_instance()
         img_type = self.model_input_dropdown.value
-
+        self.model_dict["model_type"] = self.model_dropdown.value
+        self.model_dict["implementation"] = self.model_implementation.value
+        if self.otsu_radio.value == "Enabled":
+            self.model_dict["otsu"] = True
+        if self.otsu_radio.value == "Disabled":
+            self.model_dict["otsu"] = False
+        if self.otsu_radio.value == "Enabled":
+             self.model_dict["tta"]  = True
+        if self.otsu_radio.value == "Disabled":
+             self.model_dict["tta"]  = False
         zoo_model_instance.run_model(
             img_type,
             self.model_dict["implementation"],
