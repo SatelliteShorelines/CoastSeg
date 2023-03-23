@@ -252,6 +252,38 @@ def load_cross_distances_from_file(dir_path):
     logger.info(f"Loaded transect cross shore distances from: {dir_path}")
     return transect_dict
 
+def find_parent_directory(path:str, directory_name:str, stop_directory:str="") -> Union[str, None]:
+    """
+    Find the path to the parent directory that contains the specified directory name.
+
+    Parameters:
+        path (str): The path to start the search from.
+        directory_name (str): The name of the directory to search for.
+        stop_directory (str): Optional. A directory name to stop the search at.
+                              If this is specified, the search will stop when this
+                              directory is reached. If not specified, the search will
+                              continue until the top-level directory is reached.
+    
+    Returns:
+        str or None: The path to the parent directory containing the directory with
+                     the specified name, or None if the directory is not found.
+    """
+    while True:
+        # check if the current directory name contains the target directory name
+        if directory_name in os.path.basename(path):
+            return path
+        
+        # get the parent directory
+        parent_dir = os.path.dirname(path)
+        
+        # check if the parent directory is the same as the current directory
+        if parent_dir == path or os.path.basename(path) == stop_directory:
+            print(f"Reached top-level directory without finding '{directory_name}':", path)
+            return None
+        
+        # update the path to the parent directory and continue the loop
+        path = parent_dir
+
 def extract_roi_id(path:str)->str:
     """extracts the ROI ID from the path
 

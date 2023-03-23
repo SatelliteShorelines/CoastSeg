@@ -98,7 +98,7 @@ def compute_tidal_corrections(roi_id:str,
     extract_shorelines_dict = common.from_file(extract_shorelines_location)
     # tidally correct transect shorelines intersections
     tidal_corrections(roi_id,beach_slope,reference_elevation,extract_shorelines_dict,cross_distance,tide_data,save_path)
-    print(f"Finished tidal corrections. Results are located at {save_path}")
+    print(f"\nFinished tidal corrections.\nResults are located at {save_path}")
 
 def get_files_to_download(available_files: List[dict], filenames: List[str], model_id: str, model_path: str) -> dict:
     """Constructs a dictionary of file paths and their corresponding download links, based on the available files and a list of desired filenames.
@@ -669,7 +669,17 @@ class Zoo_Model:
         print(f"Saved extracted shorelines to {new_session_path}")
 
 
-    def postprocess_data(self,preprocessed_data:dict,session:sessions.Session,src_directory):
+    def postprocess_data(self,preprocessed_data:dict,session:sessions.Session,roi_directory:str):
+        """Moves the model outputs from 
+        as well copies the config files from the roi directory to the session directory
+
+        Args:
+            preprocessed_data (dict): dictionary of inputs to the model
+            session (sessions.Session): session object that's used to keep track of session
+            saves the session to the sessions directory
+            roi_directory (str):  directory in data that contains downloaded data for a single ROI
+            typically starts with "ID_{roi_id}"
+        """        
         # get roi_ids
         session_path = session.path
         outputs_path = os.path.join(preprocessed_data['sample_direc'],'out')
@@ -679,7 +689,8 @@ class Zoo_Model:
             return
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
-        common.copy_configs(src_directory,session_path)
+        # copy configs from data/roi_id location to session location
+        common.copy_configs(roi_directory,session_path)
         model_settings_path = os.path.join(session_path, "model_settings.json")
         common.write_to_json(model_settings_path, preprocessed_data)
         
@@ -747,16 +758,7 @@ class Zoo_Model:
         logger.info(f"use_tta: {use_tta}")
 
         self.prepare_model(model_implementation,model_name)
-        model_dict = {
-            "sample_direc": None,
-            "use_GPU": use_GPU,
-            "sample_direc": src_directory,
-            "implementation": model_implementation,
-            "model_type": model_name,
-            "otsu": use_otsu,
-            "tta": use_tta,
-        }
-        logger.info(f"model_dict: {model_dict}")
+
         # create a session
         session = sessions.Session()
         sessions_path = common.create_directory(os.getcwd(), "sessions")
@@ -764,15 +766,25 @@ class Zoo_Model:
 
         session.path = session_path
         session.name = session_name
-
-        preprocessed_data=self.preprocess_data(src_directory,model_dict,img_type)
+        model_dict = {
+            "use_GPU": use_GPU,
+            "sample_direc": "",
+            "implementation": model_implementation,
+            "model_type": model_name,
+            "otsu": use_otsu,
+            "tta": use_tta,
+        }
+        # get parent roi_directory from the selected imagery directory
+        roi_directory=common.find_parent_directory(src_directory,'ID_','data')
+        model_dict=self.preprocess_data(roi_directory,model_dict,img_type)
+        logger.info(f"model_dict: {model_dict}")
 
         self.compute_segmentation(
-            preprocessed_data,
+            model_dict,
         )
-        self.postprocess_data(preprocessed_data,session,src_directory)
-        # save session data after postprocessing data
-        session.save(session_path)
+        self.postprocess_data(model_dict,session,roi_directory)
+        print(f"\n Model results saved to {session.path}")
+
 
 
     def get_model_directory(self,model_id:str):
