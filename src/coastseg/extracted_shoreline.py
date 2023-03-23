@@ -71,11 +71,15 @@ def load_image_labels(npz_file: str, class_indices: list = [2, 1, 0]) -> np.ndar
 
     Parameters:
     npz_file (str): The path to the .npz file containing the image labels.
-    class_indices (list): A list of indices corresponding to the classes to extract from the labels. Default is [0, 1, 2]
-                          for water, whitewater, and sand classes.
+    class_indices (list): A list of indices corresponding to the classes to extract from the labels. Default is [2, 1, 0]
+                          for sand , whitewater, and water classes.
+                          2 - sand index
+                          1 - whitewater index
+                          0 - water index
 
     Returns:
     np.ndarray: A 3D numpy array of binary masks, where each mask corresponds to one of the specified classes.
+    Must be in the order [sand,whitewater,water]
     """
     if not os.path.isfile(npz_file) or not npz_file.endswith('.npz'):
         raise ValueError(f"{npz_file} is not a valid .npz file.")

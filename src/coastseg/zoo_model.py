@@ -14,6 +14,8 @@ from coastsat import SDS_transects
 from coastseg import common
 from coastseg import downloads
 from coastseg import sessions
+from coastseg import shoreline
+from coastseg import extracted_shoreline
 
 import requests
 import skimage
@@ -621,9 +623,7 @@ class Zoo_Model:
         if roi_gdf.empty:
             raise ValueError(f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}")
         # load shorelines for ROI
-        from coastseg import shoreline
         shoreline_for_roi = shoreline.Shoreline(roi_gdf)
-        from coastseg import extracted_shoreline
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         # extract shorelines with most accurate crs
         new_espg = common.get_most_accurate_epsg(extract_shoreline_settings, roi_gdf)
@@ -721,6 +721,9 @@ class Zoo_Model:
 
         # Load the model from the config files
         model, model_list, config_files, model_types = self.get_model(weights_list)
+        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
+        logger.info(f"self.N_DATA_BANDS: {self.N_DATA_BANDS}")
+        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
 
         self.model_types = model_types
         self.model_list = model_list
@@ -837,7 +840,7 @@ class Zoo_Model:
             from tensorflow.keras import mixed_precision
             mixed_precision.set_global_policy("mixed_float16")
         # Compute the segmentation for each of the files
-        for file_to_seg in tqdm.auto.tqdm(files_to_segment):
+        for file_to_seg in tqdm.auto.tqdm(files_to_segment,desc="Applying Model"):
             do_seg(
                 file_to_seg,
                 self.model_list,
@@ -1011,6 +1014,9 @@ class Zoo_Model:
             self.model_list.append(model)
             config_files.append(config_file)
 
+        logger.info(f"self.N_DATA_BANDS: {self.N_DATA_BANDS}")
+        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
+        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
         return model, self.model_list, config_files, self.model_types
 
     def get_metadatadict(
@@ -1138,9 +1144,10 @@ class Zoo_Model:
             best_model_filename = f.read().strip()
         # get the json data of the best model _fullmodel.h5 file
         best_json_filename = best_model_filename.replace("_fullmodel.h5", ".json")
-        
+        best_modelcard_filename = best_model_filename.replace("_fullmodel.h5", "_modelcard.json")
+
         # download best model files(.h5, .json) file 
-        download_filenames =[best_json_filename,best_model_filename]
+        download_filenames =[best_json_filename,best_model_filename,best_modelcard_filename]
         download_dict.update(get_files_to_download(available_files,download_filenames,model_id,model_path))
 
         download_dict = check_if_files_exist(download_dict)
@@ -1173,15 +1180,16 @@ class Zoo_Model:
         all_models_reponses = [f for f in available_files if f["key"].endswith(".h5")]
         all_model_names = [f["key"] for f in all_models_reponses]
         json_file_names = [model_name.replace("_fullmodel.h5", ".json") for model_name in all_model_names]
+        best_modelcard_filename = [model_name.replace("_fullmodel.h5", "_modelcard.json") for model_name in all_model_names]
         all_json_reponses = []
+        # for each filename online check if there a .json file
         for available_file in available_files:
-            for json_file in json_file_names:
-                if json_file == available_file['key']:
-                    all_json_reponses.append(available_file)
+            if available_file['key'] in json_file_names + best_modelcard_filename:
+                all_json_reponses.append(available_file)
         if len(all_models_reponses) == 0:
             raise Exception(f"Cannot find any .h5 files at {model_id}")
         if len(all_json_reponses) == 0:
-            raise Exception(f"Cannot find corresponding .json files for .h5 files at {model_id}")
+            raise Exception(f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}")
         
         logger.info(f"all_models_reponses : {all_models_reponses }")
         logger.info(f"all_json_reponses : {all_json_reponses }")
