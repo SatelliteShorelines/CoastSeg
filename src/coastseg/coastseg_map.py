@@ -148,9 +148,9 @@ class CoastSeg_Map:
                                         tide_data,
                                         session_path)
             logger.info(f"{roi_id} was tidally corrected")
-            print(f"{roi_id} was tidally corrected")
+            print(f"\n{roi_id} was tidally corrected")
         logger.info(f"{roi_id} was tidally corrected")
-        print("tidal corrections completed")
+        print("\ntidal corrections completed")
 
 
 
@@ -832,8 +832,8 @@ class CoastSeg_Map:
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
 
         self.save_session(roi_ids, save_transects=False)
-        # for each ROI that has extracted shorelines load onto map
-        # self.load_extracted_shorelines_to_map(roi_ids)
+        self.compute_transects()
+
 
     def get_selected_rois(self, roi_ids: list) -> gpd.GeoDataFrame:
         """Returns a geodataframe of all rois whose ids are in given list
@@ -917,9 +917,11 @@ class CoastSeg_Map:
         transects_in_roi_gdf = transects_in_roi_gdf[["id", "geometry"]]
 
         failure_reason = None
+        cross_distance = 0
         if roi_extracted_shoreline is None:
             cross_distance = 0
             failure_reason = "No extracted shorelines were found"
+
         elif transects_in_roi_gdf.empty:
             cross_distance = 0
             failure_reason = "No transects intersect"
@@ -961,11 +963,13 @@ class CoastSeg_Map:
         roi_extracted_shorelines = rois.get_extracted_shoreline(roi_id)
         # if roi does not have extracted shoreline skip it
         if roi_extracted_shorelines is None:
+            logger.info(f"No extracted shorelines for roi: {roi_id}")
             return
         # get extracted_shorelines from extracted shoreline object in rois
         extracted_shorelines = roi_extracted_shorelines.dictionary
         # if no shorelines were extracted then skip
         if extracted_shorelines == {}:
+            logger.info(f"No extracted shorelines for roi: {roi_id}")
             return
         cross_distance_transects = rois.get_cross_shore_distances(roi_id)
         logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
@@ -1076,6 +1080,8 @@ class CoastSeg_Map:
                     session_path, "transects_settings.json"
                 )
                 common.to_file(transect_settings, transect_settings_path)
+
+        print(f"Saved to session at {session_name}")
 
     def save_csv_per_transect_for_roi(
         self, session_path: str, roi_id: list, rois: ROI

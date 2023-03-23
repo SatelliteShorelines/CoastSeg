@@ -121,12 +121,7 @@ class UI:
         )
         self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
 
-        self.compute_transect_button = Button(
-            description="Compute Transects", style=self.action_style
-        )
-        self.compute_transect_button.on_click(self.compute_transect_button_clicked)
-
-        # Clear msin textbox button
+        # Clear  textbox button
         self.clear_debug_button = Button(
             description="Clear TextBox", style=self.clear_stlye
         )
@@ -946,7 +941,6 @@ class UI:
                 self.instr_download_roi,
                 self.download_button,
                 self.extract_shorelines_button,
-                self.compute_transect_button,
                 self.get_session_selection(),
                 self.create_tidal_correction_widget(),
                 config_vbox,
@@ -1089,19 +1083,6 @@ class UI:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.extract_shorelines_button.disabled = False
-        self.coastseg_map.map.default_style = {"cursor": "default"}
-
-    @debug_view.capture(clear_output=True)
-    def compute_transect_button_clicked(self, btn):
-        UI.debug_view.clear_output()
-        self.coastseg_map.map.default_style = {"cursor": "wait"}
-        self.compute_transect_button.disabled = True
-        try:
-            self.coastseg_map.compute_transects()
-        except Exception as error:
-            # renders error message as a box on map
-            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
-        self.compute_transect_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @download_view.capture(clear_output=True)
