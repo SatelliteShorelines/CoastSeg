@@ -1147,7 +1147,8 @@ class Zoo_Model:
         best_modelcard_filename = best_model_filename.replace("_fullmodel.h5", "_modelcard.json")
 
         # download best model files(.h5, .json) file 
-        download_filenames =[best_json_filename,best_model_filename,best_modelcard_filename]
+        # download_filenames =[best_json_filename,best_model_filename,best_modelcard_filename]
+        download_filenames =[best_json_filename,best_model_filename]
         download_dict.update(get_files_to_download(available_files,download_filenames,model_id,model_path))
 
         download_dict = check_if_files_exist(download_dict)
@@ -1180,11 +1181,11 @@ class Zoo_Model:
         all_models_reponses = [f for f in available_files if f["key"].endswith(".h5")]
         all_model_names = [f["key"] for f in all_models_reponses]
         json_file_names = [model_name.replace("_fullmodel.h5", ".json") for model_name in all_model_names]
-        best_modelcard_filename = [model_name.replace("_fullmodel.h5", "_modelcard.json") for model_name in all_model_names]
+        # best_modelcard_filename = [model_name.replace("_fullmodel.h5", "_modelcard.json") for model_name in all_model_names]
         all_json_reponses = []
         # for each filename online check if there a .json file
         for available_file in available_files:
-            if available_file['key'] in json_file_names + best_modelcard_filename:
+            if available_file['key'] in json_file_names:
                 all_json_reponses.append(available_file)
         if len(all_models_reponses) == 0:
             raise Exception(f"Cannot find any .h5 files at {model_id}")
