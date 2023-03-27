@@ -1,9 +1,10 @@
 # Standard library imports
 import logging
 import os
+from typing import List
 
 # Internal dependencies imports
-from coastseg.common import remove_z_axis, read_gpd_file
+from coastseg.common import remove_z_axis, read_gpd_file,create_id_column
 
 # External dependencies imports
 import geopandas as gpd
@@ -13,6 +14,47 @@ from ipyleaflet import GeoJSON
 
 logger = logging.getLogger(__name__)
 
+def load_intersecting_transects(rectangle: gpd.GeoDataFrame, transect_files: List[str],transect_dir:str) -> gpd.GeoDataFrame:
+    """
+    Loads transects from a list of GeoJSON files in the transect directory, selects the transects that intersect with
+    a rectangle defined by a GeoDataFrame, and returns a new GeoDataFrame with the selected columns ('id', 'geometry', 'slope').
+    
+    Args:
+        rectangle (gpd.GeoDataFrame): A GeoDataFrame defining the rectangle to select transects within.
+        transect_files (List[str]): A list of filenames of the GeoJSON transect files to load.
+        transect_dir (str): The directory where the GeoJSON transect files are located.
+        
+    Returns:
+        gpd.GeoDataFrame: A new GeoDataFrame with the selected columns ('id', 'geometry', 'slope') containing the transects
+        that intersect with the rectangle.
+    """
+    # Create an empty GeoDataFrame to hold the selected transects
+    selected_transects = gpd.GeoDataFrame(columns=['id', 'geometry', 'slope'])
+    # rectangle_crs=rectangle.crs
+    # Iterate over each transect file and select the transects that intersect with the rectangle
+    for transect_file in transect_files:
+        transects_name = os.path.splitext(transect_file)[0]
+        transect_path = os.path.join(transect_dir, transect_file)
+        transects = gpd.read_file(transect_path)
+        # transects must be in the same crs as the rectangle
+        # transects=transects.to_crs(rectangle_crs)
+        transects= create_id_column(transects)
+        # Select the transects that intersect with the rectangle
+        intersects = transects.geometry.intersects(rectangle.geometry.iloc[0])
+        # intersecting_transects = transects.loc[intersects, ['id', 'geometry', 'slope']]
+        columns = ['id', 'geometry', 'slope']
+        if all(col in transects.columns for col in columns):
+            intersecting_transects = transects.loc[intersects, columns]
+        else:
+            intersecting_transects = transects.loc[intersects]
+            intersecting_transects = intersecting_transects.reindex(columns=columns, fill_value=None)
+        if intersecting_transects.empty:
+            logger.info("Skipping %s", transects_name)
+        elif not intersecting_transects.empty:
+            logger.info("Adding transects from %s", transects_name)
+        # Append the selected transects to the output GeoDataFrame
+        selected_transects = pd.concat([selected_transects, intersecting_transects], ignore_index=True)
+    return selected_transects
 
 class Transects:
     """Transects: contains the transects within a region specified by bbox (bounding box)"""
@@ -41,66 +83,31 @@ class Transects:
             self.filename = filename
 
     def create_geodataframe(
-        self, bbox: gpd.GeoDataFrame, crs: str = "EPSG:4326"
+        self, bbox: gpd.GeoDataFrame,
     ) -> gpd.GeoDataFrame:
         """Creates a geodataframe with the crs specified by crs
         Args:
             rectangle (dict): geojson dictionary
-            crs (str, optional): coordinate reference system string. Defaults to 'EPSG:4326'.
-
         Returns:
             gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs
         """
-        columns_to_drop = list(
-                set(bbox.columns) - set([ "geometry"])
-            )
-        bbox.drop(columns_to_drop, axis=1, inplace=True)
-        # geodataframe to hold all transects in bbox
-        all_transects_in_bbox_gdf = gpd.GeoDataFrame()
+        # create a new dataframe that only contains the geometry column of the bbox
+        bbox = bbox[["geometry"]]
+        # get transect geosjson files that intersect with bounding box
         intersecting_transect_files = self.get_intersecting_files(bbox)
         script_dir = os.path.dirname(os.path.abspath(__file__))
+        transect_dir = os.path.abspath(
+                os.path.join(script_dir, "transects")
+            )
         # for each transect file clip it to the bbox and add to map
-        for transect_file in intersecting_transect_files:
-            print("Loading ", transect_file)
-            transects_name = os.path.splitext(transect_file)[0]
-            transect_path = os.path.abspath(
-                os.path.join(script_dir, "transects", transect_file)
-            )
-            transects_gdf = read_gpd_file(transect_path)
-            # Get all the transects that intersect with bbox
-            transects_in_bbox = gpd.sjoin(
-                left_df=transects_gdf,
-                right_df=bbox,
-                how="inner",
-                predicate="intersects",
-            )
-            columns_to_drop = list(
-                set(transects_in_bbox.columns) - set(["id", "geometry", "slope"])
-            )
-            transects_in_bbox.drop(columns_to_drop, axis=1, inplace=True)
-
-            if transects_in_bbox.empty:
-                print("Skipping ", transects_name)
-            elif not transects_in_bbox.empty:
-                # if any transects intersect with bbox add them to all_transects_in_bbox_gdf that holds all the transects
-                if all_transects_in_bbox_gdf.empty:
-                    all_transects_in_bbox_gdf = transects_in_bbox
-                elif not all_transects_in_bbox_gdf.empty:
-                    # Combine shorelines from different files into single geodataframe
-                    all_transects_in_bbox_gdf = gpd.GeoDataFrame(
-                        pd.concat(
-                            [all_transects_in_bbox_gdf, transects_in_bbox],
-                            ignore_index=True,
-                        )
-                    )
-                    print("Adding transects from ", transects_name)
-
-        if all_transects_in_bbox_gdf.empty:
+        transects_in_bbox = load_intersecting_transects(bbox,intersecting_transect_files,transect_dir)
+        if transects_in_bbox.empty:
             logger.warning("No transects found here.")
 
         # remove z-axis from transects
-        all_transects_in_bbox_gdf = remove_z_axis(all_transects_in_bbox_gdf)
-        return all_transects_in_bbox_gdf
+        transects_in_bbox = remove_z_axis(transects_in_bbox)
+
+        return transects_in_bbox
 
     def style_layer(self, geojson: dict, layer_name: str) -> dict:
         """Return styled GeoJson object with layer name

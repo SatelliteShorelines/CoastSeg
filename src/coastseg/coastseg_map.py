@@ -15,7 +15,7 @@ from coastseg.roi import ROI
 from coastseg import exceptions
 from coastseg import extracted_shoreline
 from coastseg import exception_handler
-from coastseg import zoo_model
+from coastseg.zoo_model import tidal_corrections
 
 from coastsat import (
     SDS_download,
@@ -140,7 +140,7 @@ class CoastSeg_Map:
                 logger.info(f"No cross_shore_distance for ROI: {roi_id}")
                 print(f"No cross_shore_distance for ROI: {roi_id}")
                 continue
-            zoo_model.tidal_corrections(roi_id,
+            tidal_corrections(roi_id,
                                         beach_slope,
                                         reference_elevation,
                                         extracted_shoreline.dictionary,
@@ -155,6 +155,7 @@ class CoastSeg_Map:
 
 
     def load_session(self, session_path: str) -> None:
+        print(f"Loading session: {session_path}")
         session_name = os.path.basename(os.path.abspath(session_path))
         self.set_session_name(session_name)
         for count, dir_name in enumerate(os.listdir(session_path)):
@@ -602,6 +603,7 @@ class CoastSeg_Map:
         # Modifies html when transect is hovered over
         values = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """ 
+        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>Transect</b>
         <p>Id: {}</p>
         <p>Slope: {}</p>
@@ -614,6 +616,7 @@ class CoastSeg_Map:
         # Modifies html when extracted shoreline is hovered over
         values = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """
+        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>Extracted Shoreline</b>
         <p>Date: {}</p>
         <p>Geoaccuracy: {}</p>
@@ -633,6 +636,7 @@ class CoastSeg_Map:
         roi_area = common.get_area(feature["geometry"]) * 10**-6
         roi_area = round(roi_area, 5)
         self.roi_html.value = """ 
+        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>ROI</b>
         <p>Id: {}</p>
         <p>Area(km²): {}</p>
