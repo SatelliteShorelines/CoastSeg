@@ -1190,7 +1190,8 @@ class Zoo_Model:
         if len(all_models_reponses) == 0:
             raise Exception(f"Cannot find any .h5 files at {model_id}")
         if len(all_json_reponses) == 0:
-            raise Exception(f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}")
+            raise Exception(f"Cannot find corresponding .json files for .h5 files at {model_id}")
+            # raise Exception(f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}")
         
         logger.info(f"all_models_reponses : {all_models_reponses }")
         logger.info(f"all_json_reponses : {all_json_reponses }")
