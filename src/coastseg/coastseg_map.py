@@ -15,7 +15,7 @@ from coastseg.roi import ROI
 from coastseg import exceptions
 from coastseg import extracted_shoreline
 from coastseg import exception_handler
-from coastseg import zoo_model
+from coastseg.zoo_model import tidal_corrections
 
 from coastsat import (
     SDS_download,
@@ -140,7 +140,7 @@ class CoastSeg_Map:
                 logger.info(f"No cross_shore_distance for ROI: {roi_id}")
                 print(f"No cross_shore_distance for ROI: {roi_id}")
                 continue
-            zoo_model.tidal_corrections(roi_id,
+            tidal_corrections(roi_id,
                                         beach_slope,
                                         reference_elevation,
                                         extracted_shoreline.dictionary,
@@ -155,6 +155,7 @@ class CoastSeg_Map:
 
 
     def load_session(self, session_path: str) -> None:
+        print(f"Loading session: {session_path}")
         session_name = os.path.basename(os.path.abspath(session_path))
         self.set_session_name(session_name)
         for count, dir_name in enumerate(os.listdir(session_path)):
