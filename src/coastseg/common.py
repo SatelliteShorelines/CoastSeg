@@ -34,6 +34,25 @@ from ipywidgets import HTML
 
 logger = logging.getLogger(__name__)
 
+import uuid
+def create_id_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Creates a new column called 'id' in a GeoDataFrame if it doesn't already exist. If the GeoDataFrame already
+    contains a column called 'id' (in any case), the function returns the GeoDataFrame unmodified.
+
+    The 'id' column is populated with unique IDs generated using the UUID4 algorithm.
+
+    Args:
+        gdf (gpd.GeoDataFrame): the GeoDataFrame to create the 'id' column in
+
+    Returns:
+        gpd.GeoDataFrame: the input GeoDataFrame with a new 'id' column containing unique IDs
+    """
+    if 'id' in [col.lower() for col in gdf.columns]:
+        return gdf
+    gdf['id'] = gdf.apply(lambda row: uuid.uuid4().hex, axis=1)
+    return gdf
+
 def copy_configs(src,dst):
     # copy config.geojson and config.json files from souce to destination directories
     config_gdf_path = find_config_json(src, r"config_gdf.*\.geojson")
@@ -441,8 +460,10 @@ def create_warning_box(title: str = None, msg: str = None) -> HBox:
     if msg is None:
         msg = "Something went wrong..."
     warning_msg = HTML(
-        f"_______________________________________\
-                   </br>⚠️{msg}"
+        f"<div style='max-height: 200px; overflow-x: auto; overflow-y: auto'>"
+        f"_______________________________________<br>"
+        f"<span style='color: red'>⚠️</span>{msg}"
+        f"</div>"
     )
     # create vertical box to hold title and msg
     warning_content = VBox(

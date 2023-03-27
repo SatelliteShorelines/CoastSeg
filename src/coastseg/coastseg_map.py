@@ -602,6 +602,7 @@ class CoastSeg_Map:
         # Modifies html when transect is hovered over
         values = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """ 
+        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>Transect</b>
         <p>Id: {}</p>
         <p>Slope: {}</p>
@@ -614,6 +615,7 @@ class CoastSeg_Map:
         # Modifies html when extracted shoreline is hovered over
         values = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """
+        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>Extracted Shoreline</b>
         <p>Date: {}</p>
         <p>Geoaccuracy: {}</p>
@@ -633,6 +635,7 @@ class CoastSeg_Map:
         roi_area = common.get_area(feature["geometry"]) * 10**-6
         roi_area = round(roi_area, 5)
         self.roi_html.value = """ 
+        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>ROI</b>
         <p>Id: {}</p>
         <p>Area(km²): {}</p>
