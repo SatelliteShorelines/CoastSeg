@@ -219,7 +219,6 @@ def is_in_google_colab() -> bool:
     else:
         return False
 
-
 def to_file(data: dict, filepath: str) -> None:
     class DateTimeEncoder(JSONEncoder):
         # Override the default method
@@ -673,6 +672,32 @@ def read_json_file(filename: str) -> dict:
         data = json.load(input_file)
     return data
 
+def extract_fields(data, key=None,fields_of_interest:list[str]=[])->dict:
+    """
+    Extracts specified fields from a given dictionary.
+
+    Parameters:
+        - data: A dictionary containing the data to extract fields from.
+        - key: (optional) A string representing the key to extract fields from in the dictionary.
+        - fields_of_interest: (optional) A list of strings representing the fields to extract from the dictionary. If this list is empty, the default fields of interest will be used.
+
+    Returns:
+        A dictionary containing the extracted fields.
+    """
+    extracted_data = {}
+    if not fields_of_interest:
+        fields_of_interest = ['dates', 'sitename', 'polygon', 'roi_id', 'sat_list', 'sitename', 'landsat_collection', 'filepath']
+
+    if key and key in data:
+        for field in fields_of_interest:
+            if field in data[key]:
+                extracted_data[field] = data[key][field]
+    else:
+        for field in fields_of_interest:
+            if field in data:
+                extracted_data[field] = data[field]
+
+    return extracted_data
 
 def find_config_json(search_path: str, search_pattern: str = None) -> str:
     """Searches for a `config.json` file in the specified directory
@@ -948,7 +973,29 @@ def save_extracted_shorelines(extracted_shorelines,save_path:str):
                 extracted_shorelines.dictionary,
             )
 
-def create_json_config(inputs: dict, settings: dict) -> dict:
+def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Check if any of the columns in a GeoDataFrame have the type pandas timestamp and convert them to string.
+
+    Args:
+        gdf: A GeoDataFrame.
+
+    Returns:
+        A new GeoDataFrame with the same data as the original, but with any timestamp columns converted to string.
+    """
+    timestamp_cols = [col for col in gdf.columns if pd.api.types.is_datetime64_any_dtype(gdf[col])]
+
+    if not timestamp_cols:
+        return gdf
+
+    gdf = gdf.copy()
+
+    for col in timestamp_cols:
+        gdf[col] = gdf[col].astype(str)
+
+    return gdf
+
+def create_json_config(inputs: dict, settings: dict,roi_ids:list[str]=[]) -> dict:
     """returns config dictionary with the settings, currently selected_roi ids, and
     each of the inputs specified by roi id.
     sample config:
@@ -980,7 +1027,8 @@ def create_json_config(inputs: dict, settings: dict) -> dict:
     Returns:
         dict: json style dictionary, config
     """
-    roi_ids = list(inputs.keys())
+    if not roi_ids:
+        roi_ids = list(inputs.keys())
     config = {**inputs}
     config["roi_ids"] = roi_ids
     config["settings"] = settings

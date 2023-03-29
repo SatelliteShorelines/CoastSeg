@@ -45,14 +45,15 @@ class CoastSeg_Map:
         # factory is used to create map objects
         self.factory = factory.Factory()
 
-        # Selections
-        self.selected_set = set()  # ids of the selected rois
+        # ids of the selected rois
+        self.selected_set = set()  
+         # names of extracted shorelines vectors on the map
         self.extracted_shoreline_layers = (
             []
-        )  # names of extracted shorelines vectors on the map
-        self.rois = None
+        ) 
 
         # map objects
+        self.rois = None
         self.transects = None
         self.shoreline = None
         self.bbox = None
@@ -152,49 +153,146 @@ class CoastSeg_Map:
         logger.info(f"{roi_id} was tidally corrected")
         print("\ntidal corrections completed")
 
+    def load_config_files(self,dir_path:str)->None:
+        """
+        Load the configuration files from the given directory.
 
+        The function looks for the following files in the directory:
+        - config_gdf.geojson: contains the configuration settings for the project
+        - transects_settings.json: contains the settings for the transects module
+        - shoreline_settings.json: contains the settings for the shoreline module
+
+        If the config_gdf.geojson file is not found, a message is printed to the console.
+
+        Args:
+            dir_path (str): The path to the directory containing the configuration files.
+
+        Returns:
+            None
+        """
+        if os.path.isdir(dir_path):
+            config_loaded = False
+            for file_name in os.listdir(dir_path):
+                file_path = os.path.join(dir_path, file_name)
+                if not os.path.isfile(file_path):
+                    continue
+                if file_name == "config_gdf.geojson":
+                    self.load_configs(file_path)
+                    config_loaded = True
+                elif file_name == "transects_settings.json":
+                    self.load_settings(file_path)
+                    print(f"Loaded transect settings")
+                elif file_name == "shoreline_settings.json":
+                    self.load_settings(file_path)
+                    print(f"Loaded shoreline settings")
+            if not config_loaded:
+                print("Config file not found")
+
+    def load_session_from_directory(self,dir_path:str)->None:
+        self.load_config_files(dir_path)
+        # for every directory load extracted shorelines
+        extracted_shorelines = extracted_shoreline.load_extracted_shoreline_from_files(dir_path)
+        if extracted_shorelines is None:
+            logger.warning(f"No extracted shorelines found in {dir_path}")
+            return
+        # get roi id from extracted shoreline
+        roi_id =extracted_shorelines.get_roi_id()
+        if roi_id is None:
+            logger.warning(f"No roi id found extracted shorelines settings{extracted_shorelines.shoreline_settings}")
+            return 
+        self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+        cross_distances = common.load_cross_distances_from_file(dir_path)
+        self.rois.add_cross_shore_distances(cross_distances, roi_id)
 
     def load_session(self, session_path: str) -> None:
+        """
+        Load a session from the given path.
+
+        The function loads a session from the given path, which can contain one or more directories, each containing
+        the files for a single ROI. For each subdirectory, the function calls `load_session_from_directory` to load
+        the session files and objects on the map. If no subdirectories exist, the function calls `load_session_from_directory` with the
+        session path.
+
+        Args:
+            session_path: The path to the session directory.
+
+        Returns:
+            None.
+        """
         print(f"Loading session: {session_path}")
+        # load the session name
         session_name = os.path.basename(os.path.abspath(session_path))
         self.set_session_name(session_name)
-        for count, dir_name in enumerate(os.listdir(session_path)):
-            dir_path = os.path.join(session_path, dir_name)
-            # only load in settings from first ROI since all settings SHOULD be same for a session
-            if os.path.isdir(dir_path):
-                if count == 0:
-                    for file_name in os.listdir(dir_path):
-                        file_path = os.path.join(dir_path, file_name)
-                        if os.path.isfile(file_path):
-                            if file_name == "config_gdf.geojson":
-                                self.load_configs(file_path)
-                            elif file_name == "transects_settings.json":
-                                self.load_settings(file_path)
-                                print(f"Loaded transect settings")
-                            elif file_name == "shoreline_settings.json":
-                                self.load_settings(file_path)
-                                print(f"Loaded shoreline settings")
 
-                for file_name in os.listdir(dir_path):
-                    file_path = os.path.join(dir_path, file_name)
-                    if os.path.isfile(file_path):
-                        if file_name == "transects_settings.json":
-                            self.load_settings(file_path)
-                            print(f"Loaded transect settings")
-                        elif file_name == "shoreline_settings.json":
-                            self.load_settings(file_path)
-                            print(f"Loaded shoreline settings")
+        subdirectories = [os.path.join(session_path, d) for d in os.listdir(session_path) if os.path.isdir(os.path.join(session_path, d))]
+        if subdirectories:
+            for subdirectory in subdirectories:
+                self.load_session_from_directory(subdirectory)
+        self.load_session_from_directory(session_path)
+            
+        # load extracted shorelines on the map
+        self.load_extracted_shorelines_to_map(self.rois.gdf['id'].tolist())
 
-                # for every directory load extracted shorelines and transect files
-                extracted_shorelines = (
-                    extracted_shoreline.load_extracted_shoreline_from_files(dir_path)
-                )
-                # get roi id from directory name
-                roi_id = os.path.basename(dir_path).split("_")[1]
-                self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
-                # load cross distances from file
-                cross_distances = common.load_cross_distances_from_file(dir_path)
-                self.rois.add_cross_shore_distances(cross_distances, roi_id)
+
+
+    # def load_session(self, session_path: str) -> None:
+    #     print(f"Loading session: {session_path}")
+    #     session_name = os.path.basename(os.path.abspath(session_path))
+    #     self.set_session_name(session_name)
+    #     if len(os.listdir(session_path))==0:
+    #         self.load_session_from_directory(session_path)
+    #     elif len(os.listdir(session_path))>0:
+    #         for dir_name in os.listdir(session_path):
+    #             dir_path = os.path.join(session_path, dir_name)
+    #             if  os.path.isdir(dir_path):
+    #                 self.load_session_from_directory(dir_path)
+
+    #     self.load_extracted_shorelines_to_map(self.rois.gdf['id'].tolist())
+
+
+    # def load_session(self, session_path: str) -> None:
+    #     print(f"Loading session: {session_path}")
+    #     session_name = os.path.basename(os.path.abspath(session_path))
+    #     self.set_session_name(session_name)
+    #     for count, dir_name in enumerate(os.listdir(session_path)):
+    #         dir_path = os.path.join(session_path, dir_name)
+    #         # only load in settings from first ROI since all settings SHOULD be same for a session
+    #         if os.path.isdir(dir_path):
+    #             if count == 0:
+    #                 for file_name in os.listdir(dir_path):
+    #                     file_path = os.path.join(dir_path, file_name)
+    #                     if os.path.isfile(file_path):
+    #                         if file_name == "config_gdf.geojson":
+    #                             self.load_configs(file_path)
+    #                         elif file_name == "transects_settings.json":
+    #                             self.load_settings(file_path)
+    #                             print(f"Loaded transect settings")
+    #                         elif file_name == "shoreline_settings.json":
+    #                             self.load_settings(file_path)
+    #                             print(f"Loaded shoreline settings")
+
+    #             for file_name in os.listdir(dir_path):
+    #                 file_path = os.path.join(dir_path, file_name)
+    #                 if os.path.isfile(file_path):
+    #                     if file_name == "transects_settings.json":
+    #                         self.load_settings(file_path)
+    #                         print(f"Loaded transect settings")
+    #                     elif file_name == "shoreline_settings.json":
+    #                         self.load_settings(file_path)
+    #                         print(f"Loaded shoreline settings")
+
+    #             # for every directory load extracted shorelines and transect files
+    #             extracted_shorelines = (
+    #                 extracted_shoreline.load_extracted_shoreline_from_files(dir_path)
+    #             )
+    #             # get roi id from directory name
+    #             roi_id = os.path.basename(dir_path).split("_")[1]
+    #             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+    #             # load cross distances from file
+    #             cross_distances = common.load_cross_distances_from_file(dir_path)
+    #             self.rois.add_cross_shore_distances(cross_distances, roi_id)
+
+    #     self.load_extracted_shorelines_to_map(self.rois.gdf['id'].tolist())
 
     def load_settings(self, filepath: str = "", new_settings: dict = {}):
         """
@@ -282,6 +380,8 @@ class CoastSeg_Map:
         """
         logger.info(f"Loading {filepath}")
         gdf = common.read_gpd_file(filepath)
+        # convert any timestamp columns to string
+        gdf = common.stringify_datetime_columns(gdf)
         # Extract ROIs from gdf and create new dataframe
         roi_gdf = gdf[gdf["type"] == "roi"].copy()
         exception_handler.check_if_gdf_empty(
@@ -422,25 +522,30 @@ class CoastSeg_Map:
         """
         exception_handler.check_if_None(self.rois)
         json_data = common.read_json_file(filepath)
+        logger.info(f"filepath: {filepath}")
         # replace coastseg_map.settings with settings from config file
         self.set_settings(**json_data["settings"])
-        logger.info(f"Loaded settings from file: {self.get_settings()}")
-
         # replace roi_settings for each ROI with contents of json_data
         roi_settings = {}
         # flag raised if a single directory is missing
         missing_directories = []
+        logger.info(f"json_data: {json_data}\n")
         for roi_id in json_data["roi_ids"]:
-            # if sitename is empty means user has not downloaded ROI data
-            if json_data[roi_id]["sitename"] != "":
-                sitename = json_data[roi_id]["sitename"]
-                roi_path = os.path.join(data_path, sitename)
-                json_data[roi_id]["filepath"] = data_path
-
-                if not os.path.exists(roi_path):
-                    missing_directories.append(sitename)
+            logger.info(f"roi_id: {roi_id}")
+            # extract the fields of interest from the config dictionary
+            fields_of_interest = ['dates', 'sitename', 'polygon', 'roi_id', 'sat_list', 'sitename', 'landsat_collection', 'filepath']
+            roi_data = common.extract_fields(json_data,roi_id,fields_of_interest)
+            if not roi_data:
+                logger.error(f"json_data: {json_data}")
+                raise Exception (f"Invalid file detected. Please add the correct roi ids to the file's 'roi_ids' and try again.\nContents of file's 'roi_ids':{json_data['roi_ids']}")
+            # update the roi location to be one relevant to the current computer
+            sitename = roi_data.get('sitename','')
+            roi_path = os.path.join(data_path, sitename)
+            roi_data["filepath"] = data_path
+            if not os.path.exists(roi_path):
+                missing_directories.append(sitename)
             # copy setting from json file to roi
-            roi_settings[str(roi_id)] = json_data[roi_id]
+            roi_settings[str(roi_id)] = roi_data
 
         # if any directories are missing tell the user list of missing directories
         exception_handler.check_if_dirs_missing(missing_directories)
@@ -462,10 +567,7 @@ class CoastSeg_Map:
             Exception: raised if selected_layer is missing
         """
         settings = self.get_settings()
-        # settings must contain keys in subset
-        subset = set(["dates", "sat_list", "landsat_collection"])
-        superset = set(list(settings.keys()))
-        exception_handler.check_if_subset(subset, superset, "settings")
+        # if no rois exist on the map do not allow configs to be saved
         exception_handler.config_check_if_none(self.rois, "ROIs")
         # selected_layer must contain selected ROI
         selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
@@ -837,6 +939,7 @@ class CoastSeg_Map:
 
         self.save_session(roi_ids, save_transects=False)
         self.compute_transects()
+        self.load_extracted_shorelines_to_map(self.rois.gdf['id'].tolist())
 
 
     def get_selected_rois(self, roi_ids: list) -> gpd.GeoDataFrame:
@@ -1410,17 +1513,20 @@ class CoastSeg_Map:
             if roi_extract_shoreline is not None:
                 self.load_extracted_shorelines_on_map(roi_extract_shoreline)
 
-    def load_extracted_shorelines_on_map(self, extracted_shoreline):
+    def load_extracted_shorelines_on_map(self, extracted_shoreline:extracted_shoreline.Extracted_Shoreline):
         # Loads stylized extracted shorelines onto map for single roi
-        layers = extracted_shoreline.get_styled_layers()
-        layer_names = extracted_shoreline.get_layer_names()
-        self.extracted_shoreline_layers = [
-            *self.extracted_shoreline_layers,
-            *layer_names,
-        ]
-        logger.info(f"{layers}")
+        layers = extracted_shoreline.get_styled_layer()
+        logger.info(f"extracted shoreline layers: {layers}")
+        layer_name = extracted_shoreline.get_layer_name()
+        logger.info(f"layer_name: {layer_name}")
+        logger.info(f"extracted shoreline layers: {layers}")
+        if type(layer_name) == list:
+            self.extracted_shoreline_layers.extend(layer_name)
+        elif type(layer_name) == str:
+            self.extracted_shoreline_layers.append(layer_name)
+        logger.info(f"{self.extracted_shoreline_layers}")
         for new_layer in layers:
-            new_layer.on_hover(self.update_extracted_shoreline_html)
+            # new_layer.on_hover(self.update_extracted_shoreline_html)
             self.map.add_layer(new_layer)
 
     def load_feature_on_map(

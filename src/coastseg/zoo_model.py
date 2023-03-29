@@ -663,9 +663,10 @@ class Zoo_Model:
         
         # save extracted shorelines, detection jpgs, configs, model settings files to the session directory 
         common.save_extracted_shorelines(extracted_shorelines,new_session_path)
-        config_json = common.create_json_config(roi_settings, extract_shoreline_settings)
+        config_json = common.create_json_config(roi_settings, extract_shoreline_settings,roi_ids=[roi_id])
         common.config_to_file(config_json, new_session_path)
-        config_gdf = common.create_config_gdf(roi_gdf,extracted_shorelines.gdf,transects_in_roi.gdf)
+        # save a config geodataframe with the rois, reference shoreline and transects
+        config_gdf = common.create_config_gdf(roi_gdf,shoreline_for_roi.gdf,transects_in_roi.gdf)
         common.config_to_file(config_gdf, new_session_path)
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
         shutil.copy(model_settings_location, model_settings_path)

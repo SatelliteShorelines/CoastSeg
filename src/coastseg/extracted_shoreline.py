@@ -5,9 +5,10 @@ import os
 import json
 import copy
 from glob import glob
-from typing import Union
+from typing import Optional, Union
 import pickle
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 # Internal dependencies imports
@@ -274,31 +275,49 @@ def extract_shorelines_for_session(session_path:str,metadata:dict, settings:dict
 
     return output
 
+from typing import Optional
+from glob import glob
+import os
 
-def load_extracted_shoreline_from_files(dir_path):
+def load_extracted_shoreline_from_files(dir_path: str) -> Optional['Extracted_Shoreline']:
+    """
+    Load the extracted shoreline from the given directory.
 
-    extracted_sl_gdf = None
-    shoreline_settings = None
-    extracted_shoreline_dict = None
+    The function searches the directory for the extracted shoreline GeoJSON file, the shoreline settings JSON file,
+    and the extracted shoreline dictionary JSON file. If any of these files are missing, the function returns None.
 
-    shoreline_glob = os.path.join(dir_path, "*shoreline*")
-    for file in glob(shoreline_glob):
-        if file.endswith(".geojson"):
-            extracted_sl_gdf = common.read_gpd_file(file)
-        if file.endswith(".json"):
-            if "settings" in os.path.basename(file):
-                shoreline_settings = common.from_file(file)
-            if "dict" in os.path.basename(file):
-                extracted_shoreline_dict = common.from_file(file)
+    Args:
+        dir_path: The path to the directory containing the extracted shoreline files.
 
-    if extracted_sl_gdf is None or extracted_sl_gdf is None or extracted_sl_gdf is None:
-        logger.warning(f"No extracted shorelnes could be loaded from {dir_path}")
-        return None
-    # load extracted shorelines from file
+    Returns:
+        An instance of the Extracted_Shoreline class containing the extracted shoreline data, or None if any of the
+        required files are missing.
+    """
+    required_files = {
+        "geojson": "*shoreline*.geojson",
+        "settings": "*shoreline*settings*.json",
+        "dict": "*shoreline*dict*.json",
+    }
+
+    extracted_files = {}
+
+    for file_type, file_pattern in required_files.items():
+        file_paths = glob(os.path.join(dir_path, file_pattern))
+        if not file_paths:
+            logger.warning(f"No {file_type} file could be loaded from {dir_path}")
+            return None
+
+        file_path = file_paths[0]  # Use the first file if there are multiple matches
+        if file_type == "geojson":
+            extracted_files[file_type] = common.read_gpd_file(file_path)
+        else:
+            extracted_files[file_type] = common.from_file(file_path)
+
     extracted_shorelines = Extracted_Shoreline()
     extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
-        extracted_shoreline_dict, shoreline_settings, extracted_sl_gdf
+        extracted_files["dict"], extracted_files["settings"], extracted_files["geojson"]
     )
+
     logger.info(f"Loaded extracted shorelines from: {dir_path}")
     return extracted_shorelines
 
@@ -321,6 +340,30 @@ class Extracted_Shoreline:
         self.dictionary = {}
         # shoreline_settings: dictionary of settings used to extract shoreline
         self.shoreline_settings = {}
+
+    def get_roi_id(self) -> Optional[str]:
+        """
+        Extracts the region of interest (ROI) ID from the shoreline settings.
+
+        The method retrieves the sitename field from the shoreline settings inputs dictionary and extracts the
+        ROI ID from it, if present. The sitename field is expected to be in the format "ID_XXXX_datetime03-22-23__07_29_15", 
+        where XXXX is the id of the ROI. If the sitename field is not present or is not in the
+        expected format, the method returns None.
+
+        shoreline_settings:
+        {
+            'inputs' {
+                "sitename": 'ID_0_datetime03-22-23__07_29_15',
+                }
+        }
+
+        Returns:
+            The ROI ID as a string, or None if the sitename field is not present or is not in the expected format.
+        """
+        inputs = self.shoreline_settings.get('inputs', {})
+        sitename = inputs.get('sitename', '')
+        roi_id = sitename.split("_")[1] if sitename else None
+        return roi_id
 
     def load_extracted_shorelines(
         self,
@@ -612,7 +655,7 @@ class Extracted_Shoreline:
 
     def style_layer(
         self, geojson: dict, layer_name: str, color: str
-    ) -> "ipyleaflet.GeoJSON":
+    ) -> GeoJSON:
         """Return styled GeoJson object with layer name
 
         Args:
@@ -640,23 +683,64 @@ class Extracted_Shoreline:
         ex.'ID21_2018-12-31 19:03:17'
         """
         roi_id = self.roi_id
+        # Check the datatype of the 'date' column
+        date_dtype =  self.gdf['date'].dtype
+        gdf=self.gdf.copy()
+        # If the datatype is pandas Timestamp, apply the lambda function
+        if pd.api.types.is_datetime64_any_dtype(date_dtype):
+            gdf['date'] = self.gdf['date'].apply(lambda ts: ts.strftime("%Y-%m-%dT%H:%M:%S"))
+
         layer_names = [
-            "ID" + roi_id + "_" + date_str for date_str in self.gdf["date"].to_list()
+            "ID" + roi_id + "_" + date_str for date_str in gdf["date"].to_list()
         ]
         return layer_names
+    
+    def get_layer_name(self) -> list:
+        """returns a list of strings of format: 'ID_<roi_id>_<date>'
+        ex.'ID21_2018-12-31 19:03:17'
+        """
+        roi_id = self.roi_id
+        shoreline_date=str(self.gdf["date"].iloc[0])
+        layer_name = "ID" + roi_id + "_" + shoreline_date
+        return layer_name
 
-    def get_styled_layers(self) -> list:
+    def get_styled_layers(self) -> list[GeoJSON]:
         # load extracted shorelines onto map
         map_crs = 4326
+        layers = []
         # convert to map crs and turn in json dict
         features_json = json.loads(self.gdf.to_crs(map_crs).to_json())
         layer_colors = get_colors(len(features_json["features"]))
         layer_names = self.get_layer_names()
-        layers = []
         for idx, feature in enumerate(features_json["features"]):
             geojson_layer = self.style_layer(
                 feature, layer_names[idx], layer_colors[idx]
             )
+            layers.append(geojson_layer)
+        return layers
+
+    def get_styled_layer(self) -> list[GeoJSON]:
+        # load extracted shorelines onto map
+        map_crs = 4326
+        layers = []
+        if self.gdf.empty:
+            return layers
+        # convert to map crs and turn in json dict
+        projected_gdf=self.gdf.to_crs(map_crs)
+        # select a single shoreline and convert it to json
+        single_shoreline = projected_gdf[["geometry"]].iloc[[0]]
+        logger.info(f"single_shoreline: {single_shoreline}")
+        features_json = json.loads(single_shoreline.to_json())
+        logger.info(f"single_shoreline features_json: {features_json}")
+        layer_name = self.get_layer_name()
+        logger.info(f"layer_name: {layer_name}")
+        logger.info(f"features_json['features']: {features_json['features']}")
+        # create a single layer
+        for feature in features_json["features"]:
+            geojson_layer = self.style_layer(
+                feature, layer_name, "black"
+            )
+            logger.info(f"geojson_layer: {geojson_layer}")
             layers.append(geojson_layer)
         return layers
 
