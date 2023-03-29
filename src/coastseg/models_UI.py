@@ -42,7 +42,7 @@ class UI_Models:
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "sat_RGB_2class_7448405",
+            "sat_RGB_2class_7779766",
             "sat_RGB_4class_6950472",
         ]
         self.five_band_models = [

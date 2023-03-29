@@ -238,7 +238,6 @@ def extract_shorelines_for_session(
                 cloud_mask.shape, georef, image_epsg, pixel_size, settings
             )
 
-            # classify image in 4 classes (sand, whitewater, water, other) with NN classifier
             npz_file = get_npz_tile(filenames[i], session_path, satname)
             logger.info(f"npz_file: {npz_file}")
             # indexes of [0,1,2] in the npz file represent water, whitewater, and sand classes.
@@ -721,9 +720,9 @@ class Extracted_Shoreline:
             style={
                 "color": color,
                 "opacity": 1,
-                "weight": 4,
+                "weight": 2,
             },
-            hover_style={"color": "red", "dashArray": "4", "fillOpacity": 0.7},
+            hover_style={"color": "red", "fillOpacity": 0.7},
         )
 
     def get_layer_names(self) -> list:
@@ -787,7 +786,7 @@ class Extracted_Shoreline:
         logger.info(f"features_json['features']: {features_json['features']}")
         # create a single layer
         for feature in features_json["features"]:
-            geojson_layer = self.style_layer(feature, layer_name, "black")
+            geojson_layer = self.style_layer(feature, layer_name, "purple")
             logger.info(f"geojson_layer: {geojson_layer}")
             layers.append(geojson_layer)
         return layers
