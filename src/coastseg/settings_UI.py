@@ -8,9 +8,10 @@ from ipywidgets import Text
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
 
+
 class Settings_UI:
     def __init__(self) -> None:
-        self.settings={}
+        self.settings = {}
         # button styles
         self.remove_style = dict(button_color="red")
         self.load_style = dict(button_color="#69add1", description_width="initial")
@@ -21,7 +22,7 @@ class Settings_UI:
     def set_settings(self, **kwargs):
         self.settings.update({key: value for key, value in kwargs.items()})
 
-    def get_settings(self)->dict:
+    def get_settings(self) -> dict:
         settings = {
             "output_epsg": int(self.output_epsg_text.value),
             "max_dist_ref": self.shoreline_buffer_slider.value,
@@ -265,10 +266,10 @@ class Settings_UI:
         )
         return VBox([label, self.min_chainage_text])
 
-    def get_output_epsg(self)->Text:
-        self.output_epsg_text=Text(value="4326", description="Output epsg:")
+    def get_output_epsg(self) -> Text:
+        self.output_epsg_text = Text(value="4326", description="Output epsg:")
         return self.output_epsg_text
-    
+
     def render(self):
         # return a vbox of all the settings
         settings = {
@@ -287,7 +288,5 @@ class Settings_UI:
             "output_epsg": self.get_output_epsg(),
         }
         # create settings vbox
-        settings_vbox = VBox(
-            [widget for widget_name, widget in settings.items()]
-        )
+        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
         return settings_vbox

@@ -47,39 +47,67 @@ import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
-def tidal_corrections(roi_id,beach_slope,reference_elevation,extract_shorelines_dict,cross_distance:dict,tide_data:pd.DataFrame,save_path):
+
+def tidal_corrections(
+    roi_id,
+    beach_slope,
+    reference_elevation,
+    extract_shorelines_dict,
+    cross_distance: dict,
+    tide_data: pd.DataFrame,
+    save_path,
+):
     # tides for each date in extracted shorelines
-    tides_for_dates = get_tides_level(extract_shorelines_dict['dates'],tide_data)
-    correction = (tides_for_dates-reference_elevation)/beach_slope
-    
+    tides_for_dates = get_tides_level(extract_shorelines_dict["dates"], tide_data)
+    correction = (tides_for_dates - reference_elevation) / beach_slope
+
     cross_distance_tidally_corrected = {}
     for key in cross_distance.keys():
         cross_distance_tidally_corrected[key] = cross_distance[key] + correction
-        
-    common.create_csv_per_transect(roi_id,save_path,cross_distance_tidally_corrected,extract_shorelines_dict,filename="_timeseries_tidally_corrected.csv")
-    common.save_transect_intersections(save_path,extract_shorelines_dict,cross_distance_tidally_corrected,filename="timeseries_tidally_corrected.csv")
+
+    common.create_csv_per_transect(
+        roi_id,
+        save_path,
+        cross_distance_tidally_corrected,
+        extract_shorelines_dict,
+        filename="_timeseries_tidally_corrected.csv",
+    )
+    common.save_transect_intersections(
+        save_path,
+        extract_shorelines_dict,
+        cross_distance_tidally_corrected,
+        filename="timeseries_tidally_corrected.csv",
+    )
+
 
 # tides for each date in extracted shorelines
-def get_tides_level(extracted_shoreline_dates:np.array,tide_data:pd.DataFrame)->np.array:
+def get_tides_level(
+    extracted_shoreline_dates: np.array, tide_data: pd.DataFrame
+) -> np.array:
     """Gets the tide level for each of the dates that a shoreline was extracted
     Args:
         extract_shorelines_dict (np.array): dates for each extracted shoreliens
         tide_data (pd.DataFrame): dates and tide levels
     Returns:
         np.array: tide level for each of the dates that a shoreline was extracted
-    """    
-    tide_dates = [pytz.utc.localize(_.to_pydatetime()) for _ in tide_data['dates']]
-    tides = np.array(tide_data['tides'])
-    tides_for_dates = SDS_tools.get_closest_datapoint(extracted_shoreline_dates, tide_dates, tides)
+    """
+    tide_dates = [pytz.utc.localize(_.to_pydatetime()) for _ in tide_data["dates"]]
+    tides = np.array(tide_data["tides"])
+    tides_for_dates = SDS_tools.get_closest_datapoint(
+        extracted_shoreline_dates, tide_dates, tides
+    )
     return tides_for_dates
 
-def compute_tidal_corrections(roi_id:str,
-                              src_location:str,
-                              save_path:str,
-                              tides_location:str,
-                              beach_slope:float,
-                              reference_elevation:float)->None:
-    """ Tidaly corrects the intersections between the transects and the extracted shorelines
+
+def compute_tidal_corrections(
+    roi_id: str,
+    src_location: str,
+    save_path: str,
+    tides_location: str,
+    beach_slope: float,
+    reference_elevation: float,
+) -> None:
+    """Tidaly corrects the intersections between the transects and the extracted shorelines
     Args:
         roi_id (str): id of the roi
         src_location (str): directory containing extracted shorelines and transects
@@ -88,21 +116,38 @@ def compute_tidal_corrections(roi_id:str,
         beach_slope (float): beach slope at the ROI's location
         reference_elevation (float): reference_elevation at the ROI's location
     """
-    print("Correcting tides... please wait")    
-    tide_data = pd.read_csv(tides_location, parse_dates=['dates'])
-    if 'tides' not in tide_data.columns or 'dates' not in tide_data.columns:
-        logger.error(f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'")
-        raise Exception(f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'")
+    print("Correcting tides... please wait")
+    tide_data = pd.read_csv(tides_location, parse_dates=["dates"])
+    if "tides" not in tide_data.columns or "dates" not in tide_data.columns:
+        logger.error(
+            f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
+        )
+        raise Exception(
+            f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
+        )
     # load transect cross distances from file
     cross_distance = common.load_cross_distances_from_file(src_location)
     # load extract shorelines from file
-    extract_shorelines_location = os.path.join(src_location,'extracted_shorelines_dict.json')
+    extract_shorelines_location = os.path.join(
+        src_location, "extracted_shorelines_dict.json"
+    )
     extract_shorelines_dict = common.from_file(extract_shorelines_location)
     # tidally correct transect shorelines intersections
-    tidal_corrections(roi_id,beach_slope,reference_elevation,extract_shorelines_dict,cross_distance,tide_data,save_path)
+    tidal_corrections(
+        roi_id,
+        beach_slope,
+        reference_elevation,
+        extract_shorelines_dict,
+        cross_distance,
+        tide_data,
+        save_path,
+    )
     print(f"\nFinished tidal corrections.\nResults are located at {save_path}")
 
-def get_files_to_download(available_files: List[dict], filenames: List[str], model_id: str, model_path: str) -> dict:
+
+def get_files_to_download(
+    available_files: List[dict], filenames: List[str], model_id: str, model_path: str
+) -> dict:
     """Constructs a dictionary of file paths and their corresponding download links, based on the available files and a list of desired filenames.
 
     Args:
@@ -115,17 +160,18 @@ def get_files_to_download(available_files: List[dict], filenames: List[str], mod
     A dictionary with file paths as keys and their corresponding download links as values.
     Raises a ValueError if any of the desired filenames are not available in the available_files list.
     """
-    if  isinstance(filenames,str):
-        filenames=[filenames]
-    url_dict={}
+    if isinstance(filenames, str):
+        filenames = [filenames]
+    url_dict = {}
     for filename in filenames:
         response = next((f for f in available_files if f["key"] == filename), None)
         if response is None:
             raise ValueError(f"Cannot find {filename} at {model_id}")
         link = response["links"]["self"]
-        file_path = os.path.join(model_path,filename)
+        file_path = os.path.join(model_path, filename)
         url_dict[file_path] = link
     return url_dict
+
 
 def check_if_files_exist(files_dict: dict) -> dict:
     """Checks if each file in a given dictionary of file paths and download links already exists in the local filesystem.
@@ -169,17 +215,17 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
             RGB
             NIR
             SWIR
-    
+
     Args:
         img_type (str): The type of imagery to generate. Available options: 'RGB', 'NDWI', 'MNDWI',or 'RGB+MNDWI+NDWI'
         RGB_path (str): The path to the RGB imagery directory.
-        
+
     Returns:
         str: The path to the output directory for the specified imagery type.
     """
     logger.info(f"img_type: {img_type}")
     logger.info(f"RGB_path: {RGB_path}")
-    img_type= img_type.upper()
+    img_type = img_type.upper()
     output_path = os.path.dirname(RGB_path)
     if img_type == "RGB":
         output_path = RGB_path
@@ -200,7 +246,9 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
         SWIR_path = os.path.join(output_path, "SWIR")
         output_path = RGB_to_infrared(RGB_path, SWIR_path, output_path, "MNDWI")
     else:
-        raise ValueError(f"{img_type} not reconigzed as one of the valid types 'RGB', 'NDWI', 'MNDWI',or 'RGB+MNDWI+NDWI'")
+        raise ValueError(
+            f"{img_type} not reconigzed as one of the valid types 'RGB', 'NDWI', 'MNDWI',or 'RGB+MNDWI+NDWI'"
+        )
     logger.info(f"output_path: {output_path}")
     return output_path
 
@@ -300,7 +348,7 @@ def RGB_to_infrared(
     # matrix:bands(RGB) x number of samples(NIR)
     files = get_files(RGB_path, infrared_path)
     # output_path: directory to store MNDWI or NDWI outputs
-    output_path = os.path.join(output_path,output_type.upper())
+    output_path = os.path.join(output_path, output_type.upper())
     logger.info(f"output_path {output_path}")
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -568,8 +616,9 @@ class Zoo_Model:
             raise Exception(SETTINGS_NOT_FOUND)
         return self.settings
 
-
-    def preprocess_data(self, src_directory:str, model_dict:dict,img_type:str)->dict:
+    def preprocess_data(
+        self, src_directory: str, model_dict: dict, img_type: str
+    ) -> dict:
         """
         Preprocesses the data in the source directory and updates the model dictionary with the processed data.
 
@@ -583,71 +632,79 @@ class Zoo_Model:
         """
         logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
-        RGB_path = common.find_directory_recurively( src_directory,name='RGB')
+        RGB_path = common.find_directory_recurively(src_directory, name="RGB")
         # convert RGB to MNDWI, NDWI,or 5 band
-        model_dict["sample_direc"] = get_imagery_directory(
-            img_type, RGB_path
-        )
+        model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         logger.info(f"model_dict: {model_dict}")
         return model_dict
 
-
-
-    def extract_shorelines(self,extract_shoreline_settings:dict,session_path:str,session_name:str)->None:
+    def extract_shorelines(
+        self, extract_shoreline_settings: dict, session_path: str, session_name: str
+    ) -> None:
         logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
         self.set_settings(**extract_shoreline_settings)
         extract_shoreline_settings = self.get_settings()
         # create session path to store extracted shorelines and transects
         sessions_path = common.create_directory(os.getcwd(), "sessions")
         new_session_path = common.create_directory(sessions_path, session_name)
-        config_json_location = common.find_file_recurively(session_path,'config.json')
-        config_geojson_location = common.find_file_recurively(session_path,'config_gdf.geojson')
-        model_settings_location =common.find_file_recurively(session_path,'model_settings.json')
+        config_json_location = common.find_file_recurively(session_path, "config.json")
+        config_geojson_location = common.find_file_recurively(
+            session_path, "config_gdf.geojson"
+        )
+        model_settings_location = common.find_file_recurively(
+            session_path, "model_settings.json"
+        )
         logger.info(f"config_geojson_location: {config_geojson_location}")
         # read source directory from model settings
         model_settings = common.from_file(model_settings_location)
-        source_directory = model_settings['sample_direc']
-        model_type = model_settings['model_type']
-        if model_type != 'sat_RGB_4class_6950472':
-            raise Exception(f"Unable to extract shorelines only works with 'sat_RGB_4class_6950472' not {model_type}\nThis will be changed in a future update.")
+        source_directory = model_settings["sample_direc"]
+        model_type = model_settings["model_type"]
+        if model_type != "sat_RGB_4class_6950472":
+            raise Exception(
+                f"Unable to extract shorelines only works with 'sat_RGB_4class_6950472' not {model_type}\nThis will be changed in a future update."
+            )
         # load roi settings from the config file
         roi_id = common.extract_roi_id(source_directory)
         config = common.from_file(config_json_location)
-        roi_settings=config.get(roi_id,{})
+        roi_settings = config.get(roi_id, {})
         logger.info(f"roi_settings: {roi_settings}")
         if roi_settings == {}:
             raise ValueError(f"{roi_id} roi settings did not exist")
         # read ROI from config geojson file
         config_gdf = common.read_gpd_file(config_geojson_location)
-        roi_gdf = config_gdf[config_gdf['id']==roi_id]
+        roi_gdf = config_gdf[config_gdf["id"] == roi_id]
         if roi_gdf.empty:
-            raise ValueError(f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}")
+            raise ValueError(
+                f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}"
+            )
         # load shorelines for ROI
         shoreline_for_roi = shoreline.Shoreline(roi_gdf)
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         # extract shorelines with most accurate crs
         new_espg = common.get_most_accurate_epsg(extract_shoreline_settings, roi_gdf)
-        extract_shoreline_settings['output_epsg']=new_espg
+        extract_shoreline_settings["output_epsg"] = new_espg
         self.set_settings(output_epsg=new_espg)
 
-        extracted_shorelines = extracted_shorelines.create_extracted_shorlines_from_session(
-            roi_id,
-            shoreline_for_roi.gdf,
-            roi_settings,
-            extract_shoreline_settings,
-            session_path,
+        extracted_shorelines = (
+            extracted_shorelines.create_extracted_shorlines_from_session(
+                roi_id,
+                shoreline_for_roi.gdf,
+                roi_settings,
+                extract_shoreline_settings,
+                session_path,
+            )
         )
 
         # load transects for ROI
-        transects_in_roi=transects.Transects(roi_gdf)
+        transects_in_roi = transects.Transects(roi_gdf)
         # convert transects gdf to output crs
-        output_epsg = extract_shoreline_settings['output_epsg']
+        output_epsg = extract_shoreline_settings["output_epsg"]
         transects_gdf = transects_in_roi.gdf[["id", "geometry"]]
         transects_gdf = transects_gdf.to_crs(output_epsg)
         # compute intersection between extracted shorelines and transects
         transects_dict = common.get_transect_points_dict(transects_gdf)
         cross_distance_transects = SDS_transects.compute_intersection_QC(
-                    extracted_shorelines.dictionary, transects_dict, extract_shoreline_settings
+            extracted_shorelines.dictionary, transects_dict, extract_shoreline_settings
         )
         logger.info(f"cross_distance: {cross_distance_transects}")
 
@@ -656,25 +713,39 @@ class Zoo_Model:
             logger.warning("No transect shoreline intersections.")
             print("No transect shoreline intersections.")
         else:
-            common.create_csv_per_transect(roi_id,new_session_path,cross_distance_transects,extracted_shorelines.dictionary)
-            common.save_transect_intersections(new_session_path,extracted_shorelines.dictionary, cross_distance_transects)
+            common.create_csv_per_transect(
+                roi_id,
+                new_session_path,
+                cross_distance_transects,
+                extracted_shorelines.dictionary,
+            )
+            common.save_transect_intersections(
+                new_session_path,
+                extracted_shorelines.dictionary,
+                cross_distance_transects,
+            )
             save_path = os.path.join(new_session_path, "transects_cross_distances.json")
             common.to_file(cross_distance_transects, save_path)
-        
-        # save extracted shorelines, detection jpgs, configs, model settings files to the session directory 
-        common.save_extracted_shorelines(extracted_shorelines,new_session_path)
-        config_json = common.create_json_config(roi_settings, extract_shoreline_settings,roi_ids=[roi_id])
+
+        # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
+        common.save_extracted_shorelines(extracted_shorelines, new_session_path)
+        config_json = common.create_json_config(
+            roi_settings, extract_shoreline_settings, roi_ids=[roi_id]
+        )
         common.config_to_file(config_json, new_session_path)
         # save a config geodataframe with the rois, reference shoreline and transects
-        config_gdf = common.create_config_gdf(roi_gdf,shoreline_for_roi.gdf,transects_in_roi.gdf)
+        config_gdf = common.create_config_gdf(
+            roi_gdf, shoreline_for_roi.gdf, transects_in_roi.gdf
+        )
         common.config_to_file(config_gdf, new_session_path)
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
         shutil.copy(model_settings_location, model_settings_path)
         print(f"Saved extracted shorelines to {new_session_path}")
 
-
-    def postprocess_data(self,preprocessed_data:dict,session:sessions.Session,roi_directory:str):
-        """Moves the model outputs from 
+    def postprocess_data(
+        self, preprocessed_data: dict, session: sessions.Session, roi_directory: str
+    ):
+        """Moves the model outputs from
         as well copies the config files from the roi directory to the session directory
 
         Args:
@@ -683,10 +754,10 @@ class Zoo_Model:
             saves the session to the sessions directory
             roi_directory (str):  directory in data that contains downloaded data for a single ROI
             typically starts with "ID_{roi_id}"
-        """        
+        """
         # get roi_ids
         session_path = session.path
-        outputs_path = os.path.join(preprocessed_data['sample_direc'],'out')
+        outputs_path = os.path.join(preprocessed_data["sample_direc"], "out")
         if not os.path.exists(outputs_path):
             logger.warning(f"No model outputs were generated")
             print(f"No model outputs were generated")
@@ -694,21 +765,18 @@ class Zoo_Model:
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
         # copy configs from data/roi_id location to session location
-        common.copy_configs(roi_directory,session_path)
+        common.copy_configs(roi_directory, session_path)
         model_settings_path = os.path.join(session_path, "model_settings.json")
         common.write_to_json(model_settings_path, preprocessed_data)
-        
+
         # copy files from out to session folder
         common.move_files(outputs_path, session_path, delete_src=True)
         session.save(session.path)
 
-
-    def prepare_model(self,
-                      model_implementation: str,
-                      model_id:str):
+    def prepare_model(self, model_implementation: str, model_id: str):
         """
         Prepares the model for use by downloading the required files and loading the model.
-        
+
         Args:
             model_implementation (str): The model implementation either 'BEST' or 'ENSEMBLE'
             model_id (str): The ID of the model.
@@ -716,8 +784,8 @@ class Zoo_Model:
         # create the model directory
         self.weights_directory = self.get_model_directory(model_id)
         logger.info(f"self.weights_directory:{self.weights_directory}")
-        
-        self.download_model(model_implementation, model_id,self.weights_directory)
+
+        self.download_model(model_implementation, model_id, self.weights_directory)
         weights_list = self.get_weights_list(model_implementation)
 
         # Load the model from the config files
@@ -728,26 +796,28 @@ class Zoo_Model:
 
         self.model_types = model_types
         self.model_list = model_list
-        self.metadata_dict = self.get_metadatadict(weights_list, config_files, model_types)
+        self.metadata_dict = self.get_metadatadict(
+            weights_list, config_files, model_types
+        )
         logger.info(f"self.metadatadict: {self.metadata_dict}")
 
     def get_metadatadict(
         self, weights_list: list, config_files: list, model_types: list
-    )->dict:
+    ) -> dict:
         metadatadict = {}
         metadatadict["model_weights"] = weights_list
         metadatadict["config_files"] = config_files
         metadatadict["model_types"] = model_types
         return metadatadict
 
-    def get_classes(self,model_directory_path:str):
-        class_path= os.path.join(model_directory_path,"classes.txt")
+    def get_classes(self, model_directory_path: str):
+        class_path = os.path.join(model_directory_path, "classes.txt")
         classes = common.read_text_file(class_path)
         return classes
 
     def run_model(
         self,
-        img_type:str,
+        img_type: str,
         model_implementation: str,
         session_name: str,
         src_directory: str,
@@ -764,7 +834,7 @@ class Zoo_Model:
         logger.info(f"use_otsu: {use_otsu}")
         logger.info(f"use_tta: {use_tta}")
 
-        self.prepare_model(model_implementation,model_name)
+        self.prepare_model(model_implementation, model_name)
 
         # create a session
         session = sessions.Session()
@@ -782,22 +852,20 @@ class Zoo_Model:
             "tta": use_tta,
         }
         # get parent roi_directory from the selected imagery directory
-        roi_directory=common.find_parent_directory(src_directory,'ID_','data')
-        model_dict=self.preprocess_data(roi_directory,model_dict,img_type)
+        roi_directory = common.find_parent_directory(src_directory, "ID_", "data")
+        model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
         logger.info(f"model_dict: {model_dict}")
 
         self.compute_segmentation(
             model_dict,
         )
-        self.postprocess_data(model_dict,session,roi_directory)
+        self.postprocess_data(model_dict, session, roi_directory)
         print(f"\n Model results saved to {session.path}")
 
-
-
-    def get_model_directory(self,model_id:str):
+    def get_model_directory(self, model_id: str):
         # Create a directory to hold the downloaded models
         downloaded_models_path = self.get_downloaded_models_dir()
-        model_directory = common.create_directory(downloaded_models_path,model_id)
+        model_directory = common.create_directory(downloaded_models_path, model_id)
         return model_directory
 
     def get_files_for_seg(
@@ -828,20 +896,21 @@ class Zoo_Model:
 
     def compute_segmentation(
         self,
-        preprocessed_data:dict,
+        preprocessed_data: dict,
     ):
-        sample_direc = preprocessed_data['sample_direc']
-        use_tta = preprocessed_data['tta']
-        use_otsu = preprocessed_data['otsu']
+        sample_direc = preprocessed_data["sample_direc"]
+        use_tta = preprocessed_data["tta"]
+        use_otsu = preprocessed_data["otsu"]
         # Create list of files of types .npz,.jpg, or .png to run model on
         files_to_segment = self.get_files_for_seg(sample_direc)
         logger.info(f"files_to_segment: {files_to_segment}")
         if self.model_types[0] != "segformer":
             ### mixed precision
             from tensorflow.keras import mixed_precision
+
             mixed_precision.set_global_policy("mixed_float16")
         # Compute the segmentation for each of the files
-        for file_to_seg in tqdm.auto.tqdm(files_to_segment,desc="Applying Model"):
+        for file_to_seg in tqdm.auto.tqdm(files_to_segment, desc="Applying Model"):
             do_seg(
                 file_to_seg,
                 self.model_list,
@@ -1022,7 +1091,7 @@ class Zoo_Model:
 
     def get_metadatadict(
         self, weights_list: list, config_files: list, model_types: list
-    )->dict:
+    ) -> dict:
         """Returns a dictionary containing metadata about the models.
 
         Args:
@@ -1077,8 +1146,8 @@ class Zoo_Model:
             # Output: ['/path/to/weights/best_model.h5']
         """
         if model_choice == "ENSEMBLE":
-            
-            weights_list = glob(os.path.join(self.weights_directory,"*.h5"))
+
+            weights_list = glob(os.path.join(self.weights_directory, "*.h5"))
             logger.info(f"ENSEMBLE: weights_list: {weights_list}")
             logger.info(
                 f"ENSEMBLE: {len(weights_list)} sets of model weights were found "
@@ -1086,9 +1155,9 @@ class Zoo_Model:
             return weights_list
         elif model_choice == "BEST":
             # read model name (fullmodel.h5) from BEST_MODEL.txt
-            with open(os.path.join(self.weights_directory,"BEST_MODEL.txt")) as f:
+            with open(os.path.join(self.weights_directory, "BEST_MODEL.txt")) as f:
                 model_name = f.readlines()
-            weights_list = [os.path.join(self.weights_directory,model_name[0])]
+            weights_list = [os.path.join(self.weights_directory, model_name[0])]
             logger.info(f"BEST: weights_list: {weights_list}")
             logger.info(f"BEST: {len(weights_list)} sets of model weights were found ")
             return weights_list
@@ -1110,24 +1179,28 @@ class Zoo_Model:
         logger.info(f"downloaded_models_path: {downloaded_models_path}")
         return downloaded_models_path
 
-    def download_best(self,available_files:List[dict], model_path:str, model_id:str):
+    def download_best(
+        self, available_files: List[dict], model_path: str, model_id: str
+    ):
         """
         Downloads the best model file and its corresponding JSON and classes.txt files from the given list of available files.
-        
+
         Args:
             available_files (list): A list of files available to download.
             model_path (str): The local directory where the downloaded files will be stored.
             model_id (str): The ID of the model being downloaded.
-        
+
         Raises:
             ValueError: If BEST_MODEL.txt file is not found in the given model_id.
-        
+
         Returns:
             None
         """
         download_dict = {}
         # download best_model.txt and read the name of the best model
-        best_model_json = next((f for f in available_files if f["key"] == "BEST_MODEL.txt"), None)
+        best_model_json = next(
+            (f for f in available_files if f["key"] == "BEST_MODEL.txt"), None
+        )
         if best_model_json is None:
             raise ValueError(f"Cannot find BEST_MODEL.txt in {model_id}")
         # download best model file to check if it exists
@@ -1138,19 +1211,25 @@ class Zoo_Model:
             common.download_url(
                 best_model_json["links"]["self"],
                 BEST_MODEL_txt_path,
-                "Downloading best_model.txt"
+                "Downloading best_model.txt",
             )
-        
+
         with open(BEST_MODEL_txt_path, "r") as f:
             best_model_filename = f.read().strip()
         # get the json data of the best model _fullmodel.h5 file
         best_json_filename = best_model_filename.replace("_fullmodel.h5", ".json")
-        best_modelcard_filename = best_model_filename.replace("_fullmodel.h5", "_modelcard.json")
+        best_modelcard_filename = best_model_filename.replace(
+            "_fullmodel.h5", "_modelcard.json"
+        )
 
-        # download best model files(.h5, .json) file 
+        # download best model files(.h5, .json) file
         # download_filenames =[best_json_filename,best_model_filename,best_modelcard_filename]
-        download_filenames =[best_json_filename,best_model_filename]
-        download_dict.update(get_files_to_download(available_files,download_filenames,model_id,model_path))
+        download_filenames = [best_json_filename, best_model_filename]
+        download_dict.update(
+            get_files_to_download(
+                available_files, download_filenames, model_id, model_path
+            )
+        )
 
         download_dict = check_if_files_exist(download_dict)
         # download the files that don't exist
@@ -1158,22 +1237,23 @@ class Zoo_Model:
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
             downloads.run_async_function(
-                downloads.async_download_url_dict,
-                url_dict = download_dict
+                downloads.async_download_url_dict, url_dict=download_dict
             )
 
-    def download_ensemble(self, available_files:List[dict], model_path:str, model_id:str):
+    def download_ensemble(
+        self, available_files: List[dict], model_path: str, model_id: str
+    ):
         """
         Downloads all the model files and their corresponding JSON and classes.txt files from the given list of available files, for an ensemble model.
-        
+
         Args:
             available_files (list): A list of files available to download.
             model_path (str): The local directory where the downloaded files will be stored.
             model_id (str): The ID of the model being downloaded.
-        
+
         Raises:
             Exception: If no .h5 files or corresponding .json files are found in the given model_id.
-        
+
         Returns:
             None
         """
@@ -1181,40 +1261,48 @@ class Zoo_Model:
         # get json and models
         all_models_reponses = [f for f in available_files if f["key"].endswith(".h5")]
         all_model_names = [f["key"] for f in all_models_reponses]
-        json_file_names = [model_name.replace("_fullmodel.h5", ".json") for model_name in all_model_names]
+        json_file_names = [
+            model_name.replace("_fullmodel.h5", ".json")
+            for model_name in all_model_names
+        ]
         # best_modelcard_filename = [model_name.replace("_fullmodel.h5", "_modelcard.json") for model_name in all_model_names]
         all_json_reponses = []
         # for each filename online check if there a .json file
         for available_file in available_files:
-            if available_file['key'] in json_file_names:
+            if available_file["key"] in json_file_names:
                 all_json_reponses.append(available_file)
         if len(all_models_reponses) == 0:
             raise Exception(f"Cannot find any .h5 files at {model_id}")
         if len(all_json_reponses) == 0:
-            raise Exception(f"Cannot find corresponding .json files for .h5 files at {model_id}")
+            raise Exception(
+                f"Cannot find corresponding .json files for .h5 files at {model_id}"
+            )
             # raise Exception(f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}")
-        
+
         logger.info(f"all_models_reponses : {all_models_reponses }")
         logger.info(f"all_json_reponses : {all_json_reponses }")
-        for response in  all_models_reponses + all_json_reponses:
+        for response in all_models_reponses + all_json_reponses:
             # get the link of the best model
             link = response["links"]["self"]
-            filename = response['key']
+            filename = response["key"]
             filepath = os.path.join(model_path, filename)
             download_dict[filepath] = link
 
-        download_dict.update(get_files_to_download(available_files,[],model_id,model_path))
+        download_dict.update(
+            get_files_to_download(available_files, [], model_id, model_path)
+        )
         download_dict = check_if_files_exist(download_dict)
         # download the files that don't exist
         logger.info(f"URLs to download: {download_dict}")
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
             downloads.run_async_function(
-                downloads.async_download_url_dict,
-                url_dict = download_dict
+                downloads.async_download_url_dict, url_dict=download_dict
             )
 
-    def download_model(self, model_choice: str, model_id: str,model_path:str=None) -> None:
+    def download_model(
+        self, model_choice: str, model_id: str, model_path: str = None
+    ) -> None:
         """downloads model specified by zenodo id in model_id.
 
         Downloads best model is model_choice = 'BEST' or all models in
@@ -1231,8 +1319,8 @@ class Zoo_Model:
         json_content = get_zenodo_release(zenodo_id)
         available_files = json_content["files"]
 
-        # Download the best model if best or all models if ensemble 
+        # Download the best model if best or all models if ensemble
         if model_choice.upper() == "BEST":
-            self.download_best(available_files,model_path,model_id)
+            self.download_best(available_files, model_path, model_id)
         elif model_choice.upper() == "ENSEMBLE":
-            self.download_ensemble(available_files,model_path,model_id)
+            self.download_ensemble(available_files, model_path, model_id)

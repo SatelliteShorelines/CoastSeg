@@ -35,6 +35,8 @@ from ipywidgets import HTML
 logger = logging.getLogger(__name__)
 
 import uuid
+
+
 def create_id_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Creates a new column called 'id' in a GeoDataFrame if it doesn't already exist. If the GeoDataFrame already
@@ -48,12 +50,13 @@ def create_id_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     Returns:
         gpd.GeoDataFrame: the input GeoDataFrame with a new 'id' column containing unique IDs
     """
-    if 'id' in [col.lower() for col in gdf.columns]:
+    if "id" in [col.lower() for col in gdf.columns]:
         return gdf
-    gdf['id'] = gdf.apply(lambda row: uuid.uuid4().hex, axis=1)
+    gdf["id"] = gdf.apply(lambda row: uuid.uuid4().hex, axis=1)
     return gdf
 
-def copy_configs(src,dst):
+
+def copy_configs(src, dst):
     # copy config.geojson and config.json files from souce to destination directories
     config_gdf_path = find_config_json(src, r"config_gdf.*\.geojson")
     config_json_path = find_config_json(src, r"^config\.json$")
@@ -64,11 +67,12 @@ def copy_configs(src,dst):
     logger.info(f"dst_config.json: {dst_file}")
     shutil.copy(config_json_path, dst_file)
 
+
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
     title: str = None,
     filter_pattern: str = None,
-    starting_directory: str = None
+    starting_directory: str = None,
 ):
     """
     This function creates a file chooser and a button to close the file chooser.
@@ -118,6 +122,7 @@ def create_file_chooser(
     close_button.observe(close_click, "value")
     chooser = HBox([geojson_chooser, close_button], layout=Layout(width="100%"))
     return chooser
+
 
 def get_most_accurate_epsg(settings: dict, bbox: gpd.GeoDataFrame) -> int:
     """Returns most accurate epsg code based on lat and lon if output epsg
@@ -219,6 +224,7 @@ def is_in_google_colab() -> bool:
     else:
         return False
 
+
 def to_file(data: dict, filepath: str) -> None:
     class DateTimeEncoder(JSONEncoder):
         # Override the default method
@@ -270,7 +276,10 @@ def load_cross_distances_from_file(dir_path):
     logger.info(f"Loaded transect cross shore distances from: {dir_path}")
     return transect_dict
 
-def find_parent_directory(path:str, directory_name:str, stop_directory:str="") -> Union[str, None]:
+
+def find_parent_directory(
+    path: str, directory_name: str, stop_directory: str = ""
+) -> Union[str, None]:
     """
     Find the path to the parent directory that contains the specified directory name.
 
@@ -281,7 +290,7 @@ def find_parent_directory(path:str, directory_name:str, stop_directory:str="") -
                               If this is specified, the search will stop when this
                               directory is reached. If not specified, the search will
                               continue until the top-level directory is reached.
-    
+
     Returns:
         str or None: The path to the parent directory containing the directory with
                      the specified name, or None if the directory is not found.
@@ -290,19 +299,22 @@ def find_parent_directory(path:str, directory_name:str, stop_directory:str="") -
         # check if the current directory name contains the target directory name
         if directory_name in os.path.basename(path):
             return path
-        
+
         # get the parent directory
         parent_dir = os.path.dirname(path)
-        
+
         # check if the parent directory is the same as the current directory
         if parent_dir == path or os.path.basename(path) == stop_directory:
-            print(f"Reached top-level directory without finding '{directory_name}':", path)
+            print(
+                f"Reached top-level directory without finding '{directory_name}':", path
+            )
             return None
-        
+
         # update the path to the parent directory and continue the loop
         path = parent_dir
 
-def extract_roi_id(path:str)->str:
+
+def extract_roi_id(path: str) -> str:
     """extracts the ROI ID from the path
 
     Args:
@@ -311,12 +323,13 @@ def extract_roi_id(path:str)->str:
     Returns:
         str: ID of the ROI within the path
     """
-    pattern = r'ID_([A-Za-z0-9]+)'
+    pattern = r"ID_([A-Za-z0-9]+)"
     match = re.search(pattern, path)
     if match:
         return match.group(1)
     else:
         return None
+
 
 def from_file(filepath: str) -> dict:
     def DecodeDateTime(readDict):
@@ -436,7 +449,6 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
 def filter_dict_by_keys(original_dict: dict, keys: list) -> dict:
     filtered_dict = {k: v for k, v in original_dict.items() if k in keys}
     return filtered_dict
-
 
 
 def create_warning_box(title: str = None, msg: str = None) -> HBox:
@@ -672,7 +684,8 @@ def read_json_file(filename: str) -> dict:
         data = json.load(input_file)
     return data
 
-def extract_fields(data, key=None,fields_of_interest:list[str]=[])->dict:
+
+def extract_fields(data, key=None, fields_of_interest: list[str] = []) -> dict:
     """
     Extracts specified fields from a given dictionary.
 
@@ -686,7 +699,16 @@ def extract_fields(data, key=None,fields_of_interest:list[str]=[])->dict:
     """
     extracted_data = {}
     if not fields_of_interest:
-        fields_of_interest = ['dates', 'sitename', 'polygon', 'roi_id', 'sat_list', 'sitename', 'landsat_collection', 'filepath']
+        fields_of_interest = [
+            "dates",
+            "sitename",
+            "polygon",
+            "roi_id",
+            "sat_list",
+            "sitename",
+            "landsat_collection",
+            "filepath",
+        ]
 
     if key and key in data:
         for field in fields_of_interest:
@@ -698,6 +720,7 @@ def extract_fields(data, key=None,fields_of_interest:list[str]=[])->dict:
                 extracted_data[field] = data[field]
 
     return extracted_data
+
 
 def find_config_json(search_path: str, search_pattern: str = None) -> str:
     """Searches for a `config.json` file in the specified directory
@@ -858,9 +881,15 @@ def get_cross_distance_df(
     transects_csv = {**transects_csv, **cross_distance_transects}
     return pd.DataFrame(transects_csv)
 
-def save_transect_intersections(save_path:str,extracted_shorelines:dict,cross_distance_transects:dict,filename:str="transect_time_series.csv")->str:
+
+def save_transect_intersections(
+    save_path: str,
+    extracted_shorelines: dict,
+    cross_distance_transects: dict,
+    filename: str = "transect_time_series.csv",
+) -> str:
     cross_distance_df = get_cross_distance_df(
-            extracted_shorelines, cross_distance_transects
+        extracted_shorelines, cross_distance_transects
     )
     filepath = os.path.join(save_path, filename)
     if os.path.exists(filepath):
@@ -868,6 +897,7 @@ def save_transect_intersections(save_path:str,extracted_shorelines:dict,cross_di
         os.remove(filepath)
     cross_distance_df.to_csv(filepath, sep=",")
     return filepath
+
 
 def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """If the geodataframe has z coordinates in any rows, the z coordinates are dropped.
@@ -907,11 +937,14 @@ def remove_z_axis(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     else:
         return geodf
 
-def create_csv_per_transect(roi_id:str,
-                            save_path:str,
-                            cross_distance_transects:dict,
-                            extracted_shorelines_dict:dict,
-                            filename:str="_timeseries_raw.csv"):
+
+def create_csv_per_transect(
+    roi_id: str,
+    save_path: str,
+    cross_distance_transects: dict,
+    extracted_shorelines_dict: dict,
+    filename: str = "_timeseries_raw.csv",
+):
     for key in cross_distance_transects.keys():
         df = pd.DataFrame()
         out_dict = dict([])
@@ -942,36 +975,33 @@ def create_csv_per_transect(roi_id:str,
         )
 
 
-def save_extracted_shorelines(extracted_shorelines,save_path:str):
-            data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
-            sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
-            extracted_shoreline_figure_path = os.path.join(
-                data_path, sitename, "jpg_files", "detection"
-            )
-            logger.info(
-                f"extracted_shoreline_figure_path: {extracted_shoreline_figure_path}"
-            )
+def save_extracted_shorelines(extracted_shorelines, save_path: str):
+    data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
+    sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
+    extracted_shoreline_figure_path = os.path.join(
+        data_path, sitename, "jpg_files", "detection"
+    )
+    logger.info(f"extracted_shoreline_figure_path: {extracted_shoreline_figure_path}")
 
-            if os.path.exists(extracted_shoreline_figure_path):
-                dst_path = os.path.join(save_path, "jpg_files", "detection")
-                logger.info(f"dst_path : {dst_path }")
-                move_files(
-                    extracted_shoreline_figure_path, dst_path, delete_src=True
-                )
+    if os.path.exists(extracted_shoreline_figure_path):
+        dst_path = os.path.join(save_path, "jpg_files", "detection")
+        logger.info(f"dst_path : {dst_path }")
+        move_files(extracted_shoreline_figure_path, dst_path, delete_src=True)
 
-            extracted_shorelines.to_file(
-                save_path, "extracted_shorelines.geojson", extracted_shorelines.gdf
-            )
-            extracted_shorelines.to_file(
-                save_path,
-                "shoreline_settings.json",
-                extracted_shorelines.shoreline_settings,
-            )
-            extracted_shorelines.to_file(
-                save_path,
-                "extracted_shorelines_dict.json",
-                extracted_shorelines.dictionary,
-            )
+    extracted_shorelines.to_file(
+        save_path, "extracted_shorelines.geojson", extracted_shorelines.gdf
+    )
+    extracted_shorelines.to_file(
+        save_path,
+        "shoreline_settings.json",
+        extracted_shorelines.shoreline_settings,
+    )
+    extracted_shorelines.to_file(
+        save_path,
+        "extracted_shorelines_dict.json",
+        extracted_shorelines.dictionary,
+    )
+
 
 def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
@@ -983,7 +1013,9 @@ def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     Returns:
         A new GeoDataFrame with the same data as the original, but with any timestamp columns converted to string.
     """
-    timestamp_cols = [col for col in gdf.columns if pd.api.types.is_datetime64_any_dtype(gdf[col])]
+    timestamp_cols = [
+        col for col in gdf.columns if pd.api.types.is_datetime64_any_dtype(gdf[col])
+    ]
 
     if not timestamp_cols:
         return gdf
@@ -995,7 +1027,8 @@ def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     return gdf
 
-def create_json_config(inputs: dict, settings: dict,roi_ids:list[str]=[]) -> dict:
+
+def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) -> dict:
     """returns config dictionary with the settings, currently selected_roi ids, and
     each of the inputs specified by roi id.
     sample config:
@@ -1061,7 +1094,7 @@ def create_config_gdf(
 
 def write_to_json(filepath: str, settings: dict):
     """ "Write the  settings dictionary to json file"""
-    to_file(settings,filepath)
+    to_file(settings, filepath)
     # with open(filepath, "w", encoding="utf-8") as output_file:
     #     json.dump(settings, output_file)
 
@@ -1321,57 +1354,59 @@ def mk_new_dir(name: str, location: str):
     else:
         raise Exception("Location provided does not exist.")
 
-def find_directory_recurively(path:str='.',name:str="RGB")->str:
+
+def find_directory_recurively(path: str = ".", name: str = "RGB") -> str:
     """
     Recursively search for a directory named "RGB" in the given path or its subdirectories.
-    
+
     Args:
         path (str): The starting directory to search in. Defaults to current directory.
-        
+
     Returns:
         str: The path of the first directory named "RGB" found, or None if not found.
     """
-    dir_location=None
+    dir_location = None
     if os.path.basename(path) == name:
         dir_location = path
     else:
         for dirpath, dirnames, filenames in os.walk(path):
             if name in dirnames:
-                    dir_location = os.path.join(dirpath, name)
-                
+                dir_location = os.path.join(dirpath, name)
+
     if not os.listdir(dir_location):
         raise Exception(f"{name} directory is empty.")
-    
+
     if not dir_location:
         raise Exception(f"{name} directory could not be found")
-    
+
     return dir_location
 
-def find_file_recurively(path:str='.',name:str="RGB")->str:
+
+def find_file_recurively(path: str = ".", name: str = "RGB") -> str:
     """
     Recursively search for a file named "RGB" in the given path or its subdirectories.
-    
+
     Args:
         path (str): The starting directory to search in. Defaults to current directory.
-        
+
     Returns:
         str: The path of the first directory named "RGB" found, or None if not found.
     """
-    file_location=None
+    file_location = None
     if os.path.basename(path) == name:
         file_location = path
     else:
         for dirpath, dirnames, filenames in os.walk(path):
             if name in filenames:
-                    file_location = os.path.join(dirpath, name)
-                    return file_location
-                
+                file_location = os.path.join(dirpath, name)
+                return file_location
+
     if not os.listdir(file_location):
         raise Exception(f"{name} directory is empty.")
-    
+
     if not file_location:
         raise Exception(f"{name} directory could not be found")
-    
+
     return file_location
 
 

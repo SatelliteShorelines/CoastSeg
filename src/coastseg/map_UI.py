@@ -217,9 +217,9 @@ class UI:
 
     def create_tidal_correction_widget(self):
         load_style = dict(button_color="#69add1", description_width="initial")
-        
-        self.beach_slope_text=FloatText(value=0.1, description="Beach Slope")
-        self.reference_elevation_text=FloatText(value=0.585, description="Elevation")
+
+        self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
+        self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
 
         self.select_tides_button = Button(
             description="Select Tides",
@@ -234,11 +234,15 @@ class UI:
             icon="fa-tint",
         )
         self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
-        
-        return VBox([self.beach_slope_text,
-              self.reference_elevation_text,
-              self.select_tides_button,
-              self.tidally_correct_button,])
+
+        return VBox(
+            [
+                self.beach_slope_text,
+                self.reference_elevation_text,
+                self.select_tides_button,
+                self.tidally_correct_button,
+            ]
+        )
 
     @debug_view.capture(clear_output=True)
     def tidally_correct_button_clicked(self, button):
@@ -247,23 +251,24 @@ class UI:
                 "Cannot correct tides",
                 "Must enter a select a tide file first",
             )
-            return  
+            return
 
-        print("Correcting tides... please wait") 
+        print("Correcting tides... please wait")
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
-        self.coastseg_map.compute_tidal_corrections(self.tides_file,beach_slope,reference_elevation)
+        self.coastseg_map.compute_tidal_corrections(
+            self.tides_file, beach_slope, reference_elevation
+        )
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-
 
     @debug_view.capture(clear_output=True)
     def select_tides_button_clicked(self, button):
         # Prompt the user to select a directory of images
         file_chooser = common.create_file_chooser(
             self.load_tide_callback,
-              title="Select csv file",
-            filter_pattern='*csv',
-              starting_directory="sessions"
+            title="Select csv file",
+            filter_pattern="*csv",
+            starting_directory="sessions",
         )
         # clear row and close all widgets in self.file_chooser_row before adding new file_chooser
         common.clear_row(self.file_chooser_row)
@@ -274,7 +279,6 @@ class UI:
     def load_tide_callback(self, filechooser: FileChooser) -> None:
         if filechooser.selected:
             self.tides_file = os.path.abspath(filechooser.selected)
-
 
     def set_session_name(self, name: str):
         self.session_name = str(name).strip()

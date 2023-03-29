@@ -74,29 +74,34 @@ class UI_Models:
         self._create_widgets()
         self._create_buttons()
         self.create_tidal_correction_widget()
- 
 
-    def clear_extract_shorelines_btn(self,):
+    def clear_extract_shorelines_btn(
+        self,
+    ):
         clear_button = Button(
             description="Clear TextBox", style=dict(button_color="#a3adac")
         )
         clear_button.on_click(self.clear_extract_shorelines_view)
-        return clear_button 
+        return clear_button
 
-    def clear_run_model_btn(self,):
+    def clear_run_model_btn(
+        self,
+    ):
         clear_button = Button(
             description="Clear TextBox", style=dict(button_color="#a3adac")
         )
         clear_button.on_click(self.clear_run_model_view)
-        return clear_button 
+        return clear_button
 
-    def clear_tidal_correction_btn(self,):
+    def clear_tidal_correction_btn(
+        self,
+    ):
         clear_button = Button(
             description="Clear TextBox", style=dict(button_color="#a3adac")
         )
         clear_button.on_click(self.clear_tidal_correction_view)
-        return clear_button 
- 
+        return clear_button
+
     def clear_run_model_view(self, btn):
         UI_Models.run_model_view.clear_output()
 
@@ -105,7 +110,6 @@ class UI_Models:
 
     def clear_tidal_correction_view(self, btn):
         UI_Models.tidal_correction_view.clear_output()
-    
 
     def get_model_instance(self):
         return self.zoo_model_instance
@@ -192,22 +196,32 @@ class UI_Models:
                 self.tidally_correct_instr,
             ]
         )
-        
-        # run model controls 
-        run_model_buttons = VBox([self.get_session_selection(),
-                                  self.use_select_images_button,
-                                  self.run_model_button])
-   
-        # extract shorelines controls
-        extract_shorelines_controls = VBox([self.get_shoreline_session_selection(),
-              self.select_model_session_button,
-              self.extract_shorelines_button])
-        # tidal correction controls
-        tidal_correction_controls=VBox([
-            self.select_extracted_shorelines_session_button,
-            self.create_tidal_correction_widget()])
 
-        
+        # run model controls
+        run_model_buttons = VBox(
+            [
+                self.get_session_selection(),
+                self.use_select_images_button,
+                self.run_model_button,
+            ]
+        )
+
+        # extract shorelines controls
+        extract_shorelines_controls = VBox(
+            [
+                self.get_shoreline_session_selection(),
+                self.select_model_session_button,
+                self.extract_shorelines_button,
+            ]
+        )
+        # tidal correction controls
+        tidal_correction_controls = VBox(
+            [
+                self.select_extracted_shorelines_session_button,
+                self.create_tidal_correction_widget(),
+            ]
+        )
+
         self.file_row = HBox([])
         self.extracted_shoreline_file_row = HBox([])
         self.tidal_correct_file_row = HBox([])
@@ -224,7 +238,9 @@ class UI_Models:
             self.line_widget,
             extract_shorelines_controls,
             self.extracted_shoreline_file_row,
-            HBox([self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]),
+            HBox(
+                [self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]
+            ),
             self.line_widget,
             tidal_correction_controls,
             self.tidal_correct_file_row,
@@ -233,9 +249,9 @@ class UI_Models:
 
     def create_tidal_correction_widget(self):
         load_style = dict(button_color="#69add1", description_width="initial")
-        
-        self.beach_slope_text=FloatText(value=0.1, description="Beach Slope")
-        self.reference_elevation_text=FloatText(value=0.585, description="Elevation")
+
+        self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
+        self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
 
         self.select_tides_button = Button(
             description="Select Tides",
@@ -250,11 +266,15 @@ class UI_Models:
             icon="fa-tint",
         )
         self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
-        
-        return VBox([self.beach_slope_text,
-              self.reference_elevation_text,
-              self.select_tides_button,
-              self.tidally_correct_button,])
+
+        return VBox(
+            [
+                self.beach_slope_text,
+                self.reference_elevation_text,
+                self.select_tides_button,
+                self.tidally_correct_button,
+            ]
+        )
 
     @tidal_correction_view.capture(clear_output=True)
     def tidally_correct_button_clicked(self, button):
@@ -271,40 +291,43 @@ class UI_Models:
                 "Cannot correct tides",
                 "Must enter a select a tide file first",
             )
-            return  
+            return
         # get session directory location
-        # print("Correcting tides... please wait") 
+        # print("Correcting tides... please wait")
         session_directory = self.shoreline_session_directory
         logger.info(f"session_directory: {session_directory}")
         # get roi_id
-        #@todo find a better way to load the roi id
-        config_json_location = common.find_file_recurively(session_directory,'config.json')
+        # @todo find a better way to load the roi id
+        config_json_location = common.find_file_recurively(
+            session_directory, "config.json"
+        )
         config = common.from_file(config_json_location)
-        roi_id = config.get("roi_id","")
+        roi_id = config.get("roi_id", "")
         logger.info(f"roi_id: {roi_id}")
 
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-        zoo_model.compute_tidal_corrections(roi_id,
-                                            session_directory,
-                                            session_directory,
-                                            self.tides_file,
-                                            beach_slope,
-                                            reference_elevation)
-
+        zoo_model.compute_tidal_corrections(
+            roi_id,
+            session_directory,
+            session_directory,
+            self.tides_file,
+            beach_slope,
+            reference_elevation,
+        )
 
     @tidal_correction_view.capture(clear_output=True)
     def select_tides_button_clicked(self, button):
         # Prompt the user to select a directory of images
         file_chooser = common.create_file_chooser(
             self.load_tide_callback,
-              title="Select csv file",
-            filter_pattern='*csv',
-              starting_directory="sessions"
+            title="Select csv file",
+            filter_pattern="*csv",
+            starting_directory="sessions",
         )
         # clear row and close all widgets in  self.tidal_correct_file_row before adding new file_chooser
-        common.clear_row( self.tidal_correct_file_row)
+        common.clear_row(self.tidal_correct_file_row)
         # add instance of file_chooser to  self.tidal_correct_file_row
         self.tidal_correct_file_row.children = [file_chooser]
 
@@ -390,9 +413,9 @@ class UI_Models:
             description="Select Session",
             style=load_style,
         )
-        self.select_extracted_shorelines_session_button.on_click(self.select_extracted_shorelines_button_clicked)
-
-
+        self.select_extracted_shorelines_session_button.on_click(
+            self.select_extracted_shorelines_button_clicked
+        )
 
     def _create_HTML_widgets(self):
         """create HTML widgets that display the instructions.
@@ -426,7 +449,7 @@ class UI_Models:
              - Extracted shorelines will be saved in the sessions directory under the session name entered.<br>\
             ",
             layout=Layout(margin="0px 0px 0px 20px"),
-            )
+        )
 
         self.tidally_correct_instr = HTML(
             value="<h2>How to Tidal Correct</h2>\
@@ -440,7 +463,7 @@ class UI_Models:
              - Tidally corrected csv files will be saved in the session directory selected.<br>\
             ",
             layout=Layout(margin="0px 0px 0px 20px"),
-            )
+        )
 
     def handle_model_implementation(self, change):
         self.model_dict["implementation"] = change["new"]
@@ -499,7 +522,7 @@ class UI_Models:
             )
             return
         print("Running the model. Please wait.")
-        zoo_model_instance =  self.get_model_instance()
+        zoo_model_instance = self.get_model_instance()
         img_type = self.model_input_dropdown.value
         self.model_dict["model_type"] = self.model_dropdown.value
         self.model_dict["implementation"] = self.model_implementation.value
@@ -508,9 +531,9 @@ class UI_Models:
         if self.otsu_radio.value == "Disabled":
             self.model_dict["otsu"] = False
         if self.otsu_radio.value == "Enabled":
-             self.model_dict["tta"]  = True
+            self.model_dict["tta"] = True
         if self.otsu_radio.value == "Disabled":
-             self.model_dict["tta"]  = False
+            self.model_dict["tta"] = False
         zoo_model_instance.run_model(
             img_type,
             self.model_dict["implementation"],
@@ -538,14 +561,16 @@ class UI_Models:
                 "Cannot Extract Shorelines",
                 "Must click select model session first",
             )
-            return  
+            return
         print("Extracting shorelines. Please wait.")
-        shoreline_settings=self.settings_dashboard.get_settings()
+        shoreline_settings = self.settings_dashboard.get_settings()
         # get session directory location
         session_directory = self.model_session_directory
-        zoo_model_instance =  self.get_model_instance()
+        zoo_model_instance = self.get_model_instance()
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-        zoo_model_instance.extract_shorelines(shoreline_settings,session_directory,session_name)
+        zoo_model_instance.extract_shorelines(
+            shoreline_settings, session_directory, session_name
+        )
 
     @run_model_view.capture(clear_output=True)
     def select_RGB_callback(self, filechooser: FileChooser) -> None:
@@ -586,7 +611,9 @@ class UI_Models:
     def select_model_session_clicked(self, button):
         # Prompt the user to select a directory of model outputs
         file_chooser = common.create_dir_chooser(
-            self.selected_model_session_callback, title="Select model outputs",starting_directory='sessions'
+            self.selected_model_session_callback,
+            title="Select model outputs",
+            starting_directory="sessions",
         )
         # clear row and close all widgets in self.extracted_shoreline_file_row before adding new file_chooser
         common.clear_row(self.extracted_shoreline_file_row)
@@ -597,13 +624,14 @@ class UI_Models:
     def select_extracted_shorelines_button_clicked(self, button):
         # Prompt the user to select a directory of extracted shorelines session
         file_chooser = common.create_dir_chooser(
-            self.selected_shoreline_session_callback, title="Select extracted shorelines session",starting_directory='sessions'
+            self.selected_shoreline_session_callback,
+            title="Select extracted shorelines session",
+            starting_directory="sessions",
         )
         # clear row and close all widgets in self.tidal_correct_file_row before adding new file_chooser
         common.clear_row(self.tidal_correct_file_row)
         # add instance of file_chooser to self.tidal_correct_file_row
         self.tidal_correct_file_row.children = [file_chooser]
-
 
     def launch_error_box(self, title: str = None, msg: str = None):
         # Show user error message

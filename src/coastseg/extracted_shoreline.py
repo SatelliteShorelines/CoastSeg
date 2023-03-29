@@ -39,7 +39,7 @@ from coastsat.SDS_shoreline import extract_shorelines
 logger = logging.getLogger(__name__)
 
 
-def get_npz_tile(filename:str, session_path:str, satname:str) -> str:
+def get_npz_tile(filename: str, session_path: str, satname: str) -> str:
     """
     Find the npz file that matches the given filename and satellite name in the specified session directory.
 
@@ -60,11 +60,12 @@ def get_npz_tile(filename:str, session_path:str, satname:str) -> str:
 
     """
     new_filename = filename.split(satname)[0] + satname
-    for npz in glob1(session_path, '*.npz'):
-        new_npz = npz.replace('_RGB','')
+    for npz in glob1(session_path, "*.npz"):
+        new_npz = npz.replace("_RGB", "")
         if new_filename in new_npz:
-            return os.path.join(session_path,npz)
+            return os.path.join(session_path, npz)
     return None
+
 
 def load_image_labels(npz_file: str, class_indices: list = [2, 1, 0]) -> np.ndarray:
     """
@@ -82,18 +83,28 @@ def load_image_labels(npz_file: str, class_indices: list = [2, 1, 0]) -> np.ndar
     np.ndarray: A 3D numpy array of binary masks, where each mask corresponds to one of the specified classes.
     Must be in the order [sand,whitewater,water]
     """
-    if not os.path.isfile(npz_file) or not npz_file.endswith('.npz'):
+    if not os.path.isfile(npz_file) or not npz_file.endswith(".npz"):
         raise ValueError(f"{npz_file} is not a valid .npz file.")
 
     data = np.load(npz_file)
-    im_labels = np.zeros(shape=(data['grey_label'].shape[0], data['grey_label'].shape[1], len(class_indices)), dtype=bool)
+    im_labels = np.zeros(
+        shape=(
+            data["grey_label"].shape[0],
+            data["grey_label"].shape[1],
+            len(class_indices),
+        ),
+        dtype=bool,
+    )
 
     for i, idx in enumerate(class_indices):
-        im_labels[..., i] = data['grey_label'] == idx
+        im_labels[..., i] = data["grey_label"] == idx
 
     return im_labels
 
-def extract_shorelines_for_session(session_path:str,metadata:dict, settings:dict)->dict:
+
+def extract_shorelines_for_session(
+    session_path: str, metadata: dict, settings: dict
+) -> dict:
     """
     Main function to extract shorelines from satellite images
     original version: KV WRL 2018
@@ -105,7 +116,7 @@ def extract_shorelines_for_session(session_path:str,metadata:dict, settings:dict
         'inputs': dict
             input parameters (sitename, filepath, polygon, dates, sat_list)
         'cloud_thresh': float
-            value between 0 and 1 indicating the maximum cloud fraction in 
+            value between 0 and 1 indicating the maximum cloud fraction in
             the cropped image that is accepted
         'cloud_mask_issue': boolean
             True if there is an issue with the cloud mask and sand pixels
@@ -127,141 +138,178 @@ def extract_shorelines_for_session(session_path:str,metadata:dict, settings:dict
             if True, allows user to manually adjust the detected shoreline
         'pan_off': bool
             if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-            
+
     Returns:
     -----------
     output: dict
         contains the extracted shorelines and corresponding dates + metadata
 
     """
-    sitename = settings['inputs']['sitename']
-    filepath_data = settings['inputs']['filepath']
-    collection = settings['inputs']['landsat_collection']
-    default_min_length_sl = settings['min_length_sl']
+    sitename = settings["inputs"]["sitename"]
+    filepath_data = settings["inputs"]["filepath"]
+    collection = settings["inputs"]["landsat_collection"]
+    default_min_length_sl = settings["min_length_sl"]
 
     # initialise output structure
     output = dict([])
     # create a subfolder to store the .jpg images showing the detection
-    filepath_jpg = os.path.join(filepath_data, sitename, 'jpg_files', 'detection')
+    filepath_jpg = os.path.join(filepath_data, sitename, "jpg_files", "detection")
     if not os.path.exists(filepath_jpg):
-            os.makedirs(filepath_jpg)
+        os.makedirs(filepath_jpg)
 
     # loop through satellite list
     for satname in metadata.keys():
         # get images
-        filepath = SDS_tools.get_filepath(settings['inputs'],satname)
-        filenames = metadata[satname]['filenames']
+        filepath = SDS_tools.get_filepath(settings["inputs"], satname)
+        filenames = metadata[satname]["filenames"]
 
         # initialise the output variables
         output_timestamp = []  # datetime at which the image was acquired (UTC time)
         output_shoreline = []  # vector of shoreline points
-        output_filename = []   # filename of the images from which the shorelines where derived
-        output_cloudcover = [] # cloud cover of the images
-        output_geoaccuracy = []# georeferencing accuracy of the images
-        output_idxkeep = []    # index that were kept during the analysis (cloudy images are skipped)
-        output_t_mndwi = []    # MNDWI threshold used to map the shoreline
+        output_filename = (
+            []
+        )  # filename of the images from which the shorelines where derived
+        output_cloudcover = []  # cloud cover of the images
+        output_geoaccuracy = []  # georeferencing accuracy of the images
+        output_idxkeep = (
+            []
+        )  # index that were kept during the analysis (cloudy images are skipped)
+        output_t_mndwi = []  # MNDWI threshold used to map the shoreline
 
-        if satname in ['L5','L7','L8','L9']:
-            pixel_size = 15        
-        elif satname == 'S2':
+        if satname in ["L5", "L7", "L8", "L9"]:
+            pixel_size = 15
+        elif satname == "S2":
             pixel_size = 10
 
         # reduce min shoreline length for L7 because of the diagonal bands
-        if satname == 'L7': settings['min_length_sl'] = 200
-        else: settings['min_length_sl'] = default_min_length_sl
-        
+        if satname == "L7":
+            settings["min_length_sl"] = 200
+        else:
+            settings["min_length_sl"] = default_min_length_sl
+
         # loop through the images
-        for i in tqdm(range(len(filenames)), desc='Mapping Shorelines',
-        leave=True,
-        position=0):
+        for i in tqdm(
+            range(len(filenames)), desc="Mapping Shorelines", leave=True, position=0
+        ):
 
             # print('\r%s:   %d%%' % (satname,int(((i+1)/len(filenames))*100)), end='')
 
             # get image filename
-            fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
+            fn = SDS_tools.get_filenames(filenames[i], filepath, satname)
             # preprocess image (cloud mask + pansharpening/downsampling)
-            im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, 
-                                                                                                     settings['cloud_mask_issue'], 
-                                                                                                     settings['pan_off'],
-                                                                                                     collection)
+            (
+                im_ms,
+                georef,
+                cloud_mask,
+                im_extra,
+                im_QA,
+                im_nodata,
+            ) = SDS_preprocess.preprocess_single(
+                fn,
+                satname,
+                settings["cloud_mask_issue"],
+                settings["pan_off"],
+                collection,
+            )
             # get image spatial reference system (epsg code) from metadata dict
-            image_epsg = metadata[satname]['epsg'][i]
-            
+            image_epsg = metadata[satname]["epsg"][i]
+
             # compute cloud_cover percentage (with no data pixels)
-            cloud_cover_combined = np.divide(sum(sum(cloud_mask.astype(int))),
-                                    (cloud_mask.shape[0]*cloud_mask.shape[1]))
-            if cloud_cover_combined > 0.99: # if 99% of cloudy pixels in image skip
+            cloud_cover_combined = np.divide(
+                sum(sum(cloud_mask.astype(int))),
+                (cloud_mask.shape[0] * cloud_mask.shape[1]),
+            )
+            if cloud_cover_combined > 0.99:  # if 99% of cloudy pixels in image skip
                 continue
-            # remove no data pixels from the cloud mask 
+            # remove no data pixels from the cloud mask
             # (for example L7 bands of no data should not be accounted for)
-            cloud_mask_adv = np.logical_xor(cloud_mask, im_nodata) 
+            cloud_mask_adv = np.logical_xor(cloud_mask, im_nodata)
             # compute updated cloud cover percentage (without no data pixels)
-            cloud_cover = np.divide(sum(sum(cloud_mask_adv.astype(int))),
-                                    (sum(sum((~im_nodata).astype(int)))))
+            cloud_cover = np.divide(
+                sum(sum(cloud_mask_adv.astype(int))),
+                (sum(sum((~im_nodata).astype(int)))),
+            )
             # skip image if cloud cover is above user-defined threshold
-            if cloud_cover > settings['cloud_thresh']:
+            if cloud_cover > settings["cloud_thresh"]:
                 continue
 
             # calculate a buffer around the reference shoreline (if any has been digitised)
-            im_ref_buffer = SDS_shoreline.create_shoreline_buffer(cloud_mask.shape, georef, image_epsg,
-                                                    pixel_size, settings)
+            im_ref_buffer = SDS_shoreline.create_shoreline_buffer(
+                cloud_mask.shape, georef, image_epsg, pixel_size, settings
+            )
 
             # classify image in 4 classes (sand, whitewater, water, other) with NN classifier
-            npz_file = get_npz_tile(filenames[i],session_path,satname)
+            npz_file = get_npz_tile(filenames[i], session_path, satname)
             logger.info(f"npz_file: {npz_file}")
             # indexes of [0,1,2] in the npz file represent water, whitewater, and sand classes.
-            #@todo derive the order of the classes from the modelcard
+            # @todo derive the order of the classes from the modelcard
             # class_indices=[sand, whitewater, water] indexes in segmentation
-            im_labels = load_image_labels(npz_file,class_indices=[2, 1, 0])
-    
+            im_labels = load_image_labels(npz_file, class_indices=[2, 1, 0])
+
             # otherwise map the contours automatically with one of the two following functions:
             # if there are pixels in the 'sand' class --> use find_wl_contours2 (enhanced)
             # otherwise use find_wl_contours1 (traditional)
-            try: # use try/except structure for long runs
-                if sum(im_labels[im_ref_buffer,0]) < 50: # minimum number of sand pixels
-                    print(f"{fn} Not enough sand pixels within the beach buffer to detect shoreline")
+            try:  # use try/except structure for long runs
+                if (
+                    sum(im_labels[im_ref_buffer, 0]) < 50
+                ):  # minimum number of sand pixels
+                    print(
+                        f"{fn} Not enough sand pixels within the beach buffer to detect shoreline"
+                    )
                     continue
                 else:
                     # use classification to refine threshold and extract the sand/water interface
-                    contours_mwi, t_mndwi = SDS_shoreline.find_wl_contours2(im_ms, im_labels, cloud_mask, im_ref_buffer)
+                    contours_mwi, t_mndwi = SDS_shoreline.find_wl_contours2(
+                        im_ms, im_labels, cloud_mask, im_ref_buffer
+                    )
             except Exception as e:
                 print(e)
-                print('\nCould not map shoreline for this image: ' + filenames[i])
+                print("\nCould not map shoreline for this image: " + filenames[i])
                 continue
 
             # process the water contours into a shoreline
-            shoreline = SDS_shoreline.process_shoreline(contours_mwi, cloud_mask_adv, im_nodata,
-                                          georef, image_epsg, settings)
+            shoreline = SDS_shoreline.process_shoreline(
+                contours_mwi, cloud_mask_adv, im_nodata, georef, image_epsg, settings
+            )
 
             # visualise the mapped shorelines, there are two options:
             # if settings['check_detection'] = True, shows the detection to the user for accept/reject
             # if settings['save_figure'] = True, saves a figure for each mapped shoreline
-            if settings['check_detection'] or settings['save_figure']:
+            if settings["check_detection"] or settings["save_figure"]:
                 date = filenames[i][:19]
-                if not settings['check_detection']:
-                    plt.ioff() # turning interactive plotting off
-                skip_image = SDS_shoreline.show_detection(im_ms, cloud_mask, im_labels, shoreline,
-                                            image_epsg, georef, settings, date, satname)
+                if not settings["check_detection"]:
+                    plt.ioff()  # turning interactive plotting off
+                skip_image = SDS_shoreline.show_detection(
+                    im_ms,
+                    cloud_mask,
+                    im_labels,
+                    shoreline,
+                    image_epsg,
+                    georef,
+                    settings,
+                    date,
+                    satname,
+                )
 
             # append to output variables
-            output_timestamp.append(metadata[satname]['dates'][i])
+            output_timestamp.append(metadata[satname]["dates"][i])
             output_shoreline.append(shoreline)
             output_filename.append(filenames[i])
             output_cloudcover.append(cloud_cover)
-            output_geoaccuracy.append(metadata[satname]['acc_georef'][i])
+            output_geoaccuracy.append(metadata[satname]["acc_georef"][i])
             output_idxkeep.append(i)
             output_t_mndwi.append(t_mndwi)
 
         # create dictionnary of output
         output[satname] = {
-                'dates': output_timestamp,
-                'shorelines': output_shoreline,
-                'filename': output_filename,
-                'cloud_cover': output_cloudcover,
-                'geoaccuracy': output_geoaccuracy,
-                'idx': output_idxkeep,
-                'MNDWI_threshold': output_t_mndwi,
-                }
+            "dates": output_timestamp,
+            "shorelines": output_shoreline,
+            "filename": output_filename,
+            "cloud_cover": output_cloudcover,
+            "geoaccuracy": output_geoaccuracy,
+            "idx": output_idxkeep,
+            "MNDWI_threshold": output_t_mndwi,
+        }
 
     # change the format to have one list sorted by date with all the shorelines (easier to use)
     output = SDS_tools.merge_output(output)
@@ -270,16 +318,20 @@ def extract_shorelines_for_session(session_path:str,metadata:dict, settings:dict
     # save outputput structure as output.pkl
     filepath = os.path.join(filepath_data, sitename)
 
-    with open(os.path.join(filepath, sitename + '_output.pkl'), 'wb') as f:
+    with open(os.path.join(filepath, sitename + "_output.pkl"), "wb") as f:
         pickle.dump(output, f)
 
     return output
+
 
 from typing import Optional
 from glob import glob
 import os
 
-def load_extracted_shoreline_from_files(dir_path: str) -> Optional['Extracted_Shoreline']:
+
+def load_extracted_shoreline_from_files(
+    dir_path: str,
+) -> Optional["Extracted_Shoreline"]:
     """
     Load the extracted shoreline from the given directory.
 
@@ -346,7 +398,7 @@ class Extracted_Shoreline:
         Extracts the region of interest (ROI) ID from the shoreline settings.
 
         The method retrieves the sitename field from the shoreline settings inputs dictionary and extracts the
-        ROI ID from it, if present. The sitename field is expected to be in the format "ID_XXXX_datetime03-22-23__07_29_15", 
+        ROI ID from it, if present. The sitename field is expected to be in the format "ID_XXXX_datetime03-22-23__07_29_15",
         where XXXX is the id of the ROI. If the sitename field is not present or is not in the
         expected format, the method returns None.
 
@@ -360,8 +412,8 @@ class Extracted_Shoreline:
         Returns:
             The ROI ID as a string, or None if the sitename field is not present or is not in the expected format.
         """
-        inputs = self.shoreline_settings.get('inputs', {})
-        sitename = inputs.get('sitename', '')
+        inputs = self.shoreline_settings.get("inputs", {})
+        sitename = inputs.get("sitename", "")
         roi_id = sitename.split("_")[1] if sitename else None
         return roi_id
 
@@ -454,7 +506,7 @@ class Extracted_Shoreline:
         shoreline: gpd.GeoDataFrame = None,
         roi_settings: dict = None,
         settings: dict = None,
-        session_path:str = None,
+        session_path: str = None,
     ):
         if not isinstance(roi_id, str):
             raise ValueError(f"ROI id must be string. not {type(roi_id)}")
@@ -478,10 +530,7 @@ class Extracted_Shoreline:
 
         logger.info(f"Extracting shorelines for ROI id{roi_id}")
         self.dictionary = self.extract_shorelines(
-            shoreline,
-            roi_settings,
-            settings,
-            session_path=session_path
+            shoreline, roi_settings, settings, session_path=session_path
         )
 
         if is_list_empty(self.dictionary["shorelines"]):
@@ -495,13 +544,12 @@ class Extracted_Shoreline:
         )
         return self
 
-
     def extract_shorelines(
         self,
         shoreline_gdf: gpd.geodataframe,
         roi_settings: dict,
         settings: dict,
-        session_path:str=None,
+        session_path: str = None,
     ) -> dict:
         """Returns a dictionary containing the extracted shorelines for roi specified by rois_gdf"""
         # project shorelines's crs from map's crs to output crs given in settings
@@ -520,7 +568,9 @@ class Extracted_Shoreline:
         if session_path is None:
             extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings)
         elif session_path is not None:
-            extracted_shorelines = extract_shorelines_for_session(session_path,metadata, self.shoreline_settings)
+            extracted_shorelines = extract_shorelines_for_session(
+                session_path, metadata, self.shoreline_settings
+            )
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
         extracted_shorelines = remove_duplicates(
@@ -653,9 +703,7 @@ class Extracted_Shoreline:
             if data != {}:
                 common.to_file(data, file_location)
 
-    def style_layer(
-        self, geojson: dict, layer_name: str, color: str
-    ) -> GeoJSON:
+    def style_layer(self, geojson: dict, layer_name: str, color: str) -> GeoJSON:
         """Return styled GeoJson object with layer name
 
         Args:
@@ -684,23 +732,25 @@ class Extracted_Shoreline:
         """
         roi_id = self.roi_id
         # Check the datatype of the 'date' column
-        date_dtype =  self.gdf['date'].dtype
-        gdf=self.gdf.copy()
+        date_dtype = self.gdf["date"].dtype
+        gdf = self.gdf.copy()
         # If the datatype is pandas Timestamp, apply the lambda function
         if pd.api.types.is_datetime64_any_dtype(date_dtype):
-            gdf['date'] = self.gdf['date'].apply(lambda ts: ts.strftime("%Y-%m-%dT%H:%M:%S"))
+            gdf["date"] = self.gdf["date"].apply(
+                lambda ts: ts.strftime("%Y-%m-%dT%H:%M:%S")
+            )
 
         layer_names = [
             "ID" + roi_id + "_" + date_str for date_str in gdf["date"].to_list()
         ]
         return layer_names
-    
+
     def get_layer_name(self) -> list:
         """returns a list of strings of format: 'ID_<roi_id>_<date>'
         ex.'ID21_2018-12-31 19:03:17'
         """
         roi_id = self.roi_id
-        shoreline_date=str(self.gdf["date"].iloc[0])
+        shoreline_date = str(self.gdf["date"].iloc[0])
         layer_name = "ID" + roi_id + "_" + shoreline_date
         return layer_name
 
@@ -726,7 +776,7 @@ class Extracted_Shoreline:
         if self.gdf.empty:
             return layers
         # convert to map crs and turn in json dict
-        projected_gdf=self.gdf.to_crs(map_crs)
+        projected_gdf = self.gdf.to_crs(map_crs)
         # select a single shoreline and convert it to json
         single_shoreline = projected_gdf[["geometry"]].iloc[[0]]
         logger.info(f"single_shoreline: {single_shoreline}")
@@ -737,9 +787,7 @@ class Extracted_Shoreline:
         logger.info(f"features_json['features']: {features_json['features']}")
         # create a single layer
         for feature in features_json["features"]:
-            geojson_layer = self.style_layer(
-                feature, layer_name, "black"
-            )
+            geojson_layer = self.style_layer(feature, layer_name, "black")
             logger.info(f"geojson_layer: {geojson_layer}")
             layers.append(geojson_layer)
         return layers

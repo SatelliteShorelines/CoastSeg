@@ -295,7 +295,9 @@ class UI_Models:
         zoo_model_instance = zoo_model.Zoo_Model()
 
         # get full path to directory named 'RGB' containing RGBs
-        RGB_path = common.find_directory_recurively(self.model_dict["sample_direc"],name='RGB')
+        RGB_path = common.find_directory_recurively(
+            self.model_dict["sample_direc"], name="RGB"
+        )
         self.model_dict["sample_direc"] = RGB_path
 
         # convert RGB to MNDWI, NDWI,or 5 band
