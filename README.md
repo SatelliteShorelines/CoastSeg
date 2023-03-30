@@ -173,3 +173,4 @@ Hawaii small islands https://pubs.usgs.gov/of/2011/1009/data.html
 Barter Island, Alaska https://www.sciencebase.gov/catalog/item/5fa1f10ad34e198cb793cee4
 Pacific Northwest, Gulf, and SE USA: Dr Sean Vitousek, USGS-PCMSC, based on DSAS transects
 Atlantic barrier islands: https://www.sciencebase.gov/catalog/item/5d5ece47e4b01d82ce961e36
+Mexico, New Zealand, Japan, Chile, Peru all from: https://zenodo.org/record/7758183#.ZCXZMcrMJPY
