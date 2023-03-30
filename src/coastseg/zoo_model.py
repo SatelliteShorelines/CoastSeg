@@ -1223,8 +1223,7 @@ class Zoo_Model:
         )
 
         # download best model files(.h5, .json) file
-        # download_filenames =[best_json_filename,best_model_filename,best_modelcard_filename]
-        download_filenames = [best_json_filename, best_model_filename]
+        download_filenames =[best_json_filename,best_model_filename,best_modelcard_filename]
         download_dict.update(
             get_files_to_download(
                 available_files, download_filenames, model_id, model_path
@@ -1265,20 +1264,18 @@ class Zoo_Model:
             model_name.replace("_fullmodel.h5", ".json")
             for model_name in all_model_names
         ]
-        # best_modelcard_filename = [model_name.replace("_fullmodel.h5", "_modelcard.json") for model_name in all_model_names]
+        modelcard_file_names = [model_name.replace("_fullmodel.h5", "_modelcard.json") for model_name in all_model_names]
         all_json_reponses = []
+
         # for each filename online check if there a .json file
         for available_file in available_files:
-            if available_file["key"] in json_file_names:
+            if available_file['key'] in json_file_names + modelcard_file_names:
                 all_json_reponses.append(available_file)
         if len(all_models_reponses) == 0:
             raise Exception(f"Cannot find any .h5 files at {model_id}")
         if len(all_json_reponses) == 0:
-            raise Exception(
-                f"Cannot find corresponding .json files for .h5 files at {model_id}"
-            )
-            # raise Exception(f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}")
-
+            raise Exception(f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}")
+        
         logger.info(f"all_models_reponses : {all_models_reponses }")
         logger.info(f"all_json_reponses : {all_json_reponses }")
         for response in all_models_reponses + all_json_reponses:
