@@ -638,9 +638,8 @@ class Zoo_Model:
         logger.info(f"model_dict: {model_dict}")
         return model_dict
 
-    def extract_shorelines(
-        self, extract_shoreline_settings: dict, session_path: str, session_name: str
-    ) -> None:
+
+    def extract_shorelines(self,extract_shoreline_settings:dict,session_path:str,session_name:str)->None:
         logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
         self.set_settings(**extract_shoreline_settings)
         extract_shoreline_settings = self.get_settings()
@@ -657,12 +656,11 @@ class Zoo_Model:
         logger.info(f"config_geojson_location: {config_geojson_location}")
         # read source directory from model settings
         model_settings = common.from_file(model_settings_location)
-        source_directory = model_settings["sample_direc"]
-        model_type = model_settings["model_type"]
-        if model_type != "sat_RGB_4class_6950472":
-            raise Exception(
-                f"Unable to extract shorelines only works with 'sat_RGB_4class_6950472' not {model_type}\nThis will be changed in a future update."
-            )
+        source_directory = model_settings['sample_direc']
+        model_type = model_settings['model_type']
+        # if model_type != 'sat_RGB_4class_6950472':
+        #     raise Exception(f"Unable to extract shorelines only works with 'sat_RGB_4class_6950472' not {model_type}\nThis will be changed in a future update.")
+        
         # load roi settings from the config file
         roi_id = common.extract_roi_id(source_directory)
         config = common.from_file(config_json_location)

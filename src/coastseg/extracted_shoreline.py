@@ -69,7 +69,10 @@ def get_npz_tile(filename: str, session_path: str, satname: str) -> str:
 
 def load_image_labels(npz_file: str, class_indices: list = [2, 1, 0]) -> np.ndarray:
     """
-    Load and process image labels from a .npz file.
+    Load and process image labels from a .npz file. Pass in classes in the order
+    [sand, whitewater,water]
+    for 2 class models
+    [land/other,water]
 
     Parameters:
     npz_file (str): The path to the .npz file containing the image labels.
@@ -87,15 +90,27 @@ def load_image_labels(npz_file: str, class_indices: list = [2, 1, 0]) -> np.ndar
         raise ValueError(f"{npz_file} is not a valid .npz file.")
 
     data = np.load(npz_file)
-    im_labels = np.zeros(
-        shape=(
-            data["grey_label"].shape[0],
-            data["grey_label"].shape[1],
-            len(class_indices),
-        ),
-        dtype=bool,
-    )
+    im_labels = np.zeros(shape=(data['grey_label'].shape[0], data['grey_label'].shape[1], 3), dtype=bool)
 
+    # value of whitewater class in grey_label
+    if len(class_indices) == 2:
+        im_labels[..., 0] = data['grey_label'] == class_indices[0] # mark True for all sand pixels
+        im_labels[..., 1] = False # mark False for all pixels because the whitewater class does not exist
+        im_labels[..., 2] = data['grey_label'] == class_indices[1] # mark True for all water pixels
+    elif len(class_indices) == 3:
+        # loop through sand,whitewater and sand indexes to create a stack of [sand,whitewater,water]
+        for i, idx in enumerate(class_indices):
+            im_labels[..., i] = data['grey_label'] == idx
+    # # value of whitewater class in grey_label
+    # whitewater_index=class_indices[1]
+    # # loop through sand,whitewater and sand indexes to create a stack of [sand,whitewater,water]
+    # if whitewater_index in np.unique(data['grey_label']):
+    #     for i, idx in enumerate(class_indices):
+    #         im_labels[..., i] = data['grey_label'] == idx
+    # else:
+    #     im_labels[..., 0] = data['grey_label'] == class_indices[2] # mark True for all sand pixels
+    #     im_labels[..., 1] = False # mark False for all pixels because the whitewater class does not exist
+    #     im_labels[..., 2] = data['grey_label'] == class_indices[0] # mark True for all water pixels
     for i, idx in enumerate(class_indices):
         im_labels[..., i] = data["grey_label"] == idx
 
@@ -238,13 +253,20 @@ def extract_shorelines_for_session(
                 cloud_mask.shape, georef, image_epsg, pixel_size, settings
             )
 
-            npz_file = get_npz_tile(filenames[i], session_path, satname)
+            # read the model outputs from the npz file for this image
+            npz_file = get_npz_tile(filenames[i],session_path,satname)
             logger.info(f"npz_file: {npz_file}")
-            # indexes of [0,1,2] in the npz file represent water, whitewater, and sand classes.
-            # @todo derive the order of the classes from the modelcard
+            #@todo derive the order of the classes from the modelcard
             # class_indices=[sand, whitewater, water] indexes in segmentation
-            im_labels = load_image_labels(npz_file, class_indices=[2, 1, 0])
-
+            # load sand,white,water from the model outputs
+            im_labels = load_image_labels(npz_file,class_indices=[2,0])
+            # 2 class sat rgb
+            # other-0 water-1
+            # im_labels = load_image_labels(npz_file,class_indices=[0,1])
+            # 4 class sat rgb
+            # 2- sand 1-whitewater 0-water
+            # im_labels = load_image_labels(npz_file,class_indices=[2, 1, 0])
+    
             # otherwise map the contours automatically with one of the two following functions:
             # if there are pixels in the 'sand' class --> use find_wl_contours2 (enhanced)
             # otherwise use find_wl_contours1 (traditional)
