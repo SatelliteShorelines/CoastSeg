@@ -174,3 +174,6 @@ Thank you to all the amazing research who contributed their transects to coastse
 3. Pacific Northwest, Gulf, and SE USA: Dr Sean Vitousek, USGS-PCMSC, based on DSAS transects
 4. Atlantic barrier islands: https://www.sciencebase.gov/catalog/item/5d5ece47e4b01d82ce961e36
 5. Mexico, New Zealand, Japan, Chile, Peru all from: https://zenodo.org/record/7758183#.ZCXZMcrMJPY
+6. Snyder, A.G., and Gibbs, A.E., 2019, National assessment of shoreline change: A GIS compilation of updated vector shorelines and associated shoreline change data for the north coast of Alaska, Icy Cape to Cape Prince of Wales: U.S. Geological Survey data release, https://doi.org/10.5066/P9H1S1PV.
+7. Gibbs, A.E., Ohman, K.A., Coppersmith, R., and Richmond, B.M., 2017, National Assessment of Shoreline Change: A GIS compilation of updated vector shorelines and associated shoreline change data for the north coast of Alaska, U.S. Canadian border to Icy Cape: U.S. Geological Survey data release, https://doi.org/10.5066/F72Z13N1.
+8. Himmelstoss, E.A., Kratzmann, M., Hapke, C., Thieler, E.R., and List, J., 2010, The National Assessment of Shoreline Change: A GIS Compilation of Vector Shorelines and Associated Shoreline Change Data for the New England and Mid-Atlantic Coasts: U.S. Geological Survey Open-File Report 2010-1119, available at https://pubs.usgs.gov/of/2010/1119/.
