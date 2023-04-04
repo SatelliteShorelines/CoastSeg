@@ -60,12 +60,6 @@ class UI:
         self.tides_file = ""
 
         # buttons to load configuration files
-        self.load_configs_button = Button(
-            description="Load Config", icon="fa-files-o", style=self.load_style
-        )
-        self.load_configs_button.on_click(self.on_load_configs_clicked)
-
-        # buttons to load configuration files
         self.load_session_button = Button(
             description="Load Session", icon="fa-files-o", style=self.load_style
         )
@@ -75,11 +69,6 @@ class UI:
             description="Load settings", icon="fa-file-o", style=self.load_style
         )
         self.load_settings_button.on_click(self.on_load_settings_clicked)
-
-        self.save_config_button = Button(
-            description="Save Config", icon="fa-floppy-o", style=self.save_style
-        )
-        self.save_config_button.on_click(self.on_save_config_clicked)
 
         self.load_file_instr = HTML(
             value="<h2>Load Feature from File</h2>\
@@ -906,9 +895,7 @@ class UI:
 
         self.instr_config_btns = HTML(
             value="<h2><b>Load and Save Config Files</b></h2>\
-                <b>Load Config</b>: Load rois, shorelines, transects and bounding box from file: 'config_gdf.geojson'\
-                <li>'config.json' must be in the same directory as 'config_gdf.geojson'.</li>\
-                <b>Save Config</b>: Saves rois, shorelines, transects and bounding box to file: 'config_gdf.geojson'\
+                <b>Load Session</b>: Load rois, shorelines, transects, and bounding box from session directory\
                 </br><b>ROIs Not Downloaded:</b> config file will be saved to CoastSeg directory in file: 'config_gdf.geojson'\
                 </br><b>ROIs Not Downloaded:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
                 ",
@@ -935,9 +922,7 @@ class UI:
         config_vbox = VBox(
             [
                 self.instr_config_btns,
-                self.load_configs_button,
                 self.load_session_button,
-                self.save_config_button,
             ]
         )
         download_vbox = VBox(
@@ -1185,36 +1170,6 @@ class UI:
         self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4
         self.file_chooser_row.children = [dir_chooser]
-
-    @debug_view.capture(clear_output=True)
-    def on_load_configs_clicked(self, button):
-        # Prompt user to select a config geojson file
-        def load_callback(filechooser: FileChooser) -> None:
-            try:
-                if filechooser.selected:
-                    self.coastseg_map.load_configs(filechooser.selected)
-                    self.settings_html.value = self.get_settings_html(
-                        self.coastseg_map.get_settings()
-                    )
-                    self.update_settings_selection(self.coastseg_map.get_settings())
-            except Exception as error:
-                # renders error message as a box on map
-                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
-
-        # create instance of chooser that calls load_callback
-        file_chooser = common.create_file_chooser(load_callback)
-        # clear row and close all widgets in row_4 before adding new file_chooser
-        self.clear_row(self.file_chooser_row)
-        # add instance of file_chooser to row 4
-        self.file_chooser_row.children = [file_chooser]
-
-    @debug_view.capture(clear_output=True)
-    def on_save_config_clicked(self, button):
-        try:
-            self.coastseg_map.save_config()
-        except Exception as error:
-            # renders error message as a box on map
-            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):
