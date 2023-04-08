@@ -12,7 +12,6 @@ import pandas as pd
 from shapely import geometry
 from ipyleaflet import GeoJSON
 
-
 from coastseg.extracted_shoreline import Extracted_Shoreline
 
 logger = logging.getLogger(__name__)
@@ -39,43 +38,86 @@ class ROI:
         self.extracted_shorelines = {}
         # cross_shore_distancess : dictionary with of cross-shore distance along each of the transects. Not tidally corrected.
         self.cross_shore_distances = {}
-        self.filename = "rois.geojson"
-        if filename:
-            self.filename = filename
+        self.filename = filename or "rois.geojson"
 
         if rois_gdf is not None:
-            # check if geodataframe column has 'id' column and add one if one doesn't exist
-            if "id" not in rois_gdf.columns:
-                rois_gdf["id"] = list(map(str, rois_gdf.index.tolist()))
-            # get row ids of ROIs with area that's too large
-            drop_ids = common.get_ids_with_invalid_area(rois_gdf)
-            if len(drop_ids) > 0:
-                print("Dropping ROIs that are an invalid size ")
-                logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
-                rois_gdf.drop(index=drop_ids, axis=0, inplace=True)
-            # convert crs of ROIs to the map crs
-            rois_gdf.to_crs("EPSG:4326")
-            self.gdf = rois_gdf
-            return
+            self._initialize_from_roi_gdf(rois_gdf)
+        else:
+            self._initialize_from_bbox_and_shoreline(
+                bbox, shoreline, square_len_lg, square_len_sm
+            )
 
-        elif rois_gdf is None:
-            if shoreline is None:
-                raise exceptions.Object_Not_Found("shorelines")
-            if bbox is None:
-                raise exceptions.Object_Not_Found("bounding box")
-            if shoreline.empty:
-                raise exceptions.Object_Not_Found("shorelines")
-            if bbox.empty:
-                raise exceptions.Object_Not_Found("bounding box")
+    def __str__(self):
+        return f"ROI: geodataframe {self.gdf} \nextracted_shorelines {self.extracted_shorelines}"
+
+    def __repr__(self):
+        return f"ROI: geodataframe {self.gdf}\nextracted_shorelines {self.extracted_shorelines}"
+
+    def _initialize_from_roi_gdf(self, rois_gdf: gpd.GeoDataFrame) -> None:
+        """
+        Initialize the `gdf` attribute from a GeoDataFrame of ROIs.
+
+        Args:
+            rois_gdf: A GeoDataFrame of ROIs.
+
+        Returns:
+            None.
+
+        Raises:
+            None.
+        """
+        # check if geodataframe column has 'id' column and add one if one doesn't exist
+        if "id" not in rois_gdf.columns:
+            rois_gdf["id"] = rois_gdf.index.astype(str).tolist()
+        # get row ids of ROIs with area that's too large
+        drop_ids = common.get_ids_with_invalid_area(rois_gdf)
+        if drop_ids:
+            print("Dropping ROIs that are an invalid size ")
+            logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
+            rois_gdf.drop(index=drop_ids, axis=0, inplace=True)
+
+        rois_gdf.to_crs("EPSG:4326")
+        self.gdf = rois_gdf
+
+    def _initialize_from_bbox_and_shoreline(
+        self,
+        bbox: gpd.GeoDataFrame,
+        shoreline: gpd.GeoDataFrame,
+        square_len_lg: float,
+        square_len_sm: float,
+    ) -> None:
+        """
+        Initialize the `gdf` attribute from a bounding box and shoreline.
+
+        Args:
+            bbox: A GeoDataFrame representing the bounding box.
+            shoreline: A GeoDataFrame representing the shoreline.
+            square_len_lg: The length of the larger square.
+            square_len_sm: The length of the smaller square.
+
+        Returns:
+            None.
+
+        Raises:
+            Object_Not_Found: If the `shoreline` or `bbox` is `None` or empty.
+            ValueError: If `square_len_sm` or `square_len_lg` is not greater than 0.
+        """
+        if shoreline is None:
+            raise exceptions.Object_Not_Found("shorelines")
+        if bbox is None:
+            raise exceptions.Object_Not_Found("bounding box")
+        if shoreline.empty:
+            raise exceptions.Object_Not_Found("shorelines")
+        if bbox.empty:
+            raise exceptions.Object_Not_Found("bounding box")
 
         if square_len_sm == square_len_lg == 0:
             logger.error("Invalid square size for ROI")
-            raise Exception("Invalid square size for ROI. Must be greater than 0")
+            raise ValueError("Invalid square size for ROI. Must be greater than 0")
 
-        if rois_gdf is None:
-            self.gdf = self.create_geodataframe(
-                bbox, shoreline, square_len_lg, square_len_sm
-            )
+        self.gdf = self.create_geodataframe(
+            bbox, shoreline, square_len_lg, square_len_sm
+        )
 
     def get_roi_settings(self, roi_id: str = "") -> dict:
         """Returns the settings dictionary for the specified region of interest (ROI).
@@ -261,20 +303,28 @@ class ROI:
     def fishnet_intersection(
         self, fishnet: gpd.GeoDataFrame, data: gpd.GeoDataFrame
     ) -> gpd.GeoDataFrame:
-        """Returns fishnet where it intersects with data
+        """
+        Returns the intersection of a fishnet grid with given data.
+
         Args:
-            fishnet (geopandas.geodataframe.GeoDataFrame): geodataframe consisting of equal sized squares
-            data (geopandas.geodataframe.GeoDataFrame): a vector or polygon for the fishnet to intersect
+            fishnet (gpd.GeoDataFrame): GeoDataFrame consisting of equal-sized squares (fishnet grid).
+            data (gpd.GeoDataFrame): GeoDataFrame containing vector or polygon data to intersect with the fishnet.
 
         Returns:
-            geopandas.geodataframe.GeoDataFrame: intersection of fishnet and data
+            gpd.GeoDataFrame: GeoDataFrame representing the intersection of the fishnet and the input data.
         """
+        # Perform a spatial join between the fishnet and data to find the intersecting geometries
         intersection_gdf = gpd.sjoin(
             left_df=fishnet, right_df=data, how="inner", predicate="intersects"
         )
-        columns_to_drop = list(intersection_gdf.columns.difference(["geometry"]))
-        intersection_gdf.drop(columns=columns_to_drop, inplace=True)
-        intersection_gdf.drop_duplicates(inplace=True)
+
+        # Remove unnecessary columns, keeping only the geometry column
+        columns_to_keep = ["geometry"]
+        intersection_gdf = intersection_gdf[columns_to_keep]
+
+        # Remove duplicate geometries
+        intersection_gdf.drop_duplicates(keep='first',subset=['geometry'],inplace=True)
+
         return intersection_gdf
 
     def create_rois(
@@ -374,21 +424,3 @@ class ROI:
         # Get the geodataframe for the fishnet intersecting the shoreline
         fishnet_intersection = self.fishnet_intersection(fishnet, shoreline_gdf)
         return fishnet_intersection
-
-    # def save_transects_to_json(self, roi_id: int, cross_distance: dict,save_path:str):
-    #     if cross_distance == 0:
-    #         print(f"Did not save transects to json for ROI:{roi_id}")
-    #         logger.info(f"Did not save transects to json for ROI:{roi_id}")
-    #         return
-    #     filename = f"transects_cross_distances" + str(roi_id) + ".json"
-    #     save_path = os.path.join(save_path,  filename)
-    #     logger.info(f"save_path: {save_path}")
-    #     for key in cross_distance.keys():
-    #         tmp = cross_distance[key].tolist()
-    #         cross_distance[key] = tmp
-    #     logger.info(f"cross_distance: {cross_distance}")
-
-    #     with open(save_path, "w") as f:
-    #         json.dump(cross_distance, f)
-    #     print(f"\nSaved transects to json for ROI: {roi_id} {save_path}")
-    #     logger.info(f"Saved transects to json for ROI: {roi_id} {save_path}")
