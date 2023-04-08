@@ -3,13 +3,8 @@ import logging
 from glob import glob1
 import os
 import json
-import copy
 from glob import glob
 from typing import Optional, Union
-import pickle
-import matplotlib.pyplot as plt
-import pandas as pd
-
 
 # Internal dependencies imports
 from coastseg import exceptions
@@ -21,22 +16,26 @@ import numpy as np
 from ipyleaflet import GeoJSON
 from matplotlib.pyplot import get_cmap
 from matplotlib.colors import rgb2hex
+from tqdm.auto import tqdm
+import pickle
+import matplotlib.pyplot as plt
 
-from coastsat import SDS_tools
 from coastsat import SDS_shoreline
 from coastsat import SDS_preprocess
-
+from coastsat.SDS_download import get_metadata
+from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
     remove_duplicates,
     remove_inaccurate_georef,
     output_to_gdf,
+    get_filepath,
+    get_filenames,
+    merge_output,
 )
-from tqdm.auto import tqdm
-from coastsat.SDS_download import get_metadata
-from coastsat.SDS_shoreline import extract_shorelines
-
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["Extracted_Shoreline"]
 
 
 def get_npz_tile(filename: str, session_path: str, satname: str) -> str:
@@ -160,7 +159,7 @@ def extract_shorelines_for_session(
     # loop through satellite list
     for satname in metadata.keys():
         # get images
-        filepath = SDS_tools.get_filepath(settings["inputs"], satname)
+        filepath = get_filepath(settings["inputs"], satname)
         filenames = metadata[satname]["filenames"]
 
         # initialise the output variables
@@ -195,7 +194,7 @@ def extract_shorelines_for_session(
             # print('\r%s:   %d%%' % (satname,int(((i+1)/len(filenames))*100)), end='')
 
             # get image filename
-            fn = SDS_tools.get_filenames(filenames[i], filepath, satname)
+            fn = get_filenames(filenames[i], filepath, satname)
             # preprocess image (cloud mask + pansharpening/downsampling)
             (
                 im_ms,
@@ -311,7 +310,7 @@ def extract_shorelines_for_session(
         }
 
     # change the format to have one list sorted by date with all the shorelines (easier to use)
-    output = SDS_tools.merge_output(output)
+    output = merge_output(output)
 
     # @todo replace this with save json
     # save outputput structure as output.pkl
@@ -391,6 +390,12 @@ class Extracted_Shoreline:
         self.dictionary = {}
         # shoreline_settings: dictionary of settings used to extract shoreline
         self.shoreline_settings = {}
+
+    def __str__(self):
+        return f"Extracted Shoreline: ROI ID: {self.roi_id}\n geodataframe {self.gdf}\nshoreline_settings{self.shoreline_settings}"
+
+    def __repr__(self):
+        return f"Extracted Shoreline:  ROI ID: {self.roi_id}\n geodataframe {self.gdf}\nshoreline_settings{self.shoreline_settings}\ndictionary{self.dictionary}"
 
     def get_roi_id(self) -> Optional[str]:
         """
@@ -725,50 +730,12 @@ class Extracted_Shoreline:
             hover_style={"color": "red", "fillOpacity": 0.7},
         )
 
-    def get_layer_names(self) -> list:
-        """returns a list of strings of format: 'ID_<roi_id>_<date>'
-        ex.'ID21_2018-12-31 19:03:17'
-        """
-        roi_id = self.roi_id
-        # Check the datatype of the 'date' column
-        date_dtype = self.gdf["date"].dtype
-        gdf = self.gdf.copy()
-        # If the datatype is pandas Timestamp, apply the lambda function
-        if pd.api.types.is_datetime64_any_dtype(date_dtype):
-            gdf["date"] = self.gdf["date"].apply(
-                lambda ts: ts.strftime("%Y-%m-%dT%H:%M:%S")
-            )
-
-        layer_names = [
-            "ID" + roi_id + "_" + date_str for date_str in gdf["date"].to_list()
-        ]
-        return layer_names
-
     def get_layer_name(self) -> list:
-        """returns a list of strings of format: 'ID_<roi_id>_<date>'
-        ex.'ID21_2018-12-31 19:03:17'
-        """
-        roi_id = self.roi_id
-        shoreline_date = str(self.gdf["date"].iloc[0])
-        layer_name = "ID" + roi_id + "_" + shoreline_date
+        """returns name of extracted shoreline layer"""
+        layer_name = "extracted_shoreline"
         return layer_name
 
-    def get_styled_layers(self) -> list[GeoJSON]:
-        # load extracted shorelines onto map
-        map_crs = 4326
-        layers = []
-        # convert to map crs and turn in json dict
-        features_json = json.loads(self.gdf.to_crs(map_crs).to_json())
-        layer_colors = get_colors(len(features_json["features"]))
-        layer_names = self.get_layer_names()
-        for idx, feature in enumerate(features_json["features"]):
-            geojson_layer = self.style_layer(
-                feature, layer_names[idx], layer_colors[idx]
-            )
-            layers.append(geojson_layer)
-        return layers
-
-    def get_styled_layer(self) -> list[GeoJSON]:
+    def get_styled_layer(self, row_number: int = 0) -> GeoJSON:
         # load extracted shorelines onto map
         map_crs = 4326
         layers = []
@@ -777,19 +744,21 @@ class Extracted_Shoreline:
         # convert to map crs and turn in json dict
         projected_gdf = self.gdf.to_crs(map_crs)
         # select a single shoreline and convert it to json
-        single_shoreline = projected_gdf[["geometry"]].iloc[[0]]
+        single_shoreline = projected_gdf.iloc[[row_number]]
+        single_shoreline = common.stringify_datetime_columns(single_shoreline)
+        logger.info(f"single_shoreline.columns: {single_shoreline.columns}")
         logger.info(f"single_shoreline: {single_shoreline}")
+        # convert geodataframe to json
         features_json = json.loads(single_shoreline.to_json())
         logger.info(f"single_shoreline features_json: {features_json}")
         layer_name = self.get_layer_name()
         logger.info(f"layer_name: {layer_name}")
         logger.info(f"features_json['features']: {features_json['features']}")
         # create a single layer
-        for feature in features_json["features"]:
-            geojson_layer = self.style_layer(feature, layer_name, "purple")
-            logger.info(f"geojson_layer: {geojson_layer}")
-            layers.append(geojson_layer)
-        return layers
+        feature = features_json["features"][0]
+        new_layer = self.style_layer(feature, layer_name, "purple")
+        logger.info(f"new_layer: {new_layer}")
+        return new_layer
 
 
 def get_reference_shoreline(

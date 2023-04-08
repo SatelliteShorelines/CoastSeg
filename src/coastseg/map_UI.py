@@ -7,7 +7,7 @@ from collections import defaultdict
 # internal python imports
 from coastseg import exception_handler
 from coastseg import common
-from coastseg import zoo_model
+from coastseg.watchable_slider import Extracted_Shoreline_widget
 
 # external python imports
 import ipywidgets
@@ -16,20 +16,18 @@ from ipyfilechooser import FileChooser
 
 from google.auth import exceptions as google_auth_exceptions
 from ipywidgets import Button
-from ipywidgets import ToggleButton
 from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import DatePicker
 from ipywidgets import HTML
-from ipywidgets import RadioButtons
 from ipywidgets import BoundedFloatText
 from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
-from ipywidgets import Checkbox
+
 from ipywidgets import FloatText
 
 logger = logging.getLogger(__name__)
@@ -48,16 +46,30 @@ class UI:
     def __init__(self, coastseg_map):
         # save an instance of coastseg_map
         self.coastseg_map = coastseg_map
-        # button styles
-        self.remove_style = dict(button_color="red")
-        self.load_style = dict(button_color="#69add1", description_width="initial")
-        self.action_style = dict(button_color="#ae3cf0")
-        self.save_style = dict(button_color="#50bf8f")
-        self.clear_stlye = dict(button_color="#a3adac")
 
         self.session_name = ""
         self.session_directory = ""
         self.tides_file = ""
+
+        # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
+        self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
+        # have the slider watch the extracted_shoreline_layer, number_extracted_shorelines,roi_selected_to_extract_shoreline
+        self.extract_shorelines_widget.watch(
+            self.coastseg_map.extracted_shoreline_layer
+        )
+        self.extract_shorelines_widget.watch(
+            self.coastseg_map.number_extracted_shorelines
+        )
+        self.extract_shorelines_widget.watch(
+            self.coastseg_map.roi_selected_to_extract_shoreline
+        )
+        self.extract_shorelines_widget.watch(
+            self.coastseg_map.extract_shoreline_status
+        )
+        self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(self.coastseg_map.load_extracted_shorelines_to_map)
+
+        # create button styles
+        self.create_styles()
 
         # buttons to load configuration files
         self.load_session_button = Button(
@@ -77,7 +89,7 @@ class UI:
             layout=Layout(padding="0px"),
         )
 
-        self.load_file_radio = RadioButtons(
+        self.load_file_radio = ipywidgets.Dropdown(
             options=["Shoreline", "Transects", "Bbox", "ROIs"],
             value="Shoreline",
             description="",
@@ -125,7 +137,7 @@ class UI:
         self._create_HTML_widgets()
         self.roi_slider_instr = HTML(value="<b>Choose Area of ROIs</b>")
         # controls the ROI units displayed
-        self.units_radio = RadioButtons(
+        self.units_radio = ipywidgets.Dropdown(
             options=["m²", "km²"],
             value="km²",
             description="Select Units:",
@@ -195,6 +207,18 @@ class UI:
 
         # when units radio button is clicked updated units for area textboxes
         self.units_radio.observe(units_radio_changed)
+
+    def create_styles(self):
+        """
+        Initializes the styles used for various buttons in the user interface.
+        Returns:
+            None.
+        """
+        self.remove_style = dict(button_color="red")
+        self.load_style = dict(button_color="#69add1", description_width="initial")
+        self.action_style = dict(button_color="#ae3cf0")
+        self.save_style = dict(button_color="#50bf8f")
+        self.clear_stlye = dict(button_color="#a3adac")
 
     def launch_error_box(self, title: str = None, msg: str = None):
         # Show user error message
@@ -662,7 +686,7 @@ class UI:
             layout=Layout(padding="0px"),
         )
 
-        self.save_radio = RadioButtons(
+        self.save_radio = ipywidgets.Dropdown(
             options=[
                 "Shoreline",
                 "Transects",
@@ -697,7 +721,7 @@ class UI:
                 ",
             layout=Layout(padding="0px"),
         )
-        self.load_radio = RadioButtons(
+        self.load_radio = ipywidgets.Dropdown(
             options=["Shoreline", "Transects"],
             value="Transects",
             description="",
@@ -724,14 +748,14 @@ class UI:
             layout=Layout(padding="0px"),
         )
 
-        self.remove_radio = RadioButtons(
+        self.feature_dropdown = ipywidgets.Dropdown(
             options=["Shoreline", "Transects", "Bbox", "ROIs", "Extracted Shorelines"],
             value="Shoreline",
             description="",
             disabled=False,
         )
         self.remove_button = Button(
-            description=f"Remove {self.remove_radio.value}",
+            description=f"Remove {self.feature_dropdown.value}",
             icon="fa-ban",
             style=self.remove_style,
         )
@@ -740,7 +764,7 @@ class UI:
             self.remove_button.description = f"Remove {str(change['new'])}"
 
         self.remove_button.on_click(self.remove_feature_from_map)
-        self.remove_radio.observe(handle_remove_radio_change, "value")
+        self.feature_dropdown.observe(handle_remove_radio_change, "value")
         # define remove all button
         self.remove_all_button = Button(
             description="Remove all", icon="fa-trash-o", style=self.remove_style
@@ -750,7 +774,7 @@ class UI:
         remove_buttons = VBox(
             [
                 remove_instr,
-                self.remove_radio,
+                self.feature_dropdown,
                 self.remove_button,
                 self.remove_all_button,
             ]
@@ -930,6 +954,7 @@ class UI:
                 self.instr_download_roi,
                 self.download_button,
                 self.extract_shorelines_button,
+                self.extract_shorelines_widget,
                 self.get_session_selection(),
                 self.create_tidal_correction_widget(),
                 config_vbox,
@@ -1234,7 +1259,7 @@ class UI:
             # Prompt the user to select a directory of images
             if "extracted shorelines" in btn.description.lower():
                 print(f"Removing extracted shoreline")
-                self.coastseg_map.remove_extracted_shorelines()
+                self.coastseg_map.remove_extracted_shoreline_layers()
             elif "shoreline" in btn.description.lower():
                 print(f"Removing shoreline")
                 self.coastseg_map.remove_shoreline()
