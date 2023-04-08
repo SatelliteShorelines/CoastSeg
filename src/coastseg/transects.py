@@ -90,6 +90,12 @@ class Transects:
         if filename:
             self.filename = filename
 
+    def __str__(self):
+        return f"Transects: geodataframe {self.gdf}"
+
+    def __repr__(self):
+        return f"Transects: geodataframe {self.gdf}"
+
     def create_geodataframe(
         self,
         bbox: gpd.GeoDataFrame,
