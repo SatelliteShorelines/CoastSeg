@@ -36,6 +36,24 @@ logger = logging.getLogger(__name__)
 
 import uuid
 
+def keep_only_available_columns(gdf: gpd.GeoDataFrame,available_columns:List[str]=None) -> gpd.GeoDataFrame:
+    """
+    Keep only the available columns from a GeoDataFrame.
+
+    Args:
+        gdf (GeoDataFrame): The input GeoDataFrame.
+        available_columns (list of str, optional): A list of column names to keep.
+
+    Returns:
+        GeoDataFrame: A new GeoDataFrame containing only the available columns.
+    """
+    if available_columns is None:
+        available_columns = []
+    columns_to_keep = []
+    for column in available_columns:
+        if column in gdf.columns:
+            columns_to_keep.append(column)
+    return gdf[columns_to_keep]
 
 def create_id_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
