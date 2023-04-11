@@ -1,6 +1,6 @@
 # Standard library imports
 import logging
-from typing import Union
+from typing import Union, List
 
 # Internal dependencies imports
 from coastseg import common
@@ -15,6 +15,8 @@ from ipyleaflet import GeoJSON
 from coastseg.extracted_shoreline import Extracted_Shoreline
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["ROI"]
 
 
 class ROI:
@@ -32,9 +34,12 @@ class ROI:
         square_len_sm: float = 0,
         filename: str = None,
     ):
+        # gdf : geodataframe of ROIs
+        self.gdf = gpd.GeoDataFrame()
         # roi_settings : after ROIs have been downloaded holds all download settings
         self.roi_settings = {}
         # extract_shorelines : dictionary with ROIs' ids as the keys holding the extracted shorelines
+        # ex. {'1': Extracted Shoreline()}
         self.extracted_shorelines = {}
         # cross_shore_distancess : dictionary with of cross-shore distance along each of the transects. Not tidally corrected.
         self.cross_shore_distances = {}
@@ -66,6 +71,10 @@ class ROI:
         Raises:
             None.
         """
+        # keep only the geometry and id columns
+        columns = ["id", "geometry"]
+        keep_columns = [col for col in columns if col in rois_gdf.columns]
+        rois_gdf = rois_gdf[keep_columns]
         # check if geodataframe column has 'id' column and add one if one doesn't exist
         if "id" not in rois_gdf.columns:
             rois_gdf["id"] = rois_gdf.index.astype(str).tolist()
@@ -76,6 +85,7 @@ class ROI:
             logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
             rois_gdf.drop(index=drop_ids, axis=0, inplace=True)
 
+        rois_gdf = common.remove_z_axis(rois_gdf)
         rois_gdf.to_crs("EPSG:4326")
         self.gdf = rois_gdf
 
@@ -149,6 +159,35 @@ class ROI:
             Union[None, dict]: The extracted shoreline dictionary for the specified ROI ID, or None if it does not exist.
         """
         return self.extracted_shorelines.get(roi_id)
+
+    def get_ids(self) -> list:
+        """Returns list of all roi ids"""
+        if "id" not in self.gdf.columns:
+            return []
+        return self.gdf["id"].tolist()
+
+    def get_ids_with_extracted_shorelines(self) -> Union[None, List[str]]:
+        """Returns list of roi ids that had extracted shorelines"""
+        return list(self.get_all_extracted_shorelines().keys())
+
+    def add_geodataframe(self, gdf: gpd.GeoDataFrame) -> "ROI":
+        """Adds the geodataframe to the map"""
+        # check if geodataframe column has 'id' column and add one if one doesn't exist
+        if "id" not in gdf.columns:
+            gdf["id"] = gdf.index.astype(str).tolist()
+        # get row ids of ROIs with area that's too large
+        drop_ids = common.get_ids_with_invalid_area(gdf)
+        if drop_ids:
+            print("Dropping ROIs that are an invalid size ")
+            logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
+            gdf.drop(index=drop_ids, axis=0, inplace=True)
+        # Combine the two GeoDataFrames
+        combined_gdf = pd.concat([self.gdf, gdf], axis=0)
+        no_duplicates_gdf = combined_gdf.drop_duplicates(subset=["id", "geometry"])
+        # Convert the combined DataFrame back to a GeoDataFrame
+        no_duplicates_gdf = gpd.GeoDataFrame(no_duplicates_gdf, crs=self.gdf.crs)
+        self.gdf = no_duplicates_gdf
+        return self
 
     def get_all_extracted_shorelines(self) -> dict:
         """Returns a dictionary of all extracted shorelines.
@@ -323,7 +362,9 @@ class ROI:
         intersection_gdf = intersection_gdf[columns_to_keep]
 
         # Remove duplicate geometries
-        intersection_gdf.drop_duplicates(keep='first',subset=['geometry'],inplace=True)
+        intersection_gdf.drop_duplicates(
+            keep="first", subset=["geometry"], inplace=True
+        )
 
         return intersection_gdf
 
