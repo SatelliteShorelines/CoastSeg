@@ -1,7 +1,9 @@
 from typing import Callable
+import logging
+
 import ipywidgets
 from ipyleaflet import GeoJSON
-import logging
+from ipywidgets import Layout
 
 
 logger = logging.getLogger(__name__)
@@ -13,18 +15,25 @@ This class is a widget that allows the user to load extracted shorelines on the 
 class Extracted_Shoreline_widget(ipywidgets.VBox):
     def __init__(self, map_interface=None):
         # map interface that has extracted shorelines
+        self.roi_ids_with_shorelines = []
         self.map_interface = map_interface
-        self.roi_html = ipywidgets.HTML(value="<b>ROI</b>:  ")
+        self.select_roi_dropdown = ipywidgets.Dropdown(
+            options=[""],
+            description="Select ROI:",
+            style={"description_width": "initial"},
+        )
         self.status = ipywidgets.HTML(value="<b>Extracted Shoreline Status</b>:  ")
         self.satellite_html = ipywidgets.HTML(value="<b>Satellite</b>:  ")
         self.date_html = ipywidgets.HTML(value="<b>Date</b>:  ")
-        title_html = ipywidgets.HTML(value="<h3>Load Extracted Shorelines</h3>")
+        title_html = ipywidgets.HTML(
+            value="<h3>Load Extracted Shorelines</h3>", layout=Layout(padding="0px")
+        )
         self.extracted_shoreline_slider = ipywidgets.IntSlider(
             value=0,
             min=0,
             max=1,
             step=1,
-            description="Load Shoreline:",
+            description="Shoreline:",
             disabled=True,
             continuous_update=False,  # only load in new value when slider is released
             orientation="horizontal",
@@ -35,19 +44,28 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
 
         # list of objects to watch
         self._observables = []
+        # list of functions to call when an observable changes
         self.extracted_shoreline_slider.observe(self.on_slider_change, names="value")
+        self.select_roi_dropdown.observe(self.on_dropdown_change, names="value")
         # Roi information bar
-        roi_info_row = ipywidgets.HBox([self.roi_html,self.satellite_html,self.date_html])
+        roi_info_row = ipywidgets.HBox([self.satellite_html, self.date_html])
         super().__init__(
             [
                 title_html,
-                self.load_extracted_shorelines_button,
-                self.status,
+                self.select_roi_dropdown,
                 self.extracted_shoreline_slider,
+                self.status,
                 ipywidgets.HTML(value="<b>Extracted Shoreline Information</b>:  "),
                 roi_info_row,
             ]
         )
+
+    def set_roi_ids_with_shorelines(self, roi_ids_with_shorelines: list):
+        self.roi_ids_with_shorelines = roi_ids_with_shorelines
+        self.select_roi_dropdown.options = self.roi_ids_with_shorelines
+
+    def get_roi_ids_with_shorelines(self):
+        return self.roi_ids_with_shorelines
 
     def set_load_extracted_shorelines_button_on_click(self, on_click: Callable):
         logger.info(f"{on_click}")
@@ -60,12 +78,19 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         # get the row number from the extracted_shoreline_slider
         row_number = change["new"]
         # get the extracted shoreline by the row number from the map_interface
-        self.map_interface.load_extracted_shorelines_to_map(row_number=row_number)
+        roi_id = self.select_roi_dropdown.value
+        self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=row_number)
+        # self.map_interface.load_extracted_shorelines_to_map(row_number=row_number)
         # update roi_html, satellite_html, date_html with the extracted shoreline information
         self.update(self._observables[-1])
 
-    def set_roi_html(self, roi: str):
-        self.roi_html.value = f"<b>ROI</b>: {roi} "
+    def on_dropdown_change(self, change):
+        # get the row number from the extracted_shoreline_slider
+        roi_id = change["new"]
+        # get the extracted shoreline by the row number from the map_interface
+        self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=0)
+        # update roi_html, satellite_html, date_html with the extracted shoreline information
+        self.update(self._observables[-1])
 
     def set_status_html(self, status: str):
         self.status.value = f"<b>Status</b>: {status} "
@@ -82,13 +107,15 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         self.update(self._observables[-1])
 
     def update(self, observable):
-        logger.info(f"observable.name {observable.name} observable.get(): {observable.get()}")
+        logger.info(
+            f"observable.name {observable.name} observable.get(): {observable.get()}"
+        )
         if observable.get() is not None:
+            if observable.name == "roi_ids_with_shorelines":
+                self.set_roi_ids_with_shorelines(observable.get())
             if isinstance(observable.get(), int):
                 self.extracted_shoreline_slider.max = observable.get()
             if isinstance(observable.get(), str):
-                if observable.name == "selected_roi_id":
-                    self.set_roi_html(observable.get())
                 if observable.name == "status":
                     self.set_status_html(observable.get())
             if isinstance(observable.get(), GeoJSON):
@@ -100,7 +127,6 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         else:
             self.extracted_shoreline_slider.max = 1
             self.extracted_shoreline_slider.disabled = True
-            self.set_roi_html(roi="")
             self.set_satellite_html(satellite="")
             self.set_date_html(date="")
             self.set_status_html("")

@@ -60,13 +60,13 @@ class UI:
         self.extract_shorelines_widget.watch(
             self.coastseg_map.number_extracted_shorelines
         )
+        self.extract_shorelines_widget.watch(self.coastseg_map.extract_shoreline_status)
         self.extract_shorelines_widget.watch(
-            self.coastseg_map.roi_selected_to_extract_shoreline
+            self.coastseg_map.roi_ids_with_extracted_shorelines
         )
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.extract_shoreline_status
+        self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(
+            self.coastseg_map.load_extracted_shorelines_to_map
         )
-        self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(self.coastseg_map.load_extracted_shorelines_to_map)
 
         # create button styles
         self.create_styles()
@@ -918,10 +918,10 @@ class UI:
         )
 
         self.instr_config_btns = HTML(
-            value="<h2><b>Load and Save Config Files</b></h2>\
+            value="<h2><b>Load Sessions</b></h2>\
                 <b>Load Session</b>: Load rois, shorelines, transects, and bounding box from session directory\
                 </br><b>ROIs Not Downloaded:</b> config file will be saved to CoastSeg directory in file: 'config_gdf.geojson'\
-                </br><b>ROIs Not Downloaded:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
+                </br><b>Downloaded ROIs:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
                 ",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
@@ -941,6 +941,7 @@ class UI:
                 save_to_file_buttons,
                 load_file_vbox,
                 remove_buttons,
+                self.extract_shorelines_widget,
             ]
         )
         config_vbox = VBox(
@@ -954,7 +955,6 @@ class UI:
                 self.instr_download_roi,
                 self.download_button,
                 self.extract_shorelines_button,
-                self.extract_shorelines_widget,
                 self.get_session_selection(),
                 self.create_tidal_correction_widget(),
                 config_vbox,
@@ -1041,10 +1041,10 @@ class UI:
         try:
             if "shoreline" in btn.description.lower():
                 print("Finding Shoreline")
-                self.coastseg_map.load_feature_on_map("shoreline")
+                self.coastseg_map.load_feature_on_map("shoreline", zoom_to_bounds=True)
             if "transects" in btn.description.lower():
                 print("Finding 'Transects'")
-                self.coastseg_map.load_feature_on_map("transects")
+                self.coastseg_map.load_feature_on_map("transects", zoom_to_bounds=True)
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
@@ -1170,7 +1170,7 @@ class UI:
         def load_callback(filechooser: FileChooser) -> None:
             try:
                 if filechooser.selected:
-                    self.coastseg_map.load_session(filechooser.selected)
+                    self.coastseg_map.load_fresh_session(filechooser.selected)
                     logger.info(f"filechooser.selected: {filechooser.selected}")
                     session_name = os.path.basename(
                         os.path.abspath(filechooser.selected)
@@ -1207,28 +1207,36 @@ class UI:
                             f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "shoreline", os.path.abspath(filechooser.selected)
+                            "shoreline",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
                     if "transects" in btn.description.lower():
                         print(
                             f"Loading transects from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "transects", os.path.abspath(filechooser.selected)
+                            "transects",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
                     if "bbox" in btn.description.lower():
                         print(
                             f"Loading bounding box from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "bbox", os.path.abspath(filechooser.selected)
+                            "bbox",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
                     if "rois" in btn.description.lower():
                         print(
                             f"Loading ROIs from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "rois", os.path.abspath(filechooser.selected)
+                            "rois",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
             except Exception as error:
                 # renders error message as a box on map

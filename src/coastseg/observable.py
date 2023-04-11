@@ -1,8 +1,8 @@
 class Observable:
-    def __init__(self, initial_value=None,name=''):
+    def __init__(self, initial_value=None, name=""):
         self._value = initial_value
         self._observers = []
-        self.name=name
+        self.name = name
 
     def add_observer(self, observer):
         self._observers.append(observer)
