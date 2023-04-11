@@ -322,11 +322,6 @@ def extract_shorelines_for_session(
     return output
 
 
-from typing import Optional
-from glob import glob
-import os
-
-
 def load_extracted_shoreline_from_files(
     dir_path: str,
 ) -> Optional["Extracted_Shoreline"]:
@@ -392,10 +387,10 @@ class Extracted_Shoreline:
         self.shoreline_settings = {}
 
     def __str__(self):
-        return f"Extracted Shoreline: ROI ID: {self.roi_id}\n geodataframe {self.gdf}\nshoreline_settings{self.shoreline_settings}"
+        return f"Extracted Shoreline: ROI ID: {self.roi_id}\n geodataframe {self.gdf.head(5)}\nshoreline_settings{self.shoreline_settings}"
 
     def __repr__(self):
-        return f"Extracted Shoreline:  ROI ID: {self.roi_id}\n geodataframe {self.gdf}\nshoreline_settings{self.shoreline_settings}\ndictionary{self.dictionary}"
+        return f"Extracted Shoreline:  ROI ID: {self.roi_id}\n geodataframe {self.gdf.head(5)}\nshoreline_settings{self.shoreline_settings}\ndictionary{self.dictionary}"
 
     def get_roi_id(self) -> Optional[str]:
         """
@@ -418,6 +413,7 @@ class Extracted_Shoreline:
         """
         inputs = self.shoreline_settings.get("inputs", {})
         sitename = inputs.get("sitename", "")
+        # checks if the ROI ID is present in the 'sitename' saved in the shoreline settings
         roi_id = sitename.split("_")[1] if sitename else None
         return roi_id
 
@@ -427,6 +423,20 @@ class Extracted_Shoreline:
         shoreline_settings: dict = None,
         extracted_shorelines_gdf: gpd.GeoDataFrame = None,
     ):
+        """Loads extracted shorelines into the Extracted_Shoreline class.
+        Intializes the class with the extracted shorelines dictionary, shoreline settings, and the extracted shorelines geodataframe
+
+        Args:
+            extracted_shoreline_dict (dict, optional): A dictionary containing the extracted shorelines. Defaults to None.
+            shoreline_settings (dict, optional): A dictionary containing the shoreline settings. Defaults to None.
+            extracted_shorelines_gdf (GeoDataFrame, optional): The extracted shorelines in a GeoDataFrame. Defaults to None.
+
+        Returns:
+            object: The Extracted_Shoreline class with the extracted shorelines loaded.
+
+        Raises:
+            ValueError: If the input arguments are invalid.
+        """
 
         if not isinstance(extracted_shoreline_dict, dict):
             raise ValueError(
@@ -465,26 +475,22 @@ class Extracted_Shoreline:
         shoreline: gpd.GeoDataFrame = None,
         roi_settings: dict = None,
         settings: dict = None,
-    ):
-        if not isinstance(roi_id, str):
-            raise ValueError(f"ROI id must be string. not {type(roi_id)}")
+    ) -> "Extracted_Shoreline":
+        """
+        Extracts shorelines for a specified region of interest (ROI) and returns an Extracted_Shoreline class instance.
 
-        if not isinstance(shoreline, gpd.GeoDataFrame):
-            raise ValueError(
-                f"shoreline must be valid geodataframe. not {type(shoreline)}"
-            )
-        if shoreline.empty:
-            raise ValueError("shoreline cannot be empty.")
+        Args:
+        - self: The object instance.
+        - roi_id (str): The ID of the region of interest for which shorelines need to be extracted.
+        - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
+        - roi_settings (dict): A dictionary of region of interest settings.
+        - settings (dict): A dictionary of extraction settings.
 
-        if not isinstance(roi_settings, dict):
-            raise ValueError(f"roi_settings must be dict. not {type(roi_settings)}")
-        if roi_settings == {}:
-            raise ValueError("roi_settings cannot be empty.")
-
-        if not isinstance(settings, dict):
-            raise ValueError(f"settings must be dict. not {type(settings)}")
-        if settings == {}:
-            raise ValueError("settings cannot be empty.")
+        Returns:
+        - object: The Extracted_Shoreline class instance.
+        """
+        # validate input parameters are not empty and are of the correct type
+        self._validate_input_params(roi_id, shoreline, roi_settings, settings)
 
         logger.info(f"Extracting shorelines for ROI id{roi_id}")
         self.dictionary = self.extract_shorelines(
@@ -511,7 +517,60 @@ class Extracted_Shoreline:
         roi_settings: dict = None,
         settings: dict = None,
         session_path: str = None,
-    ):
+    ) -> "Extracted_Shoreline":
+        """
+        Extracts shorelines for a specified region of interest (ROI) from a saved session and returns an Extracted_Shoreline class instance.
+
+        Args:
+        - self: The object instance.
+        - roi_id (str): The ID of the region of interest for which shorelines need to be extracted.
+        - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
+        - roi_settings (dict): A dictionary of region of interest settings.
+        - settings (dict): A dictionary of extraction settings.
+        - session_path (str): The path of the saved session from which the shoreline extraction needs to be resumed.
+
+        Returns:
+        - object: The Extracted_Shoreline class instance.
+        """
+        # validate input parameters are not empty and are of the correct type
+        self._validate_input_params(roi_id, shoreline, roi_settings, settings)
+
+        logger.info(f"Extracting shorelines for ROI id{roi_id}")
+        self.dictionary = self.extract_shorelines(
+            shoreline, roi_settings, settings, session_path=session_path
+        )
+
+        if is_list_empty(self.dictionary["shorelines"]):
+            logger.warning(f"No extracted shorelines for ROI {roi_id}")
+            raise exceptions.No_Extracted_Shoreline(roi_id)
+
+        map_crs = "EPSG:4326"
+        # extracted shorelines have map crs so they can be displayed on the map
+        self.gdf = self.create_geodataframe(
+            self.shoreline_settings["output_epsg"], output_crs=map_crs
+        )
+        return self
+
+    def _validate_input_params(
+        self,
+        roi_id: str,
+        shoreline: gpd.GeoDataFrame,
+        roi_settings: dict,
+        settings: dict,
+    ) -> None:
+        """
+        Validates that the input parameters for shoreline extraction are not empty and are of the correct type.
+
+        Args:
+        - self: The object instance.
+        - roi_id (str): The ID of the region of interest for which shorelines need to be extracted.
+        - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
+        - roi_settings (dict): A dictionary of region of interest settings.
+        - settings (dict): A dictionary of extraction settings.
+
+        Raises:
+        - ValueError: If any of the input parameters are empty or not of the correct type.
+        """
         if not isinstance(roi_id, str):
             raise ValueError(f"ROI id must be string. not {type(roi_id)}")
 
@@ -531,22 +590,6 @@ class Extracted_Shoreline:
             raise ValueError(f"settings must be dict. not {type(settings)}")
         if settings == {}:
             raise ValueError("settings cannot be empty.")
-
-        logger.info(f"Extracting shorelines for ROI id{roi_id}")
-        self.dictionary = self.extract_shorelines(
-            shoreline, roi_settings, settings, session_path=session_path
-        )
-
-        if is_list_empty(self.dictionary["shorelines"]):
-            logger.warning(f"No extracted shorelines for ROI {roi_id}")
-            raise exceptions.No_Extracted_Shoreline(roi_id)
-
-        map_crs = "EPSG:4326"
-        # extracted shorelines have map crs so they can be displayed on the map
-        self.gdf = self.create_geodataframe(
-            self.shoreline_settings["output_epsg"], output_crs=map_crs
-        )
-        return self
 
     def extract_shorelines(
         self,
@@ -736,6 +779,15 @@ class Extracted_Shoreline:
         return layer_name
 
     def get_styled_layer(self, row_number: int = 0) -> GeoJSON:
+        """
+        Returns a single shoreline feature as a GeoJSON object with a specified style.
+
+        Args:
+        - row_number (int): The index of the shoreline feature to select from the GeoDataFrame.
+
+        Returns:
+        - GeoJSON: A single shoreline feature as a GeoJSON object with a specified style.
+        """
         # load extracted shorelines onto map
         map_crs = 4326
         layers = []
@@ -764,6 +816,16 @@ class Extracted_Shoreline:
 def get_reference_shoreline(
     shoreline_gdf: gpd.geodataframe, output_crs: str
 ) -> np.ndarray:
+    """
+    Converts a GeoDataFrame of shoreline features into a numpy array of latitudes, longitudes, and zeroes representing the mean sea level.
+
+    Args:
+    - shoreline_gdf (GeoDataFrame): A GeoDataFrame of shoreline features.
+    - output_crs (str): The output CRS to which the shoreline features need to be projected.
+
+    Returns:
+    - np.ndarray: A numpy array of latitudes, longitudes, and zeroes representing the mean sea level.
+    """
     # project shorelines's espg from map's espg to output espg given in settings
     reprojected_shorlines = shoreline_gdf.to_crs(output_crs)
     logger.info(f"reprojected_shorlines.crs: {reprojected_shorlines.crs}")
