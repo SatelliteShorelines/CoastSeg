@@ -5,7 +5,12 @@ from typing import Dict
 
 # Internal dependencies imports
 from coastseg.exceptions import DownloadError
-from coastseg.common import  download_url, remove_z_axis, keep_only_available_columns
+from coastseg.common import (
+    download_url,
+    replace_column,
+    remove_z_axis,
+    keep_only_available_columns,
+)
 
 # External dependencies imports
 import geopandas as gpd
@@ -17,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # only export Shoreline class
 __all__ = ["Shoreline"]
+
 
 class Shoreline:
     """Shoreline: contains the shorelines within a region specified by bbox (bounding box)"""
@@ -33,6 +39,12 @@ class Shoreline:
         self.filename = "shoreline.geojson"
         if shoreline is not None:
             if not shoreline.empty:
+                # if 'id' column is not present and 'name' column is replace 'name' with 'id'
+                # id neither exist create a new column named 'id' with row index
+                if "ID" in shoreline.columns:
+                    logger.info(f"ID in shoreline.columns: {shoreline.columns}")
+                    shoreline.rename(columns={"ID": "id"}, inplace=True)
+                replace_column(shoreline, new_name="id", replace_col="name")
                 # remove z-axis
                 shoreline = remove_z_axis(shoreline)
                 self.gdf = shoreline
@@ -49,7 +61,6 @@ class Shoreline:
 
     def __repr__(self):
         return f"Shoreline: geodataframe {self.gdf}"
-
 
     def create_geodataframe(
         self, bbox: gpd.GeoDataFrame, crs: str = "EPSG:4326"
@@ -68,11 +79,15 @@ class Shoreline:
 
         if not intersecting_shoreline_files:
             logger.warning(f"No intersecting shorelines found. BBox: {bbox}")
-            raise ValueError("No intersecting shorelines found. Try loading your own or draw a new bounding box.")
+            raise ValueError(
+                "No intersecting shorelines found. Try loading your own or draw a new bounding box."
+            )
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
         # Download any missing shoreline files
-        shoreline_files = self.get_shoreline_files(intersecting_shoreline_files, script_dir)
+        shoreline_files = self.get_shoreline_files(
+            intersecting_shoreline_files, script_dir
+        )
 
         if shoreline_files == []:
             raise FileNotFoundError("No shoreline files found.")
@@ -80,7 +95,7 @@ class Shoreline:
         # Read in each shoreline file and clip it to the bounding box
         for shoreline_file in shoreline_files:
             try:
-                shoreline = gpd.read_file(shoreline_file,mask=bbox).to_crs(crs)
+                shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
             except DriverError as driver_error:
                 print(driver_error)
                 continue
@@ -99,12 +114,16 @@ class Shoreline:
             shoreline = keep_only_available_columns(shoreline, columns_to_keep)
             shoreline = gpd.clip(shoreline, bbox).to_crs(crs)
 
-            shorelines_in_bbox_gdf = concat([shorelines_in_bbox_gdf, shoreline], ignore_index=True)
+            shorelines_in_bbox_gdf = concat(
+                [shorelines_in_bbox_gdf, shoreline], ignore_index=True
+            )
 
         shorelines_in_bbox_gdf = remove_z_axis(shorelines_in_bbox_gdf).to_crs(crs)
         return shorelines_in_bbox_gdf
 
-    def get_shoreline_files(self,intersecting_shoreline_files: Dict[str, str], script_dir: str) -> None:
+    def get_shoreline_files(
+        self, intersecting_shoreline_files: Dict[str, str], script_dir: str
+    ) -> None:
         """Downloads missing shoreline files.
 
         Args:
@@ -113,7 +132,9 @@ class Shoreline:
         """
         available_files = []
         for filename, dataset_id in intersecting_shoreline_files.items():
-            shoreline_path = os.path.abspath(os.path.join(script_dir, "shorelines", filename))
+            shoreline_path = os.path.abspath(
+                os.path.join(script_dir, "shorelines", filename)
+            )
             if not os.path.exists(shoreline_path):
                 try:
                     self.download_shoreline(filename, dataset_id)
@@ -124,9 +145,9 @@ class Shoreline:
                 available_files.append(shoreline_path)
         return available_files
 
-
-
-    def download_missing_shorelines(self,intersecting_shoreline_files: Dict[str, str], script_dir: str) -> None:
+    def download_missing_shorelines(
+        self, intersecting_shoreline_files: Dict[str, str], script_dir: str
+    ) -> None:
         """Downloads missing shoreline files.
 
         Args:
@@ -134,7 +155,9 @@ class Shoreline:
             script_dir (str): The path to the script's directory.
         """
         for filename, dataset_id in intersecting_shoreline_files.items():
-            shoreline_path = os.path.abspath(os.path.join(script_dir, "shorelines", filename))
+            shoreline_path = os.path.abspath(
+                os.path.join(script_dir, "shorelines", filename)
+            )
             if not os.path.exists(shoreline_path):
                 try:
                     self.download_shoreline(filename, dataset_id)
@@ -190,8 +213,7 @@ class Shoreline:
             download_url(url, outfile, filename=filename)
 
 
-
-def get_intersecting_files( bbox: gpd.GeoDataFrame) -> Dict[str, str]:
+def get_intersecting_files(bbox: gpd.GeoDataFrame) -> Dict[str, str]:
     """Given a bounding box (bbox), returns a dictionary of shoreline filenames whose
     contents intersect with bbox, mapped to their dataset IDs.
 
@@ -208,7 +230,10 @@ def get_intersecting_files( bbox: gpd.GeoDataFrame) -> Dict[str, str]:
     usa_total_bounds_df = load_total_bounds_df("usa", bbox)
     world_total_bounds_df = load_total_bounds_df("world", bbox)
     # Create a list of tuples containing the DataFrames and their dataset IDs
-    total_bounds_dfs = [(usa_total_bounds_df, USA_DATASET_ID), (world_total_bounds_df, WORLD_DATASET_ID)]
+    total_bounds_dfs = [
+        (usa_total_bounds_df, USA_DATASET_ID),
+        (world_total_bounds_df, WORLD_DATASET_ID),
+    ]
 
     intersecting_files = {}
 
@@ -223,7 +248,10 @@ def get_intersecting_files( bbox: gpd.GeoDataFrame) -> Dict[str, str]:
 
     return intersecting_files
 
-def load_total_bounds_df( location: str = "usa",mask:gpd.GeoDataFrame=None) -> gpd.GeoDataFrame:
+
+def load_total_bounds_df(
+    location: str = "usa", mask: gpd.GeoDataFrame = None
+) -> gpd.GeoDataFrame:
     """
     Returns dataframe containing total bounds for each set of shorelines in the geojson file specified by location.
     Args:
@@ -245,9 +273,9 @@ def load_total_bounds_df( location: str = "usa",mask:gpd.GeoDataFrame=None) -> g
         gdf_file = "usa_shorelines_bounding_boxes.geojson"
     elif location == "world":
         gdf_file = "world_reference_shorelines_bboxes.geojson"
-    
-    gdf_location = os.path.join(bounding_box_dir,gdf_file)
-    total_bounds_df = gpd.read_file(gdf_location,mask=mask)
+
+    gdf_location = os.path.join(bounding_box_dir, gdf_file)
+    total_bounds_df = gpd.read_file(gdf_location, mask=mask)
     total_bounds_df.index = total_bounds_df["filename"]
     if "filename" in total_bounds_df.columns:
         total_bounds_df.drop("filename", axis=1, inplace=True)

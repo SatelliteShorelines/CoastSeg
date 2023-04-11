@@ -4,7 +4,7 @@ import os
 from typing import List
 
 # Internal dependencies imports
-from coastseg.common import remove_z_axis, read_gpd_file, create_id_column
+from coastseg.common import remove_z_axis, replace_column, create_id_column
 
 # External dependencies imports
 import geopandas as gpd
@@ -80,6 +80,12 @@ class Transects:
         # if a transects geodataframe provided then copy it
         if transects is not None:
             if not transects.empty:
+                # if 'id' column is not present and 'name' column is replace 'name' with 'id'
+                # id neither exist create a new column named 'id' with row index
+                if "ID" in transects.columns:
+                    logger.info(f"ID in transects.columns: {transects.columns}")
+                    transects.rename(columns={"ID": "id"}, inplace=True)
+                replace_column(transects, new_name="id", replace_col="name")
                 # remove z-axis from transects
                 transects = remove_z_axis(transects)
                 self.gdf = transects
