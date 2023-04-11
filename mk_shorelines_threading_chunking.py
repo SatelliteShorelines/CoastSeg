@@ -1,6 +1,7 @@
 import os
 import geopandas as gpd
 import pandas as pd
+import glob
 from shapely.geometry import Polygon
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
@@ -22,59 +23,60 @@ def calculate_bbox(gdf, file):
 
 def parallel_read_geojson_files_bbox(folder_path, num_workers=None, chunk_size=100):
     # Get a list of all GeoJSON files in the folder
-    geojson_files = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if file.endswith(".geojson")]
+    files = sorted(glob.glob(os.path.join(folder_path, "*")))
+    geojson_files = [os.path.join(folder_path, file) for file in files if file.endswith(".geojson")]
 
     all_chunks = []
-    i=1100
-    print(f"Processing files {i} to {i + chunk_size}")
-    chunk_files = geojson_files[i:i + chunk_size]
+    # i=1100
+    # print(f"Processing files {i} to {i + chunk_size}")
+    # chunk_files = geojson_files[i:i + chunk_size]
 
-    # Read GeoJSON files in parallel using multiple workers (I/O-bound task)
-    with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        geojson_gdfs = list(executor.map(read_geojson, chunk_files))
-    # Calculate bounding boxes in parallel using multiple workers (CPU-bound task)
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        bbox_gdfs = list(executor.map(calculate_bbox, geojson_gdfs, chunk_files))
-    bbox_gdfs = [result for result in bbox_gdfs if result is not None]
-    # Concatenate the list of GeoDataFrames
-    combined_df = gpd.GeoDataFrame(pd.concat(bbox_gdfs, ignore_index=True), crs=bbox_gdfs[0].crs)
-    # Save the chunk to a file
-    save_path = f"C:\\1_USGS\\1_CoastSeg\\1_official_CoastSeg_repo\\CoastSeg\\world_refernce_shorelines_bbox_{i}_{i + chunk_size}.geojson"
-    combined_df.to_file(save_path, driver="GeoJSON")
+    # # Read GeoJSON files in parallel using multiple workers (I/O-bound task)
+    # with ThreadPoolExecutor(max_workers=num_workers) as executor:
+    #     geojson_gdfs = list(executor.map(read_geojson, chunk_files))
+    # # Calculate bounding boxes in parallel using multiple workers (CPU-bound task)
+    # with ProcessPoolExecutor(max_workers=num_workers) as executor:
+    #     bbox_gdfs = list(executor.map(calculate_bbox, geojson_gdfs, chunk_files))
+    # bbox_gdfs = [result for result in bbox_gdfs if result is not None]
+    # # Concatenate the list of GeoDataFrames
+    # combined_df = gpd.GeoDataFrame(pd.concat(bbox_gdfs, ignore_index=True), crs=bbox_gdfs[0].crs)
+    # # Save the chunk to a file
+    # save_path = f"C:\\1_USGS\\1_CoastSeg\\1_official_CoastSeg_repo\\CoastSeg\\world_refernce_shorelines_bbox_{i}_{i + chunk_size}.geojson"
+    # combined_df.to_file(save_path, driver="GeoJSON")
 
-    all_chunks.append(save_path)
-
-    for i in range(0, len(geojson_files), chunk_size):
-        if i == 1100:
-            continue
-        save_path = f"C:\\1_USGS\\1_CoastSeg\\1_official_CoastSeg_repo\\CoastSeg\\world_refernce_shorelines_bbox_{i}_{i + chunk_size}.geojson"
-        all_chunks.append(save_path)
-
-    return all_chunks
+    # all_chunks.append(save_path)
 
     # for i in range(0, len(geojson_files), chunk_size):
-
-    #     print(f"Processing files {i} to {i + chunk_size}")
-    #     chunk_files = geojson_files[i:i + chunk_size]
-
-    #     # Read GeoJSON files in parallel using multiple workers (I/O-bound task)
-    #     with ThreadPoolExecutor(max_workers=num_workers) as executor:
-    #         geojson_gdfs = list(executor.map(read_geojson, chunk_files))
-
-    #     # Calculate bounding boxes in parallel using multiple workers (CPU-bound task)
-    #     with ProcessPoolExecutor(max_workers=num_workers) as executor:
-    #         bbox_gdfs = list(executor.map(calculate_bbox, geojson_gdfs, chunk_files))
-
-    #     bbox_gdfs = [result for result in bbox_gdfs if result is not None]
-    #     # Concatenate the list of GeoDataFrames
-    #     combined_df = gpd.GeoDataFrame(pd.concat(bbox_gdfs, ignore_index=True), crs=bbox_gdfs[0].crs)
-
-    #     # Save the chunk to a file
+    #     if i == 1100:
+    #         continue
     #     save_path = f"C:\\1_USGS\\1_CoastSeg\\1_official_CoastSeg_repo\\CoastSeg\\world_refernce_shorelines_bbox_{i}_{i + chunk_size}.geojson"
-    #     combined_df.to_file(save_path, driver="GeoJSON")
     #     all_chunks.append(save_path)
 
     # return all_chunks
+
+    for i in range(0, len(geojson_files), chunk_size):
+
+        print(f"Processing files {i} to {i + chunk_size}")
+        chunk_files = geojson_files[i:i + chunk_size]
+
+        # Read GeoJSON files in parallel using multiple workers (I/O-bound task)
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            geojson_gdfs = list(executor.map(read_geojson, chunk_files))
+
+        # Calculate bounding boxes in parallel using multiple workers (CPU-bound task)
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            bbox_gdfs = list(executor.map(calculate_bbox, geojson_gdfs, chunk_files))
+
+        bbox_gdfs = [result for result in bbox_gdfs if result is not None]
+        # Concatenate the list of GeoDataFrames
+        combined_df = gpd.GeoDataFrame(pd.concat(bbox_gdfs, ignore_index=True), crs=bbox_gdfs[0].crs)
+
+        # Save the chunk to a file
+        save_path = f"C:\\1_USGS\\1_CoastSeg\\1_official_CoastSeg_repo\\CoastSeg\\world_refernce_shorelines_bbox_{i}_{i + chunk_size}.geojson"
+        combined_df.to_file(save_path, driver="GeoJSON")
+        all_chunks.append(save_path)
+
+    return all_chunks
 
 def main():
     folder_path = r"C:\1_USGS\1_CoastSeg\1_official_CoastSeg_repo\CoastSeg\downloaded_shorelines"
