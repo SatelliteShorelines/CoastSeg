@@ -36,7 +36,10 @@ logger = logging.getLogger(__name__)
 
 import uuid
 
-def keep_only_available_columns(gdf: gpd.GeoDataFrame,available_columns:List[str]=None) -> gpd.GeoDataFrame:
+
+def keep_only_available_columns(
+    gdf: gpd.GeoDataFrame, available_columns: List[str] = None
+) -> gpd.GeoDataFrame:
     """
     Keep only the available columns from a GeoDataFrame.
 
@@ -49,11 +52,9 @@ def keep_only_available_columns(gdf: gpd.GeoDataFrame,available_columns:List[str
     """
     if available_columns is None:
         available_columns = []
-    columns_to_keep = []
-    for column in available_columns:
-        if column in gdf.columns:
-            columns_to_keep.append(column)
-    return gdf[columns_to_keep]
+    columns_to_keep = set(available_columns) & set(gdf.columns)
+    return gdf[list(columns_to_keep)]
+
 
 def create_id_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
@@ -74,16 +75,59 @@ def create_id_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def copy_configs(src, dst):
-    # copy config.geojson and config.json files from souce to destination directories
-    config_gdf_path = find_config_json(src, r"config_gdf.*\.geojson")
-    config_json_path = find_config_json(src, r"^config\.json$")
-    dst_file = os.path.join(dst, "config_gdf.geojson")
-    logger.info(f"dst_config_gdf: {dst_file}")
-    shutil.copy(config_gdf_path, dst_file)
-    dst_file = os.path.join(dst, "config.json")
-    logger.info(f"dst_config.json: {dst_file}")
-    shutil.copy(config_json_path, dst_file)
+def find_file_by_regex(
+    search_path: str, search_pattern: str = r"^config\.json$"
+) -> str:
+    """Searches for a file with matching regex in the specified directory
+
+    Args:
+        search_path (str): the directory path to search for the  file matching the search pattern
+        search_pattern (str): the regular expression pattern to search for the config file
+
+    Returns:
+        str: the file path to the `config.json` file
+
+    Raises:
+        FileNotFoundError: if a `config.json` file is not found in the specified directory
+    """
+    logger.info(f"searching directory for config.json: {search_path}")
+    config_regex = re.compile(search_pattern, re.IGNORECASE)
+    logger.info(f"search_pattern: {search_pattern}")
+
+    for file in os.listdir(search_path):
+        if config_regex.match(file):
+            logger.info(f"{file} matched regex")
+            file_path = os.path.join(search_path, file)
+            return file_path
+
+    raise FileNotFoundError(f"config.json file was not found at {search_path}")
+
+
+def copy_configs(src: str, dst: str) -> None:
+    """Copy config files from source directory to destination directory.
+
+    Looks for files with names starting with "config_gdf" and ending with ".geojson"
+    and a file named "config.json" in the source directory.
+
+    Args:
+        src (str): the source directory
+        dst (str): the destination directory
+    """
+    # Get the list of files in the source directory
+    files = os.listdir(src)
+
+    # Loop through the files and copy the ones we need
+    for file in files:
+        if file.startswith("config_gdf") and file.endswith(".geojson"):
+            config_gdf_path = os.path.join(src, file)
+            dst_file = os.path.join(dst, "config_gdf.geojson")
+            logger.info(f"Copying {config_gdf_path} to {dst_file}")
+            shutil.copy(config_gdf_path, dst_file)
+        elif file == "config.json":
+            config_json_path = os.path.join(src, file)
+            dst_file = os.path.join(dst, "config.json")
+            logger.info(f"Copying {config_json_path} to {dst_file}")
+            shutil.copy(config_json_path, dst_file)
 
 
 def create_file_chooser(
@@ -738,33 +782,6 @@ def extract_fields(data, key=None, fields_of_interest: list[str] = []) -> dict:
                 extracted_data[field] = data[field]
 
     return extracted_data
-
-
-def find_config_json(search_path: str, search_pattern: str = None) -> str:
-    """Searches for a `config.json` file in the specified directory
-
-    Args:
-        search_path (str): the directory path to search for the `config.json` file
-
-    Returns:
-        str: the file path to the `config.json` file
-
-    Raises:
-        FileNotFoundError: if a `config.json` file is not found in the specified directory
-    """
-    logger.info(f"searching directory for config.json: {search_path}")
-    if search_pattern == None:
-        search_pattern = r"^config\.json$"
-    config_regex = re.compile(search_pattern, re.IGNORECASE)
-    logger.info(f"search_pattern: {search_pattern}")
-
-    for file in os.listdir(search_path):
-        if config_regex.match(file):
-            logger.info(f"{file} matched regex")
-            file_path = os.path.join(search_path, file)
-            return file_path
-
-    raise FileNotFoundError(f"config.json file was not found at {search_path}")
 
 
 def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
