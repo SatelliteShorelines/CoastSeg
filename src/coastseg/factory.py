@@ -159,7 +159,6 @@ class Factory:
         logger.info(
             f"feature_name {feature_name}\ncoastsegmap: {coastsegmap}\nGdf: {gdf}\nkwargs: {kwargs}"
         )
-
         # get the function that can be used to create the feature_name
         # ex. "shoreline" would get the create_shoreline function
         feature_maker = Factory._feature_makers.get(feature_name)
@@ -169,6 +168,3 @@ class Factory:
                 return None
 
         return feature_maker(coastsegmap, gdf, **kwargs)
-        # # if geodataframe is None then don't pass in gdf
-        # logger.info(f"Gdf was None")
-        # return feature_maker(coastsegmap, **kwargs)
