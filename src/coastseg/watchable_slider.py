@@ -22,7 +22,6 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             description="Select ROI:",
             style={"description_width": "initial"},
         )
-        self.status = ipywidgets.HTML(value="<b>Extracted Shoreline Status</b>:  ")
         self.satellite_html = ipywidgets.HTML(value="<b>Satellite</b>:  ")
         self.date_html = ipywidgets.HTML(value="<b>Date</b>:  ")
         title_html = ipywidgets.HTML(
@@ -54,7 +53,6 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
                 title_html,
                 self.select_roi_dropdown,
                 self.extracted_shoreline_slider,
-                self.status,
                 ipywidgets.HTML(value="<b>Extracted Shoreline Information</b>:  "),
                 roi_info_row,
             ]
@@ -80,20 +78,15 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         # get the extracted shoreline by the row number from the map_interface
         roi_id = self.select_roi_dropdown.value
         self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=row_number)
-        # self.map_interface.load_extracted_shorelines_to_map(row_number=row_number)
         # update roi_html, satellite_html, date_html with the extracted shoreline information
         self.update(self._observables[-1])
 
     def on_dropdown_change(self, change):
-        # get the row number from the extracted_shoreline_slider
         roi_id = change["new"]
         # get the extracted shoreline by the row number from the map_interface
         self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=0)
         # update roi_html, satellite_html, date_html with the extracted shoreline information
         self.update(self._observables[-1])
-
-    def set_status_html(self, status: str):
-        self.status.value = f"<b>Status</b>: {status} "
 
     def set_satellite_html(self, satellite: str):
         self.satellite_html.value = f"<b>Satellite</b>: {satellite} "
@@ -110,23 +103,24 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         logger.info(
             f"observable.name {observable.name} observable.get(): {observable.get()}"
         )
-        if observable.get() is not None:
-            if observable.name == "roi_ids_with_shorelines":
+        if observable.name == "roi_ids_with_shorelines":
+            if observable.get() is not None:
                 self.set_roi_ids_with_shorelines(observable.get())
-            if isinstance(observable.get(), int):
+            elif observable.get() is None:
+                self.set_roi_ids_with_shorelines([""])
+        if observable.name == "number_extracted_shorelines":
+            if observable.get() is not None:
                 self.extracted_shoreline_slider.max = observable.get()
-            if isinstance(observable.get(), str):
-                if observable.name == "status":
-                    self.set_status_html(observable.get())
-            if isinstance(observable.get(), GeoJSON):
+            elif observable.get() is None:
+                self.extracted_shoreline_slider.max = 1
+        if observable.name == "extracted_shoreline_layer":
+            if observable.get() is not None:
                 self.extracted_shoreline_slider.disabled = False
                 self.set_satellite_html(
                     satellite=observable.get().data["properties"]["satname"]
                 )
                 self.set_date_html(date=observable.get().data["properties"]["date"])
-        else:
-            self.extracted_shoreline_slider.max = 1
-            self.extracted_shoreline_slider.disabled = True
-            self.set_satellite_html(satellite="")
-            self.set_date_html(date="")
-            self.set_status_html("")
+            elif observable.get() is None:
+                self.extracted_shoreline_slider.disabled = True
+                self.set_satellite_html(satellite="")
+                self.set_date_html(date="")

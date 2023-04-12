@@ -51,7 +51,6 @@ class CoastSeg_Map:
         self.number_extracted_shorelines = Observable(
             0, name="number_extracted_shorelines"
         )
-        self.extract_shoreline_status = Observable("", name="status")
         self.roi_ids_with_extracted_shorelines = Observable(
             [], name="roi_ids_with_shorelines"
         )
@@ -61,8 +60,6 @@ class CoastSeg_Map:
 
         # ids of the selected rois
         self.selected_set = set()
-        # names of extracted shorelines vectors on the map
-        self.extracted_shoreline_layers = []
 
         # map objects
         self.rois = None
@@ -264,7 +261,7 @@ class CoastSeg_Map:
         Returns:
             None.
         """
-        print(f"Loading session: {session_path}")
+        logger.info(f"Loading session: {session_path}")
         # load the session name
         session_name = os.path.basename(os.path.abspath(session_path))
         self.set_session_name(session_name)
@@ -277,8 +274,15 @@ class CoastSeg_Map:
             if dirpath != session_path:
                 self.load_session_from_directory(dirpath)
 
-        # load extracted shorelines to the map
-        self.load_extracted_shorelines_to_map()
+        # Check if any ROIs are loaded
+        if self.rois is None:
+            logger.warning("No ROIs found. Please load ROIs.")
+            return
+        # Get the ids of the ROIs with extracted shorelines
+        ids_with_extracted_shorelines = self.rois.get_ids_with_extracted_shorelines()
+        # update observable list of ROI ids with extracted shorelines
+        self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
+
 
     def load_settings(self, filepath: str = "", new_settings: dict = {}):
         """
@@ -1402,10 +1406,9 @@ class CoastSeg_Map:
         self.remove_extracted_shoreline_layers()
 
     def remove_extracted_shoreline_layers(self):
-        if self.extracted_shoreline_layers != []:
-            for layername in self.extracted_shoreline_layers:
-                self.remove_layer_by_name(layername)
-            self.extracted_shoreline_layers = []
+        if self.extracted_shoreline_layer.get() is not None:
+            self.map.remove_layer(self.extracted_shoreline_layer.get())
+            self.extracted_shoreline_layer.set(None)
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
@@ -1558,13 +1561,13 @@ class CoastSeg_Map:
             )
             # if extracted shorelines exist, load them onto map
             if extracted_shorelines is not None:
-                self.extract_shoreline_status.set(
+                logger.info(
                     f"Extracted shorelines found for ROI {selected_id}"
                 )
                 self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
             # if extracted shorelines do not exist, set the status to no extracted shorelines found
             if extracted_shorelines is None:
-                self.extract_shoreline_status.set(
+                logger.info(
                     f"No extracted shorelines found for ROI {selected_id}"
                 )
 
@@ -1609,7 +1612,6 @@ class CoastSeg_Map:
 
         if not roi_ids_with_extracted_shorelines:
             logger.warning("No ROIs found with extracted shorelines.")
-            self.extract_shoreline_status.set("No extracted shorelines found.")
             return
 
         # Load extracted shorelines for the first ROI ID with extracted shorelines
@@ -1620,7 +1622,7 @@ class CoastSeg_Map:
             )
 
             if extracted_shorelines is not None:
-                self.extract_shoreline_status.set(
+                logger.info(
                     f"Extracted shorelines found for ROI {selected_id}"
                 )
                 self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
@@ -1642,12 +1644,10 @@ class CoastSeg_Map:
         logger.info(f"row_number: {row_number}")
         new_layer = extracted_shoreline.get_styled_layer(row_number)
         layer_name = extracted_shoreline.get_layer_name()
-        self.extracted_shoreline_layers.append(layer_name)
         logger.info(
             f"Extracted shoreline layer: {new_layer}\n"
             f"Layer name: {layer_name}\n"
             f"Extracted shoreline layers: {new_layer}\n"
-            f"Updated extracted_shoreline_layers: {self.extracted_shoreline_layers}"
         )
         # new_layer.on_hover(self.update_extracted_shoreline_html)
         self.map.add_layer(new_layer)
@@ -1875,9 +1875,12 @@ class CoastSeg_Map:
             )
         else:
             logger.info(f"Saving feature type( {feature}) to file")
-            feature.gdf.to_file(feature.filename, driver="GeoJSON")
-        print(f"Save {feature.LAYER_NAME} to {feature.filename}")
-        logger.info(f"Save {feature.LAYER_NAME} to {feature.filename}")
+            if hasattr(feature, "gdf"):
+                feature.gdf.to_file(feature.filename, driver="GeoJSON")
+                print(f"Save {feature.LAYER_NAME} to {feature.filename}")
+                logger.info(f"Save {feature.LAYER_NAME} to {feature.filename}")
+            else:
+                print(f"Empty {feature.LAYER_NAME} cannot be saved to file")
 
     def convert_selected_set_to_geojson(self, selected_set: set) -> dict:
         """Returns a geojson dict containing a FeatureCollection for all the geojson objects in the

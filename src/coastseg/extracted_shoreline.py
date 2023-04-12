@@ -613,8 +613,10 @@ class Extracted_Shoreline:
         logger.info(f"metadata: {metadata}")
         # extract shorelines from ROI
         if session_path is None:
+            # extract shorelines with coastsat's models
             extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings)
         elif session_path is not None:
+             # extract shorelines with our models
             extracted_shorelines = extract_shorelines_for_session(
                 session_path, metadata, self.shoreline_settings
             )
@@ -759,7 +761,7 @@ class Extracted_Shoreline:
             color(str): hex code or name of color render shorelines
 
         Returns:
-            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
+            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with color
         """
         assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
         return GeoJSON(
@@ -768,9 +770,8 @@ class Extracted_Shoreline:
             style={
                 "color": color,
                 "opacity": 1,
-                "weight": 2,
+                "weight": 3,
             },
-            hover_style={"color": "red", "fillOpacity": 0.7},
         )
 
     def get_layer_name(self) -> list:
@@ -808,7 +809,7 @@ class Extracted_Shoreline:
         logger.info(f"features_json['features']: {features_json['features']}")
         # create a single layer
         feature = features_json["features"][0]
-        new_layer = self.style_layer(feature, layer_name, "purple")
+        new_layer = self.style_layer(feature, layer_name, "red")
         logger.info(f"new_layer: {new_layer}")
         return new_layer
 
