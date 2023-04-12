@@ -1169,6 +1169,7 @@ class UI:
         def load_callback(filechooser: FileChooser) -> None:
             try:
                 if filechooser.selected:
+                    self.coastseg_map.map.default_style = {"cursor": "wait"}
                     self.coastseg_map.load_fresh_session(filechooser.selected)
                     logger.info(f"filechooser.selected: {filechooser.selected}")
                     session_name = os.path.basename(
@@ -1180,8 +1181,10 @@ class UI:
                         self.coastseg_map.get_settings()
                     )
                     self.update_settings_selection(self.coastseg_map.get_settings())
+                    self.coastseg_map.map.default_style = {"cursor": "default"}
             except Exception as error:
                 # renders error message as a box on map
+                self.coastseg_map.map.default_style = {"cursor": "default"}
                 exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
         # create instance of chooser that calls load_callback
@@ -1194,6 +1197,7 @@ class UI:
         self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4
         self.file_chooser_row.children = [dir_chooser]
+        self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):
