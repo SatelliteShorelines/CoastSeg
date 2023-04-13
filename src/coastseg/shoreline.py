@@ -223,20 +223,16 @@ def get_intersecting_files(bbox: gpd.GeoDataFrame) -> Dict[str, str]:
     Returns:
         dict: intersecting_files containing filenames whose contents intersect with bbox
     """
-    WORLD_DATASET_ID = "7786276"
-    USA_DATASET_ID = "7761607"
+    WORLD_DATASET_ID = "7814755"
 
     # DataFrames containing total bounding box for each shoreline file
-    usa_total_bounds_df = load_total_bounds_df("usa", bbox)
     world_total_bounds_df = load_total_bounds_df("world", bbox)
     # Create a list of tuples containing the DataFrames and their dataset IDs
     total_bounds_dfs = [
-        (usa_total_bounds_df, USA_DATASET_ID),
         (world_total_bounds_df, WORLD_DATASET_ID),
     ]
 
     intersecting_files = {}
-
     # Add filenames of interesting shoreline in both the usa and world shorelines to intersecting_files
     for bounds_df, dataset_id in total_bounds_dfs:
         if not bounds_df.empty:
@@ -245,7 +241,7 @@ def get_intersecting_files(bbox: gpd.GeoDataFrame) -> Dict[str, str]:
             filenames_and_ids = zip(filenames, [dataset_id] * len(filenames))
             # Add the filenames and their dataset IDs to intersecting_files
             intersecting_files.update(dict(filenames_and_ids))
-
+    logger.info(f"Found {len(intersecting_files)} intersecting files\n {intersecting_files}")
     return intersecting_files
 
 
