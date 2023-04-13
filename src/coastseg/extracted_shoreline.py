@@ -3,13 +3,8 @@ import logging
 from glob import glob1
 import os
 import json
-import copy
 from glob import glob
 from typing import Optional, Union
-import pickle
-import matplotlib.pyplot as plt
-import pandas as pd
-
 
 # Internal dependencies imports
 from coastseg import exceptions
@@ -21,22 +16,26 @@ import numpy as np
 from ipyleaflet import GeoJSON
 from matplotlib.pyplot import get_cmap
 from matplotlib.colors import rgb2hex
+from tqdm.auto import tqdm
+import pickle
+import matplotlib.pyplot as plt
 
-from coastsat import SDS_tools
 from coastsat import SDS_shoreline
 from coastsat import SDS_preprocess
-
+from coastsat.SDS_download import get_metadata
+from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
     remove_duplicates,
     remove_inaccurate_georef,
     output_to_gdf,
+    get_filepath,
+    get_filenames,
+    merge_output,
 )
-from tqdm.auto import tqdm
-from coastsat.SDS_download import get_metadata
-from coastsat.SDS_shoreline import extract_shorelines
-
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["Extracted_Shoreline"]
 
 
 def get_npz_tile(filename: str, session_path: str, satname: str) -> str:
@@ -175,7 +174,7 @@ def extract_shorelines_for_session(
     # loop through satellite list
     for satname in metadata.keys():
         # get images
-        filepath = SDS_tools.get_filepath(settings["inputs"], satname)
+        filepath = get_filepath(settings["inputs"], satname)
         filenames = metadata[satname]["filenames"]
 
         # initialise the output variables
@@ -210,7 +209,7 @@ def extract_shorelines_for_session(
             # print('\r%s:   %d%%' % (satname,int(((i+1)/len(filenames))*100)), end='')
 
             # get image filename
-            fn = SDS_tools.get_filenames(filenames[i], filepath, satname)
+            fn = get_filenames(filenames[i], filepath, satname)
             # preprocess image (cloud mask + pansharpening/downsampling)
             (
                 im_ms,
@@ -333,7 +332,7 @@ def extract_shorelines_for_session(
         }
 
     # change the format to have one list sorted by date with all the shorelines (easier to use)
-    output = SDS_tools.merge_output(output)
+    output = merge_output(output)
 
     # @todo replace this with save json
     # save outputput structure as output.pkl
@@ -343,11 +342,6 @@ def extract_shorelines_for_session(
         pickle.dump(output, f)
 
     return output
-
-
-from typing import Optional
-from glob import glob
-import os
 
 
 def load_extracted_shoreline_from_files(
@@ -414,6 +408,12 @@ class Extracted_Shoreline:
         # shoreline_settings: dictionary of settings used to extract shoreline
         self.shoreline_settings = {}
 
+    def __str__(self):
+        return f"Extracted Shoreline: ROI ID: {self.roi_id}\n geodataframe {self.gdf.head(5)}\nshoreline_settings{self.shoreline_settings}"
+
+    def __repr__(self):
+        return f"Extracted Shoreline:  ROI ID: {self.roi_id}\n geodataframe {self.gdf.head(5)}\nshoreline_settings{self.shoreline_settings}\ndictionary{self.dictionary}"
+
     def get_roi_id(self) -> Optional[str]:
         """
         Extracts the region of interest (ROI) ID from the shoreline settings.
@@ -435,6 +435,7 @@ class Extracted_Shoreline:
         """
         inputs = self.shoreline_settings.get("inputs", {})
         sitename = inputs.get("sitename", "")
+        # checks if the ROI ID is present in the 'sitename' saved in the shoreline settings
         roi_id = sitename.split("_")[1] if sitename else None
         return roi_id
 
@@ -444,6 +445,20 @@ class Extracted_Shoreline:
         shoreline_settings: dict = None,
         extracted_shorelines_gdf: gpd.GeoDataFrame = None,
     ):
+        """Loads extracted shorelines into the Extracted_Shoreline class.
+        Intializes the class with the extracted shorelines dictionary, shoreline settings, and the extracted shorelines geodataframe
+
+        Args:
+            extracted_shoreline_dict (dict, optional): A dictionary containing the extracted shorelines. Defaults to None.
+            shoreline_settings (dict, optional): A dictionary containing the shoreline settings. Defaults to None.
+            extracted_shorelines_gdf (GeoDataFrame, optional): The extracted shorelines in a GeoDataFrame. Defaults to None.
+
+        Returns:
+            object: The Extracted_Shoreline class with the extracted shorelines loaded.
+
+        Raises:
+            ValueError: If the input arguments are invalid.
+        """
 
         if not isinstance(extracted_shoreline_dict, dict):
             raise ValueError(
@@ -482,26 +497,22 @@ class Extracted_Shoreline:
         shoreline: gpd.GeoDataFrame = None,
         roi_settings: dict = None,
         settings: dict = None,
-    ):
-        if not isinstance(roi_id, str):
-            raise ValueError(f"ROI id must be string. not {type(roi_id)}")
+    ) -> "Extracted_Shoreline":
+        """
+        Extracts shorelines for a specified region of interest (ROI) and returns an Extracted_Shoreline class instance.
 
-        if not isinstance(shoreline, gpd.GeoDataFrame):
-            raise ValueError(
-                f"shoreline must be valid geodataframe. not {type(shoreline)}"
-            )
-        if shoreline.empty:
-            raise ValueError("shoreline cannot be empty.")
+        Args:
+        - self: The object instance.
+        - roi_id (str): The ID of the region of interest for which shorelines need to be extracted.
+        - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
+        - roi_settings (dict): A dictionary of region of interest settings.
+        - settings (dict): A dictionary of extraction settings.
 
-        if not isinstance(roi_settings, dict):
-            raise ValueError(f"roi_settings must be dict. not {type(roi_settings)}")
-        if roi_settings == {}:
-            raise ValueError("roi_settings cannot be empty.")
-
-        if not isinstance(settings, dict):
-            raise ValueError(f"settings must be dict. not {type(settings)}")
-        if settings == {}:
-            raise ValueError("settings cannot be empty.")
+        Returns:
+        - object: The Extracted_Shoreline class instance.
+        """
+        # validate input parameters are not empty and are of the correct type
+        self._validate_input_params(roi_id, shoreline, roi_settings, settings)
 
         logger.info(f"Extracting shorelines for ROI id{roi_id}")
         self.dictionary = self.extract_shorelines(
@@ -528,7 +539,60 @@ class Extracted_Shoreline:
         roi_settings: dict = None,
         settings: dict = None,
         session_path: str = None,
-    ):
+    ) -> "Extracted_Shoreline":
+        """
+        Extracts shorelines for a specified region of interest (ROI) from a saved session and returns an Extracted_Shoreline class instance.
+
+        Args:
+        - self: The object instance.
+        - roi_id (str): The ID of the region of interest for which shorelines need to be extracted.
+        - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
+        - roi_settings (dict): A dictionary of region of interest settings.
+        - settings (dict): A dictionary of extraction settings.
+        - session_path (str): The path of the saved session from which the shoreline extraction needs to be resumed.
+
+        Returns:
+        - object: The Extracted_Shoreline class instance.
+        """
+        # validate input parameters are not empty and are of the correct type
+        self._validate_input_params(roi_id, shoreline, roi_settings, settings)
+
+        logger.info(f"Extracting shorelines for ROI id{roi_id}")
+        self.dictionary = self.extract_shorelines(
+            shoreline, roi_settings, settings, session_path=session_path
+        )
+
+        if is_list_empty(self.dictionary["shorelines"]):
+            logger.warning(f"No extracted shorelines for ROI {roi_id}")
+            raise exceptions.No_Extracted_Shoreline(roi_id)
+
+        map_crs = "EPSG:4326"
+        # extracted shorelines have map crs so they can be displayed on the map
+        self.gdf = self.create_geodataframe(
+            self.shoreline_settings["output_epsg"], output_crs=map_crs
+        )
+        return self
+
+    def _validate_input_params(
+        self,
+        roi_id: str,
+        shoreline: gpd.GeoDataFrame,
+        roi_settings: dict,
+        settings: dict,
+    ) -> None:
+        """
+        Validates that the input parameters for shoreline extraction are not empty and are of the correct type.
+
+        Args:
+        - self: The object instance.
+        - roi_id (str): The ID of the region of interest for which shorelines need to be extracted.
+        - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
+        - roi_settings (dict): A dictionary of region of interest settings.
+        - settings (dict): A dictionary of extraction settings.
+
+        Raises:
+        - ValueError: If any of the input parameters are empty or not of the correct type.
+        """
         if not isinstance(roi_id, str):
             raise ValueError(f"ROI id must be string. not {type(roi_id)}")
 
@@ -548,22 +612,6 @@ class Extracted_Shoreline:
             raise ValueError(f"settings must be dict. not {type(settings)}")
         if settings == {}:
             raise ValueError("settings cannot be empty.")
-
-        logger.info(f"Extracting shorelines for ROI id{roi_id}")
-        self.dictionary = self.extract_shorelines(
-            shoreline, roi_settings, settings, session_path=session_path
-        )
-
-        if is_list_empty(self.dictionary["shorelines"]):
-            logger.warning(f"No extracted shorelines for ROI {roi_id}")
-            raise exceptions.No_Extracted_Shoreline(roi_id)
-
-        map_crs = "EPSG:4326"
-        # extracted shorelines have map crs so they can be displayed on the map
-        self.gdf = self.create_geodataframe(
-            self.shoreline_settings["output_epsg"], output_crs=map_crs
-        )
-        return self
 
     def extract_shorelines(
         self,
@@ -587,8 +635,10 @@ class Extracted_Shoreline:
         logger.info(f"metadata: {metadata}")
         # extract shorelines from ROI
         if session_path is None:
+            # extract shorelines with coastsat's models
             extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings)
         elif session_path is not None:
+             # extract shorelines with our models
             extracted_shorelines = extract_shorelines_for_session(
                 session_path, metadata, self.shoreline_settings
             )
@@ -733,7 +783,7 @@ class Extracted_Shoreline:
             color(str): hex code or name of color render shorelines
 
         Returns:
-            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
+            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with color
         """
         assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
         return GeoJSON(
@@ -742,55 +792,25 @@ class Extracted_Shoreline:
             style={
                 "color": color,
                 "opacity": 1,
-                "weight": 2,
+                "weight": 3,
             },
-            hover_style={"color": "red", "fillOpacity": 0.7},
         )
 
-    def get_layer_names(self) -> list:
-        """returns a list of strings of format: 'ID_<roi_id>_<date>'
-        ex.'ID21_2018-12-31 19:03:17'
-        """
-        roi_id = self.roi_id
-        # Check the datatype of the 'date' column
-        date_dtype = self.gdf["date"].dtype
-        gdf = self.gdf.copy()
-        # If the datatype is pandas Timestamp, apply the lambda function
-        if pd.api.types.is_datetime64_any_dtype(date_dtype):
-            gdf["date"] = self.gdf["date"].apply(
-                lambda ts: ts.strftime("%Y-%m-%dT%H:%M:%S")
-            )
-
-        layer_names = [
-            "ID" + roi_id + "_" + date_str for date_str in gdf["date"].to_list()
-        ]
-        return layer_names
-
     def get_layer_name(self) -> list:
-        """returns a list of strings of format: 'ID_<roi_id>_<date>'
-        ex.'ID21_2018-12-31 19:03:17'
-        """
-        roi_id = self.roi_id
-        shoreline_date = str(self.gdf["date"].iloc[0])
-        layer_name = "ID" + roi_id + "_" + shoreline_date
+        """returns name of extracted shoreline layer"""
+        layer_name = "extracted_shoreline"
         return layer_name
 
-    def get_styled_layers(self) -> list[GeoJSON]:
-        # load extracted shorelines onto map
-        map_crs = 4326
-        layers = []
-        # convert to map crs and turn in json dict
-        features_json = json.loads(self.gdf.to_crs(map_crs).to_json())
-        layer_colors = get_colors(len(features_json["features"]))
-        layer_names = self.get_layer_names()
-        for idx, feature in enumerate(features_json["features"]):
-            geojson_layer = self.style_layer(
-                feature, layer_names[idx], layer_colors[idx]
-            )
-            layers.append(geojson_layer)
-        return layers
+    def get_styled_layer(self, row_number: int = 0) -> GeoJSON:
+        """
+        Returns a single shoreline feature as a GeoJSON object with a specified style.
 
-    def get_styled_layer(self) -> list[GeoJSON]:
+        Args:
+        - row_number (int): The index of the shoreline feature to select from the GeoDataFrame.
+
+        Returns:
+        - GeoJSON: A single shoreline feature as a GeoJSON object with a specified style.
+        """
         # load extracted shorelines onto map
         map_crs = 4326
         layers = []
@@ -799,24 +819,36 @@ class Extracted_Shoreline:
         # convert to map crs and turn in json dict
         projected_gdf = self.gdf.to_crs(map_crs)
         # select a single shoreline and convert it to json
-        single_shoreline = projected_gdf[["geometry"]].iloc[[0]]
+        single_shoreline = projected_gdf.iloc[[row_number]]
+        single_shoreline = common.stringify_datetime_columns(single_shoreline)
+        logger.info(f"single_shoreline.columns: {single_shoreline.columns}")
         logger.info(f"single_shoreline: {single_shoreline}")
+        # convert geodataframe to json
         features_json = json.loads(single_shoreline.to_json())
         logger.info(f"single_shoreline features_json: {features_json}")
         layer_name = self.get_layer_name()
         logger.info(f"layer_name: {layer_name}")
         logger.info(f"features_json['features']: {features_json['features']}")
         # create a single layer
-        for feature in features_json["features"]:
-            geojson_layer = self.style_layer(feature, layer_name, "purple")
-            logger.info(f"geojson_layer: {geojson_layer}")
-            layers.append(geojson_layer)
-        return layers
+        feature = features_json["features"][0]
+        new_layer = self.style_layer(feature, layer_name, "red")
+        logger.info(f"new_layer: {new_layer}")
+        return new_layer
 
 
 def get_reference_shoreline(
     shoreline_gdf: gpd.geodataframe, output_crs: str
 ) -> np.ndarray:
+    """
+    Converts a GeoDataFrame of shoreline features into a numpy array of latitudes, longitudes, and zeroes representing the mean sea level.
+
+    Args:
+    - shoreline_gdf (GeoDataFrame): A GeoDataFrame of shoreline features.
+    - output_crs (str): The output CRS to which the shoreline features need to be projected.
+
+    Returns:
+    - np.ndarray: A numpy array of latitudes, longitudes, and zeroes representing the mean sea level.
+    """
     # project shorelines's espg from map's espg to output espg given in settings
     reprojected_shorlines = shoreline_gdf.to_crs(output_crs)
     logger.info(f"reprojected_shorlines.crs: {reprojected_shorlines.crs}")

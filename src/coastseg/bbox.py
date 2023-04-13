@@ -4,7 +4,7 @@ from typing import Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
-from coastseg.common import remove_z_axis
+from coastseg.common import remove_z_axis, get_ids_with_invalid_area
 
 # External dependencies imports
 import geopandas as gpd
@@ -13,6 +13,8 @@ from ipyleaflet import GeoJSON
 
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["Bounding_Box"]
 
 
 class Bounding_Box:
@@ -29,8 +31,7 @@ class Bounding_Box:
         self.gdf = None
         self.filename = "bbox.geojson"
         if isinstance(rectangle, gpd.GeoDataFrame):
-            rectangle = remove_z_axis(rectangle)
-            self.gdf = rectangle
+            self.gdf = self._initialize_from_gdf(rectangle)
         elif isinstance(rectangle, dict):
             self.gdf = self.create_geodataframe(rectangle)
         else:
@@ -39,6 +40,35 @@ class Bounding_Box:
             )
         if filename:
             self.filename = filename
+
+    def __str__(self):
+        return f"BBox: geodataframe {self.gdf}"
+
+    def __repr__(self):
+        return f"BBox: geodataframe {self.gdf}"
+
+    def _initialize_from_gdf(self, bbox_gdf: gpd.GeoDataFrame) -> None:
+        """
+        Initialize the `gdf` attribute from a GeoDataFrame containing a bounding box.
+
+        Args:
+            rois_gdf: A GeoDataFrame containing a bounding box.
+
+        Returns:
+            None.
+
+        Raises:
+            None.
+        """
+        # keep only the geometry and id columns
+        columns = ["geometry"]
+        keep_columns = [col for col in columns if col in bbox_gdf.columns]
+        bbox_gdf = bbox_gdf[keep_columns]
+
+        # remove z-axis
+        bbox_gdf = remove_z_axis(bbox_gdf)
+        bbox_gdf.to_crs("EPSG:4326")
+        return bbox_gdf
 
     def create_geodataframe(
         self, rectangle: dict, crs: str = "EPSG:4326"

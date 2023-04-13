@@ -7,7 +7,7 @@ from collections import defaultdict
 # internal python imports
 from coastseg import exception_handler
 from coastseg import common
-from coastseg import zoo_model
+from coastseg.watchable_slider import Extracted_Shoreline_widget
 
 # external python imports
 import ipywidgets
@@ -16,20 +16,18 @@ from ipyfilechooser import FileChooser
 
 from google.auth import exceptions as google_auth_exceptions
 from ipywidgets import Button
-from ipywidgets import ToggleButton
 from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
 from ipywidgets import DatePicker
 from ipywidgets import HTML
-from ipywidgets import RadioButtons
 from ipywidgets import BoundedFloatText
 from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
-from ipywidgets import Checkbox
+
 from ipywidgets import FloatText
 
 logger = logging.getLogger(__name__)
@@ -48,22 +46,29 @@ class UI:
     def __init__(self, coastseg_map):
         # save an instance of coastseg_map
         self.coastseg_map = coastseg_map
-        # button styles
-        self.remove_style = dict(button_color="red")
-        self.load_style = dict(button_color="#69add1", description_width="initial")
-        self.action_style = dict(button_color="#ae3cf0")
-        self.save_style = dict(button_color="#50bf8f")
-        self.clear_stlye = dict(button_color="#a3adac")
 
         self.session_name = ""
         self.session_directory = ""
         self.tides_file = ""
 
-        # buttons to load configuration files
-        self.load_configs_button = Button(
-            description="Load Config", icon="fa-files-o", style=self.load_style
+        # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
+        self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
+        # have the slider watch the extracted_shoreline_layer, number_extracted_shorelines,roi_selected_to_extract_shoreline
+        self.extract_shorelines_widget.watch(
+            self.coastseg_map.extracted_shoreline_layer
         )
-        self.load_configs_button.on_click(self.on_load_configs_clicked)
+        self.extract_shorelines_widget.watch(
+            self.coastseg_map.number_extracted_shorelines
+        )
+        self.extract_shorelines_widget.watch(
+            self.coastseg_map.roi_ids_with_extracted_shorelines
+        )
+        self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(
+            self.coastseg_map.load_extracted_shorelines_to_map
+        )
+
+        # create button styles
+        self.create_styles()
 
         # buttons to load configuration files
         self.load_session_button = Button(
@@ -76,11 +81,6 @@ class UI:
         )
         self.load_settings_button.on_click(self.on_load_settings_clicked)
 
-        self.save_config_button = Button(
-            description="Save Config", icon="fa-floppy-o", style=self.save_style
-        )
-        self.save_config_button.on_click(self.on_save_config_clicked)
-
         self.load_file_instr = HTML(
             value="<h2>Load Feature from File</h2>\
                  Load a feature onto map from geojson file.\
@@ -88,7 +88,7 @@ class UI:
             layout=Layout(padding="0px"),
         )
 
-        self.load_file_radio = RadioButtons(
+        self.load_file_radio = ipywidgets.Dropdown(
             options=["Shoreline", "Transects", "Bbox", "ROIs"],
             value="Shoreline",
             description="",
@@ -136,7 +136,7 @@ class UI:
         self._create_HTML_widgets()
         self.roi_slider_instr = HTML(value="<b>Choose Area of ROIs</b>")
         # controls the ROI units displayed
-        self.units_radio = RadioButtons(
+        self.units_radio = ipywidgets.Dropdown(
             options=["m²", "km²"],
             value="km²",
             description="Select Units:",
@@ -206,6 +206,18 @@ class UI:
 
         # when units radio button is clicked updated units for area textboxes
         self.units_radio.observe(units_radio_changed)
+
+    def create_styles(self):
+        """
+        Initializes the styles used for various buttons in the user interface.
+        Returns:
+            None.
+        """
+        self.remove_style = dict(button_color="red")
+        self.load_style = dict(button_color="#69add1", description_width="initial")
+        self.action_style = dict(button_color="#ae3cf0")
+        self.save_style = dict(button_color="#50bf8f")
+        self.clear_stlye = dict(button_color="#a3adac")
 
     def launch_error_box(self, title: str = None, msg: str = None):
         # Show user error message
@@ -673,7 +685,7 @@ class UI:
             layout=Layout(padding="0px"),
         )
 
-        self.save_radio = RadioButtons(
+        self.save_radio = ipywidgets.Dropdown(
             options=[
                 "Shoreline",
                 "Transects",
@@ -708,7 +720,7 @@ class UI:
                 ",
             layout=Layout(padding="0px"),
         )
-        self.load_radio = RadioButtons(
+        self.load_radio = ipywidgets.Dropdown(
             options=["Shoreline", "Transects"],
             value="Transects",
             description="",
@@ -735,14 +747,14 @@ class UI:
             layout=Layout(padding="0px"),
         )
 
-        self.remove_radio = RadioButtons(
+        self.feature_dropdown = ipywidgets.Dropdown(
             options=["Shoreline", "Transects", "Bbox", "ROIs", "Extracted Shorelines"],
             value="Shoreline",
             description="",
             disabled=False,
         )
         self.remove_button = Button(
-            description=f"Remove {self.remove_radio.value}",
+            description=f"Remove {self.feature_dropdown.value}",
             icon="fa-ban",
             style=self.remove_style,
         )
@@ -751,7 +763,7 @@ class UI:
             self.remove_button.description = f"Remove {str(change['new'])}"
 
         self.remove_button.on_click(self.remove_feature_from_map)
-        self.remove_radio.observe(handle_remove_radio_change, "value")
+        self.feature_dropdown.observe(handle_remove_radio_change, "value")
         # define remove all button
         self.remove_all_button = Button(
             description="Remove all", icon="fa-trash-o", style=self.remove_style
@@ -761,7 +773,7 @@ class UI:
         remove_buttons = VBox(
             [
                 remove_instr,
-                self.remove_radio,
+                self.feature_dropdown,
                 self.remove_button,
                 self.remove_all_button,
             ]
@@ -905,12 +917,10 @@ class UI:
         )
 
         self.instr_config_btns = HTML(
-            value="<h2><b>Load and Save Config Files</b></h2>\
-                <b>Load Config</b>: Load rois, shorelines, transects and bounding box from file: 'config_gdf.geojson'\
-                <li>'config.json' must be in the same directory as 'config_gdf.geojson'.</li>\
-                <b>Save Config</b>: Saves rois, shorelines, transects and bounding box to file: 'config_gdf.geojson'\
+            value="<h2><b>Load Sessions</b></h2>\
+                <b>Load Session</b>: Load rois, shorelines, transects, and bounding box from session directory\
                 </br><b>ROIs Not Downloaded:</b> config file will be saved to CoastSeg directory in file: 'config_gdf.geojson'\
-                </br><b>ROIs Not Downloaded:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
+                </br><b>Downloaded ROIs:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
                 ",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
@@ -930,14 +940,13 @@ class UI:
                 save_to_file_buttons,
                 load_file_vbox,
                 remove_buttons,
+                self.extract_shorelines_widget,
             ]
         )
         config_vbox = VBox(
             [
                 self.instr_config_btns,
-                self.load_configs_button,
                 self.load_session_button,
-                self.save_config_button,
             ]
         )
         download_vbox = VBox(
@@ -980,13 +989,13 @@ class UI:
         download_msgs_row = HBox([self.clear_downloads_button, UI.download_view])
 
         return display(
-            self.settings_row,
-            row_1,
-            row_2,
-            self.error_row,
-            self.file_chooser_row,
+             self.settings_row,
+             row_1,
+             row_2,
+             self.error_row,
+             self.file_chooser_row,
             map_row,
-            download_msgs_row,
+             download_msgs_row,
         )
 
     @debug_view.capture(clear_output=True)
@@ -1031,10 +1040,10 @@ class UI:
         try:
             if "shoreline" in btn.description.lower():
                 print("Finding Shoreline")
-                self.coastseg_map.load_feature_on_map("shoreline")
+                self.coastseg_map.load_feature_on_map("shoreline", zoom_to_bounds=True)
             if "transects" in btn.description.lower():
                 print("Finding 'Transects'")
-                self.coastseg_map.load_feature_on_map("transects")
+                self.coastseg_map.load_feature_on_map("transects", zoom_to_bounds=True)
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
@@ -1160,7 +1169,8 @@ class UI:
         def load_callback(filechooser: FileChooser) -> None:
             try:
                 if filechooser.selected:
-                    self.coastseg_map.load_session(filechooser.selected)
+                    self.coastseg_map.map.default_style = {"cursor": "wait"}
+                    self.coastseg_map.load_fresh_session(filechooser.selected)
                     logger.info(f"filechooser.selected: {filechooser.selected}")
                     session_name = os.path.basename(
                         os.path.abspath(filechooser.selected)
@@ -1171,8 +1181,10 @@ class UI:
                         self.coastseg_map.get_settings()
                     )
                     self.update_settings_selection(self.coastseg_map.get_settings())
+                    self.coastseg_map.map.default_style = {"cursor": "default"}
             except Exception as error:
                 # renders error message as a box on map
+                self.coastseg_map.map.default_style = {"cursor": "default"}
                 exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
         # create instance of chooser that calls load_callback
@@ -1185,36 +1197,7 @@ class UI:
         self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4
         self.file_chooser_row.children = [dir_chooser]
-
-    @debug_view.capture(clear_output=True)
-    def on_load_configs_clicked(self, button):
-        # Prompt user to select a config geojson file
-        def load_callback(filechooser: FileChooser) -> None:
-            try:
-                if filechooser.selected:
-                    self.coastseg_map.load_configs(filechooser.selected)
-                    self.settings_html.value = self.get_settings_html(
-                        self.coastseg_map.get_settings()
-                    )
-                    self.update_settings_selection(self.coastseg_map.get_settings())
-            except Exception as error:
-                # renders error message as a box on map
-                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
-
-        # create instance of chooser that calls load_callback
-        file_chooser = common.create_file_chooser(load_callback)
-        # clear row and close all widgets in row_4 before adding new file_chooser
-        self.clear_row(self.file_chooser_row)
-        # add instance of file_chooser to row 4
-        self.file_chooser_row.children = [file_chooser]
-
-    @debug_view.capture(clear_output=True)
-    def on_save_config_clicked(self, button):
-        try:
-            self.coastseg_map.save_config()
-        except Exception as error:
-            # renders error message as a box on map
-            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+        self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):
@@ -1227,28 +1210,36 @@ class UI:
                             f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "shoreline", os.path.abspath(filechooser.selected)
+                            "shoreline",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
                     if "transects" in btn.description.lower():
                         print(
                             f"Loading transects from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "transects", os.path.abspath(filechooser.selected)
+                            "transects",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
                     if "bbox" in btn.description.lower():
                         print(
                             f"Loading bounding box from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "bbox", os.path.abspath(filechooser.selected)
+                            "bbox",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
                     if "rois" in btn.description.lower():
                         print(
                             f"Loading ROIs from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "rois", os.path.abspath(filechooser.selected)
+                            "rois",
+                            os.path.abspath(filechooser.selected),
+                            zoom_to_bounds=True,
                         )
             except Exception as error:
                 # renders error message as a box on map
@@ -1279,7 +1270,7 @@ class UI:
             # Prompt the user to select a directory of images
             if "extracted shorelines" in btn.description.lower():
                 print(f"Removing extracted shoreline")
-                self.coastseg_map.remove_extracted_shorelines()
+                self.coastseg_map.remove_extracted_shoreline_layers()
             elif "shoreline" in btn.description.lower():
                 print(f"Removing shoreline")
                 self.coastseg_map.remove_shoreline()
