@@ -36,6 +36,16 @@ logger = logging.getLogger(__name__)
 
 import uuid
 
+def read_json_file(json_file_path: str,raise_error=False,encoding="utf-8") -> dict:
+    if raise_error:
+        if not os.path.exists(json_file_path):
+            raise FileNotFoundError(f"Model settings file does not exist at {json_file_path}")
+    else:
+        return None
+    with open(json_file_path, 'r',encoding=encoding) as f:
+        data = json.load(f)
+        return data
+
 
 def keep_only_available_columns(
     gdf: gpd.GeoDataFrame, available_columns: List[str] = None
@@ -100,7 +110,7 @@ def find_file_by_regex(
             file_path = os.path.join(search_path, file)
             return file_path
 
-    raise FileNotFoundError(f"config.json file was not found at {search_path}")
+    raise FileNotFoundError(f"file matching pattern {search_pattern} was not found at {search_path}")
 
 
 def copy_configs(src: str, dst: str) -> None:
@@ -129,6 +139,26 @@ def copy_configs(src: str, dst: str) -> None:
             logger.info(f"Copying {config_json_path} to {dst_file}")
             shutil.copy(config_json_path, dst_file)
 
+def validate_config_files_exist(src: str) -> bool:
+    """Check if config files exist in the source directory.
+    Looks for files with names starting with "config_gdf" and ending with ".geojson"
+    and a file named "config.json" in the source directory.
+    Args:
+        src (str): the source directory
+    Returns:
+        bool: True if both files exist, False otherwise
+    """
+    files = os.listdir(src)
+    config_gdf_exists = False
+    config_json_exists = False
+    for file in files:
+        if file.startswith("config_gdf") and file.endswith(".geojson"):
+            config_gdf_exists = True
+        elif file == "config.json":
+            config_json_exists = True
+        if config_gdf_exists and config_json_exists:
+            return True
+    return False
 
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
@@ -597,10 +627,9 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
         save_path (str): directory to save data
         chunk_size (int, optional):  Defaults to 128.
     """
+    logger.info(f"download url: {url}")
     with requests.get(url, stream=True) as r:
         logger.info(r)
-        logger.info(r.content)
-        logger.info(r.headers)
         if r.status_code == 404:
             logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
             raise exceptions.DownloadError(os.path.basename(save_path))
@@ -609,6 +638,9 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
             raise Exception(
                 "Zenodo has denied the request. You may have requested too many files at once."
             )
+        if r.status_code != 200:
+            logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
+            raise exceptions.DownloadError(os.path.basename(save_path))
         # check header to get content length, in bytes
         content_length = r.headers.get("Content-Length")
         if content_length:
@@ -738,13 +770,6 @@ def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
 def get_area(polygon: dict) -> float:
     "Calculates the area of the geojson polygon using the same method as geojson.io"
     return round(area(polygon), 3)
-
-
-def read_json_file(filename: str) -> dict:
-    logger.info(f"read_json_file {filename}")
-    with open(filename, "r", encoding="utf-8") as input_file:
-        data = json.load(input_file)
-    return data
 
 
 def extract_fields(data, key=None, fields_of_interest: list[str] = []) -> dict:

@@ -630,6 +630,10 @@ class Zoo_Model:
         Returns:
             dict: The updated model dictionary containing the paths to the processed data.
         """
+         # if configs do not exist then raise an error and do not save the session
+        if not common.validate_config_files_exist( src_directory):
+            logger.warning(f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully.")
+            raise FileNotFoundError(f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully.")
         logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
         RGB_path = common.find_directory_recurively(src_directory, name="RGB")
@@ -644,8 +648,8 @@ class Zoo_Model:
         self.set_settings(**extract_shoreline_settings)
         extract_shoreline_settings = self.get_settings()
         # create session path to store extracted shorelines and transects
-        sessions_path = common.create_directory(os.getcwd(), "sessions")
-        new_session_path = common.create_directory(sessions_path, session_name)
+        sessions_dir_path = common.create_directory(os.getcwd(), "sessions")
+        new_session_path = common.create_directory(sessions_dir_path, session_name)
         config_json_location = common.find_file_recurively(session_path, "config.json")
         config_geojson_location = common.find_file_recurively(
             session_path, "config_gdf.geojson"
@@ -658,6 +662,11 @@ class Zoo_Model:
         model_settings = common.from_file(model_settings_location)
         source_directory = model_settings['sample_direc']
         model_type = model_settings['model_type']
+        # find downloaded model
+        # load model card from model directory
+        # use model card to find class indices
+        # pass class indices to extract shorelines
+
         # if model_type != 'sat_RGB_4class_6950472':
         #     raise Exception(f"Unable to extract shorelines only works with 'sat_RGB_4class_6950472' not {model_type}\nThis will be changed in a future update.")
         
@@ -762,6 +771,10 @@ class Zoo_Model:
             return
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
+        # if configs do not exist then raise an error and do not save the session
+        if not common.validate_config_files_exist(roi_directory):
+            logger.warning(f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully.")
+            raise FileNotFoundError(f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully.")
         # copy configs from data/roi_id location to session location
         common.copy_configs(roi_directory, session_path)
         model_settings_path = os.path.join(session_path, "model_settings.json")

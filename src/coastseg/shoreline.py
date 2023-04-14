@@ -118,7 +118,9 @@ class Shoreline:
                 [shorelines_in_bbox_gdf, shoreline], ignore_index=True
             )
 
-        shorelines_in_bbox_gdf = remove_z_axis(shorelines_in_bbox_gdf).to_crs(crs)
+        shorelines_in_bbox_gdf = remove_z_axis(shorelines_in_bbox_gdf)
+        if not shorelines_in_bbox_gdf.empty:
+            shorelines_in_bbox_gdf.to_crs(crs,inplace=True)
         return shorelines_in_bbox_gdf
 
     def get_shoreline_files(

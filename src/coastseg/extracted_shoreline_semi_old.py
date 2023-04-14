@@ -38,43 +38,52 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["Extracted_Shoreline"]
 
+def get_model_card_classes(model_card_path: str) -> List[str]:
+    with open(model_card_path, "r") as json_file:
+        model_card_data = json.load(json_file)
 
-def get_model_card_classes(model_card_path: str) -> dict:
-    """ return the classes dictionary from the model card
-        example classes dictionary {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
-    Args:
-        model_card_path (str): path to model card
+    return model_card_data["DATASET"]["CLASSES"]
 
-    Returns:
-        dict: dictionary of classes in model card and their corresponding index
-    """    
-    model_card_data = common.read_json_file(model_card_path,raise_error=True)
-    model_card_classes = model_card_data["DATASET"]["CLASSES"]
-    return model_card_classes
-
-def get_indices_of_names(model_card_path: str, selected_class_names: List[str],) -> List[int]:
-    """
-    Given the path to a model card and a list of selected class names, returns a list of indices of the selected classes
-    in the model card. The model card should be a dictionary that maps class indices to class names.
-
-    :param model_card_path: a string specifying the path to the model card.
-    :param selected_class_names: a list of strings specifying the names of the selected classes.
-    :return: a list of integers specifying the indices of the selected classes in the model card.
-    """
-    # example dictionary {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
-    model_card_classes = get_model_card_classes(model_card_path)
-    print(model_card_classes)
+def get_class_mapping(model_card_classes: dict, sand_classes: List[str], alt_sand_classes: List[str]) -> Dict[int, List[str]]:    
+    sand_word_found = any(sand_word in model_card_classes.values() for sand_word in sand_classes)
+    class_mapping = {
+        0: sand_classes if sand_word_found else alt_sand_classes,
+        1: ['whitewater'],
+        2: ['water'],
+    }
     
-    class_indices = []
+    return class_mapping
+
+def get_class_indices(model_card_path: str, sand_classes: List[str], alt_sand_classes: List[str]) -> List[int]:
+    print(os.path.basename(model_card_path))
+    
+    model_card_classes = get_model_card_classes(model_card_path)
+    # get mapping of indexes of coastsat classes to model card classes
+    # e.g. {0: ['sand', 'sediment'], 1: ['whitewater'], 2: ['water']}
+    class_mapping = get_class_mapping(model_card_classes, sand_classes, alt_sand_classes)
+
+    print(model_card_classes)
+    print(f"class_mapping {class_mapping}")
+
+    # make array of -1 for each class in class_mapping
+    class_indices = [-1] * len(class_mapping)
+    # convert indexes of model card class to int
+    model_card_classes = {int(k): v for k, v in model_card_classes.items()}
     # get index of each class in class_mapping to match model card classes
-    for index, class_name in model_card_classes.items():
-        # see if the class name is in selected_class_names
-        for selected_class_name in selected_class_names:
-            if class_name == selected_class_name:
-                class_indices.append(int(index))
+    for i, class_name in model_card_classes.items():
+        for key, value in class_mapping.items():
+            if class_name in value:
+                class_indices[key] = i
                 break
-    # return list of indexes of selected_class_names that were found in model_card_classes
+
+    # remove -1 from class_indices
+    class_indices = [x for x in class_indices if x != -1]
+
+    print(class_indices)
+    print()
+
     return class_indices
+
 
 def find_matching_npz(filename, directory):
     # Extract the timestamp and Landsat ID from the filename
@@ -93,44 +102,182 @@ def find_matching_npz(filename, directory):
     # If no matching file is found, return None
     return None
 
-def merge_classes(im_labels: np.ndarray, classes_to_merge: list ) -> np.ndarray:
+def get_npz_tile(filename: str, session_path: str, satname: str,image_type:str) -> str:
     """
-    Merge the specified classes in the given numpy array of class labels by creating a new numpy array with 1 values
-    for the merged classes and 0 values for all other classes.
+    Find the npz file that matches the given filename and satellite name in the specified session directory.
 
-    :param im_labels: a numpy array of class labels.
-    :param classes_to_merge: a list of class labels to merge.
-    :return: an integer numpy array with 1 values for the merged classes and 0 values for all other classes.
+    Args:
+        filename (str): The filename of the input file, which may contain the satellite name.
+        session_path (str): The path of the session directory where the npz files are located.
+        satname (str): The name of the satellite, which is used to match the npz file.
+        image_type (str): The type of image, which is used to match the npz file.
+                        eg. RGB, MNDWI, NDWI, etc.
+
+    Returns:
+        str: The path of the matching npz file, or None if no match is found.
+
+    Raises:
+        None
+
+    Example:
+        If filename='path/to/somefile_satname_something.tif', session_path='path/to/session', and satname='satname',
+        get_npz_tile(filename, session_path, satname) returns 'path/to/session/somefile_satname.npz'.
+
     """
-    # Create an integer numpy array with 1 values for the merged classes and 0 values for all other classes
-    updated_labels = np.zeros(shape=(im_labels.shape[0], im_labels.shape[1]), dtype=int)
+    file_type = "_"+image_type
+    new_filename = filename.split(satname)[0] + satname
+    for npz in glob1(session_path, "*.npz"):
+        if file_type in npz:
+            new_npz = npz.replace(file_type, "")
+            if new_filename in new_npz:
+                return os.path.join(session_path, npz)
+    return None
 
-    # Set 1 values for merged classes
-    for idx in classes_to_merge:
-        updated_labels = np.logical_or(updated_labels, im_labels == idx).astype(int)
-
-    return updated_labels
 
 def load_image_labels(npz_file: str, class_indices: list = [2, 1, 0]) -> np.ndarray:
     """
-    Load and process image labels from a .npz file. 
-    Pass in the indexes of the classes to merge. For instance, if you want to merge the water and white water classes, and
-    the indexes of water is 0 and white water is 1, pass in [0, 1] as the class_indices parameter.
+    Load and process image labels from a .npz file. Pass in classes in the order
+    [sand, whitewater,water]
+    for 2 class models
+    [land/other,water]
 
     Parameters:
     npz_file (str): The path to the .npz file containing the image labels.
-    class_indices (list): The indexes of the classes to merge.
-                          
+    class_indices (list): A list of indices corresponding to the classes to extract from the labels. Default is [2, 1, 0]
+                          for sand , whitewater, and water classes.
+                          2 - sand index
+                          1 - whitewater index
+                          0 - water index
+
     Returns:
-    np.ndarray: A 2D numpy array containing the image labels as 1 for the merged classes and 0 for all other classes.
+    np.ndarray: A 3D numpy array of binary masks, where each mask corresponds to one of the specified classes.
+    Must be in the order [sand,whitewater,water]
     """
     if not os.path.isfile(npz_file) or not npz_file.endswith(".npz"):
         raise ValueError(f"{npz_file} is not a valid .npz file.")
 
     data = np.load(npz_file)
-    # 1 for water, 0 for anything else (land, other, sand, etc.)
-    im_labels = merge_classes(data['grey_label'],class_indices)
+    im_labels = np.zeros(shape=(data['grey_label'].shape[0], data['grey_label'].shape[1], 3), dtype=bool)
 
+    # call to merge classes would go here
+
+    # value of whitewater class in grey_label
+    if len(class_indices) == 2:
+        im_labels[..., 0] = data['grey_label'] == class_indices[0] # mark True for all sand pixels
+        im_labels[..., 1] = False # mark False for all pixels because the whitewater class does not exist
+        im_labels[..., 2] = data['grey_label'] == class_indices[1] # mark True for all water pixels
+    elif len(class_indices) == 3:
+        # loop through sand,whitewater and sand indexes to create a stack of [sand,whitewater,water]
+        for i, idx in enumerate(class_indices):
+            im_labels[..., i] = data['grey_label'] == idx
+    # # value of whitewater class in grey_label
+    # whitewater_index=class_indices[1]
+    # # loop through sand,whitewater and sand indexes to create a stack of [sand,whitewater,water]
+    # if whitewater_index in np.unique(data['grey_label']):
+    #     for i, idx in enumerate(class_indices):
+    #         im_labels[..., i] = data['grey_label'] == idx
+    # else:
+    #     im_labels[..., 0] = data['grey_label'] == class_indices[2] # mark True for all sand pixels
+    #     im_labels[..., 1] = False # mark False for all pixels because the whitewater class does not exist
+    #     im_labels[..., 2] = data['grey_label'] == class_indices[0] # mark True for all water pixels
+    for i, idx in enumerate(class_indices):
+        im_labels[..., i] = data["grey_label"] == idx
+
+    return im_labels
+
+# merge water/white wate labels and land/other labels
+# only pass in binary mask for sand water labels
+
+import numpy as np
+
+import numpy as np
+
+# im_labels = ...  # Your 3D numpy array containing binary masks for all classes
+# white_water_idx = 0
+# water_idx = 1
+# still_water_idx = 2
+
+# merged_labels = merge_classes(im_labels, classes_to_merge=[white_water_idx, water_idx, still_water_idx])
+
+
+def merge_classes(im_labels: np.ndarray, classes_to_merge: list = [1, 0]) -> np.ndarray:
+    """
+    Merge specified classes into a single class and return the updated binary masks.
+
+    Parameters:
+    im_labels (np.ndarray): A 3D numpy array of binary masks, where each mask corresponds to a class.
+    classes_to_merge (list): A list of indices corresponding to the classes to merge. Default is [1, 0]
+                             for whitewater and water classes.
+
+    Returns:
+    np.ndarray: A 3D numpy array of binary masks, where the merged classes are combined into a single mask.
+    """
+    # Merge the specified classes using logical OR
+    merged_mask = np.zeros_like(im_labels[..., 0], dtype=bool)
+    for idx in classes_to_merge:
+        merged_mask = np.logical_or(merged_mask, im_labels[..., idx])
+
+    # Create a new 3D array for the updated binary masks
+    updated_labels = np.stack([im_labels[..., i] for i in range(im_labels.shape[2]) if i not in classes_to_merge], axis=-1)
+
+    # Add the merged mask to the updated_labels array
+    updated_labels = np.concatenate((updated_labels, merged_mask[..., np.newaxis]), axis=-1)
+
+    return updated_labels
+
+
+def merge_classes(im_labels: np.ndarray, class_indices: list = [2, 1, 0]) -> np.ndarray:
+    """
+    Merge the sand, whitewater, and water classes into two classes: water and land/other.
+
+    Parameters:
+    im_labels (np.ndarray): A 3D numpy array of binary masks, where each mask corresponds to one of the specified classes.
+                            Must be in the order [sand, whitewater, water].
+    class_indices (list): A list of indices corresponding to the classes to extract from the labels. Default is [2, 1, 0]
+                          for sand, whitewater, and water classes.
+                          2 - sand index
+                          1 - whitewater index
+                          0 - water index
+
+    Returns:
+    np.ndarray: A 3D numpy array of binary masks, where each mask corresponds to one of the two classes: water and land/other.
+                Must be in the order [land/other, water].
+    """
+    # Merge water and whitewater labels
+    water_mask = np.logical_or(im_labels[..., 1], im_labels[..., 0])
+
+    # Create land/other mask as the inverse of the water_mask
+    land_other_mask = np.logical_not(water_mask)
+
+    # Stack the land/other and water masks along the third dimension (axis=2)
+    merged_labels = np.stack((land_other_mask, water_mask), axis=2)
+
+    return merged_labels
+
+
+def merge_classes(im_labels: np.ndarray, class_indices: list = [2, 1, 0]) -> np.ndarray:
+    """
+    Merge the sand, whitewater, and water classes into two classes: water and land/other.
+
+    Parameters:
+    im_labels (np.ndarray): A 3D numpy array of binary masks, where each mask corresponds to one of the specified classes.
+                            Must be in the order [sand, whitewater, water].
+    class_indices (list): A list of indices corresponding to the classes to extract from the labels. Default is [2, 1, 0]
+                          for sand , whitewater, and water classes.
+                          2 - sand index
+                          1 - whitewater index
+                          0 - water index
+
+    Returns:
+    np.ndarray: A 3D numpy array of binary masks, where each mask corresponds to one of the two classes: water and land/other.
+                Must be in the order [land/other, water].
+    """
+    # merge water/white wate labels and land/other labels
+    # only pass in binary mask for sand water labels
+    im_labels = np.sum(im_labels, axis=2)
+    im_labels = np.where(im_labels > 0, 1, 0)
+    im_labels = np.stack((im_labels, im_labels), axis=2)
+    im_labels[..., 0] = np.where(im_labels[..., 0] == 1, 0, 1)
     return im_labels
 
 def simplified_find_contours(im_labels:np.array)->list[np.array]:
@@ -141,18 +288,17 @@ def simplified_find_contours(im_labels:np.array)->list[np.array]:
         binary image with 0s and 1s
     Returns:
     -----------
-    processed_contours: list oarray
+    processed_contours: list of np.array
         processed image contours (only the ones that do not contains NaNs) 
     """
     # 0 or 1 labels means 0.5 is the threshold
-    print(f"im_labels.shape: {im_labels.shape}")
     contours = measure.find_contours(im_labels, 0.5)
     # remove contour points that are NaNs (around clouds)
     processed_contours = SDS_shoreline.process_contours(contours)
     return processed_contours
 
 def extract_shorelines_for_session(
-    session_path: str, metadata: dict, settings: dict,class_indices: list = None
+    session_path: str, metadata: dict, settings: dict,image_type:str="RGB",class_indices: list = None
 ) -> dict:
     """
     Main function to extract shorelines from satellite images
@@ -289,28 +435,37 @@ def extract_shorelines_for_session(
             )
 
             # read the model outputs from the npz file for this image
+            # npz_file = get_npz_tile(filenames[i],session_path,satname,image_type=image_type)
             npz_file = find_matching_npz(filenames[i],session_path)
-            logger.info(f"npz_file: {npz_file}")
             if npz_file is None:
                 logger.warning(f"npz file not found for {filenames[i]}")
                 continue
-            
+            logger.info(f"npz_file: {npz_file}")
+            #@todo derive the order of the classes from the modelcard
+            # class_indices=[sand, whitewater, water] indexes in segmentation
+            # load sand,white,water from the model outputs
             im_labels = load_image_labels(npz_file,class_indices=class_indices)
+            # 2 class sat rgb
+            # other-0 water-1
+            # im_labels = load_image_labels(npz_file,class_indices=[0,1])
+            # 4 class sat rgb
+            # 2- sand 1-whitewater 0-water
+            # im_labels = load_image_labels(npz_file,class_indices=[2, 1, 0])
+    
+            # otherwise map the contours automatically with one of the two following functions:
+            # if there are pixels in the 'sand' class --> use find_wl_contours2 (enhanced)
+            # otherwise use find_wl_contours1 (traditional)
             try:  # use try/except structure for long runs
                 if (
-                    sum(im_labels[im_ref_buffer]) < 50
+                    sum(im_labels[im_ref_buffer, 0]) < 50
                 ):  # minimum number of sand pixels
                     print(
-                        f"{fn} Not enough sand pixels within the beach buffer to detect shoreline"
-                    )
-                    logger.info(
                         f"{fn} Not enough sand pixels within the beach buffer to detect shoreline"
                     )
                     continue
                 else:
                     # use classification to refine threshold and extract the sand/water interface
                     contours=simplified_find_contours(im_labels)
-                    logger.info(f"contours : {contours}")
             except Exception as e:
                 print(e)
                 print("\nCould not map shoreline for this image: " + filenames[i])
@@ -328,7 +483,7 @@ def extract_shorelines_for_session(
                 date = filenames[i][:19]
                 if not settings["check_detection"]:
                     plt.ioff()  # turning interactive plotting off
-                skip_image = SDS_shoreline.new_show_detection(
+                skip_image = SDS_shoreline.show_detection(
                     im_ms,
                     cloud_mask,
                     im_labels,
@@ -369,6 +524,7 @@ def extract_shorelines_for_session(
         pickle.dump(output, f)
 
     return output
+
 
 def load_extracted_shoreline_from_files(
     dir_path: str,
@@ -587,21 +743,28 @@ class Extracted_Shoreline:
 
         # read model settings from session path
         model_settings_path = os.path.join(session_path, "model_settings.json")
-        model_settings = common.read_json_file(model_settings_path,raise_error=True)
-        # get model type from model settings
-        model_type = model_settings.get("model_type","")
-        print(f"model_type : {model_type}")
+        if not os.path.exists(model_settings_path):
+            raise FileNotFoundError(f"Model settings file does not exist at {model_settings_path}")
+        # Open model settings file
+        with open(model_settings_path, 'r') as f:
+            data = json.load(f)
+        model_type=data.get("model_type","")
         if model_type == "":
-            raise ValueError(f"Model type cannot be empty.{model_settings_path} did not contain model_type key.")
+            raise ValueError("Model type cannot be empty.")
+        print(f"model_type : {model_type}")
         # read model card from downloaded model
         downloaded_models_path = os.path.join(os.getcwd(),"src","coastseg","downloaded_models",model_type)
         model_card_path = common.find_file_by_regex(downloaded_models_path,r'.*modelcard\.json$')
-        # get the water index from the model card
-        water_classes_indices = get_indices_of_names(model_card_path,['water','whitewater'])
+        # if any of the sand classes are not in the model card classes, then use alt_sand_classes
+        sand_classes = ['sand','sediment']
+        alt_sand_classes=['other','sand','sediment']
+        # indices of the [sand,whitewater,water] classes in the model card or if two classes [sand,water/other]
+        class_indices = get_class_indices(model_card_path, sand_classes, alt_sand_classes)
 
+        
         self.dictionary = self.extract_shorelines(
-            shoreline, roi_settings, settings, session_path=session_path,
-            class_indices=water_classes_indices,
+            shoreline, roi_settings, settings, session_path=session_path,image_type=image_type,
+            class_indices=class_indices,
         )
 
         if is_list_empty(self.dictionary["shorelines"]):
@@ -661,6 +824,7 @@ class Extracted_Shoreline:
         roi_settings: dict,
         settings: dict,
         session_path: str = None,
+        image_type:str = None,
         class_indices:list = None,
     ) -> dict:
         """Returns a dictionary containing the extracted shorelines for roi specified by rois_gdf"""
@@ -683,7 +847,7 @@ class Extracted_Shoreline:
         elif session_path is not None:
              # extract shorelines with our models
             extracted_shorelines = extract_shorelines_for_session(
-                session_path, metadata, self.shoreline_settings,class_indices=class_indices,
+                session_path, metadata, self.shoreline_settings, image_type=image_type,class_indices=class_indices,
             )
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)

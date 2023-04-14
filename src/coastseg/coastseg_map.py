@@ -296,9 +296,9 @@ class CoastSeg_Map:
         Returns:
             None.
         """
-        if os.path.exists(filepath):
-            new_settings = common.read_json_file(filepath)
-
+        new_settings = common.read_json_file(filepath,raise_error=False)
+        if new_settings is None:
+            new_settings = {}
         # load in transect settings if found
         transect_keys = [
             "max_std",
@@ -474,9 +474,11 @@ class CoastSeg_Map:
         Returns:
             None
         """
-        exception_handler.check_if_None(self.rois)
-        json_data = common.read_json_file(filepath)
         logger.info(f"filepath: {filepath}")
+        exception_handler.check_if_None(self.rois)
+        json_data = common.read_json_file(filepath,raise_error=True)
+        if json_data is None:
+            json_data = {}
         # replace coastseg_map.settings with settings from config file
         self.set_settings(**json_data["settings"])
         # replace roi_settings for each ROI with contents of json_data
@@ -550,6 +552,7 @@ class CoastSeg_Map:
         self.load_json_config(config_json_path, data_path)
         # return true if both config files exist
         return True
+
 
     def save_config(self, filepath: str = None) -> None:
         """saves the configuration settings of the map into two files
