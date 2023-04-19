@@ -120,7 +120,7 @@ class Shoreline:
 
         shorelines_in_bbox_gdf = remove_z_axis(shorelines_in_bbox_gdf)
         if not shorelines_in_bbox_gdf.empty:
-            shorelines_in_bbox_gdf.to_crs(crs,inplace=True)
+            shorelines_in_bbox_gdf.to_crs(crs, inplace=True)
         return shorelines_in_bbox_gdf
 
     def get_shoreline_files(
@@ -243,7 +243,9 @@ def get_intersecting_files(bbox: gpd.GeoDataFrame) -> Dict[str, str]:
             filenames_and_ids = zip(filenames, [dataset_id] * len(filenames))
             # Add the filenames and their dataset IDs to intersecting_files
             intersecting_files.update(dict(filenames_and_ids))
-    logger.info(f"Found {len(intersecting_files)} intersecting files\n {intersecting_files}")
+    logger.info(
+        f"Found {len(intersecting_files)} intersecting files\n {intersecting_files}"
+    )
     return intersecting_files
 
 

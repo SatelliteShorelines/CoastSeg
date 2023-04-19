@@ -283,7 +283,6 @@ class CoastSeg_Map:
         # update observable list of ROI ids with extracted shorelines
         self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
 
-
     def load_settings(self, filepath: str = "", new_settings: dict = {}):
         """
         Load settings from a JSON file. Only loads settings for transects and shorelines.
@@ -296,7 +295,7 @@ class CoastSeg_Map:
         Returns:
             None.
         """
-        new_settings = common.read_json_file(filepath,raise_error=False)
+        new_settings = common.read_json_file(filepath, raise_error=False)
         if new_settings is None:
             new_settings = {}
         # load in transect settings if found
@@ -476,7 +475,7 @@ class CoastSeg_Map:
         """
         logger.info(f"filepath: {filepath}")
         exception_handler.check_if_None(self.rois)
-        json_data = common.read_json_file(filepath,raise_error=True)
+        json_data = common.read_json_file(filepath, raise_error=True)
         if json_data is None:
             json_data = {}
         # replace coastseg_map.settings with settings from config file
@@ -552,7 +551,6 @@ class CoastSeg_Map:
         self.load_json_config(config_json_path, data_path)
         # return true if both config files exist
         return True
-
 
     def save_config(self, filepath: str = None) -> None:
         """saves the configuration settings of the map into two files
@@ -1564,15 +1562,11 @@ class CoastSeg_Map:
             )
             # if extracted shorelines exist, load them onto map
             if extracted_shorelines is not None:
-                logger.info(
-                    f"Extracted shorelines found for ROI {selected_id}"
-                )
+                logger.info(f"Extracted shorelines found for ROI {selected_id}")
                 self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
             # if extracted shorelines do not exist, set the status to no extracted shorelines found
             if extracted_shorelines is None:
-                logger.info(
-                    f"No extracted shorelines found for ROI {selected_id}"
-                )
+                logger.info(f"No extracted shorelines found for ROI {selected_id}")
 
     def load_extracted_shorelines_to_map(self, row_number: int = 0) -> None:
         """Loads stylized extracted shorelines onto the map for a single selected region of interest (ROI).
@@ -1625,9 +1619,7 @@ class CoastSeg_Map:
             )
 
             if extracted_shorelines is not None:
-                logger.info(
-                    f"Extracted shorelines found for ROI {selected_id}"
-                )
+                logger.info(f"Extracted shorelines found for ROI {selected_id}")
                 self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
                 break
 

@@ -36,13 +36,16 @@ logger = logging.getLogger(__name__)
 
 import uuid
 
-def read_json_file(json_file_path: str,raise_error=False,encoding="utf-8") -> dict:
+
+def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
     if raise_error:
         if not os.path.exists(json_file_path):
-            raise FileNotFoundError(f"Model settings file does not exist at {json_file_path}")
+            raise FileNotFoundError(
+                f"Model settings file does not exist at {json_file_path}"
+            )
     else:
         return None
-    with open(json_file_path, 'r',encoding=encoding) as f:
+    with open(json_file_path, "r", encoding=encoding) as f:
         data = json.load(f)
         return data
 
@@ -110,7 +113,9 @@ def find_file_by_regex(
             file_path = os.path.join(search_path, file)
             return file_path
 
-    raise FileNotFoundError(f"file matching pattern {search_pattern} was not found at {search_path}")
+    raise FileNotFoundError(
+        f"file matching pattern {search_pattern} was not found at {search_path}"
+    )
 
 
 def copy_configs(src: str, dst: str) -> None:
@@ -139,6 +144,7 @@ def copy_configs(src: str, dst: str) -> None:
             logger.info(f"Copying {config_json_path} to {dst_file}")
             shutil.copy(config_json_path, dst_file)
 
+
 def validate_config_files_exist(src: str) -> bool:
     """Check if config files exist in the source directory.
     Looks for files with names starting with "config_gdf" and ending with ".geojson"
@@ -159,6 +165,7 @@ def validate_config_files_exist(src: str) -> bool:
         if config_gdf_exists and config_json_exists:
             return True
     return False
+
 
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
