@@ -989,13 +989,13 @@ class UI:
         download_msgs_row = HBox([self.clear_downloads_button, UI.download_view])
 
         return display(
-             self.settings_row,
-             row_1,
-             row_2,
-             self.error_row,
-             self.file_chooser_row,
+            self.settings_row,
+            row_1,
+            row_2,
+            self.error_row,
+            self.file_chooser_row,
             map_row,
-             download_msgs_row,
+            download_msgs_row,
         )
 
     @debug_view.capture(clear_output=True)

@@ -630,10 +630,14 @@ class Zoo_Model:
         Returns:
             dict: The updated model dictionary containing the paths to the processed data.
         """
-         # if configs do not exist then raise an error and do not save the session
-        if not common.validate_config_files_exist( src_directory):
-            logger.warning(f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully.")
-            raise FileNotFoundError(f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully.")
+        # if configs do not exist then raise an error and do not save the session
+        if not common.validate_config_files_exist(src_directory):
+            logger.warning(
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
+            )
+            raise FileNotFoundError(
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
+            )
         logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
         RGB_path = common.find_directory_recurively(src_directory, name="RGB")
@@ -642,8 +646,9 @@ class Zoo_Model:
         logger.info(f"model_dict: {model_dict}")
         return model_dict
 
-
-    def extract_shorelines(self,extract_shoreline_settings:dict,session_path:str,session_name:str)->None:
+    def extract_shorelines(
+        self, extract_shoreline_settings: dict, session_path: str, session_name: str
+    ) -> None:
         logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
         self.set_settings(**extract_shoreline_settings)
         extract_shoreline_settings = self.get_settings()
@@ -660,8 +665,8 @@ class Zoo_Model:
         logger.info(f"config_geojson_location: {config_geojson_location}")
         # read source directory from model settings
         model_settings = common.from_file(model_settings_location)
-        source_directory = model_settings['sample_direc']
-        model_type = model_settings['model_type']
+        source_directory = model_settings["sample_direc"]
+        model_type = model_settings["model_type"]
         # find downloaded model
         # load model card from model directory
         # use model card to find class indices
@@ -669,7 +674,7 @@ class Zoo_Model:
 
         # if model_type != 'sat_RGB_4class_6950472':
         #     raise Exception(f"Unable to extract shorelines only works with 'sat_RGB_4class_6950472' not {model_type}\nThis will be changed in a future update.")
-        
+
         # load roi settings from the config file
         roi_id = common.extract_roi_id(source_directory)
         config = common.from_file(config_json_location)
@@ -773,8 +778,12 @@ class Zoo_Model:
 
         # if configs do not exist then raise an error and do not save the session
         if not common.validate_config_files_exist(roi_directory):
-            logger.warning(f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully.")
-            raise FileNotFoundError(f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully.")
+            logger.warning(
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
+            )
+            raise FileNotFoundError(
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
+            )
         # copy configs from data/roi_id location to session location
         common.copy_configs(roi_directory, session_path)
         model_settings_path = os.path.join(session_path, "model_settings.json")
@@ -845,6 +854,7 @@ class Zoo_Model:
         logger.info(f"use_otsu: {use_otsu}")
         logger.info(f"use_tta: {use_tta}")
 
+        print(f"Running model {model_name}")
         self.prepare_model(model_implementation, model_name)
 
         # create a session
@@ -864,6 +874,7 @@ class Zoo_Model:
         }
         # get parent roi_directory from the selected imagery directory
         roi_directory = common.find_parent_directory(src_directory, "ID_", "data")
+        print(f"Preprocessing the data at {roi_directory}")
         model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
         logger.info(f"model_dict: {model_dict}")
 
@@ -1234,7 +1245,11 @@ class Zoo_Model:
         )
 
         # download best model files(.h5, .json) file
-        download_filenames =[best_json_filename,best_model_filename,best_modelcard_filename]
+        download_filenames = [
+            best_json_filename,
+            best_model_filename,
+            best_modelcard_filename,
+        ]
         download_dict.update(
             get_files_to_download(
                 available_files, download_filenames, model_id, model_path
@@ -1275,18 +1290,23 @@ class Zoo_Model:
             model_name.replace("_fullmodel.h5", ".json")
             for model_name in all_model_names
         ]
-        modelcard_file_names = [model_name.replace("_fullmodel.h5", "_modelcard.json") for model_name in all_model_names]
+        modelcard_file_names = [
+            model_name.replace("_fullmodel.h5", "_modelcard.json")
+            for model_name in all_model_names
+        ]
         all_json_reponses = []
 
         # for each filename online check if there a .json file
         for available_file in available_files:
-            if available_file['key'] in json_file_names + modelcard_file_names:
+            if available_file["key"] in json_file_names + modelcard_file_names:
                 all_json_reponses.append(available_file)
         if len(all_models_reponses) == 0:
             raise Exception(f"Cannot find any .h5 files at {model_id}")
         if len(all_json_reponses) == 0:
-            raise Exception(f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}")
-        
+            raise Exception(
+                f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}"
+            )
+
         logger.info(f"all_models_reponses : {all_models_reponses }")
         logger.info(f"all_json_reponses : {all_json_reponses }")
         for response in all_models_reponses + all_json_reponses:
