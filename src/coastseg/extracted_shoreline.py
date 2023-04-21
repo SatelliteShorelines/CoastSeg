@@ -320,7 +320,7 @@ def process_satellite_image(
         )
         return None
     # get the shoreline from the image
-    shoreline = find_shoreline(fn, image_epsg, settings,cloud_mask_adv,im_nodata,georef,merged_labels)
+    shoreline = find_shoreline(fn, image_epsg, settings,cloud_mask_adv,cloud_mask,im_nodata,georef,merged_labels)
     if shoreline is None:
         logger.warning(f"\nShoreline not found for {fn}")
         return None
@@ -474,23 +474,6 @@ def load_merged_image_labels(npz_file: str,class_indices: list = [2, 1, 0]) -> n
 
     return im_labels
 
-
-def simplified_find_contours(im_labels: np.array) -> list[np.array]:
-    """Find contours in a binary image using skimage.measure.find_contours and processes out contours that contain NaNs.
-    Parameters:
-    -----------
-    im_labels: np.nd.array
-        binary image with 0s and 1s
-    Returns:
-    -----------
-    processed_contours: list oarray
-        processed image contours (only the ones that do not contains NaNs)
-    """
-    # 0 or 1 labels means 0.5 is the threshold
-    contours = measure.find_contours(im_labels, 0.5)
-    # remove contour points that are NaNs (around clouds)
-    processed_contours = SDS_shoreline.process_contours(contours)
-    return processed_contours
 
 def increase_image_intensity(im_ms, cloud_mask, prob_high=99.9):
     return SDS_preprocess.rescale_image_intensity(im_ms[:,:,[2,1,0]], cloud_mask, prob_high)
@@ -693,43 +676,63 @@ def shoreline_detection_figures(im_ms, cloud_mask, merged_labels,all_labels, sho
     for ax in fig.axes:
         ax.clear()
 
+from typing import List
+
+def simplified_find_contours(im_labels: np.array, cloud_mask: np.array) -> List[np.array]:
+    """Find contours in a binary image using skimage.measure.find_contours and processes out contours that contain NaNs.
+    Parameters:
+    -----------
+    im_labels: np.nd.array
+        binary image with 0s and 1s
+    cloud_mask: np.array
+        boolean array indicating cloud mask
+    Returns:
+    -----------
+    processed_contours: list of arrays
+        processed image contours (only the ones that do not contains NaNs)
+    """
+    # Apply the cloud mask by setting masked pixels to a special value (e.g., -1)
+    im_labels_masked = im_labels.copy()
+    im_labels_masked[cloud_mask] = -1
+    
+    # 0 or 1 labels means 0.5 is the threshold
+    contours = measure.find_contours(im_labels_masked, 0.5)
+    
+    # remove contour points that are NaNs (around clouds)
+    processed_contours = SDS_shoreline.process_contours(contours)
+    
+    return processed_contours
+
+
+# def simplified_find_contours(im_labels: np.array) -> list[np.array]:
+#     """Find contours in a binary image using skimage.measure.find_contours and processes out contours that contain NaNs.
+#     Parameters:
+#     -----------
+#     im_labels: np.nd.array
+#         binary image with 0s and 1s
+#     Returns:
+#     -----------
+#     processed_contours: list oarray
+#         processed image contours (only the ones that do not contains NaNs)
+#     """
+#     # 0 or 1 labels means 0.5 is the threshold
+#     contours = measure.find_contours(im_labels, 0.5)
+#     # remove contour points that are NaNs (around clouds)
+#     processed_contours = SDS_shoreline.process_contours(contours)
+#     return processed_contours
+
 def find_shoreline(
     fn,
     image_epsg,
     settings,
     cloud_mask_adv,
-    im_nodata,
-    georef,
-    im_labels,
-) -> np.array:
-    try:
-        contours = simplified_find_contours(im_labels)
-    except Exception as e:
-        logger.error(f"{e}\nCould not map shoreline for this image: {fn}")
-        return None
-    # process the water contours into a shoreline
-    shoreline = SDS_shoreline.process_shoreline(
-        contours, cloud_mask_adv, im_nodata, georef, image_epsg, settings
-    )
-    return shoreline
-
-
-
-def process_image(
-    date,
-    fn,
-    satname,
-    image_epsg,
-    settings,
     cloud_mask,
-    cloud_mask_adv,
     im_nodata,
     georef,
-    im_ms,
     im_labels,
 ) -> np.array:
     try:
-        contours = simplified_find_contours(im_labels)
+        contours = simplified_find_contours(im_labels,cloud_mask)
     except Exception as e:
         logger.error(f"{e}\nCould not map shoreline for this image: {fn}")
         return None
@@ -737,21 +740,9 @@ def process_image(
     shoreline = SDS_shoreline.process_shoreline(
         contours, cloud_mask_adv, im_nodata, georef, image_epsg, settings
     )
-    # if not settings["check_detection"]:
-    #     plt.ioff()
-    # SDS_shoreline.new_show_detection(
-    #     im_ms,
-    #     cloud_mask,
-    #     im_labels,
-    #     shoreline,
-    #     image_epsg,
-    #     georef,
-    #     settings,
-    #     date,
-    #     satname,
-    # )
-    logger.info(f"shoreline: {shoreline}")
     return shoreline
+
+
 
 @time_func
 def extract_shorelines_with_dask(
