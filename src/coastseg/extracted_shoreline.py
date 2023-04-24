@@ -475,11 +475,33 @@ def load_merged_image_labels(npz_file: str,class_indices: list = [2, 1, 0]) -> n
     return im_labels
 
 
-def increase_image_intensity(im_ms, cloud_mask, prob_high=99.9):
-    return SDS_preprocess.rescale_image_intensity(im_ms[:,:,[2,1,0]], cloud_mask, prob_high)
+def increase_image_intensity(im_ms:np.ndarray, cloud_mask:np.ndarray, prob_high:float=99.9)->np.ndarray[float]:
+    """
+    Increases the intensity of an image using rescale_image_intensity function from SDS_preprocess module.
+    
+    Args:
+    im_ms (numpy.ndarray): Input multispectral image with shape (M, N, C), where M is the number of rows,
+                         N is the number of columns, and C is the number of channels.
+    cloud_mask (numpy.ndarray): A 2D binary cloud mask array with the same dimensions as the input image. The mask should have True values where cloud pixels are present.
+    prob_high (float, optional, default=99.9): The probability of exceedance used to calculate the upper percentile for intensity rescaling. The default value is 99.9, meaning that the highest 0.1% of intensities will be clipped.
+    
+    Returns:
+    im_adj (numpy.array): The rescaled image with increased intensity for the selected bands. The dimensions and number of bands of the output image may be different from the input image.
+    """
+    return SDS_preprocess.rescale_image_intensity(im_ms[:, :, [2, 1, 0]], cloud_mask, prob_high)
 
 
-def create_color_mapping_as_ints(int_list):
+def create_color_mapping_as_ints(int_list:list[int])->dict:
+    """
+    This function creates a color mapping dictionary for a given list of integers, assigning a unique RGB color to each integer. The colors are generated using the HLS color model, and the resulting RGB values are integers in the range of 0-255.
+
+    Arguments:
+
+    int_list (list): A list of integers for which unique colors need to be generated.
+    Returns:
+
+    color_mapping (dict): A dictionary where the keys are the input integers and the values are the corresponding RGB colors as tuples of integers.
+    """
     n = len(int_list)
     h_step = 1.0 / n
     color_mapping = {}
@@ -491,7 +513,17 @@ def create_color_mapping_as_ints(int_list):
 
     return color_mapping
 
-def create_color_mapping(int_list):
+def create_color_mapping(int_list:list[int])->dict:
+    """
+    This function creates a color mapping dictionary for a given list of integers, assigning a unique RGB color to each integer. The colors are generated using the HLS color model, and the resulting RGB values are floating-point numbers in the range of 0.0-1.0.
+
+    Arguments:
+
+    int_list (list): A list of integers for which unique colors need to be generated.
+    Returns:
+
+    color_mapping (dict): A dictionary where the keys are the input integers and the values are the corresponding RGB colors as tuples of floating-point numbers.
+    """
     n = len(int_list)
     h_step = 1.0 / n
     color_mapping = {}
@@ -504,18 +536,47 @@ def create_color_mapping(int_list):
     return color_mapping
 
 def create_classes_overlay_image(labels):
-    # make an overlay the same size of the image
-    overlay_image = np.zeros((labels.shape[0], labels.shape[1], 3), dtype=np.float32)  # Updated the shape to have 3 color channels
-    # create a color mapping for the labels
+    """
+    Creates an overlay image by mapping class labels to colors.
+    
+    Args:
+    labels (numpy.ndarray): A 2D array representing class labels for each pixel in an image.
+
+    Returns:
+    numpy.ndarray: A 3D array representing an overlay image with the same size as the input labels.
+    """
+    # Ensure that the input labels is a NumPy array
+    labels = np.asarray(labels)
+
+    # Make an overlay the same size of the image with 3 color channels
+    overlay_image = np.zeros((labels.shape[0], labels.shape[1], 3), dtype=np.float32)
+
+    # Create a color mapping for the labels
     class_indices = np.unique(labels)
     color_mapping = create_color_mapping(class_indices)
-    # create the overlay image by assigning the color for each label
+
+    # Create the overlay image by assigning the color for each label
     for index, class_color in color_mapping.items():
         overlay_image[labels == index] = class_color
+
     return overlay_image
 
+def plot_image_with_legend(original_image:np.ndarray[float], merged_overlay:np.ndarray[float], all_overlay:np.ndarray[float],pixelated_shoreline:np.ndarray[float], merged_legend, all_legend,titles:list[str]=[]):
+    """
+    Plots the original image, merged classes, and all classes with their corresponding legends.
 
-def plot_image_with_legend(original_image, merged_overlay, all_overlay,pixelated_shoreline, merged_legend, all_legend,titles:list=[]):
+    Args:
+    original_image (numpy.ndarray): The original image.
+    merged_overlay (numpy.ndarray): The image with merged classes overlay.
+    all_overlay (numpy.ndarray): The image with all classes overlay.
+    pixelated_shoreline (numpy.ndarray): The pixelated shoreline points.
+    merged_legend (list): A list of legend handles for the merged classes.
+    all_legend (list): A list of legend handles for all classes.
+    titles (list, optional): A list of titles for the subplots. Defaults to None.
+
+    Returns:
+    matplotlib.figure.Figure: The resulting figure.
+    """
     if not titles or len(titles)!=3:
         titles = ["Original Image", "Merged Classes", "All Classes"]
     fig = plt.figure()
@@ -568,92 +629,97 @@ def plot_image_with_legend(original_image, merged_overlay, all_overlay,pixelated
     # Return the figure object
     return fig
 
+def save_detection_figure(fig, filepath:str, date:str, satname:str)->None:
+    """
+    Save the given figure as a jpg file with a specified dpi.
 
-def save_detection_figure(fig, filepath, date, satname):
+    Args:
+    fig (Figure): The figure object to save.
+    filepath (str): The directory path where the image will be saved.
+    date (str): The date the satellite image was taken in the format 'YYYYMMDD'.
+    satname (str): The name of the satellite that took the image.
+
+    Returns:
+    None
+    """
     fig.savefig(os.path.join(filepath, date + '_' + satname + '.jpg'), dpi=150)
 
-def create_legend(class_mapping:dict,color_mapping:dict = {},additional_patches:list=None)->list:
-    if not color_mapping:
+
+def create_legend(class_mapping: dict, color_mapping: dict = None, additional_patches: list = None) -> list[mpatches.Patch]:
+    """
+    Creates a list of legend patches using class and color mappings.
+
+    Args:
+    class_mapping (dict): A dictionary mapping class indices to class names.
+    color_mapping (dict, optional): A dictionary mapping class indices to colors. Defaults to None.
+    additional_patches (list, optional): A list of additional patches to be appended to the legend. Defaults to None.
+
+    Returns:
+    list: A list of legend patches.
+    """
+    if color_mapping is None:
         color_mapping = create_color_mapping_as_ints(class_mapping.keys())
+
     legend = [
         mpatches.Patch(color=np.array(color) / 255, label=f"{class_mapping.get(index, f'{index}')}") for index, color in color_mapping.items()
     ]
+
     return legend + additional_patches if additional_patches else legend
 
-def increase_image_intensity(im_ms, cloud_mask, prob_high=99.9):
-    return SDS_preprocess.rescale_image_intensity(im_ms[:,:,[2,1,0]], cloud_mask, prob_high)
+def create_overlay(im_RGB: np.ndarray[float], im_labels: np.ndarray[int], overlay_opacity: float = 0.35) -> np.ndarray[float]:
+    """
+    Create an overlay on the given image using the provided labels and
+    specified overlay opacity.
 
+    Args:
+    im_RGB (np.ndarray[float]): The input image as an RGB numpy array (height, width, 3).
+    im_labels (np.ndarray[int]): The array containing integer labels of the same dimensions as the input image.
+    overlay_opacity (float, optional): The opacity value for the overlay (default: 0.35).
 
-def create_overlay(im_RGB, im_labels, overlay_opacity=0.35):
+    Returns:
+    np.ndarray[float]: The combined numpy array of the input image and the overlay.
+    """
+    # Create an overlay using the given labels
     overlay = create_classes_overlay_image(im_labels)
-
     # Combine the original image and the overlay using the correct opacity
     combined_float = (im_RGB * (1 - overlay_opacity) + overlay * overlay_opacity)
-
     return combined_float
 
-# def create_overlay(im_RGB, im_labels, overlay_opacity=0.35):
-#     overlay = create_classes_overlay_image(im_labels)
-    
-#     # Convert the images to float and normalize the pixel values to [0, 1]
-#     im_RGB_float = im_RGB.astype(np.float32) / 255.0
-#     overlay_float = overlay.astype(np.float32) / 255.0
 
-#     # Combine the original image and the overlay using the correct opacity
-#     combined_float = (im_RGB_float * (1 - overlay_opacity) + overlay_float * overlay_opacity)
+def shoreline_detection_figures(im_ms:np.ndarray, cloud_mask:np.ndarray[bool], merged_labels:np.ndarray,all_labels:np.ndarray, shoreline:np.ndarray, image_epsg:str, georef,
+                   settings:dict, date:str, satname:str,class_mapping:dict):
+    """
+    Creates shoreline detection figures with overlays and saves them as JPEG files.
 
-#     return combined_float
-
-# def create_overlay(im_RGB, im_labels, overlay_opacity=0.35):
-#     overlay = create_classes_overlay_image(im_labels)
-    
-#     # Convert the images to float and normalize the pixel values to [0, 1]
-#     im_RGB_float = im_RGB.astype(np.float32) / 255.0
-#     overlay_float = overlay.astype(np.float32) / 255.0
-
-#     # Combine the original image and the overlay using the correct opacity
-#     combined_float = (im_RGB_float * (1 - overlay_opacity) + overlay_float * overlay_opacity)
-
-#     # Convert the combined image back to uint8
-#     combined = (combined_float * 255).astype(np.uint8)
-
-#     return combined
-
-def shoreline_detection_figures(im_ms, cloud_mask, merged_labels,all_labels, shoreline, image_epsg, georef,
-                   settings, date, satname,class_mapping:dict):
+    Args:
+    im_ms (numpy.ndarray): The multispectral image.
+    cloud_mask (numpy.ndarray): The cloud mask.
+    merged_labels (numpy.ndarray): The merged class labels.
+    all_labels (numpy.ndarray): All class labels.
+    shoreline (numpy.ndarray): The shoreline points.
+    image_epsg (str): The EPSG code of the image.
+    georef (numpy.ndarray): The georeference matrix.
+    settings (dict): The settings dictionary.
+    date (str): The date of the image.
+    satname (str): The satellite name.
+    class_mapping (dict): A dictionary mapping class indices to class names.
+    """
     sitename = settings['inputs']['sitename']
     filepath_data = settings['inputs']['filepath']
     filepath = os.path.join(filepath_data, sitename, 'jpg_files', 'detection')
 
-    # increase the intensity of the image
+    # increase the intensity of the image for visualization
     im_RGB = increase_image_intensity(im_ms, cloud_mask, prob_high=99.9)
     logger.info(f"im_RGB.shape: {im_RGB.shape}\n im_RGB.dtype: {im_RGB.dtype}\n im_RGB: {np.unique(im_RGB)[:5]}\n")
-    # select only the first 3 bands
-    # im_RGB = im_RGB[:,:,:3]
-    logger.info(f"im_RGB.shape: {im_RGB.shape}\n im_RGB.dtype: {im_RGB.dtype}\n im_RGB: {np.unique(im_RGB)[:5]}\n")
+
     im_merged = create_overlay(im_RGB, merged_labels,overlay_opacity=0.35 )
-    logger.info(f"im_merged.shape: {im_merged.shape}\n im_merged.dtype: {im_merged.dtype}\n im_merged.max: {im_merged.max()}\n im_merged.min: {im_merged.min()}\n")
     im_all = create_overlay(im_RGB, all_labels,overlay_opacity=0.35 )
 
-    
+    logger.info(f"im_merged.shape: {im_merged.shape}\n im_merged.dtype: {im_merged.dtype}\n im_merged.max: {im_merged.max()}\n im_merged.min: {im_merged.min()}\n")
     logger.info(f"im_all.shape: {im_all.shape}\n im_all.dtype: {im_all.dtype}\n im_all: {np.unique(im_all)[:5]}\n")
 
-
-    # Apply the cloud mask
-    # im_RGB_float = im_RGB.astype(np.float32) / 255.0
-    # im_merged_float = im_merged.astype(np.float32) / 255.0
-    # im_all_float = im_all.astype(np.float32) / 255.0
-
-        
-    # logger.info(f"im_all_float.shape: {im_all_float.shape}\n im_all_float.dtype: {im_all_float.dtype}\n im_all_float: {np.unique(im_all_float)[:5]}\n")
-
-    nan_color_float = 1.0
-
-    new_cloud_mask = np.repeat(cloud_mask[:, :, np.newaxis], im_RGB.shape[2], axis=2)
-
-    im_RGB[new_cloud_mask] = nan_color_float
-    im_merged[new_cloud_mask] = nan_color_float
-    im_all[new_cloud_mask] = nan_color_float
+    # Mask clouds in the images
+    im_RGB, im_merged, im_all = mask_clouds_in_images(im_RGB, im_merged, im_all, cloud_mask)
 
     try:
         pixelated_shoreline = SDS_tools.convert_world2pix(SDS_tools.convert_epsg(shoreline,settings['output_epsg'],
@@ -676,7 +742,29 @@ def shoreline_detection_figures(im_ms, cloud_mask, merged_labels,all_labels, sho
     for ax in fig.axes:
         ax.clear()
 
-from typing import List
+def mask_clouds_in_images(im_RGB: np.ndarray[float], im_merged: np.ndarray[float], im_all: np.ndarray[float], cloud_mask: np.ndarray[bool]):
+    """
+    Applies a cloud mask to three input images (im_RGB, im_merged & im_all) by setting the
+    cloudy portions to a value of 1.0.
+
+    Args:
+        im_RGB (np.ndarray[float]): An RGB image, with shape (height, width, 3).
+        im_merged (np.ndarray[float]): A merged image, with the same shape as im_RGB.
+        im_all (np.ndarray[float]): An 'all' image, with the same shape as im_RGB.
+        cloud_mask (np.ndarray[bool]): A boolean cloud mask, with shape (height, width).
+
+    Returns:
+        tuple: A tuple containing the masked im_RGB, im_merged and im_all images.
+    """
+    nan_color_float = 1.0
+    new_cloud_mask = np.repeat(cloud_mask[:, :, np.newaxis], im_RGB.shape[2], axis=2)
+
+    im_RGB[new_cloud_mask] = nan_color_float
+    im_merged[new_cloud_mask] = nan_color_float
+    im_all[new_cloud_mask] = nan_color_float
+
+    return im_RGB, im_merged, im_all
+
 
 def simplified_find_contours(im_labels: np.array, cloud_mask: np.array) -> List[np.array]:
     """Find contours in a binary image using skimage.measure.find_contours and processes out contours that contain NaNs.
@@ -702,24 +790,6 @@ def simplified_find_contours(im_labels: np.array, cloud_mask: np.array) -> List[
     processed_contours = SDS_shoreline.process_contours(contours)
     
     return processed_contours
-
-
-# def simplified_find_contours(im_labels: np.array) -> list[np.array]:
-#     """Find contours in a binary image using skimage.measure.find_contours and processes out contours that contain NaNs.
-#     Parameters:
-#     -----------
-#     im_labels: np.nd.array
-#         binary image with 0s and 1s
-#     Returns:
-#     -----------
-#     processed_contours: list oarray
-#         processed image contours (only the ones that do not contains NaNs)
-#     """
-#     # 0 or 1 labels means 0.5 is the threshold
-#     contours = measure.find_contours(im_labels, 0.5)
-#     # remove contour points that are NaNs (around clouds)
-#     processed_contours = SDS_shoreline.process_contours(contours)
-#     return processed_contours
 
 def find_shoreline(
     fn,
