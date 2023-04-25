@@ -12,7 +12,6 @@ from coastseg import settings_UI
 import ipywidgets
 from IPython.display import display
 from ipywidgets import Button
-from ipywidgets import ToggleButton
 from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
@@ -526,6 +525,10 @@ class UI_Models:
         img_type = self.model_input_dropdown.value
         self.model_dict["model_type"] = self.model_dropdown.value
         self.model_dict["implementation"] = self.model_implementation.value
+        # get percent no data from settings
+        settings = self.settings_dashboard.get_settings()
+        percent_no_data = settings.get("percent_no_data", 50.0)
+
         if self.otsu_radio.value == "Enabled":
             self.model_dict["otsu"] = True
         if self.otsu_radio.value == "Disabled":
@@ -543,6 +546,7 @@ class UI_Models:
             use_GPU="0",
             use_otsu=self.model_dict["otsu"],
             use_tta=self.model_dict["tta"],
+            percent_no_data=percent_no_data,
         )
 
     @extract_shorelines_view.capture(clear_output=True)

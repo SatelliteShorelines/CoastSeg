@@ -37,10 +37,30 @@ class Settings_UI:
             "min_chainage": self.min_chainage_text.value,
             "multiple_inter": self.outliers_mode.value,
             "prc_multiple": self.prc_multiple_text.value,
+            "percent_no_data": self.no_data_slider.value,
         }
         self.set_settings(**settings)
 
         return self.settings
+
+    def get_no_data_slider(self):
+        # returns slider to control no data slider
+        instructions = HTML(value="<b>Percentage of Bad Pixels Allowed</b>")
+
+        self.no_data_slider = ipywidgets.FloatSlider(
+            value=50.0,
+            min=0.0,
+            max=100.0,
+            step=1.0,
+            description="Percentage Bad Pixels:",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format="d",
+            style={"description_width": "initial"},
+        )
+        return VBox([instructions, self.no_data_slider])
 
     def get_min_points_text(self) -> VBox:
         # returns slider to control beach area slider
@@ -286,6 +306,7 @@ class Settings_UI:
             "multiple_inter": self.get_outliers_mode(),
             "prc_multiple": self.get_prc_multiple_text(),
             "output_epsg": self.get_output_epsg(),
+            "percent_no_data": self.get_no_data_slider(),
         }
         # create settings vbox
         settings_vbox = VBox([widget for widget_name, widget in settings.items()])
