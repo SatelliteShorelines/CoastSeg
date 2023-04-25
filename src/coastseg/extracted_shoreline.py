@@ -14,10 +14,7 @@ from coastseg import common
 
 # External dependencies imports
 import dask
-import dask.bag as db
-from dask import compute
 from dask.diagnostics import ProgressBar
-import pandas as pd
 
 from dask.diagnostics import ProgressBar
 import geopandas as gpd
@@ -55,6 +52,7 @@ __all__ = ["Extracted_Shoreline"]
 
 from time import perf_counter
 
+
 def time_func(func):
     def wrapper(*args, **kwargs):
         start = perf_counter()
@@ -65,6 +63,7 @@ def time_func(func):
         return result
 
     return wrapper
+
 
 def combine_satellite_data(satellite_data: dict):
     """
@@ -121,7 +120,12 @@ def combine_satellite_data(satellite_data: dict):
 
 
 def process_satellite(
-    satname: str, settings: dict, metadata: dict, session_path: str, class_indices: list,class_mapping: dict
+    satname: str,
+    settings: dict,
+    metadata: dict,
+    session_path: str,
+    class_indices: list,
+    class_mapping: dict,
 ):
     collection = settings["inputs"]["landsat_collection"]
     default_min_length_sl = settings["min_length_sl"]
@@ -140,7 +144,10 @@ def process_satellite(
     timestamps = []
     tasks = []
     for index in tqdm(
-        range(len(filenames)), desc=f"Mapping Shorelines for {satname}", leave=True, position=0
+        range(len(filenames)),
+        desc=f"Mapping Shorelines for {satname}",
+        leave=True,
+        position=0,
     ):
         image_epsg = metadata[satname]["epsg"][index]
         # get image spatial reference system (epsg code) from metadata dict
@@ -182,7 +189,7 @@ def process_satellite(
     return output
 
 
-def get_cloud_cover_combined(cloud_mask:np.ndarray):
+def get_cloud_cover_combined(cloud_mask: np.ndarray):
     """
     Calculate the cloud cover percentage (ignoring no-data pixels) of a cloud_mask.
 
@@ -203,10 +210,11 @@ def get_cloud_cover_combined(cloud_mask:np.ndarray):
 
     return cloud_cover_combined
 
-def get_cloud_cover(cloud_mask:np.ndarray, im_nodata:np.ndarray)->float:
+
+def get_cloud_cover(cloud_mask: np.ndarray, im_nodata: np.ndarray) -> float:
     """
     Calculate the cloud cover percentage in an image, considering only valid (non-no-data) pixels.
-    
+
     Args:
     cloud_mask (numpy.array): A boolean 2D numpy array where True represents a cloud pixel,
         and False a non-cloud pixel.
@@ -216,7 +224,7 @@ def get_cloud_cover(cloud_mask:np.ndarray, im_nodata:np.ndarray)->float:
     Returns:
     float: The cloud cover percentage in the image (0-1), considering only valid (non-no-data) pixels.
     """
-    
+
     # Remove no data pixels from the cloud mask, as they should not be included in the cloud cover calculation
     cloud_mask_adv = np.logical_xor(cloud_mask, im_nodata)
 
@@ -227,7 +235,6 @@ def get_cloud_cover(cloud_mask:np.ndarray, im_nodata:np.ndarray)->float:
     )
 
     return cloud_cover
-
 
 
 def process_satellite_image(
@@ -287,9 +294,23 @@ def process_satellite_image(
         settings["pan_off"],
         collection,
     )
+
+    # if percentage of no data pixels are greater than allowed, skip
+    percent_no_data_allowed = settings.get("percent_no_data", None)
+    if percent_no_data_allowed is not None:
+        percent_no_data_allowed = percent_no_data_allowed / 100
+        num_total_pixels = cloud_mask.shape[0] * cloud_mask.shape[1]
+        percentage_no_data = np.sum(im_nodata) / num_total_pixels
+        if percentage_no_data > percent_no_data_allowed:
+            logger.info(
+                f"percent_no_data_allowed exceeded {percentage_no_data} > {percent_no_data_allowed}"
+            )
+            return None
+
     # compute cloud_cover percentage (with no data pixels)
     cloud_cover_combined = get_cloud_cover_combined(cloud_mask)
     if cloud_cover_combined > 0.99:  # if 99% of cloudy pixels in image skip
+        logger.info("cloud_cover_combined > 0.99")
         return None
     # Remove no data pixels from the cloud mask
     cloud_mask_adv = np.logical_xor(cloud_mask, im_nodata)
@@ -297,6 +318,7 @@ def process_satellite_image(
     cloud_cover = get_cloud_cover(cloud_mask, im_nodata)
     # skip image if cloud cover is above user-defined threshold
     if cloud_cover > settings["cloud_thresh"]:
+        logger.info("Cloud thresh exceeded")
         return None
     # calculate a buffer around the reference shoreline (if any has been digitised)
     ref_shoreline_buffer = SDS_shoreline.create_shoreline_buffer(
@@ -320,7 +342,16 @@ def process_satellite_image(
         )
         return None
     # get the shoreline from the image
-    shoreline = find_shoreline(fn, image_epsg, settings,cloud_mask_adv,cloud_mask,im_nodata,georef,merged_labels)
+    shoreline = find_shoreline(
+        fn,
+        image_epsg,
+        settings,
+        cloud_mask_adv,
+        cloud_mask,
+        im_nodata,
+        georef,
+        merged_labels,
+    )
     if shoreline is None:
         logger.warning(f"\nShoreline not found for {fn}")
         return None
@@ -338,7 +369,7 @@ def process_satellite_image(
         settings,
         date,
         satname,
-        class_mapping
+        class_mapping,
     )
     # create dictionnary of output
     output = {
@@ -375,6 +406,7 @@ def get_class_mapping(
         class_mapping[index] = class_name
     # return list of indexes of selected_class_names that were found in model_card_classes
     return class_mapping
+
 
 def get_indices_of_classnames(
     model_card_path: str,
@@ -418,6 +450,7 @@ def find_matching_npz(filename, directory):
     # If no matching file is found, return None
     return None
 
+
 def merge_classes(im_labels: np.ndarray, classes_to_merge: list) -> np.ndarray:
     """
     Merge the specified classes in the given numpy array of class labels by creating a new numpy array with 1 values
@@ -436,6 +469,7 @@ def merge_classes(im_labels: np.ndarray, classes_to_merge: list) -> np.ndarray:
 
     return updated_labels
 
+
 def load_image_labels(npz_file: str) -> np.ndarray:
     """
     Load in image labels from a .npz file. Loads in the "grey_label" array from the .npz file and returns it as a 2D
@@ -452,7 +486,10 @@ def load_image_labels(npz_file: str) -> np.ndarray:
     data = np.load(npz_file)
     return data["grey_label"]
 
-def load_merged_image_labels(npz_file: str,class_indices: list = [2, 1, 0]) -> np.ndarray:
+
+def load_merged_image_labels(
+    npz_file: str, class_indices: list = [2, 1, 0]
+) -> np.ndarray:
     """
     Load and process image labels from a .npz file.
     Pass in the indexes of the classes to merge. For instance, if you want to merge the water and white water classes, and
@@ -475,23 +512,27 @@ def load_merged_image_labels(npz_file: str,class_indices: list = [2, 1, 0]) -> n
     return im_labels
 
 
-def increase_image_intensity(im_ms:np.ndarray, cloud_mask:np.ndarray, prob_high:float=99.9)->np.ndarray[float]:
+def increase_image_intensity(
+    im_ms: np.ndarray, cloud_mask: np.ndarray, prob_high: float = 99.9
+) -> np.ndarray[float]:
     """
     Increases the intensity of an image using rescale_image_intensity function from SDS_preprocess module.
-    
+
     Args:
     im_ms (numpy.ndarray): Input multispectral image with shape (M, N, C), where M is the number of rows,
                          N is the number of columns, and C is the number of channels.
     cloud_mask (numpy.ndarray): A 2D binary cloud mask array with the same dimensions as the input image. The mask should have True values where cloud pixels are present.
     prob_high (float, optional, default=99.9): The probability of exceedance used to calculate the upper percentile for intensity rescaling. The default value is 99.9, meaning that the highest 0.1% of intensities will be clipped.
-    
+
     Returns:
     im_adj (numpy.array): The rescaled image with increased intensity for the selected bands. The dimensions and number of bands of the output image may be different from the input image.
     """
-    return SDS_preprocess.rescale_image_intensity(im_ms[:, :, [2, 1, 0]], cloud_mask, prob_high)
+    return SDS_preprocess.rescale_image_intensity(
+        im_ms[:, :, [2, 1, 0]], cloud_mask, prob_high
+    )
 
 
-def create_color_mapping_as_ints(int_list:list[int])->dict:
+def create_color_mapping_as_ints(int_list: list[int]) -> dict:
     """
     This function creates a color mapping dictionary for a given list of integers, assigning a unique RGB color to each integer. The colors are generated using the HLS color model, and the resulting RGB values are integers in the range of 0-255.
 
@@ -513,7 +554,8 @@ def create_color_mapping_as_ints(int_list:list[int])->dict:
 
     return color_mapping
 
-def create_color_mapping(int_list:list[int])->dict:
+
+def create_color_mapping(int_list: list[int]) -> dict:
     """
     This function creates a color mapping dictionary for a given list of integers, assigning a unique RGB color to each integer. The colors are generated using the HLS color model, and the resulting RGB values are floating-point numbers in the range of 0.0-1.0.
 
@@ -530,15 +572,18 @@ def create_color_mapping(int_list:list[int])->dict:
 
     for i, num in enumerate(int_list):
         h = i * h_step
-        r, g, b = [x for x in colorsys.hls_to_rgb(h, 0.5, 1.0)]  # Removed the int() conversion and * 255
+        r, g, b = [
+            x for x in colorsys.hls_to_rgb(h, 0.5, 1.0)
+        ]  # Removed the int() conversion and * 255
         color_mapping[num] = (r, g, b)
 
     return color_mapping
 
+
 def create_classes_overlay_image(labels):
     """
     Creates an overlay image by mapping class labels to colors.
-    
+
     Args:
     labels (numpy.ndarray): A 2D array representing class labels for each pixel in an image.
 
@@ -561,7 +606,16 @@ def create_classes_overlay_image(labels):
 
     return overlay_image
 
-def plot_image_with_legend(original_image:np.ndarray[float], merged_overlay:np.ndarray[float], all_overlay:np.ndarray[float],pixelated_shoreline:np.ndarray[float], merged_legend, all_legend,titles:list[str]=[]):
+
+def plot_image_with_legend(
+    original_image: np.ndarray[float],
+    merged_overlay: np.ndarray[float],
+    all_overlay: np.ndarray[float],
+    pixelated_shoreline: np.ndarray[float],
+    merged_legend,
+    all_legend,
+    titles: list[str] = [],
+):
     """
     Plots the original image, merged classes, and all classes with their corresponding legends.
 
@@ -577,7 +631,7 @@ def plot_image_with_legend(original_image:np.ndarray[float], merged_overlay:np.n
     Returns:
     matplotlib.figure.Figure: The resulting figure.
     """
-    if not titles or len(titles)!=3:
+    if not titles or len(titles) != 3:
         titles = ["Original Image", "Merged Classes", "All Classes"]
     fig = plt.figure()
     fig.set_size_inches([18, 9])
@@ -586,20 +640,20 @@ def plot_image_with_legend(original_image:np.ndarray[float], merged_overlay:np.n
         gs = gridspec.GridSpec(3, 1)
     else:
         gs = gridspec.GridSpec(1, 3)
-    
+
     # if original_image is wider than 2.5 times as tall, plot the images in a 3x1 grid (vertical)
     if original_image.shape[0] > 2.5 * original_image.shape[1]:
         # vertical layout 3x1
         gs = gridspec.GridSpec(3, 1)
         ax2_idx, ax3_idx = (1, 0), (2, 0)
-        bbox_to_anchor=(1.05, 0.5)
-        loc='center left'
+        bbox_to_anchor = (1.05, 0.5)
+        loc = "center left"
     else:
         # horizontal layout 1x3
         gs = gridspec.GridSpec(1, 3)
         ax2_idx, ax3_idx = (0, 1), (0, 2)
-        bbox_to_anchor=(0.5, -0.23)
-        loc='lower center'
+        bbox_to_anchor = (0.5, -0.23)
+        loc = "lower center"
 
     gs.update(bottom=0.03, top=0.97, left=0.03, right=0.97)
     ax1 = fig.add_subplot(gs[0, 0])
@@ -608,28 +662,33 @@ def plot_image_with_legend(original_image:np.ndarray[float], merged_overlay:np.n
 
     # Plot original image
     ax1.imshow(original_image)
-    ax1.plot(pixelated_shoreline[:,0], pixelated_shoreline[:,1], 'k.', markersize=3)
+    ax1.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
     ax1.set_title(titles[0])
-    ax1.axis('off')
+    ax1.axis("off")
 
     # Plot first combined image with overlay and legend
     ax2.imshow(merged_overlay)
-    ax2.plot(pixelated_shoreline[:,0], pixelated_shoreline[:,1], 'k.', markersize=3)
+    ax2.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
     ax2.set_title(titles[1])
-    ax2.axis('off')
-    ax2.legend(handles= merged_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.)
+    ax2.axis("off")
+    ax2.legend(
+        handles=merged_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
+    )
 
     # Plot second combined image with overlay and legend
     ax3.imshow(all_overlay)
-    ax3.plot(pixelated_shoreline[:,0], pixelated_shoreline[:,1], 'k.', markersize=3)
+    ax3.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
     ax3.set_title(titles[2])
-    ax3.axis('off')
-    ax3.legend(handles=all_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.)
+    ax3.axis("off")
+    ax3.legend(
+        handles=all_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
+    )
 
     # Return the figure object
     return fig
 
-def save_detection_figure(fig, filepath:str, date:str, satname:str)->None:
+
+def save_detection_figure(fig, filepath: str, date: str, satname: str) -> None:
     """
     Save the given figure as a jpg file with a specified dpi.
 
@@ -642,10 +701,12 @@ def save_detection_figure(fig, filepath:str, date:str, satname:str)->None:
     Returns:
     None
     """
-    fig.savefig(os.path.join(filepath, date + '_' + satname + '.jpg'), dpi=150)
+    fig.savefig(os.path.join(filepath, date + "_" + satname + ".jpg"), dpi=150)
 
 
-def create_legend(class_mapping: dict, color_mapping: dict = None, additional_patches: list = None) -> list[mpatches.Patch]:
+def create_legend(
+    class_mapping: dict, color_mapping: dict = None, additional_patches: list = None
+) -> list[mpatches.Patch]:
     """
     Creates a list of legend patches using class and color mappings.
 
@@ -661,12 +722,18 @@ def create_legend(class_mapping: dict, color_mapping: dict = None, additional_pa
         color_mapping = create_color_mapping_as_ints(class_mapping.keys())
 
     legend = [
-        mpatches.Patch(color=np.array(color) / 255, label=f"{class_mapping.get(index, f'{index}')}") for index, color in color_mapping.items()
+        mpatches.Patch(
+            color=np.array(color) / 255, label=f"{class_mapping.get(index, f'{index}')}"
+        )
+        for index, color in color_mapping.items()
     ]
 
     return legend + additional_patches if additional_patches else legend
 
-def create_overlay(im_RGB: np.ndarray[float], im_labels: np.ndarray[int], overlay_opacity: float = 0.35) -> np.ndarray[float]:
+
+def create_overlay(
+    im_RGB: np.ndarray[float], im_labels: np.ndarray[int], overlay_opacity: float = 0.35
+) -> np.ndarray[float]:
     """
     Create an overlay on the given image using the provided labels and
     specified overlay opacity.
@@ -682,12 +749,23 @@ def create_overlay(im_RGB: np.ndarray[float], im_labels: np.ndarray[int], overla
     # Create an overlay using the given labels
     overlay = create_classes_overlay_image(im_labels)
     # Combine the original image and the overlay using the correct opacity
-    combined_float = (im_RGB * (1 - overlay_opacity) + overlay * overlay_opacity)
+    combined_float = im_RGB * (1 - overlay_opacity) + overlay * overlay_opacity
     return combined_float
 
 
-def shoreline_detection_figures(im_ms:np.ndarray, cloud_mask:np.ndarray[bool], merged_labels:np.ndarray,all_labels:np.ndarray, shoreline:np.ndarray, image_epsg:str, georef,
-                   settings:dict, date:str, satname:str,class_mapping:dict):
+def shoreline_detection_figures(
+    im_ms: np.ndarray,
+    cloud_mask: np.ndarray[bool],
+    merged_labels: np.ndarray,
+    all_labels: np.ndarray,
+    shoreline: np.ndarray,
+    image_epsg: str,
+    georef,
+    settings: dict,
+    date: str,
+    satname: str,
+    class_mapping: dict,
+):
     """
     Creates shoreline detection figures with overlays and saves them as JPEG files.
 
@@ -704,37 +782,61 @@ def shoreline_detection_figures(im_ms:np.ndarray, cloud_mask:np.ndarray[bool], m
     satname (str): The satellite name.
     class_mapping (dict): A dictionary mapping class indices to class names.
     """
-    sitename = settings['inputs']['sitename']
-    filepath_data = settings['inputs']['filepath']
-    filepath = os.path.join(filepath_data, sitename, 'jpg_files', 'detection')
+    sitename = settings["inputs"]["sitename"]
+    filepath_data = settings["inputs"]["filepath"]
+    filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection")
 
     # increase the intensity of the image for visualization
     im_RGB = increase_image_intensity(im_ms, cloud_mask, prob_high=99.9)
-    logger.info(f"im_RGB.shape: {im_RGB.shape}\n im_RGB.dtype: {im_RGB.dtype}\n im_RGB: {np.unique(im_RGB)[:5]}\n")
+    logger.info(
+        f"im_RGB.shape: {im_RGB.shape}\n im_RGB.dtype: {im_RGB.dtype}\n im_RGB: {np.unique(im_RGB)[:5]}\n"
+    )
 
-    im_merged = create_overlay(im_RGB, merged_labels,overlay_opacity=0.35 )
-    im_all = create_overlay(im_RGB, all_labels,overlay_opacity=0.35 )
+    im_merged = create_overlay(im_RGB, merged_labels, overlay_opacity=0.35)
+    im_all = create_overlay(im_RGB, all_labels, overlay_opacity=0.35)
 
-    logger.info(f"im_merged.shape: {im_merged.shape}\n im_merged.dtype: {im_merged.dtype}\n im_merged.max: {im_merged.max()}\n im_merged.min: {im_merged.min()}\n")
-    logger.info(f"im_all.shape: {im_all.shape}\n im_all.dtype: {im_all.dtype}\n im_all: {np.unique(im_all)[:5]}\n")
+    logger.info(
+        f"im_merged.shape: {im_merged.shape}\n im_merged.dtype: {im_merged.dtype}\n im_merged.max: {im_merged.max()}\n im_merged.min: {im_merged.min()}\n"
+    )
+    logger.info(
+        f"im_all.shape: {im_all.shape}\n im_all.dtype: {im_all.dtype}\n im_all: {np.unique(im_all)[:5]}\n"
+    )
 
     # Mask clouds in the images
-    im_RGB, im_merged, im_all = mask_clouds_in_images(im_RGB, im_merged, im_all, cloud_mask)
+    im_RGB, im_merged, im_all = mask_clouds_in_images(
+        im_RGB, im_merged, im_all, cloud_mask
+    )
 
+    # Convert shoreline points to pixel coordinates
     try:
-        pixelated_shoreline = SDS_tools.convert_world2pix(SDS_tools.convert_epsg(shoreline,settings['output_epsg'],
-        image_epsg)[:,[0,1]], georef)
+        pixelated_shoreline = SDS_tools.convert_world2pix(
+            SDS_tools.convert_epsg(shoreline, settings["output_epsg"], image_epsg)[
+                :, [0, 1]
+            ],
+            georef,
+        )
     except:
-        pixelated_shoreline = np.array([[np.nan, np.nan],[np.nan, np.nan]])
+        pixelated_shoreline = np.array([[np.nan, np.nan], [np.nan, np.nan]])
 
-    # Create legend
-    black_line = mlines.Line2D([],[],color='k',linestyle='-', label='shoreline')
+    # Create legend for the shorelines
+    black_line = mlines.Line2D([], [], color="k", linestyle="-", label="shoreline")
 
-    all_classes_legend=create_legend(class_mapping,additional_patches=[black_line])
-    merged_classes_legend=create_legend(class_mapping={0:'other',1:'water'},additional_patches=[black_line])
+    # create a legend for the class colors and the shoreline
+    all_classes_legend = create_legend(class_mapping, additional_patches=[black_line])
+    merged_classes_legend = create_legend(
+        class_mapping={0: "other", 1: "water"}, additional_patches=[black_line]
+    )
 
     # Plot images
-    fig=plot_image_with_legend(im_RGB, im_merged, im_all,pixelated_shoreline, merged_classes_legend, all_classes_legend,titles=[sitename,date,satname])
+    fig = plot_image_with_legend(
+        im_RGB,
+        im_merged,
+        im_all,
+        pixelated_shoreline,
+        merged_classes_legend,
+        all_classes_legend,
+        titles=[sitename, date, satname],
+    )
     # save a .jpg under /jpg_files/detection
     save_detection_figure(fig, filepath, date, satname)
 
@@ -742,7 +844,13 @@ def shoreline_detection_figures(im_ms:np.ndarray, cloud_mask:np.ndarray[bool], m
     for ax in fig.axes:
         ax.clear()
 
-def mask_clouds_in_images(im_RGB: np.ndarray[float], im_merged: np.ndarray[float], im_all: np.ndarray[float], cloud_mask: np.ndarray[bool]):
+
+def mask_clouds_in_images(
+    im_RGB: np.ndarray[float],
+    im_merged: np.ndarray[float],
+    im_all: np.ndarray[float],
+    cloud_mask: np.ndarray[bool],
+):
     """
     Applies a cloud mask to three input images (im_RGB, im_merged & im_all) by setting the
     cloudy portions to a value of 1.0.
@@ -766,7 +874,9 @@ def mask_clouds_in_images(im_RGB: np.ndarray[float], im_merged: np.ndarray[float
     return im_RGB, im_merged, im_all
 
 
-def simplified_find_contours(im_labels: np.array, cloud_mask: np.array) -> List[np.array]:
+def simplified_find_contours(
+    im_labels: np.array, cloud_mask: np.array
+) -> List[np.array]:
     """Find contours in a binary image using skimage.measure.find_contours and processes out contours that contain NaNs.
     Parameters:
     -----------
@@ -782,14 +892,15 @@ def simplified_find_contours(im_labels: np.array, cloud_mask: np.array) -> List[
     # Apply the cloud mask by setting masked pixels to a special value (e.g., -1)
     im_labels_masked = im_labels.copy()
     im_labels_masked[cloud_mask] = -1
-    
+
     # 0 or 1 labels means 0.5 is the threshold
     contours = measure.find_contours(im_labels_masked, 0.5)
-    
+
     # remove contour points that are NaNs (around clouds)
     processed_contours = SDS_shoreline.process_contours(contours)
-    
+
     return processed_contours
+
 
 def find_shoreline(
     fn,
@@ -802,7 +913,7 @@ def find_shoreline(
     im_labels,
 ) -> np.array:
     try:
-        contours = simplified_find_contours(im_labels,cloud_mask)
+        contours = simplified_find_contours(im_labels, cloud_mask)
     except Exception as e:
         logger.error(f"{e}\nCould not map shoreline for this image: {fn}")
         return None
@@ -813,10 +924,13 @@ def find_shoreline(
     return shoreline
 
 
-
 @time_func
 def extract_shorelines_with_dask(
-    session_path: str, metadata: dict, settings: dict, class_indices: list = None,class_mapping:dict=None,
+    session_path: str,
+    metadata: dict,
+    settings: dict,
+    class_indices: list = None,
+    class_mapping: dict = None,
 ) -> dict:
     sitename = settings["inputs"]["sitename"]
     filepath_data = settings["inputs"]["filepath"]
@@ -829,7 +943,9 @@ def extract_shorelines_with_dask(
 
     # loop through satellite list
     tasks = [
-        dask.delayed(process_satellite)(satname, settings, metadata, session_path, class_indices,class_mapping)
+        dask.delayed(process_satellite)(
+            satname, settings, metadata, session_path, class_indices, class_mapping
+        )
         for satname in metadata
     ]
 
@@ -1208,7 +1324,7 @@ class Extracted_Shoreline:
         settings: dict,
         session_path: str = None,
         class_indices: list = None,
-        class_mapping:dict=None
+        class_mapping: dict = None,
     ) -> dict:
         """Returns a dictionary containing the extracted shorelines for roi specified by rois_gdf"""
         # project shorelines's crs from map's crs to output crs given in settings
@@ -1234,7 +1350,7 @@ class Extracted_Shoreline:
                 metadata,
                 self.shoreline_settings,
                 class_indices=class_indices,
-                class_mapping = class_mapping,
+                class_mapping=class_mapping,
             )
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)

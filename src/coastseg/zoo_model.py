@@ -5,8 +5,6 @@ import platform
 import json
 import logging
 from typing import List
-import pathlib
-from datetime import datetime, timedelta
 import shutil
 
 from coastseg import transects
@@ -46,6 +44,36 @@ from coastsat import SDS_tools
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
+
+
+from PIL import Image
+import numpy as np
+
+
+def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> list[str]:
+    def percentage_of_black_pixels(img: "PIL.Image") -> float:
+        # Calculate the total number of pixels in the image
+        num_total_pixels = img.size[0] * img.size[1]
+        img_array = np.array(img)
+        # Count the number of black pixels in the image
+        black_pixels = np.count_nonzero(np.all(img_array == 0, axis=-1))
+        # Calculate the percentage of black pixels
+        percentage = (black_pixels / num_total_pixels) * 100
+        return percentage
+
+    valid_images = []
+
+    for file in files:
+        if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".png"):
+            img = Image.open(file)
+            percentage = percentage_of_black_pixels(img)
+            logger.info(
+                f"percentage black pixels in {os.path.basename(file)} is {percentage}"
+            )
+            if percentage <= percent_no_data:
+                valid_images.append(file)
+
+    return valid_images
 
 
 def tidal_corrections(
@@ -845,6 +873,7 @@ class Zoo_Model:
         use_GPU: str,
         use_otsu: bool,
         use_tta: bool,
+        percent_no_data: float,
     ):
         logger.info(f"Selected directory of RGBs: {src_directory}")
         logger.info(f"session name: {session_name}")
@@ -871,6 +900,7 @@ class Zoo_Model:
             "model_type": model_name,
             "otsu": use_otsu,
             "tta": use_tta,
+            "percent_no_data": percent_no_data,
         }
         # get parent roi_directory from the selected imagery directory
         roi_directory = common.find_parent_directory(src_directory, "ID_", "data")
@@ -878,9 +908,7 @@ class Zoo_Model:
         model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
         logger.info(f"model_dict: {model_dict}")
 
-        self.compute_segmentation(
-            model_dict,
-        )
+        self.compute_segmentation(model_dict, percent_no_data)
         self.postprocess_data(model_dict, session, roi_directory)
         print(f"\n Model results saved to {session.path}")
 
@@ -891,7 +919,10 @@ class Zoo_Model:
         return model_directory
 
     def get_files_for_seg(
-        self, sample_direc: str, avoid_patterns: List[str] = []
+        self,
+        sample_direc: str,
+        avoid_patterns: List[str] = [],
+        percent_no_data: float = 50.0,
     ) -> list:
         """
         Returns a list of files to be segmented.
@@ -904,27 +935,34 @@ class Zoo_Model:
         - avoid_patterns (List[str], optional): A list of file names to be avoided.Don't include any file extensions. Default is [].
 
         Returns:
-        - list: A list of files to be segmented.
+        - list: A list of full pathes files to be segmented.
         """
         logger.info(f"Searching directory for files: {sample_direc}")
         file_extensions = [".npz", ".jpg", ".png"]
-        sample_filenames = get_sorted_files_with_extension(
+        model_ready_files = get_sorted_files_with_extension(
             sample_direc, file_extensions
         )
         # filter out files whose filenames match any of the avoid_patterns
-        sample_filenames = common.filter_files(sample_filenames, avoid_patterns)
-        logger.info(f"files to seg: {sample_filenames}")
-        return sample_filenames
+        model_ready_files = common.filter_files(model_ready_files, avoid_patterns)
+        logger.info(f"Filtered files for {avoid_patterns}: {model_ready_files}\n")
+        model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
+        logger.info(
+            f"Files ready for segmentation with no data pixels below {percent_no_data}% : {model_ready_files}\n"
+        )
+        return model_ready_files
 
     def compute_segmentation(
         self,
         preprocessed_data: dict,
+        percent_no_data: float = 50.0,
     ):
         sample_direc = preprocessed_data["sample_direc"]
         use_tta = preprocessed_data["tta"]
         use_otsu = preprocessed_data["otsu"]
         # Create list of files of types .npz,.jpg, or .png to run model on
-        files_to_segment = self.get_files_for_seg(sample_direc)
+        files_to_segment = self.get_files_for_seg(
+            sample_direc, avoid_patterns=[], percent_no_data=percent_no_data
+        )
         logger.info(f"files_to_segment: {files_to_segment}")
         if self.model_types[0] != "segformer":
             ### mixed precision
