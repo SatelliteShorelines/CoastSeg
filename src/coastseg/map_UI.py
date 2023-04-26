@@ -1012,6 +1012,7 @@ class UI:
     @debug_view.capture(clear_output=True)
     def gen_roi_clicked(self, btn):
         UI.debug_view.clear_output(wait=True)
+        print("Generate ROIs button clicked")
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         self.gen_button.disabled = True
         # Generate ROIs along the coastline within the bounding box
