@@ -21,7 +21,8 @@ dependencies = [
   "geojson",
   "aiohttp",
   "nest-asyncio",
-  "tensorflow"]
+  "tensorflow",
+  "dask"]
 license = { file="LICENSE" }
 requires-python = ">=3.8"
 classifiers = [
