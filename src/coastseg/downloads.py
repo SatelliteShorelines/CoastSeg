@@ -26,10 +26,6 @@ from shapely.ops import split
 logger = logging.getLogger(__name__)
 
 
-# GEE allows for 20 concurrent requests at once
-limit = asyncio.Semaphore(20)
-
-
 async def async_download_url_dict(url_dict: dict = {}):
     """
     Asynchronously downloads files from a given dictionary of URLs and save locations.
@@ -57,12 +53,12 @@ async def async_download_url_dict(url_dict: dict = {}):
         # Create and return the session with the configured timeout
         return  aiohttp.ClientSession(connector=connector,timeout=aiohttp.ClientTimeout(total=600))
 
-    # allow 5 concurrent downloads
-    semaphore = asyncio.Semaphore(5)
+    # allow 1 concurrent downloads
+    semaphore = asyncio.Semaphore(1)
     tasks = []
     for save_path, url in url_dict.items():
         task = asyncio.create_task(download_zenodo_file(
-            semaphore, session_creator, url, save_path, max_retries= 2))
+            semaphore, session_creator, url, save_path, max_retries= 0))
         tasks.append(task)
     # start all the tasks at once
     await tqdm.asyncio.tqdm.gather(*tasks)
@@ -171,7 +167,7 @@ async def download_with_retry(semaphore: asyncio.Semaphore, session: aiohttp.Cli
     logger.info(f"rate_limit_remaining: {rate_limit_remaining}")
     logger.info(f"session: {session} is session closed {session.closed}")
     async with semaphore:
-        logger.info(f"session: {session} is session closed {session.closed}")
+        logger.info(f"semaphore was accessed {semaphore}")
         async with session.get(url) as response:
             logger.info(f"response: {response}")
             if rate_limit_remaining is None:
