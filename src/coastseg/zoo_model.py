@@ -63,6 +63,14 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> li
 
     valid_images = []
 
+    def has_image_files(file_list, extensions):
+        return any(file.lower().endswith(extensions) for file in file_list)
+    extensions = ('.jpg', '.png', '.jpeg')
+    contains_images = has_image_files(files, extensions)
+    if not contains_images:
+        logger.warning(f'Cannot filter no data pixels no images found with {extensions} in {files}.')
+        return files
+
     for file in files:
         if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".png"):
             img = Image.open(file)
@@ -586,6 +594,15 @@ class Zoo_Model:
         # create default settings
         self.set_settings()
 
+    def clear_zoo_model(self):
+        self.weights_directory = None
+        self.model_types = []
+        self.model_list = []
+        self.metadata_dict = {}
+        self.settings = {}
+        # create default settings
+        self.set_settings()
+
     def set_settings(self, **kwargs):
         """
         Saves the settings for downloading data by updating the `self.settings` dictionary with the provided key-value pairs.
@@ -623,6 +640,8 @@ class Zoo_Model:
             "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
             "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
+            "percent_no_data":50.0, # percentage of no data pixels allowed in an image (doesn't work for npz)
+            "model_session_path":"", # path to model session file
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
@@ -678,12 +697,16 @@ class Zoo_Model:
         self, extract_shoreline_settings: dict, session_path: str, session_name: str
     ) -> None:
         logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
+        # save the selected model session
+        extract_shoreline_settings["model_session_path"] = session_path
+
         self.set_settings(**extract_shoreline_settings)
         extract_shoreline_settings = self.get_settings()
         # create session path to store extracted shorelines and transects
         sessions_dir_path = common.create_directory(os.getcwd(), "sessions")
         new_session_path = common.create_directory(sessions_dir_path, session_name)
         config_json_location = common.find_file_recurively(session_path, "config.json")
+
         config_geojson_location = common.find_file_recurively(
             session_path, "config_gdf.geojson"
         )
@@ -695,14 +718,6 @@ class Zoo_Model:
         model_settings = common.from_file(model_settings_location)
         source_directory = model_settings["sample_direc"]
         model_type = model_settings["model_type"]
-        # find downloaded model
-        # load model card from model directory
-        # use model card to find class indices
-        # pass class indices to extract shorelines
-
-        # if model_type != 'sat_RGB_4class_6950472':
-        #     raise Exception(f"Unable to extract shorelines only works with 'sat_RGB_4class_6950472' not {model_type}\nThis will be changed in a future update.")
-
         # load roi settings from the config file
         roi_id = common.extract_roi_id(source_directory)
         config = common.from_file(config_json_location)
@@ -829,6 +844,7 @@ class Zoo_Model:
             model_implementation (str): The model implementation either 'BEST' or 'ENSEMBLE'
             model_id (str): The ID of the model.
         """
+        self.clear_zoo_model()
         # create the model directory
         self.weights_directory = self.get_model_directory(model_id)
         logger.info(f"self.weights_directory:{self.weights_directory}")
@@ -990,11 +1006,13 @@ class Zoo_Model:
         model_list = []
         config_files = []
         model_types = []
+        logger.info(f"weights_list: {weights_list}")
         if weights_list == []:
             raise Exception("No Model Info Passed")
         for weights in weights_list:
             # "fullmodel" is for serving on zoo they are smaller and more portable between systems than traditional h5 files
             # gym makes a h5 file, then you use gym to make a "fullmodel" version then zoo can read "fullmodel" version
+            weights = weights.strip()
             config_file = weights.replace(".h5", ".json").replace("weights", "config")
             if "fullmodel" in config_file:
                 config_file = config_file.replace("_fullmodel", "")
@@ -1216,8 +1234,11 @@ class Zoo_Model:
         elif model_choice == "BEST":
             # read model name (fullmodel.h5) from BEST_MODEL.txt
             with open(os.path.join(self.weights_directory, "BEST_MODEL.txt")) as f:
-                model_name = f.readlines()
-            weights_list = [os.path.join(self.weights_directory, model_name[0])]
+                model_name = f.readline()
+            logger.info(f"model_name: {model_name}")
+            # remove any leading or trailing whitespace and newline characters
+            model_name = model_name.strip()
+            weights_list = [os.path.join(self.weights_directory, model_name)]
             logger.info(f"BEST: weights_list: {weights_list}")
             logger.info(f"BEST: {len(weights_list)} sets of model weights were found ")
             return weights_list
@@ -1277,6 +1298,7 @@ class Zoo_Model:
         with open(BEST_MODEL_txt_path, "r") as f:
             best_model_filename = f.read().strip()
         # get the json data of the best model _fullmodel.h5 file
+        best_model_filename = best_model_filename.strip()
         best_json_filename = best_model_filename.replace("_fullmodel.h5", ".json")
         best_modelcard_filename = best_model_filename.replace(
             "_fullmodel.h5", "_modelcard.json"
