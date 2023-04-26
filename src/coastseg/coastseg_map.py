@@ -324,10 +324,9 @@ class CoastSeg_Map:
             "pan_off",
             "max_dist_ref",
             "dist_clouds",
+            "percent_no_data",
         ]
-        shoreline_settings = common.filter_dict_by_keys(
-            new_settings, keys=shoreline_keys
-        )
+        shoreline_settings={k: v for k, v in new_settings.items() if k in shoreline_keys}
         shoreline_settings["save_figure"] = True
         shoreline_settings["check_detection"] = False
         shoreline_settings["adjust_detection"] = False

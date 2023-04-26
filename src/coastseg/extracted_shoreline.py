@@ -238,7 +238,7 @@ def get_cloud_cover(cloud_mask: np.ndarray, im_nodata: np.ndarray) -> float:
 
 
 def process_satellite_image(
-    filename,
+    filename:str,
     filepath,
     settings,
     satname,
@@ -249,31 +249,6 @@ def process_satellite_image(
     class_indices,
     class_mapping,
 ):
-    """_summary_
-
-    Args:
-        filename (_type_): _description_
-        filepath (_type_): _description_
-        settings (_type_): _description_
-        satname (_type_): _description_
-        collection (_type_): _description_
-        image_epsg (_type_): _description_
-        pixel_size (_type_): _description_
-        session_path (_type_): _description_
-        class_indices (_type_): _description_
-
-    Returns:
-        dict: Returns a dictionary containing the shorelines and cloud cover for the file passed in
-        ex.
-        {
-            "shorelines": array([[ 432675. , 4003942.5],
-                                [ 432675. , 4003957.5],
-                                [ 432682.5, 4003965. ],
-                                [ 432690. , 4003972.5],
-                                [ 432690. , 4003987.5],])
-            "cloud_cover": 0.0,
-        }
-    """
     # get image date
     date = filename[:19]
     # get image filename
@@ -295,12 +270,16 @@ def process_satellite_image(
         collection,
     )
 
+    logger.info(f"process_satellite_image_settings: {settings}")
     # if percentage of no data pixels are greater than allowed, skip
     percent_no_data_allowed = settings.get("percent_no_data", None)
+    logger.info(f"percent_no_data_allowed: {percent_no_data_allowed}")
     if percent_no_data_allowed is not None:
         percent_no_data_allowed = percent_no_data_allowed / 100
         num_total_pixels = cloud_mask.shape[0] * cloud_mask.shape[1]
         percentage_no_data = np.sum(im_nodata) / num_total_pixels
+        logger.info(f"percentage_no_data: {percentage_no_data}")
+        logger.info(f"percent_no_data_allowed: {percent_no_data_allowed}")
         if percentage_no_data > percent_no_data_allowed:
             logger.info(
                 f"percent_no_data_allowed exceeded {percentage_no_data} > {percent_no_data_allowed}"
@@ -1339,6 +1318,7 @@ class Extracted_Shoreline:
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
         logger.info(f"metadata: {metadata}")
+        logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
         # extract shorelines from ROI
         if session_path is None:
             # extract shorelines with coastsat's models
@@ -1401,9 +1381,11 @@ class Extracted_Shoreline:
             "pan_off",
             "max_dist_ref",
             "dist_clouds",
+            "percent_no_data",
+            "model_session_path", # path to model session file
         ]
         logger.info(f"settings used to create shoreline settings: {settings}")
-        shoreline_settings = common.filter_dict_by_keys(settings, keys=shoreline_keys)
+        shoreline_settings={k: v for k, v in settings.items() if k in shoreline_keys}
         logger.info(f"Loading shoreline_settings: {shoreline_settings}")
         # Add reference shoreline and shoreline buffer distance for this specific ROI
         shoreline_settings["reference_shoreline"] = reference_shoreline
