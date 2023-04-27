@@ -1321,9 +1321,9 @@ class Zoo_Model:
         logger.info(f"URLs to download: {download_dict}")
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
-            downloads.run_async_function(
-                downloads.async_download_url_dict, url_dict=download_dict
-            )
+            download_status=downloads.download_url_dict(download_dict)
+            if download_status == False:
+                raise Exception("Download failed")
 
     def download_ensemble(
         self, available_files: List[dict], model_path: str, model_id: str
@@ -1384,9 +1384,9 @@ class Zoo_Model:
         logger.info(f"URLs to download: {download_dict}")
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
-            downloads.run_async_function(
-                downloads.async_download_url_dict, url_dict=download_dict
-            )
+            download_status=downloads.download_url_dict(download_dict)
+            if download_status == False:
+                raise Exception("Download failed")
 
     def download_model(
         self, model_choice: str, model_id: str, model_path: str = None

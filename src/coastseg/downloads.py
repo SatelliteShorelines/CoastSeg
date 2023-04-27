@@ -9,6 +9,8 @@ from glob import glob
 import concurrent.futures
 import zipfile
 
+import requests
+
 from coastseg import common
 
 import asyncio
@@ -24,6 +26,95 @@ from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.ops import split
 
 logger = logging.getLogger(__name__)
+
+def download_url_dict(url_dict):
+    for save_path, url in url_dict.items():
+        with requests.get(url, stream=True) as response:
+            logger.info(f"response: {response}")
+            logger.info(f"response.status: {response.status}")
+            logger.info(f"response.headers: {response.headers}")
+            if response.status == 404:
+                logger.info(f"404 response for {url}")
+                raise Exception(f"404 response for {url}. Please raise an issue on GitHub.")
+            
+            # too many requests were made to the API
+            if  response.status == 429:
+                content = response.text()
+                print(f"Response from API for status: {response.status}: {content}")
+                logger.info(f"Response from API for status: {response.status}: {content}")
+                raise Exception(f"Response from API for status: {response.status}: {content}")
+                return False
+            
+            # raise an exception if the response status is not 200
+            if response.status != 200:
+                print(f"response.status {response.status} for {url}")
+                logger.info(f"response.status {response.status} for {url}")
+                return False
+            
+            response.raise_for_status()
+
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None:
+                content_length = int(content_length)
+                with open(save_path, "wb") as fd:
+                    with tqdm.auto.tqdm(
+                        total=content_length,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=f"Downloading {os.path.basename(save_path)}",
+                        initial=0,
+                        ascii=False,
+                        position=0,
+                    ) as pbar:
+                        for chunk in response.content.iter_chunked(1024):
+                            if not chunk:
+                                break
+                            fd.write(chunk)
+                            pbar.update(len(chunk))
+            else:
+                with open(save_path, "wb") as fd:
+                    for chunk in response.content.iter_chunked(1024):
+                        fd.write(chunk)
+
+
+
+async def async_download_url_dict(url_dict: dict = {}):
+    """
+    Asynchronously downloads files from a given dictionary of URLs and save locations.
+
+    Parameters
+    ----------
+    url_dict : dict, optional
+        A dictionary where the keys represent local save paths and the values are the corresponding URLs of the files to be downloaded. Default is an empty dictionary.
+
+    Usage
+    -----
+    url_dict = {
+        "/path/to/save/file1.h5": "https://zenodo.org/record/7574784/file1.h5",
+        "/path/to/save/file2.json": "https://zenodo.org/record/7574784/file2.json",
+        "/path/to/save/file3.txt": "https://zenodo.org/record/7574784/file3.txt",
+    }
+
+    await async_download_url_dict(url_dict)
+    """
+    def session_creator():
+        # Set the custom timeout value (in seconds)
+        keepalive_timeout = 100
+        # Configure the timeout
+        connector = aiohttp.TCPConnector(keepalive_timeout=keepalive_timeout)
+        # Create and return the session with the configured timeout
+        return  aiohttp.ClientSession(connector=connector,timeout=aiohttp.ClientTimeout(total=600))
+
+    # allow 1 concurrent downloads
+    semaphore = asyncio.Semaphore(1)
+    tasks = []
+    for save_path, url in url_dict.items():
+        task = asyncio.create_task(download_zenodo_file(
+            semaphore, session_creator, url, save_path, max_retries= 0))
+        tasks.append(task)
+    # start all the tasks at once
+    await tqdm.asyncio.tqdm.gather(*tasks)
 
 
 async def async_download_url_dict(url_dict: dict = {}):
