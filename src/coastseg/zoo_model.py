@@ -19,6 +19,7 @@ import requests
 import skimage
 import aiohttp
 import tqdm
+from PIL import Image
 import numpy as np
 import pandas as pd
 from glob import glob
@@ -41,13 +42,10 @@ from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_mult
 import pytz
 from coastsat import SDS_transects
 from coastsat import SDS_tools
+
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
-
-
-from PIL import Image
-import numpy as np
 
 
 def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> list[str]:
