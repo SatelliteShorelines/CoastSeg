@@ -31,24 +31,24 @@ def download_url_dict(url_dict):
     for save_path, url in url_dict.items():
         with requests.get(url, stream=True) as response:
             logger.info(f"response: {response}")
-            logger.info(f"response.status: {response.status}")
+            logger.info(f"response.status_code: {response.status_code}")
             logger.info(f"response.headers: {response.headers}")
-            if response.status == 404:
+            if response.status_code == 404:
                 logger.info(f"404 response for {url}")
                 raise Exception(f"404 response for {url}. Please raise an issue on GitHub.")
             
             # too many requests were made to the API
-            if  response.status == 429:
+            if  response.status_code == 429:
                 content = response.text()
-                print(f"Response from API for status: {response.status}: {content}")
-                logger.info(f"Response from API for status: {response.status}: {content}")
-                raise Exception(f"Response from API for status: {response.status}: {content}")
+                print(f"Response from API for status_code: {response.status_code}: {content}")
+                logger.info(f"Response from API for status_code: {response.status_code}: {content}")
+                raise Exception(f"Response from API for status_code: {response.status_code}: {content}")
                 return False
             
-            # raise an exception if the response status is not 200
-            if response.status != 200:
-                print(f"response.status {response.status} for {url}")
-                logger.info(f"response.status {response.status} for {url}")
+            # raise an exception if the response status_code is not 200
+            if response.status_code != 200:
+                print(f"response.status_code {response.status_code} for {url}")
+                logger.info(f"response.status_code {response.status_code} for {url}")
                 return False
             
             response.raise_for_status()
