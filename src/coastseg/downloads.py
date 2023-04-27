@@ -67,14 +67,14 @@ def download_url_dict(url_dict):
                         ascii=False,
                         position=0,
                     ) as pbar:
-                        for chunk in response.content.iter_chunked(1024):
+                        for chunk in response.iter_content(1024):
                             if not chunk:
                                 break
                             fd.write(chunk)
                             pbar.update(len(chunk))
             else:
                 with open(save_path, "wb") as fd:
-                    for chunk in response.content.iter_chunked(1024):
+                    for chunk in response.iter_content(1024):
                         fd.write(chunk)
 
 
