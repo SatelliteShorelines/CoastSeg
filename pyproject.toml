@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "0.0.61"
+version = "0.0.62"
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -21,7 +21,7 @@ dependencies = [
   "geojson",
   "aiohttp",
   "nest-asyncio",
-  "tensorflow",
+  "tensorflow==2.11.0",
   "dask"]
 license = { file="LICENSE" }
 requires-python = ">=3.8"
