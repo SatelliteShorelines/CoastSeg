@@ -493,7 +493,7 @@ def load_merged_image_labels(
 
 def increase_image_intensity(
     im_ms: np.ndarray, cloud_mask: np.ndarray, prob_high: float = 99.9
-) -> np.ndarray[float]:
+) -> 'np.ndarray[float]':
     """
     Increases the intensity of an image using rescale_image_intensity function from SDS_preprocess module.
 
@@ -587,10 +587,10 @@ def create_classes_overlay_image(labels):
 
 
 def plot_image_with_legend(
-    original_image: np.ndarray[float],
-    merged_overlay: np.ndarray[float],
-    all_overlay: np.ndarray[float],
-    pixelated_shoreline: np.ndarray[float],
+    original_image: 'np.ndarray[float]',
+    merged_overlay: 'np.ndarray[float]',
+    all_overlay: 'np.ndarray[float]',
+    pixelated_shoreline: 'np.ndarray[float]',
     merged_legend,
     all_legend,
     titles: list[str] = [],
@@ -711,8 +711,8 @@ def create_legend(
 
 
 def create_overlay(
-    im_RGB: np.ndarray[float], im_labels: np.ndarray[int], overlay_opacity: float = 0.35
-) -> np.ndarray[float]:
+    im_RGB: 'np.ndarray[float]', im_labels: np.ndarray[int], overlay_opacity: float = 0.35
+) -> 'np.ndarray[float]':
     """
     Create an overlay on the given image using the provided labels and
     specified overlay opacity.
@@ -825,10 +825,10 @@ def shoreline_detection_figures(
 
 
 def mask_clouds_in_images(
-    im_RGB: np.ndarray[float],
-    im_merged: np.ndarray[float],
-    im_all: np.ndarray[float],
-    cloud_mask: np.ndarray[bool],
+    im_RGB: 'np.ndarray[float]',
+    im_merged: 'np.ndarray[float]',
+    im_all: 'np.ndarray[float]',
+    cloud_mask: 'np.ndarray[bool]',
 ):
     """
     Applies a cloud mask to three input images (im_RGB, im_merged & im_all) by setting the
