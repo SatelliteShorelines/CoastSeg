@@ -711,7 +711,7 @@ def create_legend(
 
 
 def create_overlay(
-    im_RGB: 'np.ndarray[float]', im_labels: np.ndarray[int], overlay_opacity: float = 0.35
+    im_RGB: 'np.ndarray[float]', im_labels: 'np.ndarray[int]', overlay_opacity: float = 0.35
 ) -> 'np.ndarray[float]':
     """
     Create an overlay on the given image using the provided labels and
@@ -734,7 +734,7 @@ def create_overlay(
 
 def shoreline_detection_figures(
     im_ms: np.ndarray,
-    cloud_mask: np.ndarray[bool],
+    cloud_mask: 'np.ndarray[bool]',
     merged_labels: np.ndarray,
     all_labels: np.ndarray,
     shoreline: np.ndarray,
@@ -1222,10 +1222,10 @@ class Extracted_Shoreline:
             raise ValueError(
                 f"Model type cannot be empty.{model_settings_path} did not contain model_type key."
             )
-        # read model card from downloaded model
-        downloaded_models_path = os.path.join(
-            os.getcwd(), "src", "coastseg", "downloaded_models", model_type
-        )
+        # read model card from downloaded models path
+        downloaded_models_dir = common.get_downloaded_models_dir()
+        downloaded_models_path = os.path.join(downloaded_models_dir,model_type)
+        logger.info(f"Searching for model card in downloaded_models_path: {downloaded_models_path}")
         model_card_path = common.find_file_by_regex(
             downloaded_models_path, r".*modelcard\.json$"
         )

@@ -928,7 +928,7 @@ class Zoo_Model:
 
     def get_model_directory(self, model_id: str):
         # Create a directory to hold the downloaded models
-        downloaded_models_path = self.get_downloaded_models_dir()
+        downloaded_models_path = common.get_downloaded_models_dir()
         model_directory = common.create_directory(downloaded_models_path, model_id)
         return model_directory
 
@@ -1241,22 +1241,6 @@ class Zoo_Model:
             logger.info(f"BEST: {len(weights_list)} sets of model weights were found ")
             return weights_list
 
-    def get_downloaded_models_dir(self) -> str:
-        """returns full path to downloaded_models directory and
-        if downloaded_models directory does not exist then it is created
-
-        Returns:
-            str: full path to downloaded_models directory
-        """
-        # directory to hold downloaded models from Zenodo
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        downloaded_models_path = os.path.abspath(
-            os.path.join(script_dir, "downloaded_models")
-        )
-        if not os.path.exists(downloaded_models_path):
-            os.mkdir(downloaded_models_path)
-        logger.info(f"downloaded_models_path: {downloaded_models_path}")
-        return downloaded_models_path
 
     def download_best(
         self, available_files: List[dict], model_path: str, model_id: str

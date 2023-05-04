@@ -36,6 +36,23 @@ logger = logging.getLogger(__name__)
 
 import uuid
 
+def get_downloaded_models_dir() -> str:
+    """returns full path to downloaded_models directory and
+    if downloaded_models directory does not exist then it is created
+    Returns:
+        str: full path to downloaded_models directory
+    """
+    # directory to hold downloaded models from Zenodo
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    downloaded_models_path = os.path.abspath(
+        os.path.join(script_dir, "downloaded_models")
+    )
+    if not os.path.exists(downloaded_models_path):
+        os.mkdir(downloaded_models_path)
+    logger.info(f"downloaded_models_path: {downloaded_models_path}")
+    
+    return downloaded_models_path
 
 def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
     if raise_error:
