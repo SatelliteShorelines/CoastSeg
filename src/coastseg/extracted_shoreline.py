@@ -819,9 +819,8 @@ def shoreline_detection_figures(
     # save a .jpg under /jpg_files/detection
     save_detection_figure(fig, filepath, date, satname)
 
-    # don't close the figure window, but remove all axes and settings, ready for next plot
-    for ax in fig.axes:
-        ax.clear()
+    plt.close(fig)  # Close the figure after saving
+
 
 
 def mask_clouds_in_images(
@@ -918,6 +917,7 @@ def extract_shorelines_with_dask(
 
     # create a subfolder to store the .jpg images showing the detection
     filepath_jpg = os.path.join(filepath_data, sitename, "jpg_files", "detection")
+    # print(f"filepath_jpg: {filepath_jpg}")
     os.makedirs(filepath_jpg, exist_ok=True)
 
     # loop through satellite list
