@@ -21,7 +21,6 @@ from coastseg.observable import Observable
 from coastsat import (
     SDS_download,
     SDS_transects,
-    SDS_preprocess,
 )
 import pandas as pd
 import geopandas as gpd
@@ -443,18 +442,23 @@ class CoastSeg_Map:
 
         # 2. For each ROI use download settings to download imagery and save to jpg
         print("Download in process")
-        # make a deep copy so settings doesn't get modified by the temp copy
-        tmp_settings = copy.deepcopy(settings)
+        cloud_theshold = settings.get("cloud_thresh",99.9)
+        cloud_mask_issue = settings.get("cloud_mask_issue",False)
+        # # make a deep copy so settings doesn't get modified by the temp copy
+        # tmp_settings = copy.deepcopy(settings)
 
         # for each ROI use the ROI settings to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
-            metadata = SDS_download.retrieve_images(inputs_for_roi)
-            tmp_settings["inputs"] = inputs_for_roi
-            logger.info(f"inputs: {inputs_for_roi}")
-            logger.info(f"Saving to jpg. Metadata: {metadata}")
-            SDS_preprocess.save_jpg(metadata, tmp_settings)
+            SDS_download.retrieve_images(inputs_for_roi,
+                                                    cloud_threshold=cloud_theshold,
+                                                    cloud_mask_issue=cloud_mask_issue,
+                                                    save_jpg=True)
+            # tmp_settings["inputs"] = inputs_for_roi
+            # logger.info(f"inputs: {inputs_for_roi}")
+            # logger.info(f"Saving to jpg. Metadata: {metadata}")
+            # SDS_preprocess.save_jpg(metadata, tmp_settings)
         # tmp settings is no longer needed
-        del tmp_settings
+        # del tmp_settings
         # 3.save settings used to download rois and the objects on map to config files
         self.save_config()
         logger.info("Done downloading")
