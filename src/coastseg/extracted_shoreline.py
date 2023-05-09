@@ -15,15 +15,13 @@ from coastseg import common
 # External dependencies imports
 import dask
 from dask.diagnostics import ProgressBar
-
-from dask.diagnostics import ProgressBar
 import geopandas as gpd
 import numpy as np
 from ipyleaflet import GeoJSON
 from matplotlib.pyplot import get_cmap
 from matplotlib.colors import rgb2hex
 from tqdm.auto import tqdm
-import pickle
+
 import matplotlib.pyplot as plt
 import skimage.measure as measure
 from coastsat import SDS_shoreline
@@ -36,7 +34,6 @@ from coastsat.SDS_tools import (
     output_to_gdf,
     get_filepath,
     get_filenames,
-    merge_output,
 )
 
 # imports for show detection
@@ -45,6 +42,12 @@ import matplotlib.cm as cm
 from matplotlib import gridspec
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
+
+import warnings
+from pandas.core.common import SettingWithCopyWarning
+
+warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
+
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +121,6 @@ def combine_satellite_data(satellite_data: dict):
 
     return merged_satellite_data
 
-
 def process_satellite(
     satname: str,
     settings: dict,
@@ -126,6 +128,7 @@ def process_satellite(
     session_path: str,
     class_indices: list,
     class_mapping: dict,
+    save_location:str,
 ):
     collection = settings["inputs"]["landsat_collection"]
     default_min_length_sl = settings["min_length_sl"]
@@ -167,19 +170,16 @@ def process_satellite(
                 session_path,
                 class_indices,
                 class_mapping,
+                save_location,
             )
         )
-
     # run the tasks in parallel
     results = dask.compute(*tasks)
-    # logger.info(f"results: {results}")
-
     output = {}
     for index, result in enumerate(results):
         if result is None:
             continue
         output.setdefault(satname, {})
-
         output[satname].setdefault("dates", []).append(timestamps[index])
         output[satname].setdefault("geoaccuracy", []).append(geoaccuracy_list[index])
         output[satname].setdefault("shorelines", []).append(result["shorelines"])
@@ -187,7 +187,6 @@ def process_satellite(
         output[satname].setdefault("filename", []).append(filenames[index])
         output[satname].setdefault("idx", []).append(index)
     return output
-
 
 def get_cloud_cover_combined(cloud_mask: np.ndarray):
     """
@@ -248,6 +247,7 @@ def process_satellite_image(
     session_path,
     class_indices,
     class_mapping,
+    save_location:str,
 ):
     # get image date
     date = filename[:19]
@@ -349,6 +349,7 @@ def process_satellite_image(
         date,
         satname,
         class_mapping,
+        save_location,
     )
     # create dictionnary of output
     output = {
@@ -731,7 +732,6 @@ def create_overlay(
     combined_float = im_RGB * (1 - overlay_opacity) + overlay * overlay_opacity
     return combined_float
 
-
 def shoreline_detection_figures(
     im_ms: np.ndarray,
     cloud_mask: 'np.ndarray[bool]',
@@ -744,6 +744,7 @@ def shoreline_detection_figures(
     date: str,
     satname: str,
     class_mapping: dict,
+    save_location:str='',
 ):
     """
     Creates shoreline detection figures with overlays and saves them as JPEG files.
@@ -762,8 +763,14 @@ def shoreline_detection_figures(
     class_mapping (dict): A dictionary mapping class indices to class names.
     """
     sitename = settings["inputs"]["sitename"]
-    filepath_data = settings["inputs"]["filepath"]
-    filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection")
+    if save_location:
+        filepath = os.path.join(save_location, "jpg_files", "detection")
+    else:
+        filepath_data = settings["inputs"]["filepath"]
+        filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection")
+    os.makedirs(filepath,exist_ok=True)
+    logger.info(f"shoreline_detection_figures filepath: {filepath}")
+    print(f"shoreline_detection_figures filepath: {filepath}")
 
     # increase the intensity of the image for visualization
     im_RGB = increase_image_intensity(im_ms, cloud_mask, prob_high=99.9)
@@ -909,21 +916,22 @@ def extract_shorelines_with_dask(
     settings: dict,
     class_indices: list = None,
     class_mapping: dict = None,
+    save_location:str = ''
 ) -> dict:
     sitename = settings["inputs"]["sitename"]
     filepath_data = settings["inputs"]["filepath"]
     # initialise output structure
     extracted_shorelines_data = {}
-
-    # create a subfolder to store the .jpg images showing the detection
-    filepath_jpg = os.path.join(filepath_data, sitename, "jpg_files", "detection")
-    # print(f"filepath_jpg: {filepath_jpg}")
-    os.makedirs(filepath_jpg, exist_ok=True)
+    if not save_location:
+        # create a subfolder to store the .jpg images showing the detection
+        filepath_jpg = os.path.join(filepath_data, sitename, "jpg_files", "detection")
+        os.makedirs(filepath_jpg, exist_ok=True)
 
     # loop through satellite list
+
     tasks = [
         dask.delayed(process_satellite)(
-            satname, settings, metadata, session_path, class_indices, class_mapping
+            satname, settings, metadata, session_path, class_indices, class_mapping,save_location
         )
         for satname in metadata
     ]
@@ -939,10 +947,6 @@ def extract_shorelines_with_dask(
     extracted_shorelines_data = combine_satellite_data(result_dict)
     logger.info(f"final_output: {extracted_shorelines_data}")
 
-    filepath = os.path.join(filepath_data, sitename)
-
-    with open(os.path.join(filepath, sitename + "_output.pkl"), "wb") as f:
-        pickle.dump(extracted_shorelines_data, f)
 
     return extracted_shorelines_data
 
@@ -1193,6 +1197,7 @@ class Extracted_Shoreline:
         roi_settings: dict = None,
         settings: dict = None,
         session_path: str = None,
+        new_session_path:str = None
     ) -> "Extracted_Shoreline":
         """
         Extracts shorelines for a specified region of interest (ROI) from a saved session and returns an Extracted_Shoreline class instance.
@@ -1204,7 +1209,7 @@ class Extracted_Shoreline:
         - roi_settings (dict): A dictionary of region of interest settings.
         - settings (dict): A dictionary of extraction settings.
         - session_path (str): The path of the saved session from which the shoreline extraction needs to be resumed.
-
+        - new_session_path (str) :The path of the new session where the extreacted shorelines extraction will be saved
         Returns:
         - object: The Extracted_Shoreline class instance.
         """
@@ -1236,14 +1241,49 @@ class Extracted_Shoreline:
         # Sample class mapping {0:'water',   1:'whitewater', 2:'sand', 3:'rock'}
         class_mapping = get_class_mapping(model_card_path)
 
-        self.dictionary = self.extract_shorelines(
-            shoreline,
-            roi_settings,
-            settings,
-            session_path=session_path,
+        # get the reference shoreline
+        reference_shoreline = get_reference_shoreline(
+            shoreline, settings["output_epsg"]
+        )
+        # Add reference shoreline to shoreline_settings
+        self.shoreline_settings = self.create_shoreline_settings(
+            settings, roi_settings, reference_shoreline
+        )
+        # gets metadata used to extract shorelines
+        metadata = get_metadata(self.shoreline_settings["inputs"])
+        logger.info(f"metadata: {metadata}")
+        logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
+
+        # self.dictionary = self.extract_shorelines(
+        #     shoreline,
+        #     roi_settings,
+        #     settings,
+        #     session_path=session_path,
+        #     class_indices=water_classes_indices,
+        #     class_mapping=class_mapping,
+        # )
+
+        extracted_shorelines_dict = extract_shorelines_with_dask(
+            session_path,
+            metadata,
+            self.shoreline_settings,
             class_indices=water_classes_indices,
             class_mapping=class_mapping,
+            save_location = new_session_path,
         )
+
+        logger.info(f"extracted_shoreline_dict: {extracted_shorelines_dict}")
+        # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
+        extracted_shorelines_dict = remove_duplicates(
+            extracted_shorelines_dict
+        )  # removes duplicates (images taken on the same date by the same satellite)
+        extracted_shorelines_dict = remove_inaccurate_georef(
+            extracted_shorelines_dict, 10
+        )  # remove inaccurate georeferencing (set threshold to 10 m)
+        logger.info(
+            f"after remove_inaccurate_georef : extracted_shoreline_dict: {extracted_shorelines_dict}"
+        )
+        self.dictionary = extracted_shorelines_dict
 
         if is_list_empty(self.dictionary["shorelines"]):
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
@@ -1573,7 +1613,7 @@ def make_coastsat_compatible(feature: gpd.geodataframe) -> list:
     """
     features = []
     # Use explode to break multilinestrings in linestrings
-    feature_exploded = feature.explode()
+    feature_exploded = feature.explode(index_parts=True)
     # For each linestring portion of feature convert to lat,lon tuples
     lat_lng = feature_exploded.apply(
         lambda row: tuple(np.array(row.geometry.coords).tolist()), axis=1
