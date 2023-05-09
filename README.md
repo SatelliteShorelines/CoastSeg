@@ -65,11 +65,11 @@ jupyter lab SDS_unet_classifier.ipynb
 In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) to install the python packages in an environment for Coastseg. After you install Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
 
 1. Create an Anaconda environment
-- This command creates an anaconda environment named `coastseg` and installs `python 3.9` in it
+- This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it
 - You can also use `python 3.10`
 - We will install the CoastSeg package and its dependencies in this environment.
   ```bash
-  conda create --name coastseg python=3.9 -y
+  conda create --name coastseg python=3.10 -y
   ```
 
 2. Activate your conda environment
@@ -95,14 +95,21 @@ In order to use Coastseg you need to install Python packages in an environment. 
    ```bash
    pip install coastseg
    ```
+5. Uninstall the h5py installed by pip and reinstall with conda-forge
+   ```bash
+   pip uninstall h5py
+   conda install -c conda-forge h5py
+   ```
 
 **All the Installation Commands:**
 
 ``` bash
-conda create --name coastseg python=3.9 -y
+conda create --name coastseg python=3.10 -y
 conda activate coastseg
 conda install -c conda-forge geopandas jupyterlab -y
 pip install coastseg
+pip uninstall h5py
+conda install -c conda-forge h5py
 ```
 
 ## **Having Installation Errors?**
@@ -166,6 +173,7 @@ Package maintainers:
 Contributions:
 
 - [@ebgoldstein](https://github.com/ebgoldstein)
+- [@kvos](https://github.com/kvos)
 
 ## Citations
 Thank you to all the amazing research who contributed their transects to coastseg.
