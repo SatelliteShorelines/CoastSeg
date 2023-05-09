@@ -19,7 +19,6 @@ from area import area
 import geopandas as gpd
 import numpy as np
 import geojson
-from leafmap import check_file_path
 import pandas as pd
 import shapely
 from ipyfilechooser import FileChooser
@@ -31,6 +30,36 @@ from ipywidgets import Layout
 from ipywidgets import HTML
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
+
+def check_file_path(file_path, make_dirs=True):
+    """Gets the absolute file path.
+
+    Args:
+        file_path (str): The path to the file.
+        make_dirs (bool, optional): Whether to create the directory if it does not exist. Defaults to True.
+
+    Raises:
+        FileNotFoundError: If the directory could not be found.
+        TypeError: If the input directory path is not a string.
+
+    Returns:
+        str: The absolute path to the file.
+    """
+    if isinstance(file_path, str):
+        if file_path.startswith("~"):
+            file_path = os.path.expanduser(file_path)
+        else:
+            file_path = os.path.abspath(file_path)
+
+        file_dir = os.path.dirname(file_path)
+        if not os.path.exists(file_dir) and make_dirs:
+            os.makedirs(file_dir)
+
+        return file_path
+
+    else:
+        raise TypeError("The provided file path must be a string.")
+
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +176,6 @@ def copy_configs(src: str, dst: str) -> None:
     """
     # Get the list of files in the source directory
     files = os.listdir(src)
-
     # Loop through the files and copy the ones we need
     for file in files:
         if file.startswith("config_gdf") and file.endswith(".geojson"):
@@ -1059,7 +1087,17 @@ def create_csv_per_transect(
         )
 
 
-def save_extracted_shorelines(extracted_shorelines, save_path: str):
+def save_extracted_shoreline_figures(extracted_shorelines:"Extracted_Shoreline", save_path: str):
+    """
+    Save extracted shoreline figures to a specified save path.
+
+    The function first constructs the path to the extracted shoreline figures
+    and checks if the path exists. If the path exists, it moves the files to a
+    new directory specified by save_path.
+
+    :param extracted_shorelines:An Extracted_Shoreline object containing the extracted shorelines and shoreline settings.
+    :param save_path: The path where the output figures will be saved.
+    """
     data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
     sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
     extracted_shoreline_figure_path = os.path.join(
@@ -1072,14 +1110,33 @@ def save_extracted_shorelines(extracted_shorelines, save_path: str):
         logger.info(f"dst_path : {dst_path }")
         move_files(extracted_shoreline_figure_path, dst_path, delete_src=True)
 
+
+def save_extracted_shorelines(extracted_shorelines:"Extracted_Shoreline", save_path: str):
+    """
+    Save extracted shorelines, settings, and dictionary to their respective files.
+
+    The function saves the following files in the specified save_path:
+    - extracted_shorelines.geojson: contains the extracted shorelines as a GeoJSON object.
+    - shoreline_settings.json: contains the shoreline settings as JSON data.
+    - extracted_shorelines_dict.json: contains the extracted shorelines dictionary as JSON data.
+
+    :param extracted_shorelines: An Extracted_Shoreline object containing the extracted shorelines, shoreline settings, and dictionary.
+    :param save_path: The path where the output files will be saved.
+    """
+
+    # Save extracted shorelines as a GeoJSON file
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines.geojson", extracted_shorelines.gdf
     )
+    
+    # Save shoreline settings as a JSON file
     extracted_shorelines.to_file(
         save_path,
         "shoreline_settings.json",
         extracted_shorelines.shoreline_settings,
     )
+    
+    # Save extracted shorelines dictionary as a JSON file
     extracted_shorelines.to_file(
         save_path,
         "extracted_shorelines_dict.json",

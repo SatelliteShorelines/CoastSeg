@@ -1194,6 +1194,7 @@ class CoastSeg_Map:
                 logger.info(f"No extracted shorelines for ROI: {roi_id}")
                 continue
             # move extracted shoreline figures to session directory
+            common.save_extracted_shoreline_figures(extracted_shoreline, session_path)
             common.save_extracted_shorelines(extracted_shoreline, session_path)
 
             # save transects to session folder
