@@ -730,8 +730,29 @@ class Zoo_Model:
             raise ValueError(
                 f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}"
             )
+             
+
         # load shorelines for ROI
         shoreline_for_roi = shoreline.Shoreline(roi_gdf)
+
+        # load transects for ROI
+        transects_in_roi = transects.Transects(roi_gdf)
+        # convert transects gdf to output crs
+        output_epsg = extract_shoreline_settings["output_epsg"]
+        transects_gdf = transects_in_roi.gdf[["id", "geometry"]]
+        transects_gdf = transects_gdf.to_crs(output_epsg)
+
+        # save config files
+        config_json = common.create_json_config(
+            roi_settings, extract_shoreline_settings, roi_ids=[roi_id]
+        )
+        common.config_to_file(config_json, new_session_path)
+        # save a config geodataframe with the rois, reference shoreline and transects
+        config_gdf = common.create_config_gdf(
+            roi_gdf, shoreline_for_roi.gdf, transects_in_roi.gdf
+        )
+        common.config_to_file(config_gdf, new_session_path)   
+
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         # extract shorelines with most accurate crs
         new_espg = common.get_most_accurate_epsg(extract_shoreline_settings, roi_gdf)
@@ -745,15 +766,11 @@ class Zoo_Model:
                 roi_settings,
                 extract_shoreline_settings,
                 session_path,
+                new_session_path,
             )
         )
 
-        # load transects for ROI
-        transects_in_roi = transects.Transects(roi_gdf)
-        # convert transects gdf to output crs
-        output_epsg = extract_shoreline_settings["output_epsg"]
-        transects_gdf = transects_in_roi.gdf[["id", "geometry"]]
-        transects_gdf = transects_gdf.to_crs(output_epsg)
+
         # compute intersection between extracted shorelines and transects
         transects_dict = common.get_transect_points_dict(transects_gdf)
         cross_distance_transects = SDS_transects.compute_intersection_QC(
@@ -782,15 +799,7 @@ class Zoo_Model:
 
         # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
-        config_json = common.create_json_config(
-            roi_settings, extract_shoreline_settings, roi_ids=[roi_id]
-        )
-        common.config_to_file(config_json, new_session_path)
-        # save a config geodataframe with the rois, reference shoreline and transects
-        config_gdf = common.create_config_gdf(
-            roi_gdf, shoreline_for_roi.gdf, transects_in_roi.gdf
-        )
-        common.config_to_file(config_gdf, new_session_path)
+        common.save_extracted_shoreline_figures(extracted_shorelines, new_session_path)
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
         shutil.copy(model_settings_location, model_settings_path)
         print(f"Saved extracted shorelines to {new_session_path}")
