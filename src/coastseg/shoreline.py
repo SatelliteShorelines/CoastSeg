@@ -15,7 +15,7 @@ from coastseg.common import (
 # External dependencies imports
 import geopandas as gpd
 from pandas import concat
-from fiona.errors import DriverError
+# from fiona.errors import DriverError
 from ipyleaflet import GeoJSON
 
 logger = logging.getLogger(__name__)
@@ -94,11 +94,12 @@ class Shoreline:
 
         # Read in each shoreline file and clip it to the bounding box
         for shoreline_file in shoreline_files:
-            try:
-                shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
-            except DriverError as driver_error:
-                print(driver_error)
-                continue
+            shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
+            # try:
+                # shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
+            # except DriverError as driver_error:
+            #     print(driver_error)
+            #     continue
 
             columns_to_keep = [
                 "geometry",
