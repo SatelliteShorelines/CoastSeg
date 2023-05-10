@@ -35,18 +35,14 @@ from coastsat.SDS_tools import (
     get_filepath,
     get_filenames,
 )
+import pandas as pd
+pd.set_option("mode.chained_assignment", None)
 
 # imports for show detection
 from coastsat import SDS_tools
-import matplotlib.cm as cm
 from matplotlib import gridspec
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
-
-import warnings
-from pandas.core.common import SettingWithCopyWarning
-
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 
 logger = logging.getLogger(__name__)
