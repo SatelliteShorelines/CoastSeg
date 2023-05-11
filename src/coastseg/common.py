@@ -268,23 +268,26 @@ def create_file_chooser(
     return chooser
 
 
-def get_most_accurate_epsg(settings: dict, bbox: gpd.GeoDataFrame) -> int:
+
+def get_most_accurate_epsg(epsg_code:int, bbox: gpd.GeoDataFrame):
     """Returns most accurate epsg code based on lat and lon if output epsg
     was 4326 or 4327
     Args:
-        settings (dict): settings for map must contain output_epsg
+        epsg_code(int or str): current epsg code
         bbox (gpd.GeoDataFrame): geodataframe for bounding box on map
     Returns:
         int: epsg code that is most accurate or unchanged if crs not 4326 or 4327
     """
-    output_epsg = settings["output_epsg"]
-    logger.info(f"Old output_epsg:{output_epsg}")
-    # coastsat cannot use 4326 to extract shorelines so modify output_epsg
-    if output_epsg == 4326 or output_epsg == 4327:
+    if isinstance(epsg_code, str) and epsg_code.startswith('epsg:'):
+        epsg_code = epsg_code.split(':')[1]
+    epsg_code = int(epsg_code)
+    # coastsat cannot use 4326 to extract shorelines so modify epsg_code
+    if epsg_code == 4326 or epsg_code == 4327:
         geometry = bbox.iloc[0]["geometry"]
-        output_epsg = get_epsg_from_geometry(geometry)
-        logger.info(f"New output_epsg:{output_epsg}")
-    return output_epsg
+        epsg_code = get_epsg_from_geometry(geometry)
+    return epsg_code
+
+
 
 
 def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
