@@ -1387,10 +1387,15 @@ class Extracted_Shoreline:
         roi_settings: dict,
         reference_shoreline: dict,
     ) -> None:
-        """sets self.shoreline_settings to dictionary containing settings, reference_shoreline
-        and roi_settings
+        """Create and return a dictionary containing settings for shoreline.
 
-        shoreline_settings=
+        Args:
+            settings (dict): map settings
+            roi_settings (dict): settings of the roi. Must include 'dates'
+            reference_shoreline (dict): reference shoreline
+
+        Example)
+        shoreline_settings =
         {
             "reference_shoreline":reference_shoreline,
             "inputs": roi_settings,
@@ -1400,14 +1405,10 @@ class Extracted_Shoreline:
             rest of items from settings
         }
 
-        Args:
-            settings (dict): map settings
-            roi_settings (dict): settings of the roi. Must include 'dates'
-            reference_shoreline (dict): reference shoreline
+        Returns:
+            dict: The created shoreline settings.
         """
-        # deepcopy settings to shoreline_settings so it can be modified
-        # shoreline_settings = copy.deepcopy(settings)
-        shoreline_keys = [
+        SHORELINE_KEYS = [
             "cloud_thresh",
             "cloud_mask_issue",
             "min_beach_area",
@@ -1418,22 +1419,23 @@ class Extracted_Shoreline:
             "max_dist_ref",
             "dist_clouds",
             "percent_no_data",
-            "model_session_path", # path to model session file
+            "model_session_path",  # path to model session file
         ]
         logger.info(f"settings used to create shoreline settings: {settings}")
-        shoreline_settings={k: v for k, v in settings.items() if k in shoreline_keys}
+        shoreline_settings={k: v for k, v in settings.items() if k in SHORELINE_KEYS}
         logger.info(f"Loading shoreline_settings: {shoreline_settings}")
-        # Add reference shoreline and shoreline buffer distance for this specific ROI
-        shoreline_settings["reference_shoreline"] = reference_shoreline
-        # disable adjusting shorelines manually in shoreline_settings
-        shoreline_settings["adjust_detection"] = False
-        # disable adjusting shorelines manually in shoreline_settings
-        shoreline_settings["check_detection"] = False
-        shoreline_settings["save_figure"] = True
-        # copy roi_setting for this specific roi
-        shoreline_settings["inputs"] = roi_settings
+        
+        shoreline_settings.update({
+            "reference_shoreline": reference_shoreline,
+            "adjust_detection": False, # disable adjusting shorelines manually 
+            "check_detection": False, # disable adjusting shorelines manually
+            "save_figure": True, # always save a matplotlib figure of shorelines
+            "inputs": roi_settings # copy settings for ROI shoreline will be extracted from
+        })
+
         logger.info(f"shoreline_settings: {shoreline_settings}")
         return shoreline_settings
+
 
     def create_geodataframe(
         self, input_crs: str, output_crs: str = None
