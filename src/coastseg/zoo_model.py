@@ -741,6 +741,13 @@ class Zoo_Model:
         output_epsg = extract_shoreline_settings["output_epsg"]
         transects_gdf = transects_in_roi.gdf[["id", "geometry"]]
         transects_gdf = transects_gdf.to_crs(output_epsg)
+  
+
+        extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
+        # extract shorelines with most accurate crs
+        new_espg = common.get_most_accurate_epsg(extract_shoreline_settings.get('output_epsg',4326), roi_gdf)
+        extract_shoreline_settings["output_epsg"] = new_espg
+        self.set_settings(output_epsg=new_espg)
 
         # save config files
         config_json = common.create_json_config(
@@ -751,13 +758,7 @@ class Zoo_Model:
         config_gdf = common.create_config_gdf(
             roi_gdf, shoreline_for_roi.gdf, transects_in_roi.gdf
         )
-        common.config_to_file(config_gdf, new_session_path)   
-
-        extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
-        # extract shorelines with most accurate crs
-        new_espg = common.get_most_accurate_epsg(extract_shoreline_settings, roi_gdf)
-        extract_shoreline_settings["output_epsg"] = new_espg
-        self.set_settings(output_epsg=new_espg)
+        common.config_to_file(config_gdf, new_session_path) 
 
         extracted_shorelines = (
             extracted_shorelines.create_extracted_shorlines_from_session(
