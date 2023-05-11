@@ -399,35 +399,32 @@ class CoastSeg_Map:
         feature_gdf = gdf[gdf["type"] == feature_type][keep_columns]
         return feature_gdf
 
-    def download_imagery(self) -> None:
-        """downloads selected rois as jpgs
 
-        Creates a directory for each ROI which contains all the downloaded imagery and
-        the metadata files.
+    def download_imagery(self) -> None:
+        """
+        Downloads all images for the selected ROIs  from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2  covering the area of interest and acquired between the specified dates.
+        The downloaded imagery for each ROI is stored in a directory that follows the convention
+        ID_{ROI}_datetime{current date}__{time}' ex.ID_0_datetime04-11-23__10_20_48. The files are saved as jpgs in a subdirectory
+        'jpg_files' in a subdirectory 'preprocessed' which contains subdirectories for RGB, NIR, and SWIR jpg imagery. The downloaded .TIF images are organised in subfolders, divided
+        by satellite mission. The bands are also subdivided by pixel resolution.
 
         Raises:
             Exception: raised if settings is missing
             Exception: raised if 'dates','sat_list', and 'landsat_collection' are not in settings
             Exception: raised if no ROIs have been selected
-        """
-        # settings cannot be None
-        settings = self.get_settings()
-        # Ensure the required keys are present in the settings
-        required_settings_keys = set(["dates", "sat_list", "landsat_collection"])
-        superset = set(list(settings.keys()))
-        exception_handler.check_if_subset(required_settings_keys, superset, "settings")
+        """      
 
-        # selected_layer must contain selected ROI
+        self.validate_download_imagery_inputs()
+
+        # selected_layer contains the selected ROIs
         selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
-        exception_handler.check_empty_layer(selected_layer, ROI.SELECTED_LAYER_NAME)
-        exception_handler.check_empty_roi_layer(selected_layer)
-
         logger.info(f"selected_layer: {selected_layer}")
 
         # Get the file path where the downloaded imagery will be saved
         file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
         date_str = common.generate_datestring()
 
+        settings = self.get_settings()
         # Create a list of download settings for each ROI
         roi_settings = common.create_roi_settings(
             settings, selected_layer.data, file_path, date_str
@@ -441,24 +438,13 @@ class CoastSeg_Map:
         logger.info(f"inputs_list {inputs_list}")
 
         # 2. For each ROI use download settings to download imagery and save to jpg
-        print("Download in process")
-        cloud_theshold = settings.get("cloud_thresh",99.9)
-        cloud_mask_issue = settings.get("cloud_mask_issue",False)
-        # # make a deep copy so settings doesn't get modified by the temp copy
-        # tmp_settings = copy.deepcopy(settings)
-
+        print("Download in progress")
         # for each ROI use the ROI settings to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
             SDS_download.retrieve_images(inputs_for_roi,
-                                                    cloud_threshold=cloud_theshold,
-                                                    cloud_mask_issue=cloud_mask_issue,
+                                                    cloud_threshold=settings.get("cloud_thresh"),
+                                                    cloud_mask_issue=settings.get("cloud_mask_issue"),
                                                     save_jpg=True)
-            # tmp_settings["inputs"] = inputs_for_roi
-            # logger.info(f"inputs: {inputs_for_roi}")
-            # logger.info(f"Saving to jpg. Metadata: {metadata}")
-            # SDS_preprocess.save_jpg(metadata, tmp_settings)
-        # tmp settings is no longer needed
-        # del tmp_settings
         # 3.save settings used to download rois and the objects on map to config files
         self.save_config()
         logger.info("Done downloading")
@@ -697,7 +683,11 @@ class CoastSeg_Map:
         logger.info(f"self.settings: {self.settings}")
         if self.settings is None or self.settings == {}:
             raise Exception(SETTINGS_NOT_FOUND)
+        
+        self.settings.setdefault("cloud_mask_issue",False)
+        self.settings.setdefault("cloud_thresh",99.9)
         return self.settings
+
 
     def update_transects_html(self, feature, **kwargs):
         # Modifies html when transect is hovered over
@@ -912,42 +902,95 @@ class CoastSeg_Map:
             )
         return None
 
+    def update_settings(self):
+        """Updates settings with the most accurate epsg code based on lat and lon if output epsg
+            was 4326 or 4327.
+        """        
+        settings = self.get_settings()
+        new_espg = common.get_most_accurate_epsg(settings.get('output_epsg',4326), self.bbox.gdf)
+        self.set_settings(output_epsg=new_espg)
+
+    def validate_transect_inputs(self):
+        # ROIs,settings, roi-settings cannot be None or empty
+        settings = self.get_settings()
+        exception_handler.check_if_empty_string(self.get_session_name(), "session name")
+        # ROIs, transects, and extracted shorelines must exist
+        exception_handler.check_if_None(self.rois, "ROIs")
+        exception_handler.check_if_None(self.transects, "transects")
+        exception_handler.check_empty_dict(
+            self.rois.get_all_extracted_shorelines(), "extracted_shorelines"
+        )
+        # settings must contain key 'along_dist'
+        exception_handler.check_if_subset(
+            set(["along_dist"]), set(list(settings.keys())), "settings"
+        )
+        # if no rois are selected throw an error
+        exception_handler.check_selected_set(self.selected_set)
+
+        # ids of ROIs that have had their shorelines extracted
+        extracted_shoreline_ids = set(
+            list(self.rois.get_all_extracted_shorelines().keys())
+        )
+        # Get ROI ids that are selected on map and have had their shorelines extracted
+        roi_ids = list(extracted_shoreline_ids & self.selected_set)
+        # if none of the selected ROIs on the map have had their shorelines extracted throw an error
+        exception_handler.check_if_list_empty(roi_ids)
+
+    def validate_extract_shoreline_inputs(self):
+        # ROIs,settings, roi-settings cannot be None or empty
+        settings = self.get_settings()
+        exception_handler.check_if_empty_string(self.get_session_name(), "session name")
+        # ROIs, transects,shorelines and a bounding box must exist
+        exception_handler.check_if_None(self.rois, "ROIs")
+        exception_handler.check_if_None(self.shoreline, "shoreline")
+        exception_handler.check_if_None(self.transects, "transects")
+        exception_handler.check_if_None(self.bbox, "bounding box")
+        # ROI settings must not be empty
+        exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
+
+        # settings must contain keys in subset
+        superset = set(list(settings.keys()))
+        exception_handler.check_if_subset(set(["dates", "sat_list", "landsat_collection"]), superset, "settings")
+
+        # if no rois are selected throw an error
+        exception_handler.check_selected_set(self.selected_set)
+
+        # roi_settings must contain roi ids in selected set
+        superset = set(list(self.rois.roi_settings.keys()))
+        error_message = "To extract shorelines you must first select ROIs and have the data downloaded."
+        exception_handler.check_if_subset(
+            self.selected_set, superset, "roi_settings", error_message
+        )
+        # raise error if selected rois were not downloaded
+        exception_handler.check_if_rois_downloaded(self.rois.roi_settings, self.get_selected_roi_ids())
+
+    def validate_download_imagery_inputs(self):
+        # settings cannot be None
+        settings = self.get_settings()
+        # Ensure the required keys are present in the settings
+        required_settings_keys = set(["dates", "sat_list", "landsat_collection"])
+        superset = set(list(settings.keys()))
+        exception_handler.check_if_subset(required_settings_keys, superset, "settings")
+
+        # selected_layer must contain selected ROI
+        selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
+        exception_handler.check_empty_layer(selected_layer, ROI.SELECTED_LAYER_NAME)
+        exception_handler.check_empty_roi_layer(selected_layer)
+
+
+
+
     def extract_all_shorelines(self) -> None:
         """Use this function when the user interactively downloads rois
         Iterates through all the ROIS downloaded by the user as indicated by the roi_settings generated by
         download_imagery() and extracts a shoreline for each of them
         """
-        # ROIs,settings, roi-settings cannot be None or empty
-        settings = self.get_settings()
-        exception_handler.check_if_empty_string(self.get_session_name(), "session name")
-        exception_handler.check_if_None(self.rois, "ROIs")
-        exception_handler.check_if_None(self.shoreline, "shoreline")
-        exception_handler.check_if_None(self.transects, "transects")
-        exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
-        # settings must contain keys in subset
-        subset = set(["dates", "sat_list", "landsat_collection"])
-        superset = set(list(settings.keys()))
-        exception_handler.check_if_subset(subset, superset, "settings")
-        # roi_settings must contain roi ids in selected set
-        subset = self.selected_set
-        superset = set(list(self.rois.roi_settings.keys()))
-        error_message = "To extract shorelines you must first select ROIs and have the data downloaded."
-        exception_handler.check_if_subset(
-            subset, superset, "roi_settings", error_message
-        )
-        # if no rois are selected throw an error
-        exception_handler.check_selected_set(self.selected_set)
+        self.validate_extract_shoreline_inputs()
         roi_ids = self.get_selected_roi_ids()
-        logger.info(f"roi_ids: {roi_ids}")
-        # ensure selected rois have been downloaded
-        exception_handler.check_if_rois_downloaded(self.rois.roi_settings, roi_ids)
-        # ensure a bounding box exists on the map
-        exception_handler.check_if_None(self.bbox, "bounding box")
+        logger.info(f"roi_ids to extract shorelines from: {roi_ids}")
 
-        # if output_epsg is 4326 or 4327 change output_epsg to most accurate crs
-        new_espg = common.get_most_accurate_epsg(settings, self.bbox.gdf)
-        # update settings with the new output_epsg
-        self.set_settings(output_epsg=new_espg)
+        # update the settings with the most accurate epsg
+        self.update_settings()
         # update configs with new output_epsg
         self.save_config()
 
@@ -1148,15 +1191,8 @@ class CoastSeg_Map:
                 time-series of cross-shore distance along each of the transects. Not tidally corrected. }
         """
         settings = self.get_settings()
-        exception_handler.check_if_empty_string(self.get_session_name(), "session name")
-        exception_handler.check_if_None(self.rois, "ROIs")
-        exception_handler.check_if_None(self.transects, "transects")
-        exception_handler.check_empty_dict(
-            self.rois.get_all_extracted_shorelines(), "extracted_shorelines"
-        )
-        exception_handler.check_if_subset(
-            set(["along_dist"]), set(list(settings.keys())), "settings"
-        )
+        self.validate_transect_inputs()
+
         # ids of ROIs that have had their shorelines extracted
         extracted_shoreline_ids = set(
             list(self.rois.get_all_extracted_shorelines().keys())
@@ -1165,8 +1201,6 @@ class CoastSeg_Map:
 
         # Get ROI ids that are selected on map and have had their shorelines extracted
         roi_ids = list(extracted_shoreline_ids & self.selected_set)
-        # if none of the selected ROIs on the map have had their shorelines extracted throw an error
-        exception_handler.check_if_list_empty(roi_ids)
 
         # user selected output projection
         output_epsg = "epsg:" + str(settings["output_epsg"])
