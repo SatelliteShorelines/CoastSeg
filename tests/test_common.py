@@ -194,8 +194,12 @@ def test_config_geodataframe_to_file(tmp_path):
 
 def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_gdf):
     # test if a gdf is created with all the rois, shorelines and transects
+    epsg_code = 'epsg:4326'
+    if valid_rois_gdf is not None:
+        if not valid_rois_gdf.empty:
+            epsg_code = valid_rois_gdf.crs
     actual_gdf = common.create_config_gdf(
-        valid_rois_gdf, valid_shoreline_gdf, valid_transects_gdf
+        valid_rois_gdf, valid_shoreline_gdf, valid_transects_gdf,epsg_code=epsg_code
     )
     assert "type" in actual_gdf.columns
     assert actual_gdf[actual_gdf["type"] == "transect"].empty == False
@@ -204,8 +208,12 @@ def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_
 
     # test if a gdf is created with all the rois, transects if shorelines is None
     shorelines_gdf = None
+    epsg_code = 'epsg:4326'
+    if valid_rois_gdf is not None:
+        if not valid_rois_gdf.empty:
+            epsg_code = valid_rois_gdf.crs
     actual_gdf = common.create_config_gdf(
-        valid_rois_gdf, shorelines_gdf, valid_transects_gdf
+        valid_rois_gdf, shorelines_gdf, valid_transects_gdf,epsg_code=epsg_code
     )
     assert "type" in actual_gdf.columns
     assert actual_gdf[actual_gdf["type"] == "transect"].empty == False
@@ -213,7 +221,11 @@ def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_
     assert actual_gdf[actual_gdf["type"] == "roi"].empty == False
     # test if a gdf is created with all the rois if  transects and shorelines is None
     transects_gdf = None
-    actual_gdf = common.create_config_gdf(valid_rois_gdf, shorelines_gdf, transects_gdf)
+    epsg_code = 'epsg:4326'
+    if valid_rois_gdf is not None:
+        if not valid_rois_gdf.empty:
+            epsg_code = valid_rois_gdf.crs
+    actual_gdf = common.create_config_gdf(valid_rois_gdf, shorelines_gdf, transects_gdf,epsg_code=epsg_code)
     assert "type" in actual_gdf.columns
     assert actual_gdf[actual_gdf["type"] == "transect"].empty == True
     assert actual_gdf[actual_gdf["type"] == "shoreline"].empty == True

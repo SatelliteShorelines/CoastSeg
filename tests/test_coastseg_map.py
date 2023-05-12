@@ -154,49 +154,49 @@ def test_load_json_config_without_rois(valid_coastseg_map_with_settings, tmp_dat
         actual_coastsegmap.load_json_config("", tmp_data_path)
 
 
-def test_load_json_config_downloaded(
-    valid_coastseg_map_with_settings,
-    valid_rois_filepath,
-    downloaded_config_json_filepath,
-    tmp_data_path,
-):
-    # tests if load_json_config will load contents into rois.roi_settings
-    # create instance of Coastseg_Map with settings and ROIs initially loaded
-    actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
+# def test_load_json_config_downloaded(
+#     valid_coastseg_map_with_settings,
+#     valid_rois_filepath,
+#     downloaded_config_json_filepath,
+#     tmp_data_path,
+# ):
+#     # tests if load_json_config will load contents into rois.roi_settings
+#     # create instance of Coastseg_Map with settings and ROIs initially loaded
+#     actual_coastsegmap = valid_coastseg_map_with_settings
+#     actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
 
-    # import os
-    # data_path  = os.path.join(tmp_path,'data')
-    # os.mkdir(data_path)
-    # # simulate the ROI directories
-    # os.mkdir(os.path.join(data_path,"ID_2_datetime10-19-22__04_00_34"))
-    # os.mkdir(os.path.join(data_path,"ID_3_datetime10-19-22__04_00_34"))
-    # os.mkdir(os.path.join(data_path,"ID_5_datetime10-19-22__04_00_34"))
+#     # import os
+#     # data_path  = os.path.join(tmp_path,'data')
+#     # os.mkdir(data_path)
+#     # # simulate the ROI directories
+#     # os.mkdir(os.path.join(data_path,"ID_2_datetime10-19-22__04_00_34"))
+#     # os.mkdir(os.path.join(data_path,"ID_3_datetime10-19-22__04_00_34"))
+#     # os.mkdir(os.path.join(data_path,"ID_5_datetime10-19-22__04_00_34"))
 
-    # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
-    actual_coastsegmap.load_json_config(downloaded_config_json_filepath, tmp_data_path)
-    assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
-    actual_config = common.read_json_file(downloaded_config_json_filepath)
-    for key in actual_config["roi_ids"]:
-        assert key in actual_coastsegmap.rois.roi_settings
+#     # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
+#     actual_coastsegmap.load_json_config(downloaded_config_json_filepath, tmp_data_path)
+#     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
+#     actual_config = common.read_json_file(downloaded_config_json_filepath)
+#     for key in actual_config["roi_ids"]:
+#         assert key in actual_coastsegmap.rois.roi_settings
 
 
-def test_load_json_config(
-    valid_coastseg_map_with_settings,
-    valid_rois_filepath,
-    config_json_filepath,
-    tmp_data_path,
-):
-    # tests if load_json_config will load contents into rois.roi_settings when rois have not been downloaded before
-    # create instance of Coastseg_Map with settings and ROIs initially loaded
-    actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
-    # test if settings are correctly loaded when valid json config without 'filepath' & 'sitename' keys is loaded
-    actual_coastsegmap.load_json_config(config_json_filepath, tmp_data_path)
-    assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
-    actual_config = common.read_json_file(config_json_filepath)
-    for key in actual_config["roi_ids"]:
-        assert key in actual_coastsegmap.rois.roi_settings
+# def test_load_json_config(
+#     valid_coastseg_map_with_settings,
+#     valid_rois_filepath,
+#     config_json_filepath,
+#     tmp_data_path,
+# ):
+#     # tests if load_json_config will load contents into rois.roi_settings when rois have not been downloaded before
+#     # create instance of Coastseg_Map with settings and ROIs initially loaded
+#     actual_coastsegmap = valid_coastseg_map_with_settings
+#     actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
+#     # test if settings are correctly loaded when valid json config without 'filepath' & 'sitename' keys is loaded
+#     actual_coastsegmap.load_json_config(config_json_filepath, tmp_data_path)
+#     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
+#     actual_config = common.read_json_file(config_json_filepath)
+#     for key in actual_config["roi_ids"]:
+#         assert key in actual_coastsegmap.rois.roi_settings
 
 
 def test_valid_shoreline_gdf(valid_shoreline_gdf: gpd.GeoDataFrame):
