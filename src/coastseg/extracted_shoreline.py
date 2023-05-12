@@ -161,6 +161,7 @@ def process_satellite(
     filepath = get_filepath(settings["inputs"], satname)
     # get list of file associated with this satellite
     filenames = metadata[satname]["filenames"]
+    logger.info(f"metadata: {metadata}")
     # get the pixel size of the satellite in meters
     pixel_size = get_pixel_size_for_satellite(satname)
     # get the minimum beach area in number of pixels depending on the satellite
@@ -708,6 +709,9 @@ def save_detection_figure(fig, filepath: str, date: str, satname: str) -> None:
     """
     fig.savefig(os.path.join(filepath, date + "_" + satname + ".jpg"), dpi=150)
     plt.close(fig)  # Close the figure after saving
+    plt.close('all')
+    del fig
+
 
 
 def create_legend(
@@ -975,11 +979,13 @@ def extract_shorelines_with_dask(
     logger.info(f"dask tuple_of_dicts: {tuple_of_dicts}")
 
     # convert from a tuple of dicts to single dictionary
-    result_dict = {k: v for dictionary in tuple_of_dicts for k, v in dictionary.items()}
-
-    # change the format to have one list sorted by date with all the shorelines (easier to use)
-    extracted_shorelines_data = combine_satellite_data(result_dict)
-    logger.info(f"final_output: {extracted_shorelines_data}")
+    extracted_shorelines_data = {}
+    if not all(not bool(inner_dict) for inner_dict in tuple_of_dicts):
+        result_dict = {k: v for dictionary in tuple_of_dicts for k, v in dictionary.items()}
+        # change the format to have one list sorted by date with all the shorelines (easier to use)
+        extracted_shorelines_data = combine_satellite_data(result_dict)
+    
+    logger.info(f"extracted_shorelines_data: {extracted_shorelines_data}")
 
     return extracted_shorelines_data
 
@@ -1306,6 +1312,8 @@ class Extracted_Shoreline:
             class_mapping=class_mapping,
             save_location=new_session_path,
         )
+        if extracted_shorelines_dict == {}:
+            raise Exception(f"Failed to extract any shorelines.")
 
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines_dict}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
