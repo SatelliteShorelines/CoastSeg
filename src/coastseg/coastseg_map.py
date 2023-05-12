@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import copy
 import glob
 from typing import List, Optional, Tuple, Union
 from collections import defaultdict
@@ -325,7 +324,9 @@ class CoastSeg_Map:
             "dist_clouds",
             "percent_no_data",
         ]
-        shoreline_settings={k: v for k, v in new_settings.items() if k in shoreline_keys}
+        shoreline_settings = {
+            k: v for k, v in new_settings.items() if k in shoreline_keys
+        }
         shoreline_settings["save_figure"] = True
         shoreline_settings["check_detection"] = False
         shoreline_settings["adjust_detection"] = False
@@ -399,7 +400,6 @@ class CoastSeg_Map:
         feature_gdf = gdf[gdf["type"] == feature_type][keep_columns]
         return feature_gdf
 
-
     def download_imagery(self) -> None:
         """
         Downloads all images for the selected ROIs  from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2  covering the area of interest and acquired between the specified dates.
@@ -412,7 +412,7 @@ class CoastSeg_Map:
             Exception: raised if settings is missing
             Exception: raised if 'dates','sat_list', and 'landsat_collection' are not in settings
             Exception: raised if no ROIs have been selected
-        """      
+        """
 
         self.validate_download_imagery_inputs()
 
@@ -441,10 +441,12 @@ class CoastSeg_Map:
         print("Download in progress")
         # for each ROI use the ROI settings to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
-            SDS_download.retrieve_images(inputs_for_roi,
-                                                    cloud_threshold=settings.get("cloud_thresh"),
-                                                    cloud_mask_issue=settings.get("cloud_mask_issue"),
-                                                    save_jpg=True)
+            SDS_download.retrieve_images(
+                inputs_for_roi,
+                cloud_threshold=settings.get("cloud_thresh"),
+                cloud_mask_issue=settings.get("cloud_mask_issue"),
+                save_jpg=True,
+            )
         # 3.save settings used to download rois and the objects on map to config files
         self.save_config()
         logger.info("Done downloading")
@@ -584,8 +586,11 @@ class CoastSeg_Map:
 
         # save all selected rois, shorelines, transects and bbox to config geodataframe
         logger.info(f"selected_rois: {selected_rois}")
+        if selected_rois is not None:
+            if not selected_rois.empty:
+                epsg_code = selected_rois.crs
         config_gdf = common.create_config_gdf(
-            selected_rois, shorelines_gdf, transects_gdf, bbox_gdf
+            selected_rois,shorelines_gdf=shorelines_gdf, transects_gdf=transects_gdf,bbox_gdf=bbox_gdf,epsg_code = epsg_code
         )
         logger.info(f"config_gdf: {config_gdf} ")
         is_downloaded = common.were_rois_downloaded(self.rois.roi_settings, roi_ids)
@@ -683,11 +688,10 @@ class CoastSeg_Map:
         logger.info(f"self.settings: {self.settings}")
         if self.settings is None or self.settings == {}:
             raise Exception(SETTINGS_NOT_FOUND)
-        
-        self.settings.setdefault("cloud_mask_issue",False)
-        self.settings.setdefault("cloud_thresh",99.9)
-        return self.settings
 
+        self.settings.setdefault("cloud_mask_issue", False)
+        self.settings.setdefault("cloud_thresh", 99.9)
+        return self.settings
 
     def update_transects_html(self, feature, **kwargs):
         # Modifies html when transect is hovered over
@@ -806,9 +810,9 @@ class CoastSeg_Map:
                     extracted_sl_gdf = common.read_gpd_file(file)
                 if file.endswith(".json"):
                     if "settings" in os.path.basename(file):
-                        shoreline_settings = common.from_file(file)
+                        shoreline_settings = common.load_data_from_json(file)
                     if "dict" in os.path.basename(file):
-                        extracted_shoreline_dict = common.from_file(file)
+                        extracted_shoreline_dict = common.load_data_from_json(file)
 
             logger.info(f"ROI {roi_id} extracted_sl_gdf: {extracted_sl_gdf}")
             logger.info(f"ROI {roi_id} shoreline_settings: {shoreline_settings}")
@@ -905,13 +909,15 @@ class CoastSeg_Map:
 
     def update_settings(self):
         """Updates settings with the most accurate epsg code based on lat and lon if output epsg
-            was 4326 or 4327.
-        """        
+        was 4326 or 4327.
+        """
         settings = self.get_settings()
-        new_espg = common.get_most_accurate_epsg(settings.get('output_epsg',4326), self.bbox.gdf)
+        new_espg = common.get_most_accurate_epsg(
+            settings.get("output_epsg", 4326), self.bbox.gdf
+        )
         self.set_settings(output_epsg=new_espg)
 
-    def validate_transect_inputs(self,settings):
+    def validate_transect_inputs(self, settings):
         # ROIs,settings, roi-settings cannot be None or empty
         exception_handler.check_if_empty_string(self.get_session_name(), "session name")
         # ROIs, transects, and extracted shorelines must exist
@@ -950,7 +956,9 @@ class CoastSeg_Map:
 
         # settings must contain keys in subset
         superset = set(list(settings.keys()))
-        exception_handler.check_if_subset(set(["dates", "sat_list", "landsat_collection"]), superset, "settings")
+        exception_handler.check_if_subset(
+            set(["dates", "sat_list", "landsat_collection"]), superset, "settings"
+        )
 
         # if no rois are selected throw an error
         exception_handler.check_selected_set(self.selected_set)
@@ -962,7 +970,9 @@ class CoastSeg_Map:
             self.selected_set, superset, "roi_settings", error_message
         )
         # raise error if selected rois were not downloaded
-        exception_handler.check_if_rois_downloaded(self.rois.roi_settings, self.get_selected_roi_ids())
+        exception_handler.check_if_rois_downloaded(
+            self.rois.roi_settings, self.get_selected_roi_ids()
+        )
 
     def validate_download_imagery_inputs(self):
         # settings cannot be None
@@ -977,8 +987,7 @@ class CoastSeg_Map:
         exception_handler.check_empty_layer(selected_layer, ROI.SELECTED_LAYER_NAME)
         exception_handler.check_empty_roi_layer(selected_layer)
 
-
-    def get_roi_ids_with_extracted_shorelines(self,is_selected:bool=True)->list:
+    def get_roi_ids_with_extracted_shorelines(self, is_selected: bool = True) -> list:
         # ids of ROIs that have had their shorelines extracted
         roi_ids = set(self.rois.get_ids_with_extracted_shorelines())
         logger.info(f"extracted_shoreline_ids:{roi_ids}")
@@ -986,7 +995,6 @@ class CoastSeg_Map:
         if is_selected:
             roi_ids = list(roi_ids & self.selected_set)
         return roi_ids
-
 
     def extract_all_shorelines(self) -> None:
         """Use this function when the user interactively downloads rois
@@ -1011,14 +1019,16 @@ class CoastSeg_Map:
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
 
         # save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
-        ids_with_extracted_shorelines = self.get_roi_ids_with_extracted_shorelines(is_selected=False)
+        ids_with_extracted_shorelines = self.get_roi_ids_with_extracted_shorelines(
+            is_selected=False
+        )
         self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
 
         self.save_session(roi_ids, save_transects=False)
 
         # Get ROI ids that are selected on map and have had their shorelines extracted
         roi_ids = self.get_roi_ids_with_extracted_shorelines(is_selected=True)
-        self.compute_transects(self.transects.gdf,self.get_settings(),roi_ids)
+        self.compute_transects(self.transects.gdf, self.get_settings(), roi_ids)
         # load extracted shorelines to map
         self.load_extracted_shorelines_to_map()
 
@@ -1035,38 +1045,14 @@ class CoastSeg_Map:
         selected_rois_gdf = self.rois.gdf[self.rois.gdf["id"].isin(roi_ids)]
         return selected_rois_gdf
 
-    def compute_transects_from_roi(
-        self,
-        extracted_shorelines: dict,
-        transects_gdf: gpd.GeoDataFrame,
-        settings: dict,
-    ) -> dict:
-        """Computes the intersection between the 2D shorelines and the shore-normal.
-            transects. It returns time-series of cross-shore distance along each transect.
-        Args:
-            extracted_shorelines (dict): contains the extracted shorelines and corresponding metadata
-            transects_gdf (gpd.GeoDataFrame): transects in ROI with crs= output_crs in settings
-            settings (dict): settings dict with keys
-                        'along_dist': int
-                            alongshore distance considered calculate the intersection
-        Returns:
-            dict:  time-series of cross-shore distance along each of the transects.
-                   Not tidally corrected.
-        """
-        # create dict of numpy arrays of transect start and end points
-        transects = common.get_transect_points_dict(transects_gdf)
-        logger.info(f"transects: {transects}")
-        # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
-        cross_distance = SDS_transects.compute_intersection_QC(
-            extracted_shorelines, transects, settings
-        )
-        return cross_distance
 
-    def get_cross_distance(self,
-                        roi_id: str,
-                        transects_in_roi_gdf: gpd.GeoDataFrame,
-                        settings: dict,
-                        output_epsg: int) -> Tuple[float, Optional[str]]:
+    def get_cross_distance(
+        self,
+        roi_id: str,
+        transects_in_roi_gdf: gpd.GeoDataFrame,
+        settings: dict,
+        output_epsg: int,
+    ) -> Tuple[float, Optional[str]]:
         """
         Compute the cross shore distance of transects and extracted shorelines for a given ROI.
 
@@ -1087,7 +1073,7 @@ class CoastSeg_Map:
             The computed cross shore distance, or 0 if there was an issue in the computation.
             The reason for failure, or '' if the computation was successful.
         """
-        failure_reason = ''
+        failure_reason = ""
         cross_distance = 0
 
         # Get extracted shorelines object for the currently selected ROI
@@ -1114,7 +1100,7 @@ class CoastSeg_Map:
 
                 # Compute cross shore distance of transects and extracted shorelines
                 extracted_shorelines_dict = roi_extracted_shoreline.dictionary
-                cross_distance = self.compute_transects_from_roi(
+                cross_distance = extracted_shoreline.compute_transects_from_roi(
                     extracted_shorelines_dict,
                     transects_in_roi_gdf,
                     settings,
@@ -1123,7 +1109,6 @@ class CoastSeg_Map:
                     failure_reason = "Cross distance computation failed"
 
         return cross_distance, failure_reason
-
 
     # def get_cross_distance(self,
     #                         roi_id: str,
@@ -1164,7 +1149,7 @@ class CoastSeg_Map:
 
     #     # get extracted shorelines object for the currently selected ROI
     #     roi_extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
-        
+
     #     # transects_in_roi_gdf = transects_in_roi_gdf[["id", "geometry"]]
     #     transects_in_roi_gdf = transects_in_roi_gdf.loc[:, ["id", "geometry"]]
 
@@ -1235,10 +1220,9 @@ class CoastSeg_Map:
             f"ROI: {roi_id} Time-series of the shoreline change along the transects saved as:{filepath}"
         )
 
-    def compute_transects(self,
-                          transects_gdf:gpd.GeoDataFrame,
-                          settings:dict,
-                          roi_ids:list[str]) -> dict:
+    def compute_transects(
+        self, transects_gdf: gpd.GeoDataFrame, settings: dict, roi_ids: list[str]
+    ) -> dict:
         """Returns a dict of cross distances for each roi's transects
         Args:
             selected_rois (dict): rois selected by the user. Must contain the following fields:
@@ -1278,7 +1262,9 @@ class CoastSeg_Map:
             transects_in_roi_gdf = transects_gdf[
                 transects_gdf.intersects(single_roi.unary_union)
             ]
-            cross_distance,failure_reason = self.get_cross_distance(str(roi_id),transects_in_roi_gdf, settings, output_epsg)
+            cross_distance, failure_reason = self.get_cross_distance(
+                str(roi_id), transects_in_roi_gdf, settings, output_epsg
+            )
             if cross_distance == 0:
                 logger.warning(f"{failure_reason} for ROI {roi_id}")
                 print(f"{failure_reason} for ROI {roi_id}")
@@ -1973,6 +1959,14 @@ class CoastSeg_Map:
         feature: Union[Bounding_Box, Shoreline, Transects, ROI],
         feature_type: str = "",
     ):
+        """
+        Save a geographical feature (Bounding_Box, Shoreline, Transects, ROI) as a GeoJSON file.
+        
+        Args:
+            feature (Union[Bounding_Box, Shoreline, Transects, ROI]): The geographical feature to save.
+            feature_type (str, optional): The type of the feature, e.g. Bounding_Box, Shoreline, Transects, or ROI.
+                                        Default value is an empty string.
+        """
         exception_handler.can_feature_save_to_file(feature, feature_type)
         if isinstance(feature, ROI):
             # raise exception if no rois were selected

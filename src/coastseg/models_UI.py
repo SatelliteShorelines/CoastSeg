@@ -4,9 +4,10 @@ import glob
 import logging
 
 # internal python imports
-from coastseg import common
 from coastseg import zoo_model
 from coastseg import settings_UI
+from coastseg import common
+from coastseg.upload_feature_widget import FileUploader
 
 # external python imports
 import ipywidgets
@@ -19,7 +20,6 @@ from ipywidgets import HTML
 from ipywidgets import RadioButtons
 from ipywidgets import Output
 from ipyfilechooser import FileChooser
-from ipywidgets import Text
 from ipywidgets import FloatText
 
 # icons sourced from https://fontawesome.com/v4/icons/
@@ -37,6 +37,11 @@ class UI_Models:
     def __init__(self):
         self.settings_dashboard = settings_UI.Settings_UI()
         self.zoo_model_instance = zoo_model.Zoo_Model()
+        self.fileuploader =  FileUploader(
+            filter_pattern="*geojson",
+            dropdown_options=["transects", "shorelines"],
+            file_selection_title="Select a geojson file",
+        )
         # Controls size of ROIs generated on map
         self.model_dict = {
             "sample_direc": None,
@@ -235,11 +240,12 @@ class UI_Models:
             HBox([self.clear_run_model_btn(), UI_Models.run_model_view]),
             self.file_row,
             self.line_widget,
+            self.fileuploader.get_FileUploader_widget(),
             extract_shorelines_controls,
             self.extracted_shoreline_file_row,
             HBox(
                 [self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]
-            ),
+            ), 
             self.line_widget,
             tidal_correction_controls,
             self.tidal_correct_file_row,
@@ -297,10 +303,10 @@ class UI_Models:
         logger.info(f"session_directory: {session_directory}")
         # get roi_id
         # @todo find a better way to load the roi id
-        config_json_location = common.find_file_recurively(
+        config_json_location = common.find_file_recursively(
             session_directory, "config.json"
         )
-        config = common.from_file(config_json_location)
+        config = common.load_data_from_json(config_json_location)
         roi_id = config.get("roi_id", "")
         logger.info(f"roi_id: {roi_id}")
 
@@ -566,14 +572,22 @@ class UI_Models:
                 "Must click select model session first",
             )
             return
+
         print("Extracting shorelines. Please wait.")
+        transects_path = self.fileuploader.files_dict.get("transects", "")
+        shoreline_path = self.fileuploader.files_dict.get("shorelines", "")
+
         shoreline_settings = self.settings_dashboard.get_settings()
         # get session directory location
         session_directory = self.model_session_directory
         zoo_model_instance = self.get_model_instance()
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-        zoo_model_instance.extract_shorelines(
-            shoreline_settings, session_directory, session_name
+        zoo_model_instance.extract_shorelines_with_unet(
+            shoreline_settings,
+            session_directory,
+            session_name,
+            shoreline_path,
+            transects_path,
         )
 
     @run_model_view.capture(clear_output=True)

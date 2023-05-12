@@ -27,6 +27,7 @@ import skimage.measure as measure
 from coastsat import SDS_shoreline
 from coastsat import SDS_preprocess
 from coastsat.SDS_download import get_metadata
+from coastsat.SDS_transects import compute_intersection_QC
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
     remove_duplicates,
@@ -36,6 +37,7 @@ from coastsat.SDS_tools import (
     get_filenames,
 )
 import pandas as pd
+
 pd.set_option("mode.chained_assignment", None)
 
 # imports for show detection
@@ -63,6 +65,31 @@ def time_func(func):
 
     return wrapper
 
+def compute_transects_from_roi(
+    extracted_shorelines: dict,
+    transects_gdf: gpd.GeoDataFrame,
+    settings: dict,
+) -> dict:
+    """Computes the intersection between the 2D shorelines and the shore-normal.
+        transects. It returns time-series of cross-shore distance along each transect.
+    Args:
+        extracted_shorelines (dict): contains the extracted shorelines and corresponding metadata
+        transects_gdf (gpd.GeoDataFrame): transects in ROI with crs= output_crs in settings
+        settings (dict): settings dict with keys
+                    'along_dist': int
+                        alongshore distance considered calculate the intersection
+    Returns:
+        dict:  time-series of cross-shore distance along each of the transects.
+               Not tidally corrected.
+    """
+    # create dict of numpy arrays of transect start and end points
+    transects = common.get_transect_points_dict(transects_gdf)
+    logger.info(f"transects: {transects}")
+    # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
+    cross_distance = compute_intersection_QC(
+        extracted_shorelines, transects, settings
+    )
+    return cross_distance
 
 def combine_satellite_data(satellite_data: dict):
     """
@@ -117,6 +144,7 @@ def combine_satellite_data(satellite_data: dict):
 
     return merged_satellite_data
 
+
 def process_satellite(
     satname: str,
     settings: dict,
@@ -124,7 +152,7 @@ def process_satellite(
     session_path: str,
     class_indices: list,
     class_mapping: dict,
-    save_location:str,
+    save_location: str,
 ):
     collection = settings["inputs"]["landsat_collection"]
     default_min_length_sl = settings["min_length_sl"]
@@ -184,6 +212,7 @@ def process_satellite(
         output[satname].setdefault("idx", []).append(index)
     return output
 
+
 def get_cloud_cover_combined(cloud_mask: np.ndarray):
     """
     Calculate the cloud cover percentage (ignoring no-data pixels) of a cloud_mask.
@@ -233,7 +262,7 @@ def get_cloud_cover(cloud_mask: np.ndarray, im_nodata: np.ndarray) -> float:
 
 
 def process_satellite_image(
-    filename:str,
+    filename: str,
     filepath,
     settings,
     satname,
@@ -243,7 +272,7 @@ def process_satellite_image(
     session_path,
     class_indices,
     class_mapping,
-    save_location:str,
+    save_location: str,
 ):
     # get image date
     date = filename[:19]
@@ -490,7 +519,7 @@ def load_merged_image_labels(
 
 def increase_image_intensity(
     im_ms: np.ndarray, cloud_mask: np.ndarray, prob_high: float = 99.9
-) -> 'np.ndarray[float]':
+) -> "np.ndarray[float]":
     """
     Increases the intensity of an image using rescale_image_intensity function from SDS_preprocess module.
 
@@ -584,10 +613,10 @@ def create_classes_overlay_image(labels):
 
 
 def plot_image_with_legend(
-    original_image: 'np.ndarray[float]',
-    merged_overlay: 'np.ndarray[float]',
-    all_overlay: 'np.ndarray[float]',
-    pixelated_shoreline: 'np.ndarray[float]',
+    original_image: "np.ndarray[float]",
+    merged_overlay: "np.ndarray[float]",
+    all_overlay: "np.ndarray[float]",
+    pixelated_shoreline: "np.ndarray[float]",
     merged_legend,
     all_legend,
     titles: list[str] = [],
@@ -678,6 +707,7 @@ def save_detection_figure(fig, filepath: str, date: str, satname: str) -> None:
     None
     """
     fig.savefig(os.path.join(filepath, date + "_" + satname + ".jpg"), dpi=150)
+    plt.close(fig)  # Close the figure after saving
 
 
 def create_legend(
@@ -708,8 +738,10 @@ def create_legend(
 
 
 def create_overlay(
-    im_RGB: 'np.ndarray[float]', im_labels: 'np.ndarray[int]', overlay_opacity: float = 0.35
-) -> 'np.ndarray[float]':
+    im_RGB: "np.ndarray[float]",
+    im_labels: "np.ndarray[int]",
+    overlay_opacity: float = 0.35,
+) -> "np.ndarray[float]":
     """
     Create an overlay on the given image using the provided labels and
     specified overlay opacity.
@@ -728,9 +760,10 @@ def create_overlay(
     combined_float = im_RGB * (1 - overlay_opacity) + overlay * overlay_opacity
     return combined_float
 
+
 def shoreline_detection_figures(
     im_ms: np.ndarray,
-    cloud_mask: 'np.ndarray[bool]',
+    cloud_mask: "np.ndarray[bool]",
     merged_labels: np.ndarray,
     all_labels: np.ndarray,
     shoreline: np.ndarray,
@@ -740,7 +773,7 @@ def shoreline_detection_figures(
     date: str,
     satname: str,
     class_mapping: dict,
-    save_location:str='',
+    save_location: str = "",
 ):
     """
     Creates shoreline detection figures with overlays and saves them as JPEG files.
@@ -764,9 +797,8 @@ def shoreline_detection_figures(
     else:
         filepath_data = settings["inputs"]["filepath"]
         filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection")
-    os.makedirs(filepath,exist_ok=True)
+    os.makedirs(filepath, exist_ok=True)
     logger.info(f"shoreline_detection_figures filepath: {filepath}")
-    print(f"shoreline_detection_figures filepath: {filepath}")
 
     # increase the intensity of the image for visualization
     im_RGB = increase_image_intensity(im_ms, cloud_mask, prob_high=99.9)
@@ -821,16 +853,16 @@ def shoreline_detection_figures(
     )
     # save a .jpg under /jpg_files/detection
     save_detection_figure(fig, filepath, date, satname)
+    plt.close(fig)
 
-    plt.close(fig)  # Close the figure after saving
-
+   
 
 
 def mask_clouds_in_images(
-    im_RGB: 'np.ndarray[float]',
-    im_merged: 'np.ndarray[float]',
-    im_all: 'np.ndarray[float]',
-    cloud_mask: 'np.ndarray[bool]',
+    im_RGB: "np.ndarray[float]",
+    im_merged: "np.ndarray[float]",
+    im_all: "np.ndarray[float]",
+    cloud_mask: "np.ndarray[bool]",
 ):
     """
     Applies a cloud mask to three input images (im_RGB, im_merged & im_all) by setting the
@@ -912,7 +944,7 @@ def extract_shorelines_with_dask(
     settings: dict,
     class_indices: list = None,
     class_mapping: dict = None,
-    save_location:str = ''
+    save_location: str = "",
 ) -> dict:
     sitename = settings["inputs"]["sitename"]
     filepath_data = settings["inputs"]["filepath"]
@@ -927,7 +959,13 @@ def extract_shorelines_with_dask(
 
     tasks = [
         dask.delayed(process_satellite)(
-            satname, settings, metadata, session_path, class_indices, class_mapping,save_location
+            satname,
+            settings,
+            metadata,
+            session_path,
+            class_indices,
+            class_mapping,
+            save_location,
         )
         for satname in metadata
     ]
@@ -942,7 +980,6 @@ def extract_shorelines_with_dask(
     # change the format to have one list sorted by date with all the shorelines (easier to use)
     extracted_shorelines_data = combine_satellite_data(result_dict)
     logger.info(f"final_output: {extracted_shorelines_data}")
-
 
     return extracted_shorelines_data
 
@@ -1032,7 +1069,7 @@ def load_extracted_shoreline_from_files(
         if file_type == "geojson":
             extracted_files[file_type] = common.read_gpd_file(file_path)
         else:
-            extracted_files[file_type] = common.from_file(file_path)
+            extracted_files[file_type] = common.load_data_from_json(file_path)
 
     extracted_shorelines = Extracted_Shoreline()
     extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
@@ -1193,7 +1230,7 @@ class Extracted_Shoreline:
         roi_settings: dict = None,
         settings: dict = None,
         session_path: str = None,
-        new_session_path:str = None
+        new_session_path: str = None,
     ) -> "Extracted_Shoreline":
         """
         Extracts shorelines for a specified region of interest (ROI) from a saved session and returns an Extracted_Shoreline class instance.
@@ -1225,8 +1262,10 @@ class Extracted_Shoreline:
             )
         # read model card from downloaded models path
         downloaded_models_dir = common.get_downloaded_models_dir()
-        downloaded_models_path = os.path.join(downloaded_models_dir,model_type)
-        logger.info(f"Searching for model card in downloaded_models_path: {downloaded_models_path}")
+        downloaded_models_path = os.path.join(downloaded_models_dir, model_type)
+        logger.info(
+            f"Searching for model card in downloaded_models_path: {downloaded_models_path}"
+        )
         model_card_path = common.find_file_by_regex(
             downloaded_models_path, r".*modelcard\.json$"
         )
@@ -1265,7 +1304,7 @@ class Extracted_Shoreline:
             self.shoreline_settings,
             class_indices=water_classes_indices,
             class_mapping=class_mapping,
-            save_location = new_session_path,
+            save_location=new_session_path,
         )
 
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines_dict}")
@@ -1343,7 +1382,6 @@ class Extracted_Shoreline:
     ) -> dict:
         """Returns a dictionary containing the extracted shorelines for roi specified by rois_gdf"""
         # project shorelines's crs from map's crs to output crs given in settings
-        map_crs = 4326
         reference_shoreline = get_reference_shoreline(
             shoreline_gdf, settings["output_epsg"]
         )
@@ -1422,20 +1460,21 @@ class Extracted_Shoreline:
             "model_session_path",  # path to model session file
         ]
         logger.info(f"settings used to create shoreline settings: {settings}")
-        shoreline_settings={k: v for k, v in settings.items() if k in SHORELINE_KEYS}
+        shoreline_settings = {k: v for k, v in settings.items() if k in SHORELINE_KEYS}
         logger.info(f"Loading shoreline_settings: {shoreline_settings}")
-        
-        shoreline_settings.update({
-            "reference_shoreline": reference_shoreline,
-            "adjust_detection": False, # disable adjusting shorelines manually 
-            "check_detection": False, # disable adjusting shorelines manually
-            "save_figure": True, # always save a matplotlib figure of shorelines
-            "inputs": roi_settings # copy settings for ROI shoreline will be extracted from
-        })
+
+        shoreline_settings.update(
+            {
+                "reference_shoreline": reference_shoreline,
+                "adjust_detection": False,  # disable adjusting shorelines manually
+                "check_detection": False,  # disable adjusting shorelines manually
+                "save_figure": True,  # always save a matplotlib figure of shorelines
+                "inputs": roi_settings,  # copy settings for ROI shoreline will be extracted from
+            }
+        )
 
         logger.info(f"shoreline_settings: {shoreline_settings}")
         return shoreline_settings
-
 
     def create_geodataframe(
         self, input_crs: str, output_crs: str = None

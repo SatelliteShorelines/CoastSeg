@@ -31,6 +31,41 @@ from ipywidgets import HTML
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
+
+def save_transects(
+    roi_id: str,
+    save_location: str,
+    cross_distance_transects: dict,
+    extracted_shorelines: dict
+) -> None:
+    """
+    Save transect data, including raw timeseries, intersection data, and cross distances.
+
+    Args:
+        roi_id (str): The ID of the ROI.
+        save_location (str): The directory path to save the transect data.
+        cross_distance_transects (dict): Dictionary containing cross distance transects data.
+        extracted_shorelines (dict): Dictionary containing extracted shorelines data.
+
+    Returns:
+        None.
+    """
+    create_csv_per_transect(
+        roi_id,
+        save_location,
+        cross_distance_transects,
+        extracted_shorelines,
+        filename = "_timeseries_raw.csv"
+    )
+    save_transect_intersections(
+        save_location,
+        extracted_shorelines,
+        cross_distance_transects,
+        filename = "transect_time_series.csv"
+    )
+    save_path = os.path.join(save_location, "transects_cross_distances.json")
+    to_file(cross_distance_transects, save_path)
+
 def check_file_path(file_path, make_dirs=True):
     """Gets the absolute file path.
 
@@ -65,6 +100,7 @@ logger = logging.getLogger(__name__)
 
 import uuid
 
+
 def get_downloaded_models_dir() -> str:
     """returns full path to downloaded_models directory and
     if downloaded_models directory does not exist then it is created
@@ -80,8 +116,9 @@ def get_downloaded_models_dir() -> str:
     if not os.path.exists(downloaded_models_path):
         os.mkdir(downloaded_models_path)
     logger.info(f"downloaded_models_path: {downloaded_models_path}")
-    
+
     return downloaded_models_path
+
 
 def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
     if raise_error:
@@ -268,8 +305,7 @@ def create_file_chooser(
     return chooser
 
 
-
-def get_most_accurate_epsg(epsg_code:int, bbox: gpd.GeoDataFrame):
+def get_most_accurate_epsg(epsg_code: int, bbox: gpd.GeoDataFrame):
     """Returns most accurate epsg code based on lat and lon if output epsg
     was 4326 or 4327
     Args:
@@ -278,16 +314,14 @@ def get_most_accurate_epsg(epsg_code:int, bbox: gpd.GeoDataFrame):
     Returns:
         int: epsg code that is most accurate or unchanged if crs not 4326 or 4327
     """
-    if isinstance(epsg_code, str) and epsg_code.startswith('epsg:'):
-        epsg_code = epsg_code.split(':')[1]
+    if isinstance(epsg_code, str) and epsg_code.startswith("epsg:"):
+        epsg_code = epsg_code.split(":")[1]
     epsg_code = int(epsg_code)
     # coastsat cannot use 4326 to extract shorelines so modify epsg_code
     if epsg_code == 4326 or epsg_code == 4327:
         geometry = bbox.iloc[0]["geometry"]
         epsg_code = get_epsg_from_geometry(geometry)
     return epsg_code
-
-
 
 
 def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
@@ -408,7 +442,7 @@ def load_cross_distances_from_file(dir_path):
     glob_str = os.path.join(dir_path, "*transects_cross_distances.json*")
     for file in glob.glob(glob_str):
         if os.path.basename(file) == "transects_cross_distances.json":
-            transect_dict = from_file(file)
+            transect_dict = load_data_from_json(file)
 
     if transect_dict is None:
         logger.warning(
@@ -478,8 +512,32 @@ def extract_roi_id(path: str) -> str:
         return None
 
 
-def from_file(filepath: str) -> dict:
+def load_data_from_json(filepath: str) -> dict:
+    """
+    Reads data from a JSON file and returns it as a dictionary.
+
+    The function reads the data from the specified JSON file using the provided filepath.
+    It applies a custom object hook, `DecodeDateTime`, to decode the datetime and shoreline
+    data if they exist in the dictionary.
+
+    Args:
+        filepath (str): Path to the JSON file.
+
+    Returns:
+        dict: Data read from the JSON file as a dictionary.
+
+    """
     def DecodeDateTime(readDict):
+        """
+        Helper function to decode datetime and shoreline data in the dictionary.
+
+        Args:
+            readDict (dict): Dictionary to decode.
+
+        Returns:
+            dict: Decoded dictionary.
+
+        """
         if "dates" in readDict:
             tmp = [
                 datetime.datetime.fromisoformat(dates) for dates in readDict["dates"]
@@ -1090,7 +1148,9 @@ def create_csv_per_transect(
         )
 
 
-def save_extracted_shoreline_figures(extracted_shorelines:"Extracted_Shoreline", save_path: str):
+def save_extracted_shoreline_figures(
+    extracted_shorelines: "Extracted_Shoreline", save_path: str
+):
     """
     Save extracted shoreline figures to a specified save path.
 
@@ -1114,7 +1174,9 @@ def save_extracted_shoreline_figures(extracted_shorelines:"Extracted_Shoreline",
         move_files(extracted_shoreline_figure_path, dst_path, delete_src=True)
 
 
-def save_extracted_shorelines(extracted_shorelines:"Extracted_Shoreline", save_path: str):
+def save_extracted_shorelines(
+    extracted_shorelines: "Extracted_Shoreline", save_path: str
+):
     """
     Save extracted shorelines, settings, and dictionary to their respective files.
 
@@ -1131,14 +1193,14 @@ def save_extracted_shorelines(extracted_shorelines:"Extracted_Shoreline", save_p
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines.geojson", extracted_shorelines.gdf
     )
-    
+
     # Save shoreline settings as a JSON file
     extracted_shorelines.to_file(
         save_path,
         "shoreline_settings.json",
         extracted_shorelines.shoreline_settings,
     )
-    
+
     # Save extracted shorelines dictionary as a JSON file
     extracted_shorelines.to_file(
         save_path,
@@ -1213,27 +1275,153 @@ def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) ->
     return config
 
 
+# def create_config_gdf(
+#     rois_gdf: gpd.GeoDataFrame,
+#     shorelines_gdf: gpd.GeoDataFrame = None,
+#     transects_gdf: gpd.GeoDataFrame = None,
+#     bbox_gdf: gpd.GeoDataFrame = None,
+# ) -> gpd.GeoDataFrame():
+#     if rois_gdf is None:
+#         rois_gdf = gpd.GeoDataFrame()
+#     if shorelines_gdf is None:
+#         shorelines_gdf = gpd.GeoDataFrame()
+#     if transects_gdf is None:
+#         transects_gdf = gpd.GeoDataFrame()
+#     if bbox_gdf is None:
+#         bbox_gdf = gpd.GeoDataFrame()
+#     # create new column 'type' to indicate object type
+#     rois_gdf["type"] = "roi"
+#     shorelines_gdf["type"] = "shoreline"
+#     transects_gdf["type"] = "transect"
+#     bbox_gdf["type"] = "bbox"
+#     new_gdf = gpd.GeoDataFrame(pd.concat([rois_gdf, shorelines_gdf], ignore_index=True))
+#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
+#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
+#     return new_gdf
+
+# def create_config_gdf(
+#     rois_gdf: gpd.GeoDataFrame,
+#     shorelines_gdf: gpd.GeoDataFrame = None,
+#     transects_gdf: gpd.GeoDataFrame = None,
+#     bbox_gdf: gpd.GeoDataFrame = None,
+#     epsg_code: int = None,
+# ) -> gpd.GeoDataFrame:
+    
+#     if epsg_code is None and rois_gdf is None:
+#         raise Exception("Cannot save to config without a crs provided or a valid ROI geodataframe")
+
+#     if epsg_code is None and rois_gdf.empty:
+#         raise Exception("Cannot save to config without a crs provided or an empty ROI geodataframe")
+        
+#     if rois_gdf is None:
+#         rois_gdf = gpd.GeoDataFrame()
+#     if rois_gdf is not None:
+#         rois_gdf = rois_gdf.to_crs(epsg_code)
+
+#     if epsg_code is None:
+#         epsg_code = rois_gdf.crs
+
+#     print(f'epsg_code: {epsg_code}')
+
+#     if shorelines_gdf is None:
+#         shorelines_gdf = gpd.GeoDataFrame()
+#     elif shorelines_gdf is not None:
+#         shorelines_gdf = shorelines_gdf.to_crs(epsg_code)
+#     if transects_gdf is None:
+#         transects_gdf = gpd.GeoDataFrame()
+#     elif transects_gdf is not None:
+#         transects_gdf = transects_gdf.to_crs(epsg_code)
+#     if bbox_gdf is None:
+#         bbox_gdf = gpd.GeoDataFrame()
+#     elif bbox_gdf is not None:
+#         bbox_gdf = bbox_gdf.to_crs(epsg_code)
+    
+#     rois_gdf["type"] = "roi"
+#     shorelines_gdf["type"] = "shoreline"
+#     transects_gdf["type"] = "transect"
+#     bbox_gdf["type"] = "bbox"
+    
+#     new_gdf = gpd.GeoDataFrame(pd.concat([rois_gdf, shorelines_gdf], ignore_index=True))
+#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
+#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
+    
+#     return new_gdf
+
 def create_config_gdf(
-    rois: gpd.GeoDataFrame,
+    rois_gdf: gpd.GeoDataFrame,
     shorelines_gdf: gpd.GeoDataFrame = None,
     transects_gdf: gpd.GeoDataFrame = None,
     bbox_gdf: gpd.GeoDataFrame = None,
-) -> gpd.GeoDataFrame():
-    if shorelines_gdf is None:
-        shorelines_gdf = gpd.GeoDataFrame()
-    if transects_gdf is None:
-        transects_gdf = gpd.GeoDataFrame()
-    if bbox_gdf is None:
-        bbox_gdf = gpd.GeoDataFrame()
-    # create new column 'type' to indicate object type
-    rois["type"] = "roi"
+    epsg_code: int = None,
+) -> gpd.GeoDataFrame:
+    if epsg_code is None and rois_gdf is None:
+        raise ValueError("Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame")
+    # Check if CRS is provided or if the ROI GeoDataFrame is empty
+    if epsg_code is None and rois_gdf.empty:
+        raise ValueError("Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame")
+    if epsg_code is None:
+        epsg_code = rois_gdf.crs
+
+    # Set CRS for the non-empty GeoDataFrames
+    if rois_gdf is not None and not rois_gdf.empty:
+        rois_gdf = rois_gdf.to_crs(epsg_code)
+    else:
+        rois_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+    if shorelines_gdf is not None and not shorelines_gdf.empty:
+        shorelines_gdf = shorelines_gdf.to_crs(epsg_code)
+    else:
+        shorelines_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+    if transects_gdf is not None and not transects_gdf.empty:
+        transects_gdf = transects_gdf.to_crs(epsg_code)
+    else:
+        transects_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+    if bbox_gdf is not None and not bbox_gdf.empty:
+        bbox_gdf = bbox_gdf.to_crs(epsg_code)
+    else:
+        bbox_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+
+    # Assign "type" column values
+    rois_gdf["type"] = "roi"
     shorelines_gdf["type"] = "shoreline"
     transects_gdf["type"] = "transect"
     bbox_gdf["type"] = "bbox"
-    new_gdf = gpd.GeoDataFrame(pd.concat([rois, shorelines_gdf], ignore_index=True))
-    new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
-    new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
-    return new_gdf
+
+    # Concatenate GeoDataFrames
+    config_gdf = pd.concat([rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True)
+
+
+    return gpd.GeoDataFrame(config_gdf)
+
+
+# def create_config_gdf(
+#     rois_gdf: gpd.GeoDataFrame,
+#     shorelines_gdf: gpd.GeoDataFrame = None,
+#     transects_gdf: gpd.GeoDataFrame = None,
+#     bbox_gdf: gpd.GeoDataFrame = None,
+#     epsg_code: int = None,
+# ) -> gpd.GeoDataFrame:
+#     # Check if CRS is provided or if the ROI GeoDataFrame is empty
+#     if epsg_code is None and rois_gdf.empty:
+#         raise ValueError("Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame")
+#     if epsg_code is None:
+#         epsg_code = rois_gdf.crs
+
+#     # Set CRS for the GeoDataFrames
+#     rois_gdf = rois_gdf.to_crs(epsg_code) if rois_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+#     shorelines_gdf = shorelines_gdf.to_crs(epsg_code) if shorelines_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+#     transects_gdf = transects_gdf.to_crs(epsg_code) if transects_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+#     bbox_gdf = bbox_gdf.to_crs(epsg_code) if bbox_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+
+#     # Assign "type" column values
+#     rois_gdf["type"] = "roi"
+#     shorelines_gdf["type"] = "shoreline"
+#     transects_gdf["type"] = "transect"
+#     bbox_gdf["type"] = "bbox"
+
+#     # Concatenate GeoDataFrames
+#     config_gdf = pd.concat([rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True)
+
+#     return gpd.GeoDataFrame(config_gdf)
 
 
 def write_to_json(filepath: str, settings: dict):
@@ -1256,11 +1444,10 @@ def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
     """
     if os.path.exists(filename):
         logger.info(f"Opening \n {filename}")
-        with open(filename, "r") as f:
-            gpd_data = gpd.read_file(f)
+        return gpd.read_file(filename)
     else:
         raise FileNotFoundError
-    return gpd_data
+
 
 
 def get_jpgs_from_data() -> str:
@@ -1296,6 +1483,49 @@ def get_jpgs_from_data() -> str:
     else:
         print("ERROR: Cannot find the data directory in coastseg")
         raise Exception("ERROR: Cannot find the data directory in coastseg")
+
+def save_config_files(
+        save_location:str='',
+        roi_ids:list[str]=[],
+        roi_settings:dict = {},
+        shoreline_settings:dict ={},
+        transects_gdf=None,
+        shorelines_gdf=None,
+        roi_gdf=None,
+        epsg_code = 'epsg:4326'):
+    # save config files
+    config_json = create_json_config(
+        roi_settings,shoreline_settings, roi_ids=roi_ids
+    )
+    config_to_file(config_json, save_location)
+    # save a config geodataframe with the rois, reference shoreline and transects
+    if roi_gdf is not None:
+        if not roi_gdf.empty:
+            epsg_code = roi_gdf.crs
+    config_gdf = create_config_gdf(
+        rois_gdf=roi_gdf, shorelines_gdf=shorelines_gdf, transects_gdf=transects_gdf,epsg_code=epsg_code 
+    )
+    config_to_file(config_gdf, save_location)
+
+def load_json_data_from_file(search_location: str, filename: str) -> dict:
+    """
+    Load JSON data from a file by searching for the file in the specified location.
+
+    The function searches recursively in the provided search location for a file with
+    the specified filename. Once the file is found, it loads the JSON data from the file
+    and returns it as a dictionary.
+
+    Args:
+        search_location (str): Directory or path to search for the file.
+        filename (str): Name of the file to load.
+
+    Returns:
+        dict: Data read from the JSON file as a dictionary.
+
+    """
+    file_path = find_file_recursively(search_location, filename)
+    json_data = load_data_from_json(file_path)
+    return json_data
 
 
 def rename_jpgs(src_path: str) -> None:
@@ -1526,7 +1756,7 @@ def find_directory_recurively(path: str = ".", name: str = "RGB") -> str:
     return dir_location
 
 
-def find_file_recurively(path: str = ".", name: str = "RGB") -> str:
+def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
     """
     Recursively search for a file named "RGB" in the given path or its subdirectories.
 
