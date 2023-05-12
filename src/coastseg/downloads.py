@@ -27,6 +27,7 @@ from shapely.ops import split
 
 logger = logging.getLogger(__name__)
 
+
 def download_url_dict(url_dict):
     for save_path, url in url_dict.items():
         with requests.get(url, stream=True) as response:
@@ -35,22 +36,30 @@ def download_url_dict(url_dict):
             logger.info(f"response.headers: {response.headers}")
             if response.status_code == 404:
                 logger.info(f"404 response for {url}")
-                raise Exception(f"404 response for {url}. Please raise an issue on GitHub.")
-            
+                raise Exception(
+                    f"404 response for {url}. Please raise an issue on GitHub."
+                )
+
             # too many requests were made to the API
-            if  response.status_code == 429:
+            if response.status_code == 429:
                 content = response.text()
-                print(f"Response from API for status_code: {response.status_code}: {content}")
-                logger.info(f"Response from API for status_code: {response.status_code}: {content}")
-                raise Exception(f"Response from API for status_code: {response.status_code}: {content}")
+                print(
+                    f"Response from API for status_code: {response.status_code}: {content}"
+                )
+                logger.info(
+                    f"Response from API for status_code: {response.status_code}: {content}"
+                )
+                raise Exception(
+                    f"Response from API for status_code: {response.status_code}: {content}"
+                )
                 return False
-            
+
             # raise an exception if the response status_code is not 200
             if response.status_code != 200:
                 print(f"response.status_code {response.status_code} for {url}")
                 logger.info(f"response.status_code {response.status_code} for {url}")
                 return False
-            
+
             response.raise_for_status()
 
             content_length = response.headers.get("Content-Length")
@@ -78,7 +87,6 @@ def download_url_dict(url_dict):
                         fd.write(chunk)
 
 
-
 async def async_download_url_dict(url_dict: dict = {}):
     """
     Asynchronously downloads files from a given dictionary of URLs and save locations.
@@ -98,20 +106,26 @@ async def async_download_url_dict(url_dict: dict = {}):
 
     await async_download_url_dict(url_dict)
     """
+
     def session_creator():
         # Set the custom timeout value (in seconds)
         keepalive_timeout = 100
         # Configure the timeout
         connector = aiohttp.TCPConnector(keepalive_timeout=keepalive_timeout)
         # Create and return the session with the configured timeout
-        return  aiohttp.ClientSession(connector=connector,timeout=aiohttp.ClientTimeout(total=600))
+        return aiohttp.ClientSession(
+            connector=connector, timeout=aiohttp.ClientTimeout(total=600)
+        )
 
     # allow 1 concurrent downloads
     semaphore = asyncio.Semaphore(1)
     tasks = []
     for save_path, url in url_dict.items():
-        task = asyncio.create_task(download_zenodo_file(
-            semaphore, session_creator, url, save_path, max_retries= 0))
+        task = asyncio.create_task(
+            download_zenodo_file(
+                semaphore, session_creator, url, save_path, max_retries=0
+            )
+        )
         tasks.append(task)
     # start all the tasks at once
     await tqdm.asyncio.tqdm.gather(*tasks)
@@ -136,26 +150,38 @@ async def async_download_url_dict(url_dict: dict = {}):
 
     await async_download_url_dict(url_dict)
     """
+
     def session_creator():
         # Set the custom timeout value (in seconds)
         keepalive_timeout = 100
         # Configure the timeout
         connector = aiohttp.TCPConnector(keepalive_timeout=keepalive_timeout)
         # Create and return the session with the configured timeout
-        return  aiohttp.ClientSession(connector=connector,timeout=aiohttp.ClientTimeout(total=600))
+        return aiohttp.ClientSession(
+            connector=connector, timeout=aiohttp.ClientTimeout(total=600)
+        )
 
     # allow 1 concurrent downloads
     semaphore = asyncio.Semaphore(1)
     tasks = []
     for save_path, url in url_dict.items():
-        task = asyncio.create_task(download_zenodo_file(
-            semaphore, session_creator, url, save_path, max_retries= 0))
+        task = asyncio.create_task(
+            download_zenodo_file(
+                semaphore, session_creator, url, save_path, max_retries=0
+            )
+        )
         tasks.append(task)
     # start all the tasks at once
     await tqdm.asyncio.tqdm.gather(*tasks)
 
-    
-async def download_zenodo_file(semaphore: asyncio.Semaphore, session_creator: callable, url: str, save_location: str, max_retries: int = 1):
+
+async def download_zenodo_file(
+    semaphore: asyncio.Semaphore,
+    session_creator: callable,
+    url: str,
+    save_location: str,
+    max_retries: int = 1,
+):
     """
     Asynchronously downloads a file from Zenodo, given a URL and save location, with a specified maximum number of retries.
 
@@ -191,36 +217,66 @@ async def download_zenodo_file(semaphore: asyncio.Semaphore, session_creator: ca
     max_retries = 3
 
     await download_zenodo_file(semaphore, session_creator, url, save_location, max_retries)
-    """ 
+    """
     async with session_creator() as session:
-        is_download_success, retry_after,status_code = await download_with_retry(semaphore, session, url, save_location)
-        logger.info(f"is_download_success, retry_after,status_code {is_download_success, retry_after,status_code}")
+        is_download_success, retry_after, status_code = await download_with_retry(
+            semaphore, session, url, save_location
+        )
+        logger.info(
+            f"is_download_success, retry_after,status_code {is_download_success, retry_after,status_code}"
+        )
         retry_count = 0
         while not is_download_success and retry_count < max_retries:
             # If the session was closed, create a new one
             if session.closed:
                 async with session_creator() as session:
-                    logger.warning(f"Download failed. Retrying ({retry_count + 1}/{max_retries})...")
+                    logger.warning(
+                        f"Download failed. Retrying ({retry_count + 1}/{max_retries})..."
+                    )
                     if retry_after is not None:
                         await asyncio.sleep(retry_after)
-                    is_download_success, retry_after,status_code = await download_with_retry(semaphore, session, url, save_location)
-                    logger.info(f"is_download_success, retry_after,status_code {is_download_success, retry_after,status_code}")
+                    (
+                        is_download_success,
+                        retry_after,
+                        status_code,
+                    ) = await download_with_retry(
+                        semaphore, session, url, save_location
+                    )
+                    logger.info(
+                        f"is_download_success, retry_after,status_code {is_download_success, retry_after,status_code}"
+                    )
                     retry_count += 1
             else:
-                logger.warning(f"Download failed. Retrying ({retry_count + 1}/{max_retries})...")
+                logger.warning(
+                    f"Download failed. Retrying ({retry_count + 1}/{max_retries})..."
+                )
                 if retry_after is not None:
                     await asyncio.sleep(retry_after)
-                is_download_success, retry_after,status_code = await download_with_retry(semaphore, session, url, save_location)
-                logger.info(f"is_download_success, retry_after,status_code {is_download_success, retry_after,status_code}")
+                (
+                    is_download_success,
+                    retry_after,
+                    status_code,
+                ) = await download_with_retry(semaphore, session, url, save_location)
+                logger.info(
+                    f"is_download_success, retry_after,status_code {is_download_success, retry_after,status_code}"
+                )
                 retry_count += 1
 
         if not is_download_success:
-            raise Exception(f"Download failed for {save_location} after {max_retries} retries for status code {status_code}. Please try again later.")
+            raise Exception(
+                f"Download failed for {save_location} after {max_retries} retries for status code {status_code}. Please try again later."
+            )
 
         return is_download_success
 
 
-async def download_with_retry(semaphore: asyncio.Semaphore, session: aiohttp.ClientSession, url: str, save_location: str,rate_limit_remaining=None) -> Tuple[bool, Optional[int]]:
+async def download_with_retry(
+    semaphore: asyncio.Semaphore,
+    session: aiohttp.ClientSession,
+    url: str,
+    save_location: str,
+    rate_limit_remaining=None,
+) -> Tuple[bool, Optional[int]]:
     """
     Asynchronously downloads a file given a URL and save location, with rate limiting and error handling.
 
@@ -262,28 +318,34 @@ async def download_with_retry(semaphore: asyncio.Semaphore, session: aiohttp.Cli
         async with session.get(url) as response:
             logger.info(f"response: {response}")
             if rate_limit_remaining is None:
-                rate_limit_remaining = int(response.headers.get("X-RateLimit-Remaining", -1))
+                rate_limit_remaining = int(
+                    response.headers.get("X-RateLimit-Remaining", -1)
+                )
             logger.info(f"rate_limit_remaining: {rate_limit_remaining}")
             logger.info(f"response.status: {response.status}")
             logger.info(f"response.headers: {response.headers}")
 
             if response.status == 404:
                 logger.info(f"404 response for {url}")
-                raise Exception(f"404 response for {url}. Please raise an issue on GitHub.")
-            
+                raise Exception(
+                    f"404 response for {url}. Please raise an issue on GitHub."
+                )
+
             # this means X-RateLimit-Remaining was close to 0 and we need to wait
             if rate_limit_remaining == 1 or response.status == 429:
                 content = await response.text()
-                logger.info(f"Response from API for status: {response.status}: {content}")
+                logger.info(
+                    f"Response from API for status: {response.status}: {content}"
+                )
                 # by default, wait for 60 seconds or the number of seconds specified in the Retry-After header
                 retry_after = int(response.headers.get("Retry-After", 60))
                 logger.info(f"retry_after: {retry_after}")
-                return False, retry_after,response.status
-            
+                return False, retry_after, response.status
+
             # raise an exception if the response status is not 200
             if response.status != 200:
                 logger.info(f"response.status {response.status} for {url}")
-                return False, 1,response.status
+                return False, 1, response.status
             # response.raise_for_status()
 
             content_length = response.headers.get("Content-Length")
@@ -305,12 +367,12 @@ async def download_with_retry(semaphore: asyncio.Semaphore, session: aiohttp.Cli
                                 break
                             fd.write(chunk)
                             pbar.update(len(chunk))
-                        return True, None,response.status
+                        return True, None, response.status
             else:
                 with open(save_location, "wb") as fd:
                     async for chunk in response.content.iter_chunked(1024):
                         fd.write(chunk)
-                    return True, None,response.status
+                    return True, None, response.status
 
 
 async def async_download_url(session, url: str, save_path: str):
