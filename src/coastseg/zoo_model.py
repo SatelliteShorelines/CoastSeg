@@ -84,6 +84,9 @@ def create_transects_geodataframe(
             transects_in_roi = transects.Transects(bbox=roi_gdf)
             transects_gdf = copy.deepcopy(transects_in_roi.gdf)
 
+        logger.info(f"transects_gdf: {transects_gdf}")
+        if transects_gdf.empty:
+            raise Exception(f"No transects were found this region. Upload a transects.geojson")
         transects_gdf = transects_gdf.loc[:, ["id", "geometry"]]
         transects_gdf = transects_gdf.to_crs(epsg_code)
         return transects_gdf
@@ -104,6 +107,8 @@ def create_shoreline_geodataframe(
             shoreline_gdf = copy.deepcopy(shoreline_in_roi.gdf)
 
         logger.info(f"shoreline_gdf: {shoreline_gdf}")
+        if shoreline_gdf.empty:
+            raise Exception(f"No shorelines were found this region. Upload a shorelines.geojson")
         shoreline_gdf = shoreline_gdf.loc[:, ["id", "geometry"]]
         shoreline_gdf = shoreline_gdf.to_crs(epsg_code)
         return shoreline_gdf
