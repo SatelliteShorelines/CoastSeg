@@ -1,4 +1,5 @@
 # Standard library imports
+import copy
 import logging
 import os
 from typing import Dict
@@ -15,6 +16,7 @@ from coastseg.common import (
 # External dependencies imports
 import geopandas as gpd
 from pandas import concat
+
 # from fiona.errors import DriverError
 from ipyleaflet import GeoJSON
 
@@ -53,6 +55,9 @@ class Shoreline:
                 logger.info("Creating shoreline geodataframe")
                 self.gdf = self.create_geodataframe(bbox)
 
+        if "id" not in self.gdf.columns:
+            self.gdf["id"] = self.gdf.index.astype(str).tolist()
+
         if filename:
             self.filename = filename
 
@@ -61,6 +66,7 @@ class Shoreline:
 
     def __repr__(self):
         return f"Shoreline: geodataframe {self.gdf}"
+
 
     def create_geodataframe(
         self, bbox: gpd.GeoDataFrame, crs: str = "EPSG:4326"
@@ -96,7 +102,7 @@ class Shoreline:
         for shoreline_file in shoreline_files:
             shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
             # try:
-                # shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
+            # shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
             # except DriverError as driver_error:
             #     print(driver_error)
             #     continue
@@ -123,6 +129,72 @@ class Shoreline:
         if not shorelines_in_bbox_gdf.empty:
             shorelines_in_bbox_gdf.to_crs(crs, inplace=True)
         return shorelines_in_bbox_gdf
+
+    # def create_geodataframe(
+    #     self, bbox: gpd.GeoDataFrame, crs: str = "EPSG:4326"
+    # ) -> gpd.GeoDataFrame:
+    #     """Creates a GeoDataFrame with the specified CRS, containing shorelines that intersect with the given bounding box.
+
+    #     Args:
+    #         bbox (gpd.GeoDataFrame): Bounding box being searched for shorelines.
+    #         crs (str, optional): Coordinate reference system string. Defaults to 'EPSG:4326'.
+
+    #     Returns:
+    #         gpd.GeoDataFrame: GeoDataFrame with geometry column = rectangle and given CRS.
+    #     """
+    #     shorelines_in_bbox_gdf = gpd.GeoDataFrame()
+    #     bbox_crs = bbox.crs
+    #     new_bbox = copy.deepcopy(bbox)
+    #     logger.info(f"New crs for shorelines {bbox_crs} vs old crs {new_bbox.crs}")
+    #     new_bbox = new_bbox.to_crs(bbox_crs)
+    #     intersecting_shoreline_files = get_intersecting_files(new_bbox)
+
+    #     if not intersecting_shoreline_files:
+    #         logger.warning(f"No intersecting shorelines found. BBox: {new_bbox}")
+    #         raise ValueError(
+    #             "No intersecting shorelines found. Try loading your own or draw a new bounding box."
+    #         )
+
+    #     script_dir = os.path.dirname(os.path.abspath(__file__))
+    #     # Download any missing shoreline files
+    #     shoreline_files = self.get_shoreline_files(
+    #         intersecting_shoreline_files, script_dir
+    #     )
+
+    #     if shoreline_files == []:
+    #         raise FileNotFoundError("No shoreline files found.")
+
+    #     # Read in each shoreline file and clip it to the bounding box
+    #     for shoreline_file in shoreline_files:
+    #         shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
+    #         # try:
+    #         # shoreline = gpd.read_file(shoreline_file, mask=bbox).to_crs(crs)
+    #         # except DriverError as driver_error:
+    #         #     print(driver_error)
+    #         #     continue
+
+    #         columns_to_keep = [
+    #             "geometry",
+    #             "river_label",
+    #             "ERODIBILITY",
+    #             "CSU_ID",
+    #             "turbid_label",
+    #             "slope_label",
+    #             "sinuosity_label",
+    #             "TIDAL_RANGE",
+    #             "MEAN_SIG_WAVEHEIGHT",
+    #         ]
+    #         shoreline = keep_only_available_columns(shoreline, columns_to_keep)
+    #         shoreline = gpd.clip(shoreline, bbox).to_crs(crs)
+
+    #         shorelines_in_bbox_gdf = concat(
+    #             [shorelines_in_bbox_gdf, shoreline], ignore_index=True
+    #         )
+
+    #     shorelines_in_bbox_gdf = remove_z_axis(shorelines_in_bbox_gdf)
+    #     if not shorelines_in_bbox_gdf.empty:
+    #         shorelines_in_bbox_gdf.to_crs(crs, inplace=True)
+    #     return shorelines_in_bbox_gdf
 
     def get_shoreline_files(
         self, intersecting_shoreline_files: Dict[str, str], script_dir: str

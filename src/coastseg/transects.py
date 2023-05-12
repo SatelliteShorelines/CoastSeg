@@ -2,6 +2,8 @@
 import logging
 import os
 from typing import List
+import copy
+
 
 # Internal dependencies imports
 from coastseg.common import remove_z_axis, replace_column, create_id_column
@@ -93,6 +95,10 @@ class Transects:
         elif bbox is not None:
             if not bbox.empty:
                 self.gdf = self.create_geodataframe(bbox)
+
+        if "id" not in self.gdf.columns:
+            self.gdf["id"] = self.gdf.index.astype(str).tolist()
+    
         if filename:
             self.filename = filename
 
@@ -129,6 +135,38 @@ class Transects:
         transects_in_bbox = remove_z_axis(transects_in_bbox)
 
         return transects_in_bbox
+
+    # def create_geodataframe(
+    #     self,
+    #     bbox: gpd.GeoDataFrame,
+    # ) -> gpd.GeoDataFrame:
+    #     """Creates a geodataframe with the crs specified by crs
+    #     Args:
+    #         rectangle (dict): geojson dictionary
+    #     Returns:
+    #         gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs
+    #     """
+    #     # create a new dataframe that only contains the geometry column of the bbox
+    #     bbox_crs = bbox.crs
+    #     new_bbox = copy.deepcopy(bbox)
+    #     logger.info(f"New crs for transects {bbox_crs} vs old crs {new_bbox.crs}")
+    #     new_bbox = new_bbox.to_crs(bbox_crs)
+    #     new_bbox = new_bbox[["geometry"]]
+    #     # get transect geosjson files that intersect with bounding box
+    #     intersecting_transect_files = self.get_intersecting_files(new_bbox)
+    #     script_dir = os.path.dirname(os.path.abspath(__file__))
+    #     transect_dir = os.path.abspath(os.path.join(script_dir, "transects"))
+    #     # for each transect file clip it to the new_bbox and add to map
+    #     transects_in_bbox = load_intersecting_transects(
+    #         new_bbox, intersecting_transect_files, transect_dir
+    #     )
+    #     if transects_in_bbox.empty:
+    #         logger.warning("No transects found here.")
+
+    #     # remove z-axis from transects
+    #     transects_in_bbox = remove_z_axis(transects_in_bbox)
+
+    #     return transects_in_bbox
 
     def style_layer(self, geojson: dict, layer_name: str) -> dict:
         """Return styled GeoJson object with layer name
@@ -197,7 +235,6 @@ class Transects:
         transects_csv = os.path.join(bounding_box_dir, "transects_bounding_boxes.csv")
         if not os.path.exists(transects_csv):
             print("Did not find transects csv at ", transects_csv)
-            # @todo download transects csv from github
         else:
             total_bounds_df = pd.read_csv(transects_csv)
 
