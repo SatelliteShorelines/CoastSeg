@@ -99,6 +99,7 @@ def compute_transects_from_roi(
     print(f"transects_gdf.crs: {transects_gdf.crs}")
     transects = common.get_transect_points_dict(transects_gdf)
     logger.info(f"transects: {transects}")
+    # print(f'settings to extract transects: {settings}')
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
     cross_distance = compute_intersection_QC(
         extracted_shorelines, transects, settings
@@ -355,10 +356,8 @@ def process_satellite_image(
     all_labels = load_image_labels(npz_file)
 
     min_beach_area = settings['min_beach_area']
-    # bad idea to use on all_labels
+    # bad idea to use remove_small_objects_and_binarize on all_labels, safe to use on merged_labels (water/land boundary)
     # all_labels = morphology.remove_small_objects(all_labels, min_size=min_beach_area, connectivity=2)
-    print(f"all_labels: {np.unique(all_labels)}")
-    # safe to use on water/land boundary
     merged_labels = remove_small_objects_and_binarize(merged_labels, min_beach_area)
 
     logger.info(f"merged_labels: {merged_labels}\n")
@@ -957,6 +956,7 @@ def find_shoreline(
     except Exception as e:
         logger.error(f"{e}\nCould not map shoreline for this image: {fn}")
         return None
+    # print(f"Settings used by process_shoreline: {settings}")
     # process the water contours into a shoreline
     shoreline = SDS_shoreline.process_shoreline(
         contours, cloud_mask_adv, im_nodata, georef, image_epsg, settings

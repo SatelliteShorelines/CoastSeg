@@ -866,10 +866,13 @@ class Zoo_Model:
             logger.warning("No transect shoreline intersections.")
             print("No transect shoreline intersections.")
         else:
+            transect_settings = self.get_settings()
+            transect_settings["output_epsg"] = new_espg
             common.save_transects(roi_id,
                 new_session_path,
                 cross_distance_transects,
-                extracted_shorelines.dictionary,)
+                extracted_shorelines.dictionary,
+                transect_settings)
 
     def postprocess_data(
         self, preprocessed_data: dict, session: sessions.Session, roi_directory: str

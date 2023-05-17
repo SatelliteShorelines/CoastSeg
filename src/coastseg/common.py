@@ -36,7 +36,8 @@ def save_transects(
     roi_id: str,
     save_location: str,
     cross_distance_transects: dict,
-    extracted_shorelines: dict
+    extracted_shorelines: dict,
+    settings:dict
 ) -> None:
     """
     Save transect data, including raw timeseries, intersection data, and cross distances.
@@ -64,6 +65,12 @@ def save_transects(
         filename = "transect_time_series.csv"
     )
     save_path = os.path.join(save_location, "transects_cross_distances.json")
+    # save transect settings to file
+    transect_settings = get_transect_settings(settings)
+    transect_settings_path = os.path.join(
+        save_location, "transects_settings.json"
+    )
+    to_file(transect_settings, transect_settings_path)
     to_file(cross_distance_transects, save_path)
 
 def check_file_path(file_path, make_dirs=True):
