@@ -37,6 +37,7 @@ from coastsat.SDS_tools import (
     get_filenames,
 )
 import pandas as pd
+import skimage.morphology as morphology
 
 pd.set_option("mode.chained_assignment", None)
 
@@ -65,6 +66,18 @@ def time_func(func):
 
     return wrapper
 
+from skimage import measure, morphology
+
+def remove_small_objects_and_binarize(merged_labels, min_size):
+    # Ensure the image is binary
+    binary_image = merged_labels > 0
+
+    # Remove small objects from the binary image
+    filtered_image = morphology.remove_small_objects(binary_image, min_size=min_size, connectivity=2)
+
+    return filtered_image
+
+
 def compute_transects_from_roi(
     extracted_shorelines: dict,
     transects_gdf: gpd.GeoDataFrame,
@@ -83,6 +96,7 @@ def compute_transects_from_roi(
                Not tidally corrected.
     """
     # create dict of numpy arrays of transect start and end points
+    print(f"transects_gdf.crs: {transects_gdf.crs}")
     transects = common.get_transect_points_dict(transects_gdf)
     logger.info(f"transects: {transects}")
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
@@ -339,6 +353,13 @@ def process_satellite_image(
     # get the labels for water and land
     merged_labels = load_merged_image_labels(npz_file, class_indices=class_indices)
     all_labels = load_image_labels(npz_file)
+
+    min_beach_area = settings['min_beach_area']
+    # bad idea to use on all_labels
+    # all_labels = morphology.remove_small_objects(all_labels, min_size=min_beach_area, connectivity=2)
+    print(f"all_labels: {np.unique(all_labels)}")
+    # safe to use on water/land boundary
+    merged_labels = remove_small_objects_and_binarize(merged_labels, min_beach_area)
 
     logger.info(f"merged_labels: {merged_labels}\n")
     if sum(merged_labels[ref_shoreline_buffer]) < 50:
@@ -677,18 +698,20 @@ def plot_image_with_legend(
     ax2.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
     ax2.set_title(titles[1])
     ax2.axis("off")
-    ax2.legend(
-        handles=merged_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
-    )
+    if merged_legend:  # Check if the list is not empty
+        ax2.legend(
+            handles=merged_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
+        )
 
     # Plot second combined image with overlay and legend
     ax3.imshow(all_overlay)
     ax3.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
     ax3.set_title(titles[2])
     ax3.axis("off")
-    ax3.legend(
-        handles=all_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
-    )
+    if all_legend:  # Check if the list is not empty
+        ax3.legend(
+            handles=all_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
+        )
 
     # Return the figure object
     return fig
