@@ -6,10 +6,9 @@ import platform
 import json
 import logging
 from typing import List
-import shutil
 
+from coastsat import SDS_tools
 from coastseg import transects
-from coastsat import SDS_transects
 from coastseg import common
 from coastseg import downloads
 from coastseg import sessions
@@ -27,6 +26,7 @@ import pandas as pd
 from glob import glob
 import tqdm.asyncio
 import nest_asyncio
+import pytz
 
 from skimage.io import imread
 from tensorflow.keras import mixed_precision
@@ -41,11 +41,8 @@ from doodleverse_utils.model_imports import (
     segformer,
 )
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
-import pytz
-from coastsat import SDS_transects
-from coastsat import SDS_tools
-
 import tensorflow as tf
+
 
 logger = logging.getLogger(__name__)
 
@@ -814,7 +811,7 @@ class Zoo_Model:
         output_epsg = extract_shoreline_settings["output_epsg"]
         logger.info(f"output_epsg: {output_epsg}")
         # load transects and shorelines 
-        #@todo pretty sure this will break if the file read in from geosjon crs!=4326
+        
         transects_gdf = create_transects_geodataframe(transects_path,roi_gdf,output_epsg)
         shoreline_gdf = create_shoreline_geodataframe(shoreline_path,roi_gdf,output_epsg)
 
@@ -853,6 +850,10 @@ class Zoo_Model:
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
         # common.save_extracted_shoreline_figures(extracted_shorelines, new_session_path)
         print(f"Saved extracted shorelines to {new_session_path}")
+
+        # transects must be in the same CRS as the extracted shorelines otherwise intersections will all be NAN
+        if not transects_gdf.empty:
+            transects_gdf =  transects_gdf.to_crs(new_espg)
 
         # compute intersection between extracted shorelines and transects
         cross_distance_transects = extracted_shoreline.compute_transects_from_roi(extracted_shorelines.dictionary,
