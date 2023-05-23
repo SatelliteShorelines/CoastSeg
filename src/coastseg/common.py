@@ -37,7 +37,7 @@ def save_transects(
     save_location: str,
     cross_distance_transects: dict,
     extracted_shorelines: dict,
-    settings:dict
+    settings: dict,
 ) -> None:
     """
     Save transect data, including raw timeseries, intersection data, and cross distances.
@@ -56,22 +56,21 @@ def save_transects(
         save_location,
         cross_distance_transects,
         extracted_shorelines,
-        filename = "_timeseries_raw.csv"
+        filename="_timeseries_raw.csv",
     )
     save_transect_intersections(
         save_location,
         extracted_shorelines,
         cross_distance_transects,
-        filename = "transect_time_series.csv"
+        filename="transect_time_series.csv",
     )
     save_path = os.path.join(save_location, "transects_cross_distances.json")
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
-    transect_settings_path = os.path.join(
-        save_location, "transects_settings.json"
-    )
+    transect_settings_path = os.path.join(save_location, "transects_settings.json")
     to_file(transect_settings, transect_settings_path)
     to_file(cross_distance_transects, save_path)
+
 
 def check_file_path(file_path, make_dirs=True):
     """Gets the absolute file path.
@@ -128,16 +127,31 @@ def get_downloaded_models_dir() -> str:
 
 
 def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
-    if raise_error:
-        if not os.path.exists(json_file_path):
+    """
+    Reads a JSON file and returns the parsed data as a dictionary.
+
+    Args:
+        json_file_path (str): The path to the JSON file.
+        encoding (str, optional): The encoding of the file. Defaults to "utf-8".
+        raise_error (bool, optional): Set to True if an error should be raised if the file doesn't exist.
+
+    Returns:
+        dict: The parsed JSON data as a dictionary.
+
+    Raises:
+        FileNotFoundError: If the file does not exist and `raise_error` is True.
+
+    """
+    if not os.path.exists(json_file_path):
+        if raise_error:
             raise FileNotFoundError(
                 f"Model settings file does not exist at {json_file_path}"
             )
-    else:
-        return None
+        else:
+            return None
     with open(json_file_path, "r", encoding=encoding) as f:
         data = json.load(f)
-        return data
+    return data
 
 
 def keep_only_available_columns(
@@ -534,6 +548,7 @@ def load_data_from_json(filepath: str) -> dict:
         dict: Data read from the JSON file as a dictionary.
 
     """
+
     def DecodeDateTime(readDict):
         """
         Helper function to decode datetime and shoreline data in the dictionary.
@@ -656,11 +671,6 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
     collapse_button.observe(collapse_click, "value")
     uncollapse_button.observe(uncollapse_click, "value")
     return container
-
-
-def filter_dict_by_keys(original_dict: dict, keys: list) -> dict:
-    filtered_dict = {k: v for k, v in original_dict.items() if k in keys}
-    return filtered_dict
 
 
 def create_warning_box(title: str = None, msg: str = None) -> HBox:
@@ -892,30 +902,53 @@ def get_area(polygon: dict) -> float:
     return round(area(polygon), 3)
 
 
-def extract_fields(data, key=None, fields_of_interest: list[str] = []) -> dict:
+def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = []):
+    """
+    Extracts the specified fields for a specific ROI from a JSON data dictionary.
+
+    Args:
+        json_data (dict): The JSON data dictionary.
+        roi_id (str): The ID of the ROI to extract data for.
+
+    Returns:
+        dict: A dictionary containing the extracted fields for the ROI.
+
+    Raises:
+        ValueError: If the config.json file is invalid or the ROI ID is not found.
+
+    """
+    roi_data = extract_fields(json_data, roi_id, fields_of_interest)
+    if not roi_data:
+        raise ValueError(
+            "Invalid config.json file detected. Please add the correct roi ids to the config.json file's 'roi_ids' and try again."
+        )
+    return roi_data
+
+
+def extract_fields(data, key=None, fields_of_interest=None):
     """
     Extracts specified fields from a given dictionary.
 
-    Parameters:
-        - data: A dictionary containing the data to extract fields from.
-        - key: (optional) A string representing the key to extract fields from in the dictionary.
-        - fields_of_interest: (optional) A list of strings representing the fields to extract from the dictionary. If this list is empty, the default fields of interest will be used.
+    Args:
+        data (dict): A dictionary containing the data to extract fields from.
+        key (str, optional): A string representing the key to extract fields from in the dictionary.
+        fields_of_interest (list[str], optional): A list of strings representing the fields to extract from the dictionary.
+            If not provided, the default fields of interest will be used.
 
     Returns:
-        A dictionary containing the extracted fields.
+        dict: A dictionary containing the extracted fields.
+
     """
     extracted_data = {}
-    if not fields_of_interest:
-        fields_of_interest = [
-            "dates",
-            "sitename",
-            "polygon",
-            "roi_id",
-            "sat_list",
-            "sitename",
-            "landsat_collection",
-            "filepath",
-        ]
+    fields_of_interest = fields_of_interest or {
+        "dates",
+        "sitename",
+        "polygon",
+        "roi_id",
+        "sat_list",
+        "landsat_collection",
+        "filepath",
+    }
 
     if key and key in data:
         for field in fields_of_interest:
@@ -1313,13 +1346,13 @@ def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) ->
 #     bbox_gdf: gpd.GeoDataFrame = None,
 #     epsg_code: int = None,
 # ) -> gpd.GeoDataFrame:
-    
+
 #     if epsg_code is None and rois_gdf is None:
 #         raise Exception("Cannot save to config without a crs provided or a valid ROI geodataframe")
 
 #     if epsg_code is None and rois_gdf.empty:
 #         raise Exception("Cannot save to config without a crs provided or an empty ROI geodataframe")
-        
+
 #     if rois_gdf is None:
 #         rois_gdf = gpd.GeoDataFrame()
 #     if rois_gdf is not None:
@@ -1342,17 +1375,18 @@ def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) ->
 #         bbox_gdf = gpd.GeoDataFrame()
 #     elif bbox_gdf is not None:
 #         bbox_gdf = bbox_gdf.to_crs(epsg_code)
-    
+
 #     rois_gdf["type"] = "roi"
 #     shorelines_gdf["type"] = "shoreline"
 #     transects_gdf["type"] = "transect"
 #     bbox_gdf["type"] = "bbox"
-    
+
 #     new_gdf = gpd.GeoDataFrame(pd.concat([rois_gdf, shorelines_gdf], ignore_index=True))
 #     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
 #     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
-    
+
 #     return new_gdf
+
 
 def create_config_gdf(
     rois_gdf: gpd.GeoDataFrame,
@@ -1362,10 +1396,14 @@ def create_config_gdf(
     epsg_code: int = None,
 ) -> gpd.GeoDataFrame:
     if epsg_code is None and rois_gdf is None:
-        raise ValueError("Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame")
+        raise ValueError(
+            "Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame"
+        )
     # Check if CRS is provided or if the ROI GeoDataFrame is empty
     if epsg_code is None and rois_gdf.empty:
-        raise ValueError("Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame")
+        raise ValueError(
+            "Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame"
+        )
     if epsg_code is None:
         epsg_code = rois_gdf.crs
 
@@ -1373,19 +1411,19 @@ def create_config_gdf(
     if rois_gdf is not None and not rois_gdf.empty:
         rois_gdf = rois_gdf.to_crs(epsg_code)
     else:
-        rois_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+        rois_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
     if shorelines_gdf is not None and not shorelines_gdf.empty:
         shorelines_gdf = shorelines_gdf.to_crs(epsg_code)
     else:
-        shorelines_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+        shorelines_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
     if transects_gdf is not None and not transects_gdf.empty:
         transects_gdf = transects_gdf.to_crs(epsg_code)
     else:
-        transects_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+        transects_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
     if bbox_gdf is not None and not bbox_gdf.empty:
         bbox_gdf = bbox_gdf.to_crs(epsg_code)
     else:
-        bbox_gdf = gpd.GeoDataFrame(geometry=[],crs=epsg_code)
+        bbox_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
 
     # Assign "type" column values
     rois_gdf["type"] = "roi"
@@ -1394,8 +1432,9 @@ def create_config_gdf(
     bbox_gdf["type"] = "bbox"
 
     # Concatenate GeoDataFrames
-    config_gdf = pd.concat([rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True)
-
+    config_gdf = pd.concat(
+        [rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True
+    )
 
     return gpd.GeoDataFrame(config_gdf)
 
@@ -1456,7 +1495,6 @@ def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
         raise FileNotFoundError
 
 
-
 def get_jpgs_from_data() -> str:
     """Returns the folder where all jpgs were copied from the data folder in coastseg.
     This is where the model will save the computed segmentations."""
@@ -1491,28 +1529,32 @@ def get_jpgs_from_data() -> str:
         print("ERROR: Cannot find the data directory in coastseg")
         raise Exception("ERROR: Cannot find the data directory in coastseg")
 
+
 def save_config_files(
-        save_location:str='',
-        roi_ids:list[str]=[],
-        roi_settings:dict = {},
-        shoreline_settings:dict ={},
-        transects_gdf=None,
-        shorelines_gdf=None,
-        roi_gdf=None,
-        epsg_code = 'epsg:4326'):
+    save_location: str = "",
+    roi_ids: list[str] = [],
+    roi_settings: dict = {},
+    shoreline_settings: dict = {},
+    transects_gdf=None,
+    shorelines_gdf=None,
+    roi_gdf=None,
+    epsg_code="epsg:4326",
+):
     # save config files
-    config_json = create_json_config(
-        roi_settings,shoreline_settings, roi_ids=roi_ids
-    )
+    config_json = create_json_config(roi_settings, shoreline_settings, roi_ids=roi_ids)
     config_to_file(config_json, save_location)
     # save a config geodataframe with the rois, reference shoreline and transects
     if roi_gdf is not None:
         if not roi_gdf.empty:
             epsg_code = roi_gdf.crs
     config_gdf = create_config_gdf(
-        rois_gdf=roi_gdf, shorelines_gdf=shorelines_gdf, transects_gdf=transects_gdf,epsg_code=epsg_code 
+        rois_gdf=roi_gdf,
+        shorelines_gdf=shorelines_gdf,
+        transects_gdf=transects_gdf,
+        epsg_code=epsg_code,
     )
     config_to_file(config_gdf, save_location)
+
 
 def load_json_data_from_file(search_location: str, filename: str) -> dict:
     """
