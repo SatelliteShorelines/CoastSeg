@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "0.0.66dev1"
+version = "0.0.66dev2"
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -22,9 +22,7 @@ dependencies = [
   "aiohttp",
   "nest-asyncio",
   "tensorflow",
-  "dask",
-  "xarray",
-  "pyTMD"]
+  "dask",]
 license = { file="LICENSE" }
 requires-python = ">=3.8"
 classifiers = [
