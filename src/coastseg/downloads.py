@@ -1103,7 +1103,6 @@ async def async_download_year(tiles_info: List[dict], session) -> None:
     # creates task for each tile to be downloaded and waits for tasks to complete
     tasks = []
     for counter, tile_dict in enumerate(tiles_info):
-
         polygon = tile_dict["polygon"]
         filepath = os.path.abspath(tile_dict["filepath"])
         filenames = {

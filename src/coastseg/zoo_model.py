@@ -46,69 +46,76 @@ import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
+
 def create_transects_geodataframe(
-        transects_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str
-    ) -> gpd.GeoDataFrame:
-        """
-        Creates transects as a GeoDataFrame.
+    transects_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str
+) -> gpd.GeoDataFrame:
+    """
+    Creates transects as a GeoDataFrame.
 
-        If the transects file exists at the provided path, it is read into a GeoDataFrame.
-        If the GeoDataFrame is not empty, transects are extracted using the `Transects` class
-        and a deep copy of the resulting GeoDataFrame is made.
-        If the transects file does not exist, transects are created based on the ROI GeoDataFrame.
-        The resulting GeoDataFrame is then converted to the specified EPSG code.
+    If the transects file exists at the provided path, it is read into a GeoDataFrame.
+    If the GeoDataFrame is not empty, transects are extracted using the `Transects` class
+    and a deep copy of the resulting GeoDataFrame is made.
+    If the transects file does not exist, transects are created based on the ROI GeoDataFrame.
+    The resulting GeoDataFrame is then converted to the specified EPSG code.
 
-        Args:
-            transects_path (str): Path to the transects file.
-            roi_gdf (gpd.GeoDataFrame): GeoDataFrame representing the region of interest.
-            epsg_code (str): EPSG code for the desired coordinate reference system.
+    Args:
+        transects_path (str): Path to the transects file.
+        roi_gdf (gpd.GeoDataFrame): GeoDataFrame representing the region of interest.
+        epsg_code (str): EPSG code for the desired coordinate reference system.
 
-        Returns:
-            gpd.GeoDataFrame: Transects as a GeoDataFrame in the specified EPSG code.
-        
-        Raises:
-            ValueError: If the transects file is empty.
+    Returns:
+        gpd.GeoDataFrame: Transects as a GeoDataFrame in the specified EPSG code.
 
-        """
-        if os.path.exists(transects_path):
-            transects_gdf = gpd.read_file(transects_path)
-            if not transects_gdf.empty:
-                transects_object = transects.Transects(transects=transects_gdf)
-                transects_gdf = copy.deepcopy(transects_object.gdf)
-            else:
-                raise ValueError(f"Empty Transects file provided {transects_path}")
+    Raises:
+        ValueError: If the transects file is empty.
+
+    """
+    if os.path.exists(transects_path):
+        transects_gdf = gpd.read_file(transects_path)
+        if not transects_gdf.empty:
+            transects_object = transects.Transects(transects=transects_gdf)
+            transects_gdf = copy.deepcopy(transects_object.gdf)
         else:
-            transects_in_roi = transects.Transects(bbox=roi_gdf)
-            transects_gdf = copy.deepcopy(transects_in_roi.gdf)
+            raise ValueError(f"Empty Transects file provided {transects_path}")
+    else:
+        transects_in_roi = transects.Transects(bbox=roi_gdf)
+        transects_gdf = copy.deepcopy(transects_in_roi.gdf)
 
-        logger.info(f"transects_gdf: {transects_gdf}")
-        if transects_gdf.empty:
-            raise Exception(f"No transects were found this region. Upload a transects.geojson")
-        transects_gdf = transects_gdf.loc[:, ["id", "geometry"]]
-        transects_gdf = transects_gdf.to_crs(epsg_code)
-        return transects_gdf
+    logger.info(f"transects_gdf: {transects_gdf}")
+    if transects_gdf.empty:
+        raise Exception(
+            f"No transects were found this region. Upload a transects.geojson"
+        )
+    transects_gdf = transects_gdf.loc[:, ["id", "geometry"]]
+    transects_gdf = transects_gdf.to_crs(epsg_code)
+    return transects_gdf
+
 
 def create_shoreline_geodataframe(
-        shoreline_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str
-    ) -> gpd.GeoDataFrame:
-        if os.path.exists(shoreline_path):
-            shoreline_gdf = gpd.read_file(shoreline_path)
-            if not shoreline_gdf.empty:
-                logger.info(f"shoreline gdf loaded from {shoreline_path}")
-                shoreline_object = shoreline.Shoreline(shoreline=shoreline_gdf)
-                shoreline_gdf = copy.deepcopy(shoreline_object.gdf)
-            else:
-                raise ValueError(f"Empty Shoreline file provided {shoreline_path}")
+    shoreline_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str
+) -> gpd.GeoDataFrame:
+    if os.path.exists(shoreline_path):
+        shoreline_gdf = gpd.read_file(shoreline_path)
+        if not shoreline_gdf.empty:
+            logger.info(f"shoreline gdf loaded from {shoreline_path}")
+            shoreline_object = shoreline.Shoreline(shoreline=shoreline_gdf)
+            shoreline_gdf = copy.deepcopy(shoreline_object.gdf)
         else:
-            shoreline_in_roi = shoreline.Shoreline(bbox=roi_gdf)
-            shoreline_gdf = copy.deepcopy(shoreline_in_roi.gdf)
+            raise ValueError(f"Empty Shoreline file provided {shoreline_path}")
+    else:
+        shoreline_in_roi = shoreline.Shoreline(bbox=roi_gdf)
+        shoreline_gdf = copy.deepcopy(shoreline_in_roi.gdf)
 
-        logger.info(f"shoreline_gdf: {shoreline_gdf}")
-        if shoreline_gdf.empty:
-            raise Exception(f"No shorelines were found this region. Upload a shorelines.geojson")
-        shoreline_gdf = shoreline_gdf.loc[:, ["id", "geometry"]]
-        shoreline_gdf = shoreline_gdf.to_crs(epsg_code)
-        return shoreline_gdf
+    logger.info(f"shoreline_gdf: {shoreline_gdf}")
+    if shoreline_gdf.empty:
+        raise Exception(
+            f"No shorelines were found this region. Upload a shorelines.geojson"
+        )
+    shoreline_gdf = shoreline_gdf.loc[:, ["id", "geometry"]]
+    shoreline_gdf = shoreline_gdf.to_crs(epsg_code)
+    return shoreline_gdf
+
 
 def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> list[str]:
     def percentage_of_black_pixels(img: "PIL.Image") -> float:
@@ -756,14 +763,13 @@ class Zoo_Model:
         logger.info(f"model_dict: {model_dict}")
         return model_dict
 
-
     def extract_shorelines_with_unet(
         self,
         extract_shoreline_settings: dict,
         session_path: str,
         session_name: str,
-        shoreline_path: str='',
-        transects_path: str='',
+        shoreline_path: str = "",
+        transects_path: str = "",
     ) -> None:
         logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
 
@@ -771,7 +777,6 @@ class Zoo_Model:
         extract_shoreline_settings["model_session_path"] = session_path
         self.set_settings(**extract_shoreline_settings)
         extract_shoreline_settings = self.get_settings()
-
 
         # create session path to store extracted shorelines and transects
         sessions_dir_path = common.create_directory(os.getcwd(), "sessions")
@@ -783,21 +788,23 @@ class Zoo_Model:
         logger.info(f"config_geojson_location: {config_geojson_location}")
 
         # get roi_id from source directory path in model settings
-        model_settings = common.load_json_data_from_file(session_path, "model_settings.json")
-        source_directory = model_settings.get("sample_direc",'')
+        model_settings = common.load_json_data_from_file(
+            session_path, "model_settings.json"
+        )
+        source_directory = model_settings.get("sample_direc", "")
         roi_id = common.extract_roi_id(source_directory)
 
         # save model settings to session path
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
-        common.to_file(model_settings,model_settings_path)
+        common.to_file(model_settings, model_settings_path)
 
         # load the roi settings from the config file
-        config = common.load_json_data_from_file( session_path, "config.json")
+        config = common.load_json_data_from_file(session_path, "config.json")
         roi_settings = config.get(roi_id, {})
         logger.info(f"roi_settings: {roi_settings}")
         if roi_settings == {}:
             raise ValueError(f"{roi_id} roi settings did not exist")
-        
+
         # read ROI from config geojson file
         config_gdf = common.read_gpd_file(config_geojson_location)
         roi_gdf = config_gdf[config_gdf["id"] == roi_id]
@@ -805,16 +812,18 @@ class Zoo_Model:
             raise ValueError(
                 f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}"
             )
-        
 
         # get the epsg code for this region before we change it
         output_epsg = extract_shoreline_settings["output_epsg"]
         logger.info(f"output_epsg: {output_epsg}")
-        # load transects and shorelines 
-        
-        transects_gdf = create_transects_geodataframe(transects_path,roi_gdf,output_epsg)
-        shoreline_gdf = create_shoreline_geodataframe(shoreline_path,roi_gdf,output_epsg)
+        # load transects and shorelines
 
+        transects_gdf = create_transects_geodataframe(
+            transects_path, roi_gdf, output_epsg
+        )
+        shoreline_gdf = create_shoreline_geodataframe(
+            shoreline_path, roi_gdf, output_epsg
+        )
 
         # extract shorelines with most accurate crs
         new_espg = common.get_most_accurate_epsg(
@@ -823,15 +832,17 @@ class Zoo_Model:
         extract_shoreline_settings["output_epsg"] = new_espg
         self.set_settings(output_epsg=new_espg)
 
-        roi_gdf =  roi_gdf.to_crs(output_epsg)
+        roi_gdf = roi_gdf.to_crs(output_epsg)
         # save the config files to the new session locaton
-        common.save_config_files(new_session_path,
-                                 roi_ids=[roi_id],
-                                 roi_settings = roi_settings,
-                                 shoreline_settings = extract_shoreline_settings,
-                                 transects_gdf=transects_gdf,
-                                 shorelines_gdf=shoreline_gdf,
-                                 roi_gdf=roi_gdf)
+        common.save_config_files(
+            new_session_path,
+            roi_ids=[roi_id],
+            roi_settings=roi_settings,
+            shoreline_settings=extract_shoreline_settings,
+            transects_gdf=transects_gdf,
+            shorelines_gdf=shoreline_gdf,
+            roi_gdf=roi_gdf,
+        )
 
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
@@ -853,12 +864,12 @@ class Zoo_Model:
 
         # transects must be in the same CRS as the extracted shorelines otherwise intersections will all be NAN
         if not transects_gdf.empty:
-            transects_gdf =  transects_gdf.to_crs(new_espg)
+            transects_gdf = transects_gdf.to_crs(new_espg)
 
         # compute intersection between extracted shorelines and transects
-        cross_distance_transects = extracted_shoreline.compute_transects_from_roi(extracted_shorelines.dictionary,
-                                                       transects_gdf,extract_shoreline_settings
-                                                       )
+        cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
+            extracted_shorelines.dictionary, transects_gdf, extract_shoreline_settings
+        )
         logger.info(f"cross_distance_transects: {cross_distance_transects}")
 
         # save transect shoreline intersections to csv file if they exist
@@ -868,11 +879,13 @@ class Zoo_Model:
         else:
             transect_settings = self.get_settings()
             transect_settings["output_epsg"] = new_espg
-            common.save_transects(roi_id,
+            common.save_transects(
+                roi_id,
                 new_session_path,
                 cross_distance_transects,
                 extracted_shorelines.dictionary,
-                transect_settings)
+                transect_settings,
+            )
 
     def postprocess_data(
         self, preprocessed_data: dict, session: sessions.Session, roi_directory: str
@@ -1301,7 +1314,6 @@ class Zoo_Model:
             # Output: ['/path/to/weights/best_model.h5']
         """
         if model_choice == "ENSEMBLE":
-
             weights_list = glob(os.path.join(self.weights_directory, "*.h5"))
             logger.info(f"ENSEMBLE: weights_list: {weights_list}")
             logger.info(

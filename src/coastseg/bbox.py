@@ -79,7 +79,8 @@ class Bounding_Box:
             crs (str, optional): coordinate reference system string. Defaults to 'EPSG:4326'.
 
         Returns:
-            gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs"""
+            gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs
+        """
         geom = [shape(rectangle)]
         geojson_bbox = gpd.GeoDataFrame({"geometry": geom})
         geojson_bbox.crs = crs

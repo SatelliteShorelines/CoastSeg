@@ -98,7 +98,7 @@ class Transects:
 
         if "id" not in self.gdf.columns:
             self.gdf["id"] = self.gdf.index.astype(str).tolist()
-    
+
         if filename:
             self.filename = filename
 

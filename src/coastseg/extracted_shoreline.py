@@ -66,14 +66,18 @@ def time_func(func):
 
     return wrapper
 
+
 from skimage import measure, morphology
+
 
 def remove_small_objects_and_binarize(merged_labels, min_size):
     # Ensure the image is binary
     binary_image = merged_labels > 0
 
     # Remove small objects from the binary image
-    filtered_image = morphology.remove_small_objects(binary_image, min_size=min_size, connectivity=2)
+    filtered_image = morphology.remove_small_objects(
+        binary_image, min_size=min_size, connectivity=2
+    )
 
     return filtered_image
 
@@ -101,10 +105,9 @@ def compute_transects_from_roi(
     logger.info(f"transects: {transects}")
     # print(f'settings to extract transects: {settings}')
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
-    cross_distance = compute_intersection_QC(
-        extracted_shorelines, transects, settings
-    )
+    cross_distance = compute_intersection_QC(extracted_shorelines, transects, settings)
     return cross_distance
+
 
 def combine_satellite_data(satellite_data: dict):
     """
@@ -355,7 +358,7 @@ def process_satellite_image(
     merged_labels = load_merged_image_labels(npz_file, class_indices=class_indices)
     all_labels = load_image_labels(npz_file)
 
-    min_beach_area = settings['min_beach_area']
+    min_beach_area = settings["min_beach_area"]
     # bad idea to use remove_small_objects_and_binarize on all_labels, safe to use on merged_labels (water/land boundary)
     # all_labels = morphology.remove_small_objects(all_labels, min_size=min_beach_area, connectivity=2)
     merged_labels = remove_small_objects_and_binarize(merged_labels, min_beach_area)
@@ -699,7 +702,10 @@ def plot_image_with_legend(
     ax2.axis("off")
     if merged_legend:  # Check if the list is not empty
         ax2.legend(
-            handles=merged_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
+            handles=merged_legend,
+            bbox_to_anchor=bbox_to_anchor,
+            loc=loc,
+            borderaxespad=0.0,
         )
 
     # Plot second combined image with overlay and legend
@@ -709,7 +715,10 @@ def plot_image_with_legend(
     ax3.axis("off")
     if all_legend:  # Check if the list is not empty
         ax3.legend(
-            handles=all_legend, bbox_to_anchor=bbox_to_anchor, loc=loc, borderaxespad=0.0
+            handles=all_legend,
+            bbox_to_anchor=bbox_to_anchor,
+            loc=loc,
+            borderaxespad=0.0,
         )
 
     # Return the figure object
@@ -731,9 +740,8 @@ def save_detection_figure(fig, filepath: str, date: str, satname: str) -> None:
     """
     fig.savefig(os.path.join(filepath, date + "_" + satname + ".jpg"), dpi=150)
     plt.close(fig)  # Close the figure after saving
-    plt.close('all')
+    plt.close("all")
     del fig
-
 
 
 def create_legend(
@@ -881,8 +889,6 @@ def shoreline_detection_figures(
     save_detection_figure(fig, filepath, date, satname)
     plt.close(fig)
 
-   
-
 
 def mask_clouds_in_images(
     im_RGB: "np.ndarray[float]",
@@ -1004,10 +1010,12 @@ def extract_shorelines_with_dask(
     # convert from a tuple of dicts to single dictionary
     extracted_shorelines_data = {}
     if not all(not bool(inner_dict) for inner_dict in tuple_of_dicts):
-        result_dict = {k: v for dictionary in tuple_of_dicts for k, v in dictionary.items()}
+        result_dict = {
+            k: v for dictionary in tuple_of_dicts for k, v in dictionary.items()
+        }
         # change the format to have one list sorted by date with all the shorelines (easier to use)
         extracted_shorelines_data = combine_satellite_data(result_dict)
-    
+
     logger.info(f"extracted_shorelines_data: {extracted_shorelines_data}")
 
     return extracted_shorelines_data

@@ -37,7 +37,7 @@ class UI_Models:
     def __init__(self):
         self.settings_dashboard = settings_UI.Settings_UI()
         self.zoo_model_instance = zoo_model.Zoo_Model()
-        self.fileuploader =  FileUploader(
+        self.fileuploader = FileUploader(
             filter_pattern="*geojson",
             dropdown_options=["transects", "shorelines"],
             file_selection_title="Select a geojson file",
@@ -245,7 +245,7 @@ class UI_Models:
             self.extracted_shoreline_file_row,
             HBox(
                 [self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]
-            ), 
+            ),
             self.line_widget,
             tidal_correction_controls,
             self.tidal_correct_file_row,

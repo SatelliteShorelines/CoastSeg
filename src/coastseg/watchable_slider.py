@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 """
 This class is a widget that allows the user to load extracted shorelines on the map.
 """
+
+
 # write docstring for this class
 class Extracted_Shoreline_widget(ipywidgets.VBox):
     def __init__(self, map_interface=None):

@@ -67,7 +67,6 @@ class Shoreline:
     def __repr__(self):
         return f"Shoreline: geodataframe {self.gdf}"
 
-
     def create_geodataframe(
         self, bbox: gpd.GeoDataFrame, crs: str = "EPSG:4326"
     ) -> gpd.GeoDataFrame:
