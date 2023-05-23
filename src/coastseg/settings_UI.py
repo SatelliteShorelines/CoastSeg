@@ -24,7 +24,6 @@ class Settings_UI:
 
     def get_settings(self) -> dict:
         settings = {
-            "output_epsg": int(self.output_epsg_text.value),
             "max_dist_ref": self.shoreline_buffer_slider.value,
             "along_dist": self.alongshore_distance_slider.value,
             "dist_clouds": self.cloud_slider.value,
@@ -286,10 +285,6 @@ class Settings_UI:
         )
         return VBox([label, self.min_chainage_text])
 
-    def get_output_epsg(self) -> Text:
-        self.output_epsg_text = Text(value="4326", description="Output epsg:")
-        return self.output_epsg_text
-
     def render(self):
         # return a vbox of all the settings
         settings = {
@@ -305,7 +300,6 @@ class Settings_UI:
             "min_chainage": self.get_min_chainage_text(),
             "multiple_inter": self.get_outliers_mode(),
             "prc_multiple": self.get_prc_multiple_text(),
-            "output_epsg": self.get_output_epsg(),
             "percent_no_data": self.get_no_data_slider(),
         }
         # create settings vbox

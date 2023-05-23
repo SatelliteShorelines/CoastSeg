@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import json
 import logging
@@ -19,7 +20,6 @@ from coastseg.observable import Observable
 
 from coastsat import (
     SDS_download,
-    SDS_transects,
 )
 import pandas as pd
 import geopandas as gpd
@@ -195,11 +195,31 @@ class CoastSeg_Map:
                 file_path = os.path.join(dir_path, file_name)
                 if not os.path.isfile(file_path):
                     continue
-                elif (
-                    file_name == "transects_settings.json"
-                    or file_name == "shoreline_settings.json"
-                ):
-                    self.load_settings(file_path)
+                if file_name == "shoreline_settings.json":
+                    keys = [
+                        "cloud_thresh",
+                        "cloud_mask_issue",
+                        "min_beach_area",
+                        "min_length_sl",
+                        "output_epsg",
+                        "sand_color",
+                        "pan_off",
+                        "max_dist_ref",
+                        "dist_clouds",
+                        "percent_no_data",
+                    ]
+                    self.load_settings(file_path, keys)
+                elif file_name == "transects_settings.json":
+                    keys = [
+                        "max_std",
+                        "min_points",
+                        "along_dist",
+                        "max_range",
+                        "min_chainage",
+                        "multiple_inter",
+                        "prc_multiple",
+                    ]
+                    self.load_settings(file_path, keys)
             if not config_loaded:
                 logger.info(f"Not all config files not found at {dir_path}")
 
@@ -281,38 +301,13 @@ class CoastSeg_Map:
         # update observable list of ROI ids with extracted shorelines
         self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
 
-    def load_settings(self, filepath: str = "", new_settings: dict = {}):
-        """
-        Load settings from a JSON file. Only loads settings for transects and shorelines.
-        If no JSON file is provided then load then load from new_settings.
-
-        Args:
-            filepath: The path to the JSON file containing the new settings.
-            new_settings: A dictionary of new settings to apply.
-
-        Returns:
-            None.
-        """
-        new_settings = common.read_json_file(filepath, raise_error=False)
-        if new_settings is None:
-            new_settings = {}
-        # load in transect settings if found
-        transect_keys = [
-            "max_std",
-            "min_points",
-            "along_dist",
-            "max_range",
-            "min_chainage",
-            "multiple_inter",
-            "prc_multiple",
-        ]
-        transect_settings = common.filter_dict_by_keys(new_settings, keys=transect_keys)
-        if transect_settings != {}:
-            logger.info(f"Loading transect_settings: {transect_settings}")
-            self.set_settings(**transect_settings)
-            logger.info(f"Loaded transect_settings from {filepath}")
-
-        shoreline_keys = [
+    def load_settings(
+        self,
+        filepath: str = "",
+        keys: set = (
+            "sat_list",
+            "dates",
+            "sand_color",
             "cloud_thresh",
             "cloud_mask_issue",
             "min_beach_area",
@@ -323,18 +318,74 @@ class CoastSeg_Map:
             "max_dist_ref",
             "dist_clouds",
             "percent_no_data",
-        ]
-        shoreline_settings = {
-            k: v for k, v in new_settings.items() if k in shoreline_keys
-        }
-        shoreline_settings["save_figure"] = True
-        shoreline_settings["check_detection"] = False
-        shoreline_settings["adjust_detection"] = False
+            "max_std",
+            "min_points",
+            "along_dist",
+            "max_range",
+            "min_chainage",
+            "multiple_inter",
+            "prc_multiple",
+        ),
+        load_nested_settings:bool=True,
+    ):
+        """
+        Loads settings from a JSON file and applies them to the object.
 
-        if shoreline_settings != {}:
-            logger.info(f"Loading shoreline_settings: {shoreline_settings}")
-            self.set_settings(**shoreline_settings)
-            logger.info(f"Loaded shoreline_settings from {filepath}")
+        Args:
+            filepath (str, optional): The filepath to the JSON file containing the settings. Defaults to an empty string.
+            load_nested_setting (bool, optional): Load settings from a nest subdictionary 'settings' or not.
+            keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
+            "sat_list",
+                                                        "dates",
+                                                        "cloud_thresh",
+                                                        "cloud_mask_issue",
+                                                        "min_beach_area",
+                                                        "min_length_sl",
+                                                        "output_epsg",
+                                                        "sand_color",
+                                                        "pan_off",
+                                                        "max_dist_ref",
+                                                        "dist_clouds",
+                                                        "percent_no_data",
+                                                        "max_std",
+                                                        "min_points",
+                                                        "along_dist",
+                                                        "max_range",
+                                                        "min_chainage",
+                                                        "multiple_inter",
+                                                        "prc_multiple".
+
+        Returns:
+            None
+
+        """
+        # Convert keys to a list if a set is passed
+        if isinstance(keys, set):
+            keys = list(keys)
+
+        new_settings = common.read_json_file(filepath, raise_error=False)
+        logger.info(f"all of new settings read from file : {filepath} \n {new_settings}")
+        
+        nested_settings = new_settings.get('settings',{})
+        logger.info(f"all of new nested settings read from file : {filepath} \n {nested_settings }")
+        
+
+        if new_settings is None:
+            new_settings = {}
+
+        # Load only settings with provided keys
+        if keys:
+            new_settings = {k: new_settings[k] for k in keys if k in new_settings}
+            if nested_settings:
+                nested_settings  = {k: nested_settings[k] for k in keys if k in nested_settings}
+
+        if new_settings != {}:
+            self.set_settings(**new_settings)
+        if nested_settings != {} and load_nested_settings:
+            self.set_settings(**nested_settings)
+            logger.info(
+                f"Loaded new_settings from {filepath}:\n new self.settings {self.settings}"
+            )
 
     def load_gdf_config(self, filepath: str) -> None:
         """Load features from geodataframe located in geojson file at filepath onto map.
@@ -457,55 +508,62 @@ class CoastSeg_Map:
         It replaces the coastseg_map.settings with the settings from the config file,
         and replaces the roi_settings for each ROI with the contents of the json_data.
         Finally, it saves the input dictionaries for all ROIs.
-        Parameters:
-        self (object): CoastsegMap instance
-        filepath (str): The filepath to the json config file
-        datapath(str): full path to the coastseg data directory
+
+        Args:
+            self (object): CoastsegMap instance
+            filepath (str): The filepath to the json config file
+            datapath (str): Full path to the coastseg data directory
+
         Returns:
             None
+
+        Raises:
+            FileNotFoundError: If the config file is not found
+            MissingDirectoriesError: If one or more directories specified in the config file are missing
+
         """
         logger.info(f"filepath: {filepath}")
         exception_handler.check_if_None(self.rois)
+
         json_data = common.read_json_file(filepath, raise_error=True)
-        if json_data is None:
-            json_data = {}
-        # replace coastseg_map.settings with settings from config file
-        self.set_settings(**json_data["settings"])
-        # replace roi_settings for each ROI with contents of json_data
+        json_data = json_data or {}
+
+        # Replace coastseg_map.settings with settings from config file
+        self.set_settings(**json_data.get("settings", {}))
+
+        # Replace roi_settings for each ROI with contents of json_data
         roi_settings = {}
-        # flag raised if a single directory is missing
         missing_directories = []
+        fields_of_interest = [
+            "dates",
+            "sitename",
+            "polygon",
+            "roi_id",
+            "sat_list",
+            "sitename",
+            "landsat_collection",
+            "filepath",
+        ]
+
         logger.info(f"json_data: {json_data}\n")
-        for roi_id in json_data["roi_ids"]:
+
+        for roi_id in json_data.get("roi_ids", []):
             logger.info(f"roi_id: {roi_id}")
-            # extract the fields of interest from the config dictionary
-            fields_of_interest = [
-                "dates",
-                "sitename",
-                "polygon",
-                "roi_id",
-                "sat_list",
-                "sitename",
-                "landsat_collection",
-                "filepath",
-            ]
-            roi_data = common.extract_fields(json_data, roi_id, fields_of_interest)
-            if not roi_data:
-                logger.error(f"json_data: {json_data}")
-                raise Exception(
-                    f"Invalid config.json file detected. Please add the correct roi ids to the config.json file's 'roi_ids' and try again.\nContents of config.json file's 'roi_ids':{json_data['roi_ids']}"
-                )
-            # update the roi location to be one relevant to the current computer
+            # get the fields of interest from an roi with a matching id
+            roi_data = common.extract_roi_data(json_data, roi_id, fields_of_interest)
+
             sitename = roi_data.get("sitename", "")
             roi_path = os.path.join(data_path, sitename)
             roi_data["filepath"] = data_path
+
             if not os.path.exists(roi_path):
                 missing_directories.append(sitename)
-            # copy setting from json file to roi
+
             roi_settings[str(roi_id)] = roi_data
 
         # if any directories are missing tell the user list of missing directories
         exception_handler.check_if_dirs_missing(missing_directories)
+
         # Save input dictionaries for all ROIs
         self.rois.roi_settings = roi_settings
         logger.info(f"roi_settings: {roi_settings}")
@@ -523,8 +581,9 @@ class CoastSeg_Map:
         # check if config files exist
         config_geojson_path = os.path.join(dir_path, "config_gdf.geojson")
         config_json_path = os.path.join(dir_path, "config.json")
-        logger.info(f"config_geojson_path: {config_geojson_path}")
-        logger.info(f"config_json_path: {config_json_path}")
+        logger.info(
+            f"config_gdf.geojson: {config_geojson_path} \n config.json location: {config_json_path}"
+        )
         # cannot load config.json file if config_gdf.geojson file is missing
         if not os.path.exists(config_geojson_path):
             logger.warning(f"config_gdf.geojson file missing at {config_geojson_path}")
@@ -590,7 +649,11 @@ class CoastSeg_Map:
             if not selected_rois.empty:
                 epsg_code = selected_rois.crs
         config_gdf = common.create_config_gdf(
-            selected_rois,shorelines_gdf=shorelines_gdf, transects_gdf=transects_gdf,bbox_gdf=bbox_gdf,epsg_code = epsg_code
+            selected_rois,
+            shorelines_gdf=shorelines_gdf,
+            transects_gdf=transects_gdf,
+            bbox_gdf=bbox_gdf,
+            epsg_code=epsg_code,
         )
         logger.info(f"config_gdf: {config_gdf} ")
         is_downloaded = common.were_rois_downloaded(self.rois.roi_settings, roi_ids)
@@ -636,9 +699,10 @@ class CoastSeg_Map:
         Returns:
         None
         """
+        logger.info(f"New Settings: {kwargs}")
         # Check if any of the keys are missing
         # if any keys are missing set the default value
-        default_settings = {
+        self.default_settings = {
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
             "sat_list": ["L8"],
@@ -651,7 +715,6 @@ class CoastSeg_Map:
             # if True, allows user to adjust the position of each shoreline by changing the threshold
             "adjust_detection": False,
             "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
-            # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
             # minimum area (in metres^2) for an object to be labelled as a beach
             "min_beach_area": 4500,
             # minimum length (in metres) of shoreline perimeter to be valid
@@ -670,45 +733,79 @@ class CoastSeg_Map:
             "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
         }
-        if kwargs:
-            self.settings.update({key: value for key, value in kwargs.items()})
-        self.settings.update(
-            {
-                key: default_settings[key]
-                for key in default_settings
-                if key not in self.settings
-            }
-        )
+        self.settings.update(kwargs)
+        if "dates" in kwargs.keys():
+            updated_dates = []
+            self.settings["dates"] = kwargs['dates']
+            for date_str in kwargs['dates']:
+                try:
+                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S')
+                except ValueError:
+                    dt = datetime.strptime(date_str, '%Y-%m-%d')
+                updated_dates.append(dt.strftime('%Y-%m-%d'))
+            self.settings["dates"] = updated_dates
+        
+        for key, value in self.default_settings.items():
+            self.settings.setdefault(key, value)
+
         logger.info(f"Settings: {self.settings}")
 
     def get_settings(self):
+        """
+        Retrieves the current settings.
+
+        Returns:
+            dict: A dictionary containing the current settings.
+
+        Raises:
+            Exception: If no settings are found. Click save settings or load a config file.
+
+        """
         SETTINGS_NOT_FOUND = (
             "No settings found. Click save settings or load a config file."
         )
         logger.info(f"self.settings: {self.settings}")
         if self.settings is None or self.settings == {}:
             raise Exception(SETTINGS_NOT_FOUND)
-
-        self.settings.setdefault("cloud_mask_issue", False)
-        self.settings.setdefault("cloud_thresh", 99.9)
         return self.settings
 
-    def update_transects_html(self, feature, **kwargs):
-        # Modifies html when transect is hovered over
-        values = defaultdict(lambda: "unknown", feature["properties"])
-        self.feature_html.value = """ 
-        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
-        <b>Transect</b>
-        <p>Id: {}</p>
-        <p>Slope: {}</p>
-        """.format(
-            values["id"],
-            values["slope"],
+    def update_transects_html(self, feature: dict, **kwargs):
+        """
+        Modifies the HTML when a transect is hovered over.
+
+        Args:
+            feature (dict): The transect feature.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+
+        """
+        properties = feature["properties"]
+        transect_id = properties.get("id", "unknown")
+        slope = properties.get("slope", "unknown")
+
+        self.feature_html.value = (
+            "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
+            "<b>Transect</b>"
+            f"<p>Id: {transect_id}</p>"
+            f"<p>Slope: {slope}</p>"
         )
 
     def update_extracted_shoreline_html(self, feature, **kwargs):
+        """
+        Modifies the HTML content when an extracted shoreline is hovered over.
+
+        Args:
+            feature (dict): The extracted shoreline feature.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+
+        """
         # Modifies html when extracted shoreline is hovered over
-        values = defaultdict(lambda: "unknown", feature["properties"])
+        properties = defaultdict(lambda: "unknown", feature["properties"])
         self.feature_html.value = """
         <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>Extracted Shoreline</b>
@@ -717,10 +814,10 @@ class CoastSeg_Map:
         <p>Cloud Cover: {}</p>
         <p>Satellite Name: {}</p>
         """.format(
-            values["date"],
-            values["geoaccuracy"],
-            values["cloud_cover"],
-            values["satname"],
+            properties["date"],
+            properties["geoaccuracy"],
+            properties["cloud_cover"],
+            properties["satname"],
         )
 
     def update_roi_html(self, feature, **kwargs):
@@ -1045,7 +1142,6 @@ class CoastSeg_Map:
         selected_rois_gdf = self.rois.gdf[self.rois.gdf["id"].isin(roi_ids)]
         return selected_rois_gdf
 
-
     def get_cross_distance(
         self,
         roi_id: str,
@@ -1109,78 +1205,6 @@ class CoastSeg_Map:
                     failure_reason = "Cross distance computation failed"
 
         return cross_distance, failure_reason
-
-    # def get_cross_distance(self,
-    #                         roi_id: str,
-    #                        transects_in_roi_gdf:gpd.GeoDataFrame,
-    #                          settings: dict,
-    #                            output_epsg: str):
-    #     """
-    #     Compute the cross shore distance of transects and extracted shorelines for a given ROI.
-
-    #     Parameters:
-    #     -----------
-    #     roi_id : str
-    #         The ID of the ROI to compute the cross shore distance for.
-    #     transects_in_roi_gdf : gpd.GeoDataFrame
-    #         All the transects in the ROI.
-    #         Must contain the columns ["id", "geometry"]
-    #     settings : dict
-    #         A dictionary of settings to be used in the computation.
-    #     output_epsg : str
-    #         The EPSG code of the output projection.
-
-    #     Returns:
-    #     --------
-    #     float
-    #         The computed cross shore distance, or 0 if there was an issue in the computation.
-
-    #     Raises:
-    #     -------
-    #     exceptions.No_Extracted_Shoreline
-    #         Raised if no shorelines were extracted for the ROI with roi_id
-
-    #     Usage:
-    #     ------
-    #     cross_distance = get_cross_distance(roi_id, settings, output_epsg)
-    #     """
-    #     failure_reason = None
-    #     cross_distance = 0
-
-    #     # get extracted shorelines object for the currently selected ROI
-    #     roi_extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
-
-    #     # transects_in_roi_gdf = transects_in_roi_gdf[["id", "geometry"]]
-    #     transects_in_roi_gdf = transects_in_roi_gdf.loc[:, ["id", "geometry"]]
-
-    #     if roi_extracted_shoreline is None:
-    #         failure_reason = "No extracted shorelines were found"
-    #     elif transects_in_roi_gdf.empty:
-    #         failure_reason = "No transects intersected the ROI"
-    #     else:
-    #         extracted_shoreline_x_transect = transects_in_roi_gdf[
-    #             transects_in_roi_gdf.intersects(roi_extracted_shoreline.gdf.unary_union)
-    #         ]
-    #         if extracted_shoreline_x_transect.empty:
-    #             cross_distance = 0
-    #             failure_reason = "No extracted shorelines intersected transects"
-    #         else:
-    #             # convert transects_in_roi_gdf to output_crs from settings
-    #             transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
-    #             # compute cross shore distance of transects and extracted shorelines
-    #             extracted_shorelines_dict = roi_extracted_shoreline.dictionary
-    #             cross_distance = self.compute_transects_from_roi(
-    #                 roi_id,
-    #                 extracted_shorelines_dict,
-    #                 transects_in_roi_gdf,
-    #                 settings,
-    #             )
-
-    #     if cross_distance == 0:
-    #         logger.warning(f"{failure_reason} for ROI {roi_id}")
-    #         print(f"{failure_reason} for ROI {roi_id}")
-
-    #     return cross_distance
 
     def save_timeseries_csv(self, session_path: str, roi_id: str, rois: ROI) -> None:
         """Saves cross distances of transects and
@@ -1961,7 +1985,7 @@ class CoastSeg_Map:
     ):
         """
         Save a geographical feature (Bounding_Box, Shoreline, Transects, ROI) as a GeoJSON file.
-        
+
         Args:
             feature (Union[Bounding_Box, Shoreline, Transects, ROI]): The geographical feature to save.
             feature_type (str, optional): The type of the feature, e.g. Bounding_Box, Shoreline, Transects, or ROI.

@@ -22,7 +22,6 @@ from ipywidgets import Layout
 from ipywidgets import DatePicker
 from ipywidgets import HTML
 from ipywidgets import BoundedFloatText
-from ipywidgets import Text
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Select
@@ -34,6 +33,12 @@ logger = logging.getLogger(__name__)
 
 # icons sourced from https://fontawesome.com/v4/icons/
 
+def convert_date(date_str):
+    try:
+        return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError as e:
+        logger.error(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
+        raise ValueError(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
 
 class UI:
     # all instances of UI will share the same debug_view
@@ -50,6 +55,7 @@ class UI:
         self.session_name = ""
         self.session_directory = ""
         self.tides_file = ""
+
 
         # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
         self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
@@ -80,6 +86,12 @@ class UI:
             description="Load settings", icon="fa-file-o", style=self.load_style
         )
         self.load_settings_button.on_click(self.on_load_settings_clicked)
+
+        self.settings_button = Button(
+            description="Save Settings", icon="fa-floppy-o", style=self.action_style
+        )
+        self.settings_button.on_click(self.save_settings_clicked)
+        self.settings_btn_row = VBox([self.settings_button, self.load_settings_button])
 
         self.load_file_instr = HTML(
             value="<h2>Load Feature from File</h2>\
@@ -161,6 +173,7 @@ class UI:
             style={"description_width": "initial"},
             disabled=False,
         )
+
         # called when unit radio button is clicked
         def units_radio_changed(change: dict):
             """
@@ -391,16 +404,10 @@ class UI:
             "prc_multiple": self.get_prc_multiple_text(),
         }
 
-        self.settings_button = Button(
-            description="Save Settings", icon="fa-floppy-o", style=self.action_style
-        )
-        self.settings_button.on_click(self.save_settings_clicked)
-        self.output_epsg_text = Text(value="4326", description="Output epsg:")
-        self.settings_btn_row = VBox([self.settings_button, self.load_settings_button])
         # create settings vbox
         settings_vbox = VBox(
             [widget for widget_name, widget in settings.items()]
-            + [self.output_epsg_text, self.settings_btn_row]
+            + [self.settings_btn_row]
         )
         return settings_vbox
 
@@ -785,106 +792,88 @@ class UI:
         settings: dict,
     ):
         if "dates" in settings:
-            self.start_date.value = datetime.date(
-                *(map(int, settings["dates"][0].split("-")))
-            )
-            self.end_date.value == datetime.date(
-                *(map(int, settings["dates"][1].split("-")))
-            )
+            start_date_str, end_date_str = settings["dates"]
+            logger.info(f"start_date_str, end_date_str {start_date_str, end_date_str}")
+            self.start_date.value = convert_date(start_date_str)
+            self.end_date.value = convert_date(end_date_str)
+
 
         if "cloud_thresh" in settings:
-            self.cloud_threshold_slider.value = settings["cloud_thresh"]
+            self.cloud_threshold_slider.value = settings.get("cloud_thresh", 0.5)
 
         if "sat_list" in settings:
-            self.satellite_selection.value = settings["sat_list"]
+            self.satellite_selection.value = settings.get("sat_list", ["L8"])
 
         if "sand_color" in settings:
-            self.sand_dropdown.value = settings["sand_color"]
+            self.sand_dropdown.value = settings.get("sand_color", "default")
 
         if "min_length_sl" in settings:
-            self.min_length_sl_slider.value = settings["min_length_sl"]
+            self.min_length_sl_slider.value = settings.get("min_length_sl", 1000)
 
         if "dist_clouds" in settings:
-            self.cloud_slider.value = settings["dist_clouds"]
-
-        if "output_epsg" in settings:
-            self.output_epsg_text.value = str(settings["output_epsg"])
+            self.cloud_slider.value = settings.get("dist_clouds", 300)
 
         if "min_beach_area" in settings:
-            self.beach_area_slider.value = settings["min_beach_area"]
+            self.beach_area_slider.value = settings.get("min_beach_area", 100)
 
         if "max_dist_ref" in settings:
-            self.shoreline_buffer_slider.value = settings["max_dist_ref"]
+            self.shoreline_buffer_slider.value = settings.get("max_dist_ref", 25)
 
         if "along_dist" in settings:
-            self.alongshore_distance_slider.value = settings["along_dist"]
+            self.alongshore_distance_slider.value = settings.get("along_dist", 25)
 
         if "max_std" in settings:
-            self.max_std_text.value = settings["max_std"]
+            self.max_std_text.value = settings.get("max_std", 15)
 
         if "max_range" in settings:
-            self.max_range_text.value = settings["max_range"]
+            self.max_range_text.value = settings.get("max_range", 30)
 
         if "min_chainage" in settings:
-            self.min_chainage_text.value = settings["min_chainage"]
+            self.min_chainage_text.value = settings.get("min_chainage", -100)
 
         if "multiple_inter" in settings:
-            self.outliers_mode.value = settings["multiple_inter"]
+            self.outliers_mode.value = settings.get("multiple_inter", "auto")
 
         if "prc_multiple" in settings:
-            self.prc_multiple_text.value = settings["prc_multiple"]
+            self.prc_multiple_text.value = settings.get("prc_multiple", 0.1)
 
         if "min_points" in settings:
-            self.min_points_text.value = settings["min_points"]
+            self.min_points_text.value = settings.get("min_points", 3)
 
-    def get_settings_html(
-        self,
-        settings: dict,
-    ):
-        # if a key is missing from settings its value is "unknown"
-        values = defaultdict(lambda: "unknown", settings)
-        return """ 
+    def get_settings_html(self, settings: dict):
+        """
+        Generates HTML content displaying the settings.
+
+        Args:
+            settings (dict): The dictionary containing the settings.
+
+        Returns:
+            str: The HTML content representing the settings.
+
+        """
+
+        return f"""
         <h2>Settings</h2>
-        <p>sat_list: {}</p>
-        <p>dates: {}</p>
-        <p>landsat_collection: {}</p>
-        <p>cloud_thresh: {}</p>
-        <p>dist_clouds: {}</p>
-        <p>output_epsg: {}</p>
-        <p>save_figure: {}</p>
-        <p>min_beach_area: {}</p>
-        <p>min_length_sl: {}</p>
-        <p>cloud_mask_issue: {}</p>
-        <p>sand_color: {}</p>
-        <p>max_dist_ref: {}</p>
-        <p>along_dist: {}</p>
-        <p>min_points: {}</p>
-        <p>max_std: {}</p>
-        <p>max_range: {}</p>
-        <p>min_chainage: {}</p>
-        <p>multiple_inter: {}</p>
-        <p>prc_multiple: {}</p>
-        """.format(
-            values["sat_list"],
-            values["dates"],
-            values["landsat_collection"],
-            values["cloud_thresh"],
-            values["dist_clouds"],
-            values["output_epsg"],
-            values["save_figure"],
-            values["min_beach_area"],
-            values["min_length_sl"],
-            values["cloud_mask_issue"],
-            values["sand_color"],
-            values["max_dist_ref"],
-            values["along_dist"],
-            values["min_points"],
-            values["max_std"],
-            values["max_range"],
-            values["min_chainage"],
-            values["multiple_inter"],
-            values["prc_multiple"],
-        )
+        <p>sat_list: {settings.get("sat_list", "unknown")}</p>
+        <p>dates: {settings.get("dates", "unknown")}</p>
+        <p>landsat_collection: {settings.get("landsat_collection", "unknown")}</p>
+        <p>cloud_thresh: {settings.get("cloud_thresh", "unknown")}</p>
+        <p>dist_clouds: {settings.get("dist_clouds", "unknown")}</p>
+        <p>output_epsg: {settings.get("output_epsg", "unknown")}</p>
+        <p>save_figure: {settings.get("save_figure", "unknown")}</p>
+        <p>min_beach_area: {settings.get("min_beach_area", "unknown")}</p>
+        <p>min_length_sl: {settings.get("min_length_sl", "unknown")}</p>
+        <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
+        <p>sand_color: {settings.get("sand_color", "unknown")}</p>
+        <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
+        <p>along_dist: {settings.get("along_dist", "unknown")}</p>
+        <p>min_points: {settings.get("min_points", "unknown")}</p>
+        <p>max_std: {settings.get("max_std", "unknown")}</p>
+        <p>max_range: {settings.get("max_range", "unknown")}</p>
+        <p>min_chainage: {settings.get("min_chainage", "unknown")}</p>
+        <p>multiple_inter: {settings.get("multiple_inter", "unknown")}</p>
+        <p>prc_multiple: {settings.get("prc_multiple", "unknown")}</p>
+        """
 
     def _create_HTML_widgets(self):
         """create HTML widgets that display the instructions.
@@ -1061,7 +1050,6 @@ class UI:
         settings = {
             "sat_list": list(self.satellite_selection.value),
             "dates": [str(self.start_date.value), str(self.end_date.value)],
-            "output_epsg": int(self.output_epsg_text.value),
             "max_dist_ref": self.shoreline_buffer_slider.value,
             "along_dist": self.alongshore_distance_slider.value,
             "dist_clouds": self.cloud_slider.value,
@@ -1136,6 +1124,7 @@ class UI:
     @debug_view.capture(clear_output=True)
     def on_load_settings_clicked(self, button):
         self.settings_chooser_row = HBox([])
+
         # Prompt user to select a config geojson file
         def load_callback(filechooser: FileChooser) -> None:
             try:
