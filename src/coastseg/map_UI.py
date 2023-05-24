@@ -488,7 +488,7 @@ class UI:
 
         self.shoreline_buffer_slider = ipywidgets.IntSlider(
             value=50,
-            min=100,
+            min=50,
             max=500,
             step=1,
             description="Reference Shoreline Buffer (m):",
@@ -632,7 +632,7 @@ class UI:
 
         self.min_length_sl_slider = ipywidgets.IntSlider(
             value=500,
-            min=200,
+            min=50,
             max=1000,
             step=1,
             description="Min shoreline length (m):",
