@@ -443,12 +443,22 @@ class CoastSeg_Map:
             gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type and columns.
 
         Raises:
-            None
+            ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
         """
+        # Check if feature_type exists in the GeoDataFrame
+        if 'type' not in gdf.columns:
+            raise ValueError(f"Column 'type' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded")
+
         # select only the columns that are in the gdf
         keep_columns = [col for col in columns if col in gdf.columns]
+
+        # If no columns from columns list exist in the GeoDataFrame, raise an error
+        if not keep_columns:
+            raise ValueError(f"None of the columns {columns} exist in the GeoDataFrame.")
+
         # select only the features that are of the correct type and have the correct columns
         feature_gdf = gdf[gdf["type"] == feature_type][keep_columns]
+
         return feature_gdf
 
     def download_imagery(self) -> None:
@@ -1004,7 +1014,7 @@ class CoastSeg_Map:
             )
         return None
 
-    def update_settings(self):
+    def update_settings_with_accurate_epsg(self):
         """Updates settings with the most accurate epsg code based on lat and lon if output epsg
         was 4326 or 4327.
         """
@@ -1103,7 +1113,7 @@ class CoastSeg_Map:
         logger.info(f"roi_ids to extract shorelines from: {roi_ids}")
 
         # update the settings with the most accurate epsg
-        self.update_settings()
+        self.update_settings_with_accurate_epsg()
         # update configs with new output_epsg
         self.save_config()
 

@@ -11,10 +11,38 @@ from coastseg import exception_handler
 from coastseg import coastseg_map
 from geopandas import GeoDataFrame
 
+# from geopandas import GeoDataFrame,GeoSeries
+# from shapely.geometry import Polygon
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["Factory"]
 
+
+
+
+def merge_rectangles(gdf: GeoDataFrame) -> GeoDataFrame:
+    """
+    Merges all rectangles in a GeoDataFrame into a single shape.
+
+    Args:
+        gdf (GeoDataFrame): The GeoDataFrame containing the rectangles.
+
+    Returns:
+        GeoDataFrame: A new GeoDataFrame containing a single shape that is the union of all rectangles in gdf.
+                          The new GeoDataFrame has the same columns as the original.
+    """
+    # Ensure that the GeoDataFrame contains Polygons
+    if not all(gdf.geometry.geom_type == 'Polygon'):
+        raise ValueError("All shapes in the GeoDataFrame must be Polygons.")
+
+    # Merge all shapes into one
+    merged_shape = gdf.unary_union
+
+    # Create a new GeoDataFrame with the merged shape and the same columns as the original
+    merged_gdf = GeoDataFrame([gdf.iloc[0]], geometry=[merged_shape], crs=gdf.crs)
+
+    return merged_gdf
 
 def create_shoreline(
     coastsegmap, gdf: Optional[GeoDataFrame] = None, **kwargs
@@ -36,10 +64,18 @@ def create_shoreline(
     if gdf is not None:
         shoreline = Shoreline(shoreline=gdf)
     else:
-        exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
-        shoreline = Shoreline(coastsegmap.bbox.gdf)
-        exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
+        # check if coastsegmap has a ROI 
+        if coastsegmap.rois is not None:
+            if coastsegmap.rois.gdf.empty == False:
+                # merge ROI geometeries together and use that as the bbbox 
+                merged_rois=merge_rectangles(coastsegmap.rois.gdf)
+                shoreline = Shoreline(merged_rois)
+                exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
+        else:
+            exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
+            exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
+            shoreline = Shoreline(coastsegmap.bbox.gdf)
+            exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
 
     logger.info("Shoreline were loaded on map")
     coastsegmap.shoreline = shoreline
@@ -52,14 +88,28 @@ def create_transects(
     if gdf is not None:
         transects = Transects(transects=gdf)
     else:
-        exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
-        transects = Transects(coastsegmap.bbox.gdf)
-        exception_handler.check_if_gdf_empty(
-            transects.gdf,
-            "transects",
-            "Transects Not Found in this region. Draw a new bounding box",
-        )
+        # check if coastsegmap has a ROI 
+        if coastsegmap.rois is not None:
+            if coastsegmap.rois.gdf.empty == False:
+                # merge ROI geometeries together and use that as the bbbox 
+                merged_rois=merge_rectangles(coastsegmap.rois.gdf)
+                transects = Transects(merged_rois)
+                exception_handler.check_if_gdf_empty(
+                    transects.gdf,
+                    "transects",
+                    "Transects Not Found in this region. Draw a new bounding box",
+                )
+        else:
+            # otherwise check if coastsegmap has a bbox 
+            exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
+            exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
+
+            transects = Transects(coastsegmap.bbox.gdf)
+            exception_handler.check_if_gdf_empty(
+                transects.gdf,
+                "transects",
+                "Transects Not Found in this region. Draw a new bounding box",
+            )
 
     logger.info("Transects were loaded on map")
     coastsegmap.transects = transects
