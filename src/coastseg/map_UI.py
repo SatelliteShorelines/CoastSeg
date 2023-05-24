@@ -3,6 +3,7 @@ import os
 import datetime
 import logging
 from collections import defaultdict
+from ipywidgets import Layout
 
 # internal python imports
 from coastseg import exception_handler
@@ -313,8 +314,15 @@ class UI:
     ):
         return self.session_name
 
+
     def get_session_selection(self):
         output = Output()
+        box_layout =  Layout(width='350px',
+                    height='50px',
+                    flex_flow='row',
+                    overflow='auto',
+                    display='flex')
+
         self.session_name_text = ipywidgets.Text(
             value="",
             placeholder="Enter a session name",
@@ -323,35 +331,7 @@ class UI:
             style={"description_width": "initial"},
         )
 
-        enter_button = ipywidgets.Button(description="Enter")
-
-        @output.capture(clear_output=True)
-        def enter_clicked(btn):
-            session_name = str(self.session_name_text.value).strip()
-            session_path = common.create_directory(os.getcwd(), "sessions")
-            new_session_path = os.path.join(session_path, session_name)
-            if os.path.exists(new_session_path):
-                print(f"Session {session_name} already exists at {new_session_path}")
-            elif not os.path.exists(new_session_path):
-                print(f"Session {session_name} will be created at {new_session_path}")
-                self.set_session_name(session_name)
-
-        enter_button.on_click(enter_clicked)
-        session_name_controls = HBox([self.session_name_text, enter_button])
-        return VBox([session_name_controls, output])
-
-    def get_session_selection(self):
-        output = Output()
-        self.session_name_text = ipywidgets.Text(
-            value="",
-            placeholder="Enter a session name",
-            description="Session Name:",
-            disabled=False,
-            style={"description_width": "initial"},
-        )
-
-        enter_button = ipywidgets.Button(description="Enter")
-
+        enter_button = ipywidgets.Button(description="Enter",layout=Layout(height="28px", width="80px",))
         @output.capture(clear_output=True)
         def enter_clicked(btn):
             # create the session directory
@@ -360,16 +340,17 @@ class UI:
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
                 print(
-                    f"Session {session_name} already exists at {new_session_path}\n Warning any existing files will be overwritten."
+                    f"Session {session_name} already exists and will be overwritten."
                 )
             elif not os.path.exists(new_session_path):
-                print(f"Session {session_name} was created at {new_session_path}")
+                print(f"Session {session_name} was created.")
                 new_session_path = common.create_directory(session_path, session_name)
             self.coastseg_map.set_session_name(session_name)
 
         enter_button.on_click(enter_clicked)
+        scrollable_output = ipywidgets.Box(children=[output], layout=box_layout)
         session_name_controls = HBox([self.session_name_text, enter_button])
-        return VBox([session_name_controls, output])
+        return VBox([session_name_controls, scrollable_output])
 
     def get_view_settings_vbox(self) -> VBox:
         # update settings button
@@ -971,7 +952,7 @@ class UI:
         )
         row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
         # in this row prints are rendered with UI.debug_view
-        row_2 = HBox([self.clear_debug_button, UI.debug_view])
+        row_2 = VBox([self.clear_debug_button, UI.debug_view])
         self.error_row = HBox([])
         self.file_chooser_row = HBox([])
         map_row = HBox([self.coastseg_map.map])
@@ -1183,7 +1164,6 @@ class UI:
             title="Select Session Directory",
             starting_directory="sessions",
         )
-        # clear row and close all widgets in row_4 before adding new file_chooser
         self.clear_row(self.file_chooser_row)
         # add instance of file_chooser to row 4
         self.file_chooser_row.children = [dir_chooser]
