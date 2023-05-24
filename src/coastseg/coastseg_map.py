@@ -833,16 +833,12 @@ class CoastSeg_Map:
     def update_roi_html(self, feature, **kwargs):
         # Modifies html when roi is hovered over
         values = defaultdict(lambda: "unknown", feature["properties"])
-        # convert roi area m^2 to km^2
-        roi_area = common.get_area(feature["geometry"]) * 10**-6
-        roi_area = round(roi_area, 5)
         self.roi_html.value = """ 
         <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
         <b>ROI</b>
         <p>Id: {}</p>
-        <p>Area(km²): {}</p>
         """.format(
-            values["id"], roi_area
+            values["id"],
         )
 
     def update_shoreline_html(self, feature, **kwargs):
