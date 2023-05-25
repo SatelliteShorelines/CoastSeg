@@ -157,7 +157,7 @@ class UI:
         )
         # create two float text boxes that will control size of ROI created
         self.sm_area_textbox = BoundedFloatText(
-            value=1,
+            value=0,
             min=0,
             max=98,
             step=1,
@@ -166,7 +166,7 @@ class UI:
             disabled=False,
         )
         self.lg_area_textbox = BoundedFloatText(
-            value=3,
+            value=20,
             min=0,
             max=98,
             step=1,
@@ -863,12 +863,9 @@ class UI:
         """
         self.instr_create_roi = HTML(
             value="<h2><b>Generate ROIs on Map</b></h2> \
-                </br><b>No Overlap</b>: Set Small ROI Area to 0 and Large ROI Area to ROI area.</li>\
-                </br><b>Overlap</b>: Set Small ROI Area to a value and Large ROI Area to ROI area.</li>\
-                </br><h3><b><u>How ROIs are Made</u></b></br></h3> \
-                <li>Two grids of ROIs (squares) are created within\
-                </br>the bounding box along the shoreline.\
-                <li>If no shoreline is within the bounding box then ROIs cannot be created.\
+                 <li>  Draw a bounding box, then click Generate Roi\
+                <li>ROIs (squares) are created within the bounding box along \n the shoreline.\
+                <li>If no shoreline exists within the bounding box then ROIs cannot be created.\
                 ",
             layout=Layout(margin="0px 5px 0px 0px"),
         )
@@ -876,7 +873,6 @@ class UI:
         self.instr_download_roi = HTML(
             value="<h2><b>Download Imagery</b></h2> \
                 <li><b>You must click an ROI on the map before you can download ROIs</b> \
-                <li>Scroll past the map to see the download progress \
                 </br><h3><b><u>Where is my data?</u></b></br></h3> \
                 <li>The data you downloaded will be in the 'data' folder in the main CoastSeg directory</li>\
                 Each ROI you downloaded will have its own folder with the ROI's ID and\
@@ -888,10 +884,7 @@ class UI:
 
         self.instr_config_btns = HTML(
             value="<h2><b>Load Sessions</b></h2>\
-                <b>Load Session</b>: Load rois, shorelines, transects, and bounding box from session directory\
-                </br><b>ROIs Not Downloaded:</b> config file will be saved to CoastSeg directory in file: 'config_gdf.geojson'\
-                </br><b>Downloaded ROIs:</b>config file will be saved to each ROI's directory in file: 'config_gdf.geojson'\
-                ",
+                <b>Load Session</b>: Load rois, shorelines, transects, and bounding box from session directory",
             layout=Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
 
