@@ -410,13 +410,14 @@ class UI:
         return dates_vbox
 
     def get_cloud_threshold_slider(self):
-        instr = HTML(value="<b>Maximum percetange of cloud pixels allowed</b>")
+        instr = HTML(value="<b>Cloud Threshold</b> \
+                     </br>- Maximum percetange of cloud pixels allowed")
         self.cloud_threshold_slider = ipywidgets.FloatSlider(
             value=0.5,
             min=0,
             max=1,
             step=0.01,
-            description="Cloud Pixel %:",
+            description="cloud_thres :",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -428,12 +429,13 @@ class UI:
 
     def get_sand_dropbox(self):
         sand_color_instr = HTML(
-            value="<b>Sand color on beach for model to detect 'dark' (grey/black) 'bright' (white)</b>"
+            value="<b>Sand Color</b>\
+            </br>- Sand color on beach for model to detect 'dark' (grey/black) 'bright' (white)</b>"
         )
         self.sand_dropdown = ipywidgets.Dropdown(
             options=["default", "latest", "dark", "bright"],
             value="default",
-            description="Sand Color:",
+            description="sand_color :",
             disabled=False,
         )
         return VBox([sand_color_instr, self.sand_dropdown])
@@ -441,14 +443,15 @@ class UI:
     def get_alongshore_distance_slider(self):
         # returns slider to control beach area slider
         instr = HTML(
-            value="<b>Along-shore distance over which to consider shoreline points to compute median intersection with transects</b>"
+            value="<b>Alongshore Distance:</b>\
+            </br>- Along-shore distance over which to consider shoreline points to compute median intersection with transects"
         )
         self.alongshore_distance_slider = ipywidgets.IntSlider(
             value=25,
             min=10,
             max=100,
             step=1,
-            description="Alongshore Distance:",
+            description="along_dist (m):",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -461,7 +464,8 @@ class UI:
     def get_cloud_slider(self):
         # returns slider to control beach area slider
         cloud_instr = HTML(
-            value="<b>Allowed distance from extracted shoreline to detected clouds</b>\
+            value="<b> Cloud Distance</b>\
+            </br>- Allowed distance from extracted shoreline to detected clouds\
         </br>- Any extracted shorelines within this distance to any clouds will be dropped"
         )
 
@@ -470,7 +474,7 @@ class UI:
             min=100,
             max=1000,
             step=1,
-            description="Cloud Distance (m):",
+            description="dist_clouds (m):",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -483,15 +487,16 @@ class UI:
     def get_shoreline_buffer_slider(self):
         # returns slider to control beach area slider
         shoreline_buffer_instr = HTML(
-            value="<b>Buffer around reference shorelines in which shorelines can be extracted</b>"
+            value="<b>Reference Shoreline Buffer:</b>\
+            </br>- Buffer around reference shorelines in which shorelines can be extracted"
         )
 
         self.shoreline_buffer_slider = ipywidgets.IntSlider(
             value=50,
             min=50,
-            max=500,
+            max=1000,
             step=1,
-            description="Reference Shoreline Buffer (m):",
+            description="max_dist_ref (m):",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -504,7 +509,8 @@ class UI:
     def get_beach_area_slider(self):
         # returns slider to control beach area slider
         beach_area_instr = HTML(
-            value="<b>Minimum area (sqm) for object to be labelled as beach</b>"
+            value="<b>Minimum Beach Area</b> \
+            </br>- Minimum area (sqm) for object to be labelled as beach"
         )
 
         self.beach_area_slider = ipywidgets.IntSlider(
@@ -512,7 +518,7 @@ class UI:
             min=1000,
             max=10000,
             step=10,
-            description="Beach Area (sqm):",
+            description="min_beach_area (sqm):",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
@@ -524,8 +530,8 @@ class UI:
 
     def get_min_chainage_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Max distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned.</b>"
+        label = HTML(value="<b> Max Landward Distance </b>\
+            </br>- Max distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned."
         )
 
         # min_chainage: (in metres) furthest distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned.
@@ -534,7 +540,7 @@ class UI:
             min=-500.0,
             max=-1.0,
             step=-1.0,
-            description="Max Landward Distance",
+            description="min_chainage (m)",
             style={"description_width": "initial"},
             disabled=False,
         )
@@ -542,8 +548,8 @@ class UI:
 
     def get_prc_multiple_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Percentage of points whose std > max_std that will be set to 'max'.Only in 'auto' mode.</b>"
+        label = HTML( value="<b>Percentage of points std > max_std</b>\
+            </br>- Percentage of points whose std > max_std that will be set to 'max'.Only in 'auto' mode."
         )
         # percentage of points whose std > max_std that will be set to 'max'
         # percentage of data points where the std is larger than the user-defined max
@@ -553,7 +559,7 @@ class UI:
             min=0.0,
             max=1.0,
             step=0.01,
-            description="% points' std > max_std:",
+            description="prc_multiple :",
             style={"description_width": "initial"},
             disabled=False,
         )
@@ -562,7 +568,8 @@ class UI:
     def get_max_range_text(self) -> VBox:
         # returns slider to control beach area slider
         label = HTML(
-            value="<b>Max range for shoreline points within the alongshore range, if range is above this value a NaN is returned for this intersection</b>"
+            value="<b>Max Range</b> \
+            </br>- Max range for shoreline points within the alongshore range, if range is above this value a NaN is returned for this intersection"
         )
         # max_range: (in metres) maximum RANGE for the shoreline points within the alongshore range, if RANGE is above this value a NaN is returned for this intersection.
         self.max_range_text = BoundedFloatText(
@@ -570,7 +577,7 @@ class UI:
             min=1.0,
             max=100.0,
             step=1.0,
-            description="Max Range",
+            description="max_range (m)",
             style={"description_width": "initial"},
             disabled=False,
         )
@@ -578,12 +585,13 @@ class UI:
 
     def get_outliers_mode(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(value="<b>How to deal with multiple shoreline intersections.</b>")
+        label = HTML(value="<b>Outliers Mode</b>\
+                     </br>-How to deal with multiple shoreline intersections.")
         # controls multiple_inter: ('auto','nan','max') defines how to deal with multiple shoreline intersections
         self.outliers_mode = Select(
             options=["auto", "nan", "max"],
             value="auto",
-            description="Outliers Mode",
+            description="multiple_inter :",
             style={"description_width": "initial"},
         )
         return VBox([label, self.outliers_mode])
@@ -591,7 +599,8 @@ class UI:
     def get_max_std_text(self) -> VBox:
         # returns slider to control beach area slider
         label = HTML(
-            value="<b>Maximum STD for the shoreline points within the alongshore range</b>"
+            value="<b>Maximum STD</b> \
+            </br>- Maximum STD for the shoreline points within the alongshore range"
         )
 
         # max_std: (in metres) maximum STD for the shoreline points within the alongshore range, if STD is above this value a NaN is returned for this intersection.
@@ -600,7 +609,7 @@ class UI:
             min=1.0,
             max=100.0,
             step=1.0,
-            description="Max Std",
+            description="max_std (m):",
             style={"description_width": "initial"},
             disabled=False,
         )
@@ -608,8 +617,8 @@ class UI:
 
     def get_min_points_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Minimum number of shoreline points to calculate an intersection</b>"
+        label = HTML(value="<b>Minimum Number Shoreline of Points</b> \
+            </br>- Minimum number of shoreline points to calculate an intersection"
         )
 
         # min_points: minimum number of shoreline points to calculate an intersection.
@@ -618,7 +627,7 @@ class UI:
             min=1,
             max=100,
             step=1,
-            description="Min Shoreline Points",
+            description="min_points :",
             style={"description_width": "initial"},
             disabled=False,
         )
@@ -627,7 +636,7 @@ class UI:
     def get_min_length_sl_slider(self):
         # returns slider to control beach area slider
         min_length_sl_instr = HTML(
-            value="<b>Minimum shoreline perimeter that model will detect</b>"
+            value="<b>Minimum shoreline length</b>"
         )
 
         self.min_length_sl_slider = ipywidgets.IntSlider(
@@ -635,7 +644,7 @@ class UI:
             min=50,
             max=1000,
             step=1,
-            description="Min shoreline length (m):",
+            description="min_length_sl (m):",
             disabled=False,
             continuous_update=False,
             orientation="horizontal",
