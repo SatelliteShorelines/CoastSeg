@@ -37,10 +37,16 @@ class UI_Models:
     def __init__(self):
         self.settings_dashboard = settings_UI.Settings_UI()
         self.zoo_model_instance = zoo_model.Zoo_Model()
+        instructions = 'Upload a GeoJSON file that contains either transects or shorelines.\
+        If no file is provided, the CoastSeg will automatically attempt to load an available file for you.\
+        In the event that no transects or shorelines are available within the specified region, an error will occur.'
         self.fileuploader = FileUploader(
+            title = '',
+            instructions=instructions,
             filter_pattern="*geojson",
             dropdown_options=["transects", "shorelines"],
             file_selection_title="Select a geojson file",
+            max_width=400
         )
         # Controls size of ROIs generated on map
         self.model_dict = {
@@ -53,8 +59,8 @@ class UI_Models:
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "sat_RGB_2class_7865364",
             "sat_RGB_4class_6950472",
+            "sat_RGB_2class_7865364",
         ]
         self.five_band_models = [
             "sat_5band_4class_7344606",
@@ -213,6 +219,7 @@ class UI_Models:
         # extract shorelines controls
         extract_shorelines_controls = VBox(
             [
+                self.extract_shorelines_instr,
                 self.get_shoreline_session_selection(),
                 self.select_model_session_button,
                 self.extract_shorelines_button,
@@ -240,6 +247,7 @@ class UI_Models:
             HBox([self.clear_run_model_btn(), UI_Models.run_model_view]),
             self.file_row,
             self.line_widget,
+            HTML(value=f"<h3>Extract Shorelines</h3>"),
             self.fileuploader.get_FileUploader_widget(),
             extract_shorelines_controls,
             self.extracted_shoreline_file_row,
