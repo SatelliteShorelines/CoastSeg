@@ -199,17 +199,12 @@ class UI_Models:
             [self.model_input_dropdown, self.model_dropdown, self.model_implementation]
         )
         checkboxes = HBox([self.otsu_radio, self.tta_radio])
-        instr_vbox = VBox(
-            [
-                self.run_model_instr,
-                self.extract_shorelines_instr,
-                self.tidally_correct_instr,
-            ]
-        )
+
 
         # run model controls
         run_model_buttons = VBox(
             [
+                self.run_model_instr,
                 self.get_session_selection(),
                 self.use_select_images_button,
                 self.run_model_button,
@@ -221,6 +216,7 @@ class UI_Models:
             [
                 self.extract_shorelines_instr,
                 self.get_shoreline_session_selection(),
+                self.fileuploader.get_FileUploader_widget(),
                 self.select_model_session_button,
                 self.extract_shorelines_button,
             ]
@@ -228,6 +224,7 @@ class UI_Models:
         # tidal correction controls
         tidal_correction_controls = VBox(
             [
+                self.tidally_correct_instr,
                 self.select_extracted_shorelines_session_button,
                 self.create_tidal_correction_widget(),
             ]
@@ -241,14 +238,11 @@ class UI_Models:
             self.settings_dashboard.render(),
             checkboxes,
             model_choices_box,
-            instr_vbox,
             self.warning_row,
             run_model_buttons,
             HBox([self.clear_run_model_btn(), UI_Models.run_model_view]),
             self.file_row,
             self.line_widget,
-            HTML(value=f"<h3>Extract Shorelines</h3>"),
-            self.fileuploader.get_FileUploader_widget(),
             extract_shorelines_controls,
             self.extracted_shoreline_file_row,
             HBox(
@@ -438,44 +432,34 @@ class UI_Models:
         self.line_widget = HTML(
             value="____________________________________________________"
         )
-
         self.run_model_instr = HTML(
-            value="<h2>How to Run a Model</h2>\
-            <b>1. Enter a session name</b> \
-            <br> - This will become a folder in the 'sessions' directory where the model outputs will be stored.<br>\
-            <b>2. Select Images Button</b> \
-                <br> - Select an ROI directory containing downloaded imagery from the 'data' directory<br>\
-            <b>1. Run Model Button</b> \
-             <br>- The model will be applied to the imagery and the outputs will be saved in the sessions directory under the session name entered.<br>\
+            value="<h2>Run a Model</h2>\
+            <b>1. Session Name:</b> Enter a name.This creates a folder in the 'sessions' directory for model outputs.\
+            <br><b>2. Select Images:</b> Choose an ROI directory with downloaded imagery from the 'data' directory.\
+            <br><b>3. Run Model:</b> Click this button to apply the model on imagery. Outputs are saved under your session name in the 'sessions' directory.\
             ",
-            layout=Layout(margin="0px 0px 0px 20px"),
+            layout=Layout(margin="0px 0px 0px 0px"),
         )
 
         self.extract_shorelines_instr = HTML(
-            value="<h2>How to Extract Shorelines</h2>\
-            - YOU MUST HAVE RUN THE MODEL BEFORE EXTRACTING SHORELINES<br> \
-            <b>1. Extracted Shoreline Session Name</b> \
-            <br> - This will become a folder in the 'sessions' directory where the extracted shorelines will be stored.<br>\
-            <b>2. Select Model Session Button</b> \
-                <br> - Select an session directory containing model outputs from the 'sessions' directory<br>\
-            <b>1. Extract Shorelines Button</b> \
-             - Extracted shorelines will be saved in the sessions directory under the session name entered.<br>\
+            value="<h2>Extract Shorelines</h2>\
+            Make sure to run the model before extracting shorelines.<br> \
+            <b>1. Name Your Session:</b> Enter a name for your shoreline extraction session this will create a new folder in the 'sessions' directory.<br>\
+            <b>2. Upload a File (Optional): </b> Upload a transects or a reference shoreline geojson file to extract shorelines with.<br>\
+            <b>3. Choose Model Session</b> Select a directory from the 'sessions' directory which contains model outputs.<br>\
+            <b>4. Click Extract Shorelines</b> Your extracted shorelines will be saved in the 'sessions' directory under your named session.<br>\
             ",
-            layout=Layout(margin="0px 0px 0px 20px"),
+            layout=Layout(margin="0px 0px 0px 0px"),
         )
 
         self.tidally_correct_instr = HTML(
-            value="<h2>How to Tidal Correct</h2>\
-            - YOU MUST HAVE EXTRACTING SHORELINES BEFORE TIDAL CORRECTIONS \
-            <br> - Not all imagery will have extracted shorelines to extract, which means tidal correction cannot be done. <br> \
-            <b>1. Select Session Button</b> \
-                <br> - Select an session directory containing extracted shorelines from the 'sessions' directory<br>\
-             <b>2. Select Tides Button</b> \
-                <br> - Select an tides csv file containing the tide levels and dates for the ROI<br>\
-            <b>3. Correct Tides Button</b> \
-             - Tidally corrected csv files will be saved in the session directory selected.<br>\
+            value="<h2>Tidally Correct</h2>\
+            Ensure shorelines are extracted prior to tidal correction. Not all imagery will contain extractable shorelines, thus, tidal correction may not be possible.\
+            <br><b>1. Select a Session </b> Choose a session from the 'sessions' directory containing extracted shorelines.\
+            <br><b>2. Select Tides Button</b> Pick a CSV file with tide levels and dates for the ROI.\
+            <br><b>3. Correct Tides Button</b> Click to save tidally corrected CSV files in the selected session directory.\
             ",
-            layout=Layout(margin="0px 0px 0px 20px"),
+            layout=Layout(margin="0px 0px 0px 0px"),
         )
 
     def handle_model_implementation(self, change):

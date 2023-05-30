@@ -1,5 +1,4 @@
 # Standard library imports
-import copy
 import logging
 import os
 from typing import Dict

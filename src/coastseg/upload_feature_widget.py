@@ -1,6 +1,7 @@
+
 from typing import Set
 import ipywidgets as widgets
-from ipywidgets import VBox
+from ipywidgets import VBox, Box
 from IPython.display import display
 from ipyfilechooser import FileChooser
 
@@ -9,96 +10,74 @@ This code defines a FileUploader class, which provides a GUI for uploading GeoJS
 It uses IPython widgets to create interactive elements like dropdowns, buttons, and file choosers.
 """
 
-
 class FileUploader:
     def __init__(
         self,
+        title:str="Upload a GeoJSON File",
+        instructions:str="",
         dropdown_options: Set[str] = set(),
-        filter_pattern: str = None,
+        filter_pattern: str = "*.geojson",
         file_selection_title: str = "",
         starting_directory: str = "",
+        max_width: int = 400,
     ):
-        """
-        Initializes the FileUploader class.
-
-        Parameters:
-        - dropdown_options (Set[str]): Set of dropdown options for file types. Default is an empty set.
-        - filter_pattern (str): File filter pattern for the file dialog. Default is None.
-        - file_selection_title (str): Title for the file selection dialog. Default is an empty string.
-        - starting_directory (str): Starting directory for the file dialog. Default is an empty string.
-        """
-        # Initialize widget elements for file uploading
         self.filenames = widgets.SelectMultiple(options=[])
         self.remove_button = widgets.Button(
-            description="x",
+            description="Remove",
             button_style="danger",
-            layout=widgets.Layout(width="50px", height="28px"),
+            layout=widgets.Layout(width="75px", height="28px"),
         )
         uploaded_files_title = widgets.HTML(value="<b>Uploaded Files</b>")
         self.remove_widget = widgets.VBox(
             [uploaded_files_title, widgets.HBox([self.filenames, self.remove_button])]
         )
-        self.title = widgets.HTML(value="<h1>Upload a GeoJSON File</h1>")
 
-        # Create a dropdown with specified options, or default to ['transects', 'shorelines']
-        self.dropdown = widgets.Dropdown(options=list(dropdown_options))
-        if not dropdown_options:
-            self.dropdown = widgets.Dropdown(options=["transects", "shorelines"])
+        # Convert max_width to string form
+        self.max_width = f"{max_width}px"
+
+        # If title or instructions are empty, don't create the widget.
+        self.title = widgets.HTML(value=f"<h2>{title}</h2>") if title else None
+        self.instructions = Box(
+            [widgets.HTML(value=instructions, layout=widgets.Layout(overflow='auto', white_space='pre-wrap',max_width=self.max_width))],
+            layout=widgets.Layout(overflow='auto', width='auto')
+        ) if instructions else None
+
+        self.dropdown = widgets.Dropdown(
+            options=list(dropdown_options) if dropdown_options else ["transects", "shorelines"]
+        )
 
         self.files_dict = {}
         self.file_dialog = FileChooser(starting_directory)
-        self.file_dialog_row = widgets.HBox([])
-        self.file_dialog_row.children = [self.file_dialog]
+        self.file_dialog_row = widgets.HBox([self.file_dialog])
 
-        # Setup event handlers
+        self._initialize_file_dialog(filter_pattern, file_selection_title)
+
+        # Register event handlers
         self.remove_button.on_click(self.remove_file)
 
-        # Initialize the file_dialog with specified options
+    def _initialize_file_dialog(self, filter_pattern, file_selection_title):
         self.file_dialog.title = f"<b>{file_selection_title}</b>"
+        self.file_dialog.filter_pattern = filter_pattern if isinstance(filter_pattern, list) else [filter_pattern]
         self.file_dialog.register_callback(self.save_file)
-        if not isinstance(filter_pattern, list):
-            filter_pattern = [filter_pattern]
-        self.file_dialog.filter_pattern = filter_pattern
 
-    # Remove the selected file (if any) from the files_dict and update filenames options
     def remove_file(self, button: widgets.Button):
-        """
-        Removes the selected file from the files_dict and updates the filenames options.
-
-        Parameters:
-        - button(widgets.Button): The button widget that triggered the event.
-        """
         selected_files = self.filenames.value
-        if selected_files:
-            for selected_file in selected_files:
-                for key in self.files_dict:
-                    if self.files_dict[key] == selected_file:
-                        del self.files_dict[key]
-                        break
-            self.filenames.options = list(self.files_dict.values())
+        for selected_file in selected_files:
+            self.files_dict = {k: v for k, v in self.files_dict.items() if v != selected_file}
+        self.filenames.options = list(self.files_dict.values())
 
-    # Save the selected file in the files_dict and update filenames options
     def save_file(self, selected: tuple):
-        """
-        Saves the selected file in the files_dict and updates the filenames options.
-
-        Parameters:
-        - selected(tuple): The selected file from the file dialog.
-        """
         feature = self.dropdown.value
         self.files_dict[feature] = self.file_dialog.selected
         self.filenames.options = list(self.files_dict.values())
 
-    # Display the FileUploader interface
-    def display(self):
-        """
-        Displays the FileUploader interface.
-        """
-        display(self.title, self.dropdown, self.remove_widget, self.file_dialog_row)
+    def _get_widgets_to_display(self):
+        # Order of widgets
+        return [w for w in [self.title, self.instructions, self.dropdown, self.remove_widget, self.file_dialog_row] if w is not None]
 
-    # Display the FileUploader interface
+    def display(self):
+        display(*self._get_widgets_to_display())
+
     def get_FileUploader_widget(self):
-        """
-        Displays the FileUploader interface.
-        """
-        return VBox([self.title, self.dropdown, self.remove_widget, self.file_dialog_row])
+        return VBox(self._get_widgets_to_display(), layout=widgets.Layout(max_width=self.max_width))
+    
