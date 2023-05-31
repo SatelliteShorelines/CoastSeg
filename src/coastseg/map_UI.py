@@ -79,17 +79,17 @@ class UI:
 
         # buttons to load configuration files
         self.load_session_button = Button(
-            description="Load Session", icon="fa-files-o", style=self.load_style
+            description="Load Session", icon="files-o", style=self.load_style
         )
         self.load_session_button.on_click(self.on_load_session_clicked)
 
         self.load_settings_button = Button(
-            description="Load settings", icon="fa-file-o", style=self.load_style
+            description="Load settings", icon="file-o", style=self.load_style
         )
         self.load_settings_button.on_click(self.on_load_settings_clicked)
 
         self.settings_button = Button(
-            description="Save Settings", icon="fa-floppy-o", style=self.action_style
+            description="Save Settings", icon="floppy-o", style=self.action_style
         )
         self.settings_button.on_click(self.save_settings_clicked)
         self.settings_btn_row = VBox([self.settings_button, self.load_settings_button])
@@ -109,7 +109,7 @@ class UI:
         )
         self.load_file_button = Button(
             description=f"Load {self.load_file_radio.value} file",
-            icon="fa-file-o",
+            icon="file-o",
             style=self.load_style,
         )
         self.load_file_button.on_click(self.load_feature_from_file)
@@ -121,11 +121,11 @@ class UI:
 
         # Generate buttons
         self.gen_button = Button(
-            description="Generate ROI", icon="fa-globe", style=self.action_style
+            description="Generate ROI", icon="globe", style=self.action_style
         )
         self.gen_button.on_click(self.gen_roi_clicked)
         self.download_button = Button(
-            description="Download Imagery", icon="fa-download", style=self.action_style
+            description="Download Imagery", icon="download", style=self.action_style
         )
         self.download_button.on_click(self.download_button_clicked)
 
@@ -250,14 +250,14 @@ class UI:
         self.select_tides_button = Button(
             description="Select Tides",
             style=load_style,
-            icon="fa-file-image-o",
+            icon="file-image-o",
         )
         self.select_tides_button.on_click(self.select_tides_button_clicked)
 
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
-            icon="fa-tint",
+            icon="tint",
         )
         self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
 
@@ -355,7 +355,7 @@ class UI:
     def get_view_settings_vbox(self) -> VBox:
         # update settings button
         update_settings_btn = Button(
-            description="Refresh Settings", icon="fa-refresh", style=self.action_style
+            description="Refresh Settings", icon="refresh", style=self.action_style
         )
         update_settings_btn.on_click(self.update_settings_btn_clicked)
         self.settings_html = HTML()
@@ -696,7 +696,7 @@ class UI:
 
         self.save_button = Button(
             description=f"Save {self.save_radio.value}",
-            icon="fa-floppy-o",
+            icon="floppy-o",
             style=self.save_style,
         )
         self.save_button.on_click(self.save_to_file_btn_clicked)
@@ -725,7 +725,7 @@ class UI:
         )
         self.load_button = Button(
             description=f"Load {self.load_radio.value}",
-            icon="fa-file-o",
+            icon="file-o",
             style=self.load_style,
         )
         self.load_button.on_click(self.load_button_clicked)
@@ -752,7 +752,7 @@ class UI:
         )
         self.remove_button = Button(
             description=f"Remove {self.feature_dropdown.value}",
-            icon="fa-ban",
+            icon="ban",
             style=self.remove_style,
         )
 
@@ -763,7 +763,7 @@ class UI:
         self.feature_dropdown.observe(handle_remove_radio_change, "value")
         # define remove all button
         self.remove_all_button = Button(
-            description="Remove all", icon="fa-trash-o", style=self.remove_style
+            description="Remove all", icon="trash-o", style=self.remove_style
         )
         self.remove_all_button.on_click(self.remove_all_from_map)
 
