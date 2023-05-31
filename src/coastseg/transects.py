@@ -1,11 +1,11 @@
 # Standard library imports
 import logging
 import os
-from typing import List
-
+from typing import List, Optional
+import uuid
 
 # Internal dependencies imports
-from coastseg.common import remove_z_axis, replace_column, create_id_column
+from coastseg.common import remove_z_axis, replace_column
 
 # External dependencies imports
 import geopandas as gpd
@@ -47,7 +47,8 @@ def load_intersecting_transects(
             continue
         elif not transects.empty:
             logger.info("Adding transects from %s", transects_name)
-        transects = create_id_column(transects)
+        if "id" not in [col.lower() for col in transects.columns]:
+            transects["id"] = transects.apply(lambda row: uuid.uuid4().hex, axis=1)
         # Append the selected transects to the output GeoDataFrame
         selected_transects = pd.concat(
             [selected_transects, transects], ignore_index=True
@@ -56,7 +57,7 @@ def load_intersecting_transects(
 
 
 class Transects:
-    """Transects: contains the transects within a region specified by bbox (bounding box)"""
+    """A class representing a collection of transects within a specified bounding box."""
 
     LAYER_NAME = "transects"
 
@@ -66,37 +67,56 @@ class Transects:
         transects: gpd.GeoDataFrame = None,
         filename: str = None,
     ):
+        """
+        Initialize a Transects object with either a bounding box GeoDataFrame, a transects GeoDataFrame, 
+        or a filename string.
+        """
         self.gdf = gpd.GeoDataFrame()
-        self.filename = "transects.geojson"
-        # if a transects geodataframe provided then copy it
-        if transects is not None:
-            if not transects.empty:
-                # if 'id' column is not present and 'name' column is replace 'name' with 'id'
-                # id neither exist create a new column named 'id' with row index
-                if "ID" in transects.columns:
-                    logger.info(f"ID in transects.columns: {transects.columns}")
-                    transects.rename(columns={"ID": "id"}, inplace=True)
-                replace_column(transects, new_name="id", replace_col="name")
-                # remove z-axis from transects
-                transects = remove_z_axis(transects)
-                transects = create_id_column(transects)
-                self.gdf = transects
+        self.filename = filename if filename else "transects.geojson"
+        self.process_transects(bbox, transects)
 
-        elif bbox is not None:
-            if not bbox.empty:
-                self.gdf = self.create_geodataframe(bbox)
-
-        if "id" not in self.gdf.columns:
-            self.gdf["id"] = self.gdf.index.astype(str).tolist()
-
-        if filename:
-            self.filename = filename
 
     def __str__(self):
         return f"Transects: geodataframe {self.gdf}"
 
     def __repr__(self):
         return f"Transects: geodataframe {self.gdf}"
+
+    def process_transects(self, bbox: Optional[gpd.GeoDataFrame] = None, transects: Optional[gpd.GeoDataFrame] = None):
+        """
+        Processes the transects or bounding box provided during initialization.
+        """
+        if transects is not None:
+            self.process_provided_transects(transects)
+
+        elif bbox is not None:
+            self.process_bbox(bbox)
+
+
+    def process_provided_transects(self, transects: gpd.GeoDataFrame):
+        """
+        Initalize transects with the provided transects in a geodataframe
+        """
+        if not transects.empty:
+            # if 'id' column is not present and 'name' column is replace 'name' with 'id'
+            # id neither exist create a new column named 'id' with row index
+            if "ID" in transects.columns:
+                logger.info(f"ID in transects.columns: {transects.columns}")
+                transects.rename(columns={"ID": "id"}, inplace=True)
+            replace_column(transects, new_name="id", replace_col="name")
+            # remove z-axis from transects
+            transects = remove_z_axis(transects)
+            # if an id column does not exist create one
+            if "id" not in [col.lower() for col in transects.columns]:
+                transects["id"] = transects.apply(lambda row: uuid.uuid4().hex, axis=1)
+            self.gdf = transects
+
+    def process_bbox(self, bbox: gpd.GeoDataFrame):
+        """
+        Processes the provided bounding box GeoDataFrame.
+        """
+        if not bbox.empty:
+            self.gdf = self.create_geodataframe(bbox)
 
     def create_geodataframe(
         self,
@@ -123,6 +143,7 @@ class Transects:
 
         # remove z-axis from transects
         transects_in_bbox = remove_z_axis(transects_in_bbox)
+        transects_in_bbox["id"] = transects_in_bbox.index.astype(str).tolist()
 
         return transects_in_bbox
 
