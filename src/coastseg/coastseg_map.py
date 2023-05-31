@@ -188,8 +188,10 @@ class CoastSeg_Map:
             None
         """
         if os.path.isdir(dir_path):
+            # ensure coastseg\data location exists
             # load the config files if they exist
-            config_loaded = self.load_config_files(dir_path)
+            data_path = common.create_directory(os.getcwd(), "data")
+            config_loaded = self.load_config_files(dir_path,data_path)
             # load in settings files
             for file_name in os.listdir(dir_path):
                 file_path = os.path.join(dir_path, file_name)
@@ -522,7 +524,7 @@ class CoastSeg_Map:
         Args:
             self (object): CoastsegMap instance
             filepath (str): The filepath to the json config file
-            datapath (str): Full path to the coastseg data directory
+            datapath (str): Full path to the coastseg data directory where downloaded data is saved
 
         Returns:
             None
@@ -578,13 +580,14 @@ class CoastSeg_Map:
         self.rois.roi_settings = roi_settings
         logger.info(f"roi_settings: {roi_settings}")
 
-    def load_config_files(self, dir_path: str) -> None:
+    def load_config_files(self, dir_path: str,save_path:str) -> None:
         """Loads the configuration files from the specified directory
             Loads config_gdf.geojson first, then config.json.
 
         - config.json relies on config_gdf.geojson to load the rois on the map
         Args:
             dir_path (str): path to directory containing config files
+            save_path (str): path to directory where downloaded data will be saved
         Raises:
             Exception: raised if config files are missing
         """
@@ -600,15 +603,13 @@ class CoastSeg_Map:
             return False
 
         # load the config files
-        # ensure coastseg\data location exists
-        data_path = common.create_directory(os.getcwd(), "data")
         # load general settings from config.json file
         self.load_gdf_config(config_geojson_path)
         # do not attempt to load config.json file if it is missing
         if not os.path.exists(config_json_path):
             logger.warning(f"config.json file missing at {config_json_path}")
             raise Exception(f"config.json file missing at {config_json_path}")
-        self.load_json_config(config_json_path, data_path)
+        self.load_json_config(config_json_path, save_path)
         # return true if both config files exist
         return True
 

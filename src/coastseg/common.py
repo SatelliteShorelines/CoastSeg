@@ -173,24 +173,6 @@ def keep_only_available_columns(
     return gdf[list(columns_to_keep)]
 
 
-def create_id_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """
-    Creates a new column called 'id' in a GeoDataFrame if it doesn't already exist. If the GeoDataFrame already
-    contains a column called 'id' (in any case), the function returns the GeoDataFrame unmodified.
-
-    The 'id' column is populated with unique IDs generated using the UUID4 algorithm.
-
-    Args:
-        gdf (gpd.GeoDataFrame): the GeoDataFrame to create the 'id' column in
-
-    Returns:
-        gpd.GeoDataFrame: the input GeoDataFrame with a new 'id' column containing unique IDs
-    """
-    if "id" in [col.lower() for col in gdf.columns]:
-        return gdf
-    gdf["id"] = gdf.apply(lambda row: uuid.uuid4().hex, axis=1)
-    return gdf
-
 
 def find_file_by_regex(
     search_path: str, search_pattern: str = r"^config\.json$"
