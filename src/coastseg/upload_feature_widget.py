@@ -70,6 +70,8 @@ class FileUploader:
         feature = self.dropdown.value
         self.files_dict[feature] = self.file_dialog.selected
         self.filenames.options = list(self.files_dict.values())
+        # Clear the file selection
+        self.file_dialog.reset()
 
     def _get_widgets_to_display(self):
         # Order of widgets
