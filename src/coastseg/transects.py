@@ -2,10 +2,9 @@
 import logging
 import os
 from typing import List, Optional
-import uuid
 
 # Internal dependencies imports
-from coastseg.common import remove_z_axis, replace_column
+from coastseg.common import preprocess_geodataframe, create_unique_ids
 
 # External dependencies imports
 import geopandas as gpd
@@ -47,12 +46,14 @@ def load_intersecting_transects(
             continue
         elif not transects.empty:
             logger.info("Adding transects from %s", transects_name)
-        if "id" not in [col.lower() for col in transects.columns]:
-            transects["id"] = transects.apply(lambda row: uuid.uuid4().hex, axis=1)
-        # Append the selected transects to the output GeoDataFrame
-        selected_transects = pd.concat(
-            [selected_transects, transects], ignore_index=True
-        )
+            transects = preprocess_geodataframe(transects,columns_to_keep=['id','geometry','slope'],create_ids=False)
+            # Append the selected transects to the output GeoDataFrame
+            selected_transects = pd.concat(
+                [selected_transects, transects], ignore_index=True
+            )
+    selected_transects = preprocess_geodataframe(selected_transects,columns_to_keep=['id','geometry','slope'],create_ids=True)
+    # make sure all the ids in selected_transects are unique
+    selected_transects = create_unique_ids(selected_transects,prefix_length=3)
     return selected_transects
 
 
@@ -73,7 +74,7 @@ class Transects:
         """
         self.gdf = gpd.GeoDataFrame()
         self.filename = filename if filename else "transects.geojson"
-        self.process_transects(bbox, transects)
+        self.initialize_transects(bbox, transects)
 
 
     def __str__(self):
@@ -82,36 +83,27 @@ class Transects:
     def __repr__(self):
         return f"Transects: geodataframe {self.gdf}"
 
-    def process_transects(self, bbox: Optional[gpd.GeoDataFrame] = None, transects: Optional[gpd.GeoDataFrame] = None):
-        """
-        Processes the transects or bounding box provided during initialization.
-        """
+    def initialize_transects(self, bbox: Optional[gpd.GeoDataFrame] = None, transects: Optional[gpd.GeoDataFrame] = None):
         if transects is not None:
-            self.process_provided_transects(transects)
+            self.initialize_transects_with_provided_data(transects)
 
         elif bbox is not None:
-            self.process_bbox(bbox)
+            self.initialize_transects_with_bbox(bbox)
 
-
-    def process_provided_transects(self, transects: gpd.GeoDataFrame):
+    def initialize_transects_with_provided_data(self, transects: gpd.GeoDataFrame):
         """
-        Initalize transects with the provided transects in a geodataframe
+        Initialize transects with the provided transects in a GeoDataFrame.
         """
         if not transects.empty:
-            # if 'id' column is not present and 'name' column is replace 'name' with 'id'
-            # id neither exist create a new column named 'id' with row index
-            if "ID" in transects.columns:
-                logger.info(f"ID in transects.columns: {transects.columns}")
-                transects.rename(columns={"ID": "id"}, inplace=True)
-            replace_column(transects, new_name="id", replace_col="name")
-            # remove z-axis from transects
-            transects = remove_z_axis(transects)
-            # if an id column does not exist create one
-            if "id" not in [col.lower() for col in transects.columns]:
-                transects["id"] = transects.apply(lambda row: uuid.uuid4().hex, axis=1)
+            transects = preprocess_geodataframe(transects,columns_to_keep=['id','geometry','slope'],create_ids=True)
+            # make sure all the ids in transects are unique
+            transects = create_unique_ids(transects,prefix_length=3)
+            # @todo add the transects to the current dataframe
+            # @todo make sure none of the ids already exist in the dataframe. this can be a flag to turn an exception on/off
             self.gdf = transects
 
-    def process_bbox(self, bbox: gpd.GeoDataFrame):
+
+    def initialize_transects_with_bbox(self, bbox: gpd.GeoDataFrame):
         """
         Processes the provided bounding box GeoDataFrame.
         """
@@ -140,11 +132,10 @@ class Transects:
         )
         if transects_in_bbox.empty:
             logger.warning("No transects found here.")
-
         # remove z-axis from transects
-        transects_in_bbox = remove_z_axis(transects_in_bbox)
-        transects_in_bbox["id"] = transects_in_bbox.index.astype(str).tolist()
-
+        transects_in_bbox = preprocess_geodataframe(transects_in_bbox, columns_to_keep=['id','geometry','slope'],create_ids=True)
+        # make sure all the ids in transects_in_bbox are unique
+        transects_in_bbox = create_unique_ids(transects_in_bbox,prefix_length=3)
         return transects_in_bbox
 
 

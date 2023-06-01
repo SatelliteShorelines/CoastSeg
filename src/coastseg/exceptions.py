@@ -46,6 +46,21 @@ class Id_Not_Found(Exception):
     def __str__(self):
         return f"{self.msg}"
 
+class Duplicate_ID_Exception(Exception):
+    """Id_Not_Found: raised when duplicate IDs are detected in a feature
+    Args:
+        Exception: Inherits from the base exception class
+    """
+
+    def __init__(self, feature_type:str='feature', msg="Duplicate ids were detected.Do you want to override these IDs?"):
+        self.msg = msg
+        if id is not None:
+            self.msg = f"Duplicate ids for {feature_type} were detected.Do you want to override these IDs?"
+        super().__init__(self.msg)
+
+    def __str__(self):
+        return f"{self.msg}"
+
 
 class BBox_Not_Found(Exception):
     """BBox_Not_Found: raised when bounding box does not exist

@@ -1178,7 +1178,7 @@ class UI:
             try:
                 if filechooser.selected:
                     if "shoreline" in btn.description.lower():
-                        print(
+                        logger.info(
                             f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
@@ -1187,7 +1187,7 @@ class UI:
                             zoom_to_bounds=True,
                         )
                     if "transects" in btn.description.lower():
-                        print(
+                        logger.info(
                             f"Loading transects from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
@@ -1196,7 +1196,7 @@ class UI:
                             zoom_to_bounds=True,
                         )
                     if "bbox" in btn.description.lower():
-                        print(
+                        logger.info(
                             f"Loading bounding box from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
@@ -1205,7 +1205,7 @@ class UI:
                             zoom_to_bounds=True,
                         )
                     if "rois" in btn.description.lower():
-                        print(
+                        logger.info(
                             f"Loading ROIs from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(

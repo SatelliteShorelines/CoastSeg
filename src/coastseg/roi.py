@@ -71,13 +71,10 @@ class ROI:
         Raises:
             None.
         """
-        # keep only the geometry and id columns
-        columns = ["id", "geometry"]
-        keep_columns = [col for col in columns if col in rois_gdf.columns]
-        rois_gdf = rois_gdf[keep_columns]
-        # check if geodataframe column has 'id' column and add one if one doesn't exist
-        if "id" not in rois_gdf.columns:
-            rois_gdf["id"] = rois_gdf.index.astype(str).tolist()
+
+        rois_gdf = common.preprocess_geodataframe(rois_gdf,columns_to_keep=['id','geometry'],create_ids=True)
+        # make sure all the ids  are unique
+        rois_gdf = common.create_unique_ids(rois_gdf,prefix_length=3)
         # get row ids of ROIs with area that's too large
         drop_ids = common.get_ids_with_invalid_area(rois_gdf)
         if drop_ids:
@@ -85,7 +82,6 @@ class ROI:
             logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
             rois_gdf.drop(index=drop_ids, axis=0, inplace=True)
 
-        rois_gdf = common.remove_z_axis(rois_gdf)
         rois_gdf.to_crs("EPSG:4326")
         self.gdf = rois_gdf
 
@@ -310,10 +306,10 @@ class ROI:
                 pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True)
             )
 
-        # Assign an id to each ROI square in the fishnet
-        ids = range(0, len(fishnet_intersect_gdf), 1)
-        fishnet_intersect_gdf["id"] = list(map(lambda x: str(x), ids))
-        del ids
+        # clean the geodataframe
+        fishnet_intersect_gdf = common.preprocess_geodataframe(fishnet_intersect_gdf,columns_to_keep=['id','geometry',],create_ids=True)
+        # make sure all the ids are unique
+        fishnet_intersect_gdf = common.create_unique_ids(fishnet_intersect_gdf,prefix_length=3)
         logger.info(f"Created fishnet_intersect_gdf: {fishnet_intersect_gdf}")
         return fishnet_intersect_gdf
 
@@ -387,7 +383,7 @@ class ROI:
             gpd.geodataframe: geodataframe containing all the ROIs
         """
         projected_espg = common.get_epsg_from_geometry(bbox.iloc[0]["geometry"])
-        logger.info(f"projected_espg_code: {projected_espg}")
+        logger.info(f"ROI: projected_espg_code: {projected_espg}")
         # project geodataframe to new CRS specified by utm_code
         projected_bbox_gdf = bbox.to_crs(projected_espg)
         # create fishnet of rois

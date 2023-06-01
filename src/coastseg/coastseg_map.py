@@ -1795,21 +1795,16 @@ class CoastSeg_Map:
         # if file is passed read gdf from file
         if file:
             gdf = common.read_gpd_file(file)
-        # convert gdf to the proper format
+        # ensure the file gdf is not empty
         if gdf is not None:
             if gdf.empty:
-                logger.info("No {feature_name} was loaded on map")
+                logger.info(f"No {feature_name} was loaded on map")
                 return
-            # if a z axis exists remove it
-            gdf = common.remove_z_axis(gdf)
-            logger.info(f"gdf after z-axis removed: {gdf}")
-
         # create the feature
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         if new_feature is None:
             return
-        logger.info(f"new_feature: {new_feature}")
-        logger.info(f"gdf: {gdf}")
+        logger.info(f"new_feature: {new_feature} \ngdf: {gdf}")
         # load the features onto the map
         self.add_feature_on_map(new_feature, feature_name, **kwargs)
 

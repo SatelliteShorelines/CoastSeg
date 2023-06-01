@@ -4,8 +4,7 @@ from typing import Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
-from coastseg.common import remove_z_axis, get_ids_with_invalid_area
-
+from coastseg.common import  preprocess_geodataframe
 # External dependencies imports
 import geopandas as gpd
 from shapely.geometry import shape
@@ -24,12 +23,12 @@ class Bounding_Box:
     """
 
     MAX_AREA = 3000000000  # UNITS = Sq. Meters
-    MIN_AREA = 9000  # UNITS = Sq. Meters
+    MIN_AREA = 1000  # UNITS = Sq. Meters
     LAYER_NAME = "Bbox"
 
     def __init__(self, rectangle: Union[dict, gpd.GeoDataFrame], filename: str = None):
         self.gdf = None
-        self.filename = "bbox.geojson"
+        self.filename = filename if filename else "bbox.geojson"
         if isinstance(rectangle, gpd.GeoDataFrame):
             self.gdf = self._initialize_from_gdf(rectangle)
         elif isinstance(rectangle, dict):
@@ -38,8 +37,7 @@ class Bounding_Box:
             raise Exception(
                 "Invalid rectangle provided to BBox must be either a geodataframe or dict"
             )
-        if filename:
-            self.filename = filename
+
 
     def __str__(self):
         return f"BBox: geodataframe {self.gdf}"
@@ -60,13 +58,8 @@ class Bounding_Box:
         Raises:
             None.
         """
-        # keep only the geometry and id columns
-        columns = ["geometry"]
-        keep_columns = [col for col in columns if col in bbox_gdf.columns]
-        bbox_gdf = bbox_gdf[keep_columns]
-
-        # remove z-axis
-        bbox_gdf = remove_z_axis(bbox_gdf)
+        # clean the geodataframe
+        bbox_gdf = preprocess_geodataframe(bbox_gdf,columns_to_keep=['geometry'],create_ids=False)
         bbox_gdf.to_crs("EPSG:4326")
         return bbox_gdf
 
@@ -84,8 +77,8 @@ class Bounding_Box:
         geom = [shape(rectangle)]
         geojson_bbox = gpd.GeoDataFrame({"geometry": geom})
         geojson_bbox.crs = crs
-        # remove z-axis
-        geojson_bbox = remove_z_axis(geojson_bbox)
+        # clean the geodataframe
+        geojson_bbox = preprocess_geodataframe(geojson_bbox,columns_to_keep=['geometry'],create_ids=False)
         return geojson_bbox
 
     def style_layer(self, geojson: dict, layer_name: str) -> "ipyleaflet.GeoJSON":
