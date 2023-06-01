@@ -1016,7 +1016,7 @@ class UI:
                 self.coastseg_map.load_feature_on_map("shoreline", zoom_to_bounds=True)
             if "transects" in btn.description.lower():
                 print("Finding 'Transects'")
-                self.coastseg_map.load_feature_on_map("transects", zoom_to_bounds=True)
+                self.coastseg_map.load_feature_on_map("transect", zoom_to_bounds=True)
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
@@ -1191,7 +1191,7 @@ class UI:
                             f"Loading transects from file: {os.path.abspath(filechooser.selected)}"
                         )
                         self.coastseg_map.load_feature_on_map(
-                            "transects",
+                            "transect",
                             os.path.abspath(filechooser.selected),
                             zoom_to_bounds=True,
                         )

@@ -427,7 +427,7 @@ class CoastSeg_Map:
                     self.add_feature_on_map(self.rois, feature_name)
             else:
                 # load shorelines, transects, or bbox features onto the map
-                self.load_feature_on_map(feature_name, gdf=feature_gdf)
+                self.load_feature_on_map(feature_name, gdf=feature_gdf,zoom_to_bounds=True)
         del gdf
 
     def _extract_feature_gdf(
@@ -1794,19 +1794,21 @@ class CoastSeg_Map:
         """
         # if file is passed read gdf from file
         if file:
-            gdf = common.read_gpd_file(file)
+            # gdf = common.read_gpd_file(file)
+            gdf = common.load_geodataframe_from_file(file,feature_type= feature_name)
         # ensure the file gdf is not empty
         if gdf is not None:
             if gdf.empty:
                 logger.info(f"No {feature_name} was loaded on map")
                 return
+        
         # create the feature
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         if new_feature is None:
             return
         logger.info(f"new_feature: {new_feature} \ngdf: {gdf}")
         # load the features onto the map
-        self.add_feature_on_map(new_feature, feature_name, **kwargs)
+        self.add_feature_on_map(new_feature, feature_name, **kwargs,)
 
     def add_feature_on_map(
         self,
@@ -1837,7 +1839,10 @@ class CoastSeg_Map:
         if not layer_name and hasattr(new_feature, "LAYER_NAME"):
             layer_name = new_feature.LAYER_NAME
         # if the feature has a geodataframe zoom the map to the bounds of the feature
-        if zoom_to_bounds and hasattr(new_feature, "gdf"):
+        # if zoom_to_bounds and hasattr(new_feature, "gdf"):
+        #     bounds = new_feature.gdf.total_bounds
+        #     self.map.zoom_to_bounds(bounds)
+        if hasattr(new_feature, "gdf"):
             bounds = new_feature.gdf.total_bounds
             self.map.zoom_to_bounds(bounds)
         self.load_on_map(new_feature, layer_name, on_hover, on_click)
