@@ -170,7 +170,7 @@ def handle_bbox_error(
 
 def launch_error_box(row: "ipywidgets.HBox", title: str = None, msg: str = None):
     # Show user error message
-    warning_box = common.create_warning_box(title=title, msg=msg)
+    warning_box = common.create_warning_box(title=title, msg=msg,msg_width="80%", box_width="100%")
     # clear row and close all widgets in self.file_row before adding new warning_box
     common.clear_row(row)
     # add instance of warning_box to row

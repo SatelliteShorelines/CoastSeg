@@ -25,6 +25,7 @@ import pandas as pd
 import shapely
 from ipyfilechooser import FileChooser
 
+from ipywidgets import Button
 from ipywidgets import ToggleButton
 from ipywidgets import HBox
 from ipywidgets import VBox
@@ -689,53 +690,64 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
     return container
 
 
-def create_warning_box(title: str = None, msg: str = None) -> HBox:
+def create_warning_box(title: str = None, msg: str = None, msg_width: str = "75%",box_width: str = "50%") -> HBox:
     """
     Creates a warning box with a title and message that can be closed with a close button.
 
     Parameters:
     title (str, optional): The title of the warning box. Default is 'Warning'.
     msg (str, optional): The message of the warning box. Default is 'Something went wrong...'.
+    msg_width (str, optional): The width of the warning message. Default is '75%'.
+    box_width (str, optional): The width of the warning box. Default is '50%'.
 
     Returns:
-    HBox: The warning box containing the title, message and close button.
+        HBox: The warning box containing the title, message, and close button.
     """
-    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # create title
     if title is None:
         title = "Warning"
-    warning_title = HTML(f"<b>⚠️<u>{title}</u></b>")
+    warning_title = HTML(f"<h2 style='text-align: center;'>⚠️{title}</h2>")
     # create msg
     if msg is None:
         msg = "Something went wrong..."
     warning_msg = HTML(
-        f"<div style='max-height: 200px; overflow-x: auto; overflow-y: auto'>"
-        f"_______________________________________<br>"
+        f"<div style='max-height: 250px; overflow-x: hidden; overflow-y: visible; text-align: center;'>"
         f"<span style='color: red'>⚠️</span>{msg}"
         f"</div>"
     )
-    # create vertical box to hold title and msg
-    warning_content = VBox(
-        [warning_title, warning_msg],
-        layout=Layout(width="70%", max_width="75%", padding="5px 5px 5px 5px"),
-    )
-
-    # define a close button
-    close_button = ToggleButton(
+    
+    x_button = ToggleButton(
         value=False,
         tooltip="Close Warning Box",
         icon="times",
         button_style="danger",
-        layout=Layout(height="28px", width="28px", padding=padding),
+        layout=Layout(height="28px", width="28px"),
+    )
+
+    close_button = ToggleButton(
+        value=False,
+        description='Close',
+        tooltip="Close Warning Box",
+        button_style="danger",
+        layout=Layout(height="28px", width="60px"),
+    )
+
+    # create vertical box to hold title and msg
+    warning_content = VBox(
+        [warning_title, warning_msg,close_button],
+        layout=Layout(width= msg_width, max_width="95%"),
     )
 
     def close_click(change):
         if change["new"]:
             warning_content.close()
+            x_button.close()
             close_button.close()
-
+            warning_box.close()
+    
     close_button.observe(close_click, "value")
-    warning_box = HBox([warning_content, close_button])
+    x_button.observe(close_click, "value")
+    warning_box = HBox([warning_content, x_button] , layout=Layout(width=box_width,border="2px solid red"))
     return warning_box
 
 

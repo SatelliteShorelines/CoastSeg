@@ -78,13 +78,25 @@ class UI_Models:
         self.shoreline_session_directory = ""
         self.model_session_directory = ""
         self.tides_file = ""
+        self.shoreline_session_name = ""
 
         # Declare widgets and on click callbacks
         self._create_HTML_widgets()
         self._create_widgets()
         self._create_buttons()
         self.create_tidal_correction_widget()
+        self.warning_row1 = HBox([])
+        self.warning_row2 = HBox([])
+        self.warning_row3 = HBox([])
 
+    def get_warning_box(self,position:int=1):
+        if position == 1:
+            return self.warning_row1
+        if position == 2:
+            return self.warning_row2
+        if position == 3:
+            return self.warning_row3
+        
     def clear_extract_shorelines_btn(
         self,
     ):
@@ -233,25 +245,26 @@ class UI_Models:
         self.file_row = HBox([])
         self.extracted_shoreline_file_row = HBox([])
         self.tidal_correct_file_row = HBox([])
-        self.warning_row = HBox([])
         display(
             self.settings_dashboard.render(),
             checkboxes,
             model_choices_box,
-            self.warning_row,
             run_model_buttons,
             HBox([self.clear_run_model_btn(), UI_Models.run_model_view]),
             self.file_row,
+            self.warning_row1,
             self.line_widget,
             extract_shorelines_controls,
             self.extracted_shoreline_file_row,
             HBox(
                 [self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]
             ),
+            self.warning_row2,
             self.line_widget,
             tidal_correction_controls,
             self.tidal_correct_file_row,
             HBox([self.clear_tidal_correction_btn(), UI_Models.tidal_correction_view]),
+            self.warning_row3,
         )
 
     def create_tidal_correction_widget(self):
@@ -291,12 +304,14 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot correct tides",
                 "Must click select session first",
+                position=3,
             )
             return
         if self.tides_file == "":
             self.launch_error_box(
                 "Cannot correct tides",
                 "Must enter a select a tide file first",
+                position=3,
             )
             return
         # get session directory location
@@ -447,7 +462,7 @@ class UI_Models:
             <b>1. Name Your Session:</b> Enter a name for your shoreline extraction session this will create a new folder in the 'sessions' directory.<br>\
             <b>2. Upload a File (Optional): </b> Upload a transects or a reference shoreline geojson file to extract shorelines with.<br>\
             <b>3. Choose Model Session</b> Select a directory from the 'sessions' directory which contains model outputs.<br>\
-            <b>4. Click Extract Shorelines</b> Your extracted shorelines will be saved in the 'sessions' directory under your named session.<br>\
+            <b>4. Click Extract Shorelines</b> Your extracted shorelines will be saved in the 'sessions' directory under your named session.<br><br>\
             ",
             layout=Layout(margin="0px 0px 0px 0px"),
         )
@@ -508,6 +523,7 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot Run Model",
                 "You must click 'Select Images' first",
+                position=1,
             )
             return
         # user must have selected imagery first
@@ -516,6 +532,7 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot Run Model",
                 "Must enter a session name first",
+                position=1,
             )
             return
         print("Running the model. Please wait.")
@@ -555,6 +572,7 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot Extract Shorelines",
                 "Must enter a session name first",
+                position=2,
             )
             return
         # must select a directory of model outputs
@@ -562,6 +580,7 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot Extract Shorelines",
                 "Must click select model session first",
+                position=2,
             )
             return
 
@@ -592,6 +611,7 @@ class UI_Models:
                 self.launch_error_box(
                     "File Not Found",
                     "The directory contains no jpgs! Please select a directory with jpgs.",
+                    position=1,
                 )
             elif jpgs != []:
                 self.model_dict["sample_direc"] = sample_direc
@@ -643,10 +663,10 @@ class UI_Models:
         # add instance of file_chooser to self.tidal_correct_file_row
         self.tidal_correct_file_row.children = [file_chooser]
 
-    def launch_error_box(self, title: str = None, msg: str = None):
+    def launch_error_box(self, title: str = None, msg: str = None,position:int=1):
         # Show user error message
-        warning_box = common.create_warning_box(title=title, msg=msg)
-        # clear row and close all widgets in self.file_row before adding new warning_box
-        common.clear_row(self.warning_row)
-        # add instance of warning_box to self.warning_row
-        self.warning_row.children = [warning_box]
+        warning_box = common.create_warning_box(title=title, msg=msg,msg_width="60%",box_width="30%")
+        # clear row and close all widgets before adding new warning_box
+        common.clear_row(self.get_warning_box(position))
+        # add instance of warning_box to warning_row
+        self.get_warning_box(position).children = [warning_box]
