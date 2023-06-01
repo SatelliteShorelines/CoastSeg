@@ -4,10 +4,74 @@ import datetime
 from coastseg import exceptions
 from coastseg import common
 
+
+from shapely.geometry import LineString, MultiLineString, Point
 import geopandas as gpd
 import numpy as np
 from shapely import geometry
 import pytest
+
+import geopandas as gpd
+import pandas as pd
+import pytest
+
+
+# Test for preprocessing function
+def test_preprocess_geodataframe():
+
+    # Test when data is empty
+    empty_data = gpd.GeoDataFrame()
+    result = common.preprocess_geodataframe(empty_data)
+    assert result.empty, "Result should be empty when data is empty."
+
+    # Test when data contains "ID" column
+    data_with_ID = gpd.GeoDataFrame({'ID': [1, 2, 3], 'geometry': [None, None, None]})
+    result = common.preprocess_geodataframe(data_with_ID)
+    assert "id" in result.columns, "Column 'ID' should be renamed to 'id'."
+    assert "ID" not in result.columns, "Column 'ID' should not exist in the result."
+
+    # Test when data does not contain "id" column
+    data_without_id = gpd.GeoDataFrame({'foo': [1, 2, 3], 'geometry': [None, None, None]})
+    result = common.preprocess_geodataframe(data_without_id,create_ids=True)
+    assert "id" in result.columns, "Column 'id' should be added when it does not exist."
+
+    # Test when data does not contain "id" column
+    data_without_id = gpd.GeoDataFrame({'foo': [1, 2, 3], 'geometry': [None, None, None]})
+    result = common.preprocess_geodataframe(data_without_id,create_ids=False)
+    assert "id" not in result.columns, "Column 'id' should be added when it does not exist."
+
+    # Test when columns_to_keep is specified
+    data_with_extra_columns = gpd.GeoDataFrame({'id': [1, 2, 3], 'foo': ['a', 'b', 'c'], 'geometry': [None, None, None]})
+    columns_to_keep = ['id', 'geometry']
+    result = common.preprocess_geodataframe(data_with_extra_columns, columns_to_keep)
+    assert set(result.columns) == set(columns_to_keep), "Only specified columns should be kept."
+
+# @todo add a test like this back when you are ready
+# def test_duplicate_ids_exception():
+#     data_with_duplicate_ids = gpd.GeoDataFrame({'id': ['abc', 'abc', 'def'], 'geometry': [None, None, None]})
+#     with pytest.raises(exceptions.Duplicate_ID_Exception):
+#         common.preprocess_geodataframe(data_with_duplicate_ids, create_ids=False)
+
+
+# Test for remove_z_coordinates function
+def test_remove_z_coordinates():
+    # Test when geodf is empty
+    empty_data = gpd.GeoDataFrame()
+    result = common.remove_z_coordinates(empty_data)
+    assert result.empty, "Result should be empty when geodf is empty."
+
+    # Test when geodf contains geometries with z coordinates
+    data_with_z = gpd.GeoDataFrame({'geometry': [Point(1, 2, 3), Point(4, 5, 6)]})
+    result = common.remove_z_coordinates(data_with_z)
+    assert not any(geom.has_z for geom in result.geometry), "All z coordinates should be removed."
+    
+    # Test when geodf contains MultiLineStrings
+    data_with_multilinestrings = gpd.GeoDataFrame({
+        'geometry': [MultiLineString([((1, 2), (3, 4)), ((5, 6), (7, 8))])],
+    })
+    result = common.remove_z_coordinates(data_with_multilinestrings)
+    assert all(isinstance(geom, LineString) for geom in result.geometry), "All MultiLineStrings should be exploded into LineStrings."
+
 
 
 def test_get_transect_points_dict(valid_transects_gdf):
