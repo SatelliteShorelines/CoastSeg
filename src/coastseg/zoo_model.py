@@ -43,78 +43,102 @@ from doodleverse_utils.model_imports import (
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
 import tensorflow as tf
 
-
 logger = logging.getLogger(__name__)
 
-
-def create_transects_geodataframe(
-    transects_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str
+def create_geofeature_geodataframe(
+    geofeature_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str, feature_type: str
 ) -> gpd.GeoDataFrame:
     """
-    Creates transects as a GeoDataFrame.
+    Creates geofeature (shoreline or transects) as a GeoDataFrame.
 
-    If the transects file exists at the provided path, it is read into a GeoDataFrame.
-    If the GeoDataFrame is not empty, transects are extracted using the `Transects` class
-    and a deep copy of the resulting GeoDataFrame is made.
-    If the transects file does not exist, transects are created based on the ROI GeoDataFrame.
+    If the geofeature file exists at the provided path, it is read into a GeoDataFrame.
+    If the GeoDataFrame is not empty, geofeature are extracted using the appropriate class
+    (Shoreline or Transects) and a deep copy of the resulting GeoDataFrame is made.
+    If the geofeature file does not exist, geofeatures are created based on the ROI GeoDataFrame.
     The resulting GeoDataFrame is then converted to the specified EPSG code.
 
     Args:
-        transects_path (str): Path to the transects file.
+        geofeature_path (str): Path to the geofeature file. 
         roi_gdf (gpd.GeoDataFrame): GeoDataFrame representing the region of interest.
         epsg_code (str): EPSG code for the desired coordinate reference system.
+        feature_type (str): Type of geofeature (e.g., 'shoreline' or 'transect')
 
     Returns:
-        gpd.GeoDataFrame: Transects as a GeoDataFrame in the specified EPSG code.
+        gpd.GeoDataFrame: Geofeatures as a GeoDataFrame in the specified EPSG code.
 
     Raises:
-        ValueError: If the transects file is empty.
-
+        ValueError: If the geofeature file is empty.
     """
-    if os.path.exists(transects_path):
-        transects_gdf = gpd.read_file(transects_path)
-        if not transects_gdf.empty:
-            transects_object = transects.Transects(transects=transects_gdf)
-            transects_gdf = copy.deepcopy(transects_object.gdf)
-        else:
-            raise ValueError(f"Empty Transects file provided {transects_path}")
+    feature_type = feature_type.lower()  # Convert to lower case for case insensitive comparison
+
+    if os.path.exists(geofeature_path):
+        # Load geofeatures
+        geofeature_gdf = load_geodataframe_from_file(geofeature_path, feature_type)
+    else: 
+        # if a geofeature file is not given Load geofeatures from ROI
+        geofeature_gdf = load_geofeatures_from_roi(roi_gdf, feature_type)
+
+    logger.info(f"{feature_type}_gdf: {geofeature_gdf}")
+    geofeature_gdf = geofeature_gdf.loc[:, ["id", "geometry"]]
+    geofeature_gdf = geofeature_gdf.to_crs(epsg_code)
+    return geofeature_gdf
+
+def load_geofeatures_from_roi(roi_gdf: gpd.GeoDataFrame, feature_type: str) -> gpd.GeoDataFrame:
+    """
+    Given a Region Of Interest (ROI), this function attempts to load any geographic features (transects or shorelines)
+    that exist in that region. If none exist, the user is advised to upload their own file.
+
+    Args:
+        roi_gdf (gpd.GeoDataFrame): GeoDataFrame representing the region of interest.
+        feature_type (str): Type of the geographic feature, e.g. 'shoreline', 'transect'.
+
+    Returns:
+        gpd.GeoDataFrame: Geographic features as a GeoDataFrame.
+
+    Raises:
+        ValueError: If no geographic features were found in the given ROI.
+    """
+    feature_type = feature_type.lower()  # Convert to lower case for case insensitive comparison
+
+    if feature_type == 'transect' or feature_type == 'transects':
+        feature_object = transects.Transects(bbox=roi_gdf)
+    elif feature_type == 'shoreline' or feature_type == 'shorelines':
+        feature_object = shoreline.Shoreline(bbox=roi_gdf)
     else:
-        transects_in_roi = transects.Transects(bbox=roi_gdf)
-        transects_gdf = copy.deepcopy(transects_in_roi.gdf)
+        raise ValueError(f"Unsupported feature_type: {feature_type}")
 
-    logger.info(f"transects_gdf: {transects_gdf}")
-    if transects_gdf.empty:
-        raise Exception(
-            f"No transects were found this region. Upload a transects.geojson"
-        )
-    transects_gdf = transects_gdf.loc[:, ["id", "geometry"]]
-    transects_gdf = transects_gdf.to_crs(epsg_code)
-    return transects_gdf
+    if feature_object.gdf.empty:
+        raise ValueError(f"No {feature_type}s were available in this region. Try uploading your own {feature_type}s.geojson")
 
+    feature_gdf = copy.deepcopy(feature_object.gdf)
 
-def create_shoreline_geodataframe(
-    shoreline_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str
-) -> gpd.GeoDataFrame:
-    if os.path.exists(shoreline_path):
-        shoreline_gdf = gpd.read_file(shoreline_path)
-        if not shoreline_gdf.empty:
-            logger.info(f"shoreline gdf loaded from {shoreline_path}")
-            shoreline_object = shoreline.Shoreline(shoreline=shoreline_gdf)
-            shoreline_gdf = copy.deepcopy(shoreline_object.gdf)
-        else:
-            raise ValueError(f"Empty Shoreline file provided {shoreline_path}")
-    else:
-        shoreline_in_roi = shoreline.Shoreline(bbox=roi_gdf)
-        shoreline_gdf = copy.deepcopy(shoreline_in_roi.gdf)
+    return feature_gdf
 
-    logger.info(f"shoreline_gdf: {shoreline_gdf}")
-    if shoreline_gdf.empty:
-        raise Exception(
-            f"No shorelines were found this region. Upload a shorelines.geojson"
-        )
-    shoreline_gdf = shoreline_gdf.loc[:, ["id", "geometry"]]
-    shoreline_gdf = shoreline_gdf.to_crs(epsg_code)
-    return shoreline_gdf
+def load_geodataframe_from_file(feature_path: str, feature_type: str) -> gpd.GeoDataFrame:
+    """
+    Load a geographic feature from a file. The file is read into a GeoDataFrame.
+
+    Args:
+        feature_path (str): Path to the feature file.
+        feature_type (str): Type of the geographic feature, e.g. 'shoreline', 'transect'.
+
+    Returns:
+        gpd.GeoDataFrame: Geographic feature as a GeoDataFrame.
+
+    Raises:
+        ValueError: If the feature file is empty.
+    """
+    logger.info(f"Attempting to load {feature_type} from a file")
+    feature_gdf = gpd.read_file(feature_path)
+    try:
+        # attempt to load features from a config file
+        feature_gdf = common.extract_feature_from_geodataframe(feature_gdf, feature_type=feature_type)
+    except ValueError as e:
+        # if it isn't a config file then just ignore the error
+        logger.info(f"This probably wasn't a config : {feature_path} \n {e}")
+    if feature_gdf.empty:
+        raise ValueError(f"Empty {feature_type} file provided: {feature_path}")
+    return feature_gdf
 
 
 def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> list[str]:
@@ -816,14 +840,10 @@ class Zoo_Model:
         # get the epsg code for this region before we change it
         output_epsg = extract_shoreline_settings["output_epsg"]
         logger.info(f"output_epsg: {output_epsg}")
-        # load transects and shorelines
 
-        transects_gdf = create_transects_geodataframe(
-            transects_path, roi_gdf, output_epsg
-        )
-        shoreline_gdf = create_shoreline_geodataframe(
-            shoreline_path, roi_gdf, output_epsg
-        )
+        # load transects and shorelines
+        transects_gdf =  create_geofeature_geodataframe(transects_path, roi_gdf, output_epsg,'transect')
+        shoreline_gdf = create_geofeature_geodataframe(shoreline_path, roi_gdf, output_epsg,'shoreline')
 
         # extract shorelines with most accurate crs
         new_espg = common.get_most_accurate_epsg(

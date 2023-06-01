@@ -43,6 +43,31 @@ def create_unique_ids(data,prefix_length:int=3):
         data['id']= ids
     return data
 
+def extract_feature_from_geodataframe(
+     gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
+) -> gpd.GeoDataFrame:
+    """
+    Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
+    
+    Args:
+        gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
+        feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
+        
+    Returns:
+        gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type and columns.
+        
+    Raises:
+        ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
+    """
+    # Check if type_column exists in the GeoDataFrame
+    if type_column not in gdf.columns:
+        raise ValueError(f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded")
+    
+    # select only the features that are of the correct type and have the correct columns
+    feature_gdf = gdf[gdf[type_column] == feature_type]
+    
+    return feature_gdf
 
 
 def random_prefix(length):
@@ -1357,6 +1382,7 @@ def save_extracted_shorelines(
         "extracted_shorelines_dict.json",
         extracted_shorelines.dictionary,
     )
+
 
 
 def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
