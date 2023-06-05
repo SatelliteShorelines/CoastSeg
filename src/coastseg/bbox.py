@@ -1,6 +1,6 @@
 # Standard library imports
 import logging
-from typing import Union
+from typing import Optional, Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
@@ -64,21 +64,23 @@ class Bounding_Box:
         return bbox_gdf
 
     def create_geodataframe(
-        self, rectangle: dict, crs: str = "EPSG:4326"
+        self, rectangle: dict,  crs: Optional[str] = "EPSG:4326"
     ) -> gpd.GeoDataFrame:
-        """Creates a geodataframe with the crs specified by crs
+        """Creates a geodataframe in crs "EPSG:4326" with the provided geometry in rectangle. The 
+        The geometry must in CRS epsg 4326 or the code will not work properly
         Args:
             rectangle (dict): geojson dictionary
             crs (str, optional): coordinate reference system string. Defaults to 'EPSG:4326'.
 
         Returns:
-            gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs
+            gpd.GeoDataFrame: geodataframe with geometry column = rectangle with crs = "EPSG:4326"
         """
         geom = [shape(rectangle)]
         geojson_bbox = gpd.GeoDataFrame({"geometry": geom})
-        geojson_bbox.crs = crs
+        geojson_bbox.set_crs(crs, inplace=True)
         # clean the geodataframe
         geojson_bbox = preprocess_geodataframe(geojson_bbox,columns_to_keep=['geometry'],create_ids=False)
+        geojson_bbox.to_crs("EPSG:4326", inplace=True)
         return geojson_bbox
 
     def style_layer(self, geojson: dict, layer_name: str) -> "ipyleaflet.GeoJSON":
