@@ -1248,6 +1248,9 @@ class Extracted_Shoreline:
             roi_settings,
             settings,
         )
+        if self.dictionary == {}:
+            logger.warning(f"No extracted shorelines for ROI {roi_id}")
+            raise exceptions.No_Extracted_Shoreline(roi_id) 
 
         if is_list_empty(self.dictionary["shorelines"]):
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
@@ -1321,53 +1324,63 @@ class Extracted_Shoreline:
         self.shoreline_settings = self.create_shoreline_settings(
             settings, roi_settings, reference_shoreline
         )
+        logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
-        logger.info(f"metadata: {metadata}")
-        logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
+        sitename = self.shoreline_settings['inputs']['sitename']
+        filepath_data = self.shoreline_settings['inputs']['filepath']
 
-        # self.dictionary = self.extract_shorelines(
-        #     shoreline,
-        #     roi_settings,
-        #     settings,
-        #     session_path=session_path,
-        #     class_indices=water_classes_indices,
-        #     class_mapping=class_mapping,
-        # )
+        # filter out files that were removed from RGB directory
+        try:
+            metadata = common.filter_metadata(metadata,sitename,filepath_data)
+        except FileNotFoundError as e:
+            logger.warning(f"No RGB files existed so no metadata.")
+            self.dictionary = {}
+        else:
+            logger.info(f"metadata: {metadata}")
+            
+            # self.dictionary = self.extract_shorelines(
+            #     shoreline,
+            #     roi_settings,
+            #     settings,
+            #     session_path=session_path,
+            #     class_indices=water_classes_indices,
+            #     class_mapping=class_mapping,
+            # )
 
-        extracted_shorelines_dict = extract_shorelines_with_dask(
-            session_path,
-            metadata,
-            self.shoreline_settings,
-            class_indices=water_classes_indices,
-            class_mapping=class_mapping,
-            save_location=new_session_path,
-        )
-        if extracted_shorelines_dict == {}:
-            raise Exception(f"Failed to extract any shorelines.")
+            extracted_shorelines_dict = extract_shorelines_with_dask(
+                session_path,
+                metadata,
+                self.shoreline_settings,
+                class_indices=water_classes_indices,
+                class_mapping=class_mapping,
+                save_location=new_session_path,
+            )
+            if extracted_shorelines_dict == {}:
+                raise Exception(f"Failed to extract any shorelines.")
 
-        logger.info(f"extracted_shoreline_dict: {extracted_shorelines_dict}")
-        # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
-        extracted_shorelines_dict = remove_duplicates(
-            extracted_shorelines_dict
-        )  # removes duplicates (images taken on the same date by the same satellite)
-        extracted_shorelines_dict = remove_inaccurate_georef(
-            extracted_shorelines_dict, 10
-        )  # remove inaccurate georeferencing (set threshold to 10 m)
-        logger.info(
-            f"after remove_inaccurate_georef : extracted_shoreline_dict: {extracted_shorelines_dict}"
-        )
-        self.dictionary = extracted_shorelines_dict
+            logger.info(f"extracted_shoreline_dict: {extracted_shorelines_dict}")
+            # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
+            extracted_shorelines_dict = remove_duplicates(
+                extracted_shorelines_dict
+            )  # removes duplicates (images taken on the same date by the same satellite)
+            extracted_shorelines_dict = remove_inaccurate_georef(
+                extracted_shorelines_dict, 10
+            )  # remove inaccurate georeferencing (set threshold to 10 m)
+            logger.info(
+                f"after remove_inaccurate_georef : extracted_shoreline_dict: {extracted_shorelines_dict}"
+            )
+            self.dictionary = extracted_shorelines_dict
 
-        if is_list_empty(self.dictionary["shorelines"]):
-            logger.warning(f"No extracted shorelines for ROI {roi_id}")
-            raise exceptions.No_Extracted_Shoreline(roi_id)
+            if is_list_empty(self.dictionary["shorelines"]):
+                logger.warning(f"No extracted shorelines for ROI {roi_id}")
+                raise exceptions.No_Extracted_Shoreline(roi_id)
 
-        map_crs = "EPSG:4326"
-        # extracted shorelines have map crs so they can be displayed on the map
-        self.gdf = self.create_geodataframe(
-            self.shoreline_settings["output_epsg"], output_crs=map_crs
-        )
+            map_crs = "EPSG:4326"
+            # extracted shorelines have map crs so they can be displayed on the map
+            self.gdf = self.create_geodataframe(
+                self.shoreline_settings["output_epsg"], output_crs=map_crs
+            )
         return self
 
     def _validate_input_params(
@@ -1430,7 +1443,19 @@ class Extracted_Shoreline:
         )
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
-        logger.info(f"metadata: {metadata}")
+        sitename = self.shoreline_settings['inputs']['sitename']
+        filepath_data = self.shoreline_settings['inputs']['filepath']
+
+        # filter out files that were removed from RGB directory
+        try:
+            metadata = common.filter_metadata(metadata,sitename,filepath_data)
+        except FileNotFoundError as e:
+            logger.warning(f"No RGB files existed so no metadata.")
+            return {}
+
+
+        
+        logger.info(f"new metadata: {metadata}")
         logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
         # extract shorelines from ROI
         if session_path is None:
