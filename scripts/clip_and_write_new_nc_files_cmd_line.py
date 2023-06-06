@@ -7,6 +7,13 @@ import os
 import gzip
 import shutil
 
+# Hello!
+# to run this file from the command line
+# replace user with your avios email
+# replace argument after --tide_model with the location of your downloaded tide_model
+# replace argument after --regions_file with the location to the regions file you want to clip the tide_model to
+# python clip_and_write_new_nc_files_cmd_line.py --tide_model C:\1_USGS\1_CoastSeg\1_official_CoastSeg_repo\CoastSeg\tide_models --regions_file C:\1_USGS\1_CoastSeg\1_official_CoastSeg_repo\CoastSeg\scripts\tide_regions_map.geojson
+
 
 def clip_specific_region(files,geometries,region_number=10):
     """
