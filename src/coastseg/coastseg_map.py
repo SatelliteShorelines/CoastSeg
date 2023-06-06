@@ -236,7 +236,6 @@ class CoastSeg_Map:
         Returns:
             None. The function updates the coastseg instance with ROIs, extracted shorelines, and transects
         """
-        # load config files
         self.load_session_files(dir_path)
         # for every directory load extracted shorelines
         extracted_shorelines = extracted_shoreline.load_extracted_shoreline_from_files(
@@ -281,25 +280,28 @@ class CoastSeg_Map:
         Returns:
             None.
         """
-        logger.info(f"Loading session: {session_path}")
         # load the session name
-        session_name = os.path.basename(os.path.abspath(session_path))
+        session_path = os.path.abspath(session_path)
+        session_name = os.path.basename(session_path)
         self.set_session_name(session_name)
+        logger.info(f"Loading session from session directory: {session_path}")
 
-        # load the session from the session path
-        self.load_session_from_directory(session_path)
-        # Use os.walk to efficiently traverse the directory tree
-        for dirpath, dirnames, filenames in os.walk(session_path):
-            # If there are subdirectories
-            if dirpath != session_path:
-                self.load_session_from_directory(dirpath)
+        # load the session from the parent directory and subdirectories within session path
+        directories_to_load = common.get_all_subdirectories(session_path)
+        for directory in directories_to_load:
+            self.load_session_from_directory(directory)
 
-        # Check if any ROIs are loaded
-        if self.rois is None:
+        # update the list of roi's ids who have extracted shorelines
+        self.update_roi_ids_with_extracted_shorelines(self.rois)
+
+
+    def update_roi_ids_with_extracted_shorelines(self, rois:ROI):
+        # Check if no ROIs are loaded return nothing
+        if rois is None:
             logger.warning("No ROIs found. Please load ROIs.")
             return
         # Get the ids of the ROIs with extracted shorelines
-        ids_with_extracted_shorelines = self.rois.get_ids_with_extracted_shorelines()
+        ids_with_extracted_shorelines = rois.get_ids_with_extracted_shorelines()
         # update observable list of ROI ids with extracted shorelines
         self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
 
@@ -816,20 +818,19 @@ class CoastSeg_Map:
 
         """
         # Modifies html when extracted shoreline is hovered over
-        properties = defaultdict(lambda: "unknown", feature["properties"])
-        self.feature_html.value = """
-        <div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>
-        <b>Extracted Shoreline</b>
-        <p>Date: {}</p>
-        <p>Geoaccuracy: {}</p>
-        <p>Cloud Cover: {}</p>
-        <p>Satellite Name: {}</p>
-        """.format(
-            properties["date"],
-            properties["geoaccuracy"],
-            properties["cloud_cover"],
-            properties["satname"],
-        )
+        properties = feature["properties"]
+        date = properties.get("date", "unknown")
+        cloud_cover = properties.get("cloud_cover", "unknown")
+        satname = properties.get("satname", "unknown")
+        geoaccuracy = properties.get("geoaccuracy", "unknown")
+
+        self.feature_html.value = (
+        "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
+        "<b>Extracted Shoreline</b>"
+        f"<p>Date: {date}</p>"
+        f"<p>Geoaccuracy: {geoaccuracy}</p>"
+        f"<p>Cloud Cover: {cloud_cover}</p>"
+        f"<p>Satellite Name: {satname}</p>")
 
     def update_roi_html(self, feature, **kwargs):
         # Modifies html when roi is hovered over
@@ -843,28 +844,42 @@ class CoastSeg_Map:
         )
 
     def update_shoreline_html(self, feature, **kwargs):
+        """
+        Modifies the HTML content when a shoreline is hovered over.
+
+        Args:
+            feature (dict): The shoreline feature.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+
+        """
         # Modifies html when shoreline is hovered over
-        values = defaultdict(lambda: "unknown", feature["properties"])
-        self.feature_html.value = """
-        <b>Shoreline</b>
-        <p>Mean Sig Waveheight: {}</p>
-        <p>Tidal Range: {}</p>
-        <p>Erodibility: {}</p>
-        <p>River: {}</p>
-        <p>Sinuosity: {}</p>
-        <p>Slope: {}</p>
-        <p>Turbid: {}</p>
-        <p>CSU_ID: {}</p>
-        """.format(
-            values["MEAN_SIG_WAVEHEIGHT"],
-            values["TIDAL_RANGE"],
-            values["ERODIBILITY"],
-            values["river_label"],
-            values["sinuosity_label"],
-            values["slope_label"],
-            values["turbid_label"],
-            values["CSU_ID"],
-        )
+        properties = feature["properties"]
+        shoreline_id = properties.get("id", "unknown")
+        mean_sig_waveheight = properties.get("MEAN_SIG_WAVEHEIGHT", "unknown")
+        tidal_range = properties.get("TIDAL_RANGE", "unknown")
+        erodibility = properties.get("ERODIBILITY", "unknown")
+        river_label = properties.get("river_label", "unknown")
+        sinuosity_label = properties.get("sinuosity_label", "unknown")
+        slope_label = properties.get("slope_label", "unknown")
+        turbid_label = properties.get("turbid_label", "unknown")
+        csu_id = properties.get("CSU_ID", "unknown")
+
+        self.feature_html.value = (
+        "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
+        "<b>Shoreline</b>"
+        f"<p>ID: {shoreline_id}</p>"
+        f"<p>Mean Sig Waveheight: {mean_sig_waveheight}</p>"
+        f"<p>Tidal Range: {tidal_range}</p>"
+        f"<p>Erodibility: {erodibility}</p>"
+        f"<p>River: {river_label}</p>"
+        f"<p>Sinuosity: {sinuosity_label}</p>"
+        f"<p>Slope: {slope_label}</p>"
+        f"<p>Turbid: {turbid_label}</p>"
+        f"<p>CSU_ID: {csu_id}</p>")
+
 
     def get_all_roi_ids(self) -> List[str]:
         """
