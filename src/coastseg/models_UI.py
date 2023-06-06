@@ -37,16 +37,16 @@ class UI_Models:
     def __init__(self):
         self.settings_dashboard = settings_UI.Settings_UI()
         self.zoo_model_instance = zoo_model.Zoo_Model()
-        instructions = 'Upload a GeoJSON file that contains either transects or shorelines.\
+        instructions = "Upload a GeoJSON file that contains either transects or shorelines.\
         If no file is provided, the CoastSeg will automatically attempt to load an available file for you.\
-        In the event that no transects or shorelines are available within the specified region, an error will occur.'
+        In the event that no transects or shorelines are available within the specified region, an error will occur."
         self.fileuploader = FileUploader(
-            title = '',
+            title="",
             instructions=instructions,
             filter_pattern="*geojson",
             dropdown_options=["transects", "shorelines"],
             file_selection_title="Select a geojson file",
-            max_width=400
+            max_width=400,
         )
         # Controls size of ROIs generated on map
         self.model_dict = {
@@ -60,19 +60,15 @@ class UI_Models:
         # list of RGB and MNDWI models available
         self.RGB_models = [
             "sat_RGB_4class_6950472",
-            "sat_RGB_2class_7865364",
         ]
         self.five_band_models = [
             "sat_5band_4class_7344606",
-            "sat_5band_2class_7448390",
         ]
         self.MNDWI_models = [
             "sat_MNDWI_4class_7352850",
-            "sat_MNDWI_2class_7557080",
         ]
         self.NDWI_models = [
             "sat_NDWI_4class_7352859",
-            "sat_NDWI_2class_7557072",
         ]
         self.session_name = ""
         self.shoreline_session_directory = ""
@@ -211,7 +207,6 @@ class UI_Models:
             [self.model_input_dropdown, self.model_dropdown, self.model_implementation]
         )
         checkboxes = HBox([self.otsu_radio, self.tta_radio])
-
 
         # run model controls
         run_model_buttons = VBox(
