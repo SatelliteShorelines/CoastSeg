@@ -85,12 +85,12 @@ class Transects:
 
     def initialize_transects(self, bbox: Optional[gpd.GeoDataFrame] = None, transects: Optional[gpd.GeoDataFrame] = None):
         if transects is not None:
-            self.initialize_transects_with_provided_data(transects)
+            self.initialize_transects_with_transects(transects)
 
         elif bbox is not None:
             self.initialize_transects_with_bbox(bbox)
 
-    def initialize_transects_with_provided_data(self, transects: gpd.GeoDataFrame):
+    def initialize_transects_with_transects(self, transects: gpd.GeoDataFrame):
         """
         Initialize transects with the provided transects in a GeoDataFrame.
         """
@@ -108,8 +108,10 @@ class Transects:
 
 
     def initialize_transects_with_bbox(self, bbox: gpd.GeoDataFrame):
-        """
-        Processes the provided bounding box GeoDataFrame.
+        """ 
+        Load transects within the bounding box. The transects will NOT be clipped to the bounding box.
+        Args:
+            bbox (gpd.GeoDataFrame): bounding box
         """
         if not bbox.empty:
             self.gdf = self.create_geodataframe(bbox)
@@ -117,12 +119,14 @@ class Transects:
     def create_geodataframe(
         self,
         bbox: gpd.GeoDataFrame,
+        crs: str = "EPSG:4326",
     ) -> gpd.GeoDataFrame:
         """Creates a geodataframe with the crs specified by crs
         Args:
-            rectangle (dict): geojson dictionary
+             bbox (gpd.GeoDataFrame): Bounding box being searched for transects
+             crs (str, optional): Coordinate reference system string. Defaults to 'EPSG:4326'.
         Returns:
-            gpd.GeoDataFrame: geodataframe with geometry column = rectangle and given crs
+            gpd.GeoDataFrame: geodataframe with geometry column = bbox and given crs
         """
         # create a new dataframe that only contains the geometry column of the bbox
         bbox = bbox[["geometry"]]
@@ -140,6 +144,10 @@ class Transects:
         transects_in_bbox = preprocess_geodataframe(transects_in_bbox, columns_to_keep=['id','geometry','slope'],create_ids=True)
         # make sure all the ids in transects_in_bbox are unique
         transects_in_bbox = create_unique_ids(transects_in_bbox,prefix_length=3)
+        
+        if not transects_in_bbox.empty:
+            transects_in_bbox.to_crs(crs, inplace=True)
+
         return transects_in_bbox
 
 

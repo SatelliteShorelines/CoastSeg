@@ -48,13 +48,13 @@ class Shoreline:
 
     def initialize_shorelines(self, bbox: Optional[gpd.GeoDataFrame] = None, shorelines: Optional[gpd.GeoDataFrame] = None):
         if shorelines is not None:
-            self.process_provided_shorelines(shorelines)
+            self.initialize_shorelines_with_shorelines(shorelines)
 
         elif bbox is not None:
             self.initialize_shoreliness_with_bbox(bbox)
 
 
-    def process_provided_shorelines(self, shorelines: gpd.GeoDataFrame):
+    def initialize_shorelines_with_shorelines(self, shorelines: gpd.GeoDataFrame):
         """
         Initalize shorelines with the provided shorelines in a geodataframe
         """
@@ -64,6 +64,9 @@ class Shoreline:
             "turbid_label", "slope_label", "sinuosity_label",
             "TIDAL_RANGE", "MEAN_SIG_WAVEHEIGHT"
             ]
+            if not shorelines.crs:
+                logger.warning(f"shorelines did not have a crs converting to crs 4326 \n {shorelines}")
+                shorelines.set_crs('EPSG:4326', inplace=True)
             shorelines= preprocess_geodataframe(shorelines,columns_to_keep,create_ids=True)
             # make sure all the ids are unique
             shorelines = create_unique_ids(shorelines,prefix_length=3)
@@ -72,13 +75,18 @@ class Shoreline:
             self.gdf = shorelines
 
     def initialize_shoreliness_with_bbox(self, bbox: gpd.GeoDataFrame):
+        """ 
+        Load shorelines within the bounding box. The shorelines will be clipped to the bounding box.
+        Args:
+            bbox (gpd.GeoDataFrame): bounding box
+        """
         if not bbox.empty:
             self.gdf = self.create_geodataframe(bbox)
 
     def create_geodataframe(self, bbox: gpd.GeoDataFrame, crs: str = "EPSG:4326") -> gpd.GeoDataFrame:
         """
         Creates a GeoDataFrame with the specified CRS, containing shorelines that intersect with the given bounding box.
-
+        Downloads the shorelines from online.
         Args:
             bbox (gpd.GeoDataFrame): Bounding box being searched for shorelines.
             crs (str, optional): Coordinate reference system string. Defaults to 'EPSG:4326'.
@@ -209,16 +217,16 @@ class Shoreline:
         if not os.path.exists(shoreline_dir):
             os.mkdir(shoreline_dir)
             logger.info(f"Created shoreline directory: {shoreline_dir}")
-        # outfile : location where  model id saved
-        outfile = os.path.abspath(os.path.join(shoreline_dir, filename))
+        # location to save the downloaded shoreline file
+        shoreline_file = os.path.abspath(os.path.join(shoreline_dir, filename))
         # Download the model from Zenodo
-        if not os.path.exists(outfile):
+        if not os.path.exists(shoreline_file):
             url = root_url + filename + "?download=1"
             logger.info(f"Retrieving: {url}")
-            logger.info(f"Retrieving file: {outfile}")
+            logger.info(f"Retrieving file: {shoreline_file}")
             print(f"Retrieving: {url}")
-            print(f"Retrieving file: {outfile}")
-            download_url(url, outfile, filename=filename)
+            print(f"Retrieving file: {shoreline_file}")
+            download_url(url, shoreline_file, filename=filename)
 
 
 def get_intersecting_files(bbox: gpd.GeoDataFrame) -> Dict[str, str]:
