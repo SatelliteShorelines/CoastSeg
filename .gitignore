@@ -4,7 +4,17 @@ fishnet_rois.geojson
 rois.geojson
 src/coastseg/shorelines/*
 src/coastseg/downloaded_models/*
+src/*/downloaded_models/*
+src/*/saved_transects/*
+src/*/test_new_model/*
+src/*/working_new_downloaded_models/*
+*tide_models*
+*Transects_grid_regions*
 *log_*.txt
+
+
+*downloaded_shorelines/*
+./downloaded_shorelines/*
 
 data\*
 sessions\*
