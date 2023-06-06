@@ -26,7 +26,6 @@ import pandas as pd
 import shapely
 from ipyfilechooser import FileChooser
 
-from ipywidgets import Button
 from ipywidgets import ToggleButton
 from ipywidgets import HBox
 from ipywidgets import VBox
@@ -36,6 +35,97 @@ from ipywidgets import HTML
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 logger = logging.getLogger(__name__)
+
+def filter_metadata(metadata:dict,sitename:str,filepath_data:str)->dict[str]:
+    """
+    This function filters metadata to include only those files that exist in the given directory.
+
+    Parameters:
+    -----------
+    metadata : dict
+        The metadata dictionary to be filtered.
+    
+    sitename : str
+        The site name used for filtering.
+    
+    filepath_data : str
+        The base filepath where the data is located.
+
+    Returns:
+    --------
+    dict
+        The filtered metadata dictionary.
+    """
+    # Get the RGB directory
+    RGB_directory = os.path.join(filepath_data, sitename, 'jpg_files','preprocessed', 'RGB')
+    if not os.path.exists(RGB_directory):
+        raise FileNotFoundError(f"Cannot extract shorelines from imagery. RGB directory did not exist. {RGB_directory}")
+    # filter out files that were removed from RGB directory
+    filtered_files = get_filtered_files_dict(RGB_directory,'jpg',sitename)
+    for satname in filtered_files:
+        if satname in metadata:
+            metadata[satname]['filenames'] = list(filtered_files[satname])
+    return metadata
+
+
+def get_filtered_files_dict(directory:str, file_type:str, sitename:str)->dict:
+    """
+    This function generates a dictionary of new filenames for files in the given directory.
+    The keys of the dictionary are satellite names, and the values are sets of new filenames.
+
+    Parameters:
+    -----------
+    directory : str
+        The directory where the files are located.
+    
+    file_type : str
+        The filetype of the files to be included.
+        Ex. 'jpg'
+    
+    sitename : str
+        The site name to be included in the new filename.
+
+    Returns:
+    --------
+    dict
+        A dictionary with satellite names as keys and sets of new filenames as values.
+    """
+    filepaths = glob.iglob(os.path.join(directory, f'*.{file_type}'))
+
+    satellites = {"L5": set(), "L7": set(), "L8": set(), "L9": set(), "S2": set()}
+    for filepath in filepaths:
+        old_filename = os.path.basename(filepath)
+        parts = old_filename.split('_')
+
+        if len(parts) < 2:
+            logging.warning(f"Skipping file with unexpected name format: {old_filename}")
+            continue
+
+        date = parts[0]
+        satname_parts = parts[-1].split('.')
+        
+        if len(satname_parts) < 2:
+            logging.warning(f"Skipping file with unexpected name format: {old_filename}")
+            continue
+
+        satname = satname_parts[0]
+
+        new_filename = f"{date}_{satname}_{sitename}_ms.tif"
+        if satname in satellites:
+            satellites[satname].add(new_filename)
+
+    return satellites
+
+
+
+
+
+
+def get_all_subdirectories( directory: str) -> List[str]:
+    """Return a list of all subdirectories in the given directory, including the directory itself."""
+    return [dirpath for dirpath, dirnames, filenames in os.walk(directory)]
+
+
 
 def load_geodataframe_from_file(feature_path: str, feature_type: str) -> gpd.GeoDataFrame:
     """

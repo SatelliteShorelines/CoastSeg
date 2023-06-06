@@ -1,19 +1,155 @@
+import pytest
+import os
 import json
 import datetime
+import tempfile
+import shutil
 
 from coastseg import exceptions
 from coastseg import common
-
 
 from shapely.geometry import LineString, MultiLineString, Point
 import geopandas as gpd
 import numpy as np
 from shapely import geometry
-import pytest
 
-import geopandas as gpd
-import pandas as pd
-import pytest
+# Test data
+@pytest.fixture(scope="function")
+def empty_ROI_directory(request):
+    temp_dir = tempfile.mkdtemp()
+    directory_name = request.param if hasattr(request, "param") else ""
+
+    # Create subdirectories
+    os.makedirs(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB'))
+
+    filenames = []
+
+    for fn in filenames:
+        with open(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB', fn), "w") as f:
+            f.write("test content")
+
+    yield temp_dir
+
+    shutil.rmtree(temp_dir)
+
+
+# Test data
+@pytest.fixture(scope="function")
+def sample_ROI_directory(request):
+    temp_dir = tempfile.mkdtemp()
+    directory_name = request.param if hasattr(request, "param") else ""
+
+    # Create subdirectories
+    os.makedirs(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB'))
+
+    filenames = [
+        "20210101_sat1_L5.jpg",
+        "20210101_sat1_L7.jpg",
+        "20210101_sat1_L8.jpg",
+        "20210101_sat1_L9.jpg",
+        "20210101_sat1_S2.jpg",
+        "20210101_wrong_name.jpg",
+        "wrong_name_2.jpg",
+    ]
+
+    for fn in filenames:
+        with open(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB', fn), "w") as f:
+            f.write("test content")
+
+    yield temp_dir
+
+    shutil.rmtree(temp_dir)
+
+@pytest.fixture(scope="function")
+def sample_directory():
+    temp_dir = tempfile.mkdtemp()
+
+    filenames = [
+        "20210101_sat1_L5.jpg",
+        "20210101_sat1_L7.jpg",
+        "20210101_sat1_L8.jpg",
+        "20210101_sat1_L9.jpg",
+        "20210101_sat1_S2.jpg",
+        "20210101_wrong_name.jpg",
+        "wrong_name_2.jpg",
+    ]
+
+    for fn in filenames:
+        with open(os.path.join(temp_dir, fn), "w") as f:
+            f.write("test content")
+
+    yield temp_dir
+
+    shutil.rmtree(temp_dir)
+
+@pytest.fixture(scope="module")
+def expected_satellites():
+    return {
+        'L5': {'20210101_L5_site1_ms.tif'},
+        'L7': {'20210101_L7_site1_ms.tif'},
+        'L8': {'20210101_L8_site1_ms.tif'},
+        'L9': {'20210101_L9_site1_ms.tif'},
+        'S2': {'20210101_S2_site1_ms.tif'}
+    }
+
+# Test data
+@pytest.fixture(scope="module")
+def sample_metadata():
+    metadata = {
+        "L5": {"filenames": ["20210101_L5_site1_ms.tif", "20220101_L5_site1_ms.tif"]},
+        "L7": {"filenames": ["20210101_L7_site1_ms.tif", "20220101_L7_site1_ms.tif"]},
+        "dates":[],
+        "sitename":'site1',
+    }
+    return metadata
+
+
+@pytest.fixture(scope="module")
+def expected_filtered_metadata():
+    metadata = {
+        "L5": {"filenames": ["20210101_L5_site1_ms.tif"]},
+        "L7": {"filenames": ["20210101_L7_site1_ms.tif"]},
+        "dates":[],
+        "sitename":'site1',
+    }
+    return metadata
+
+@pytest.fixture(scope="module")
+def expected_empty_filtered_metadata():
+    metadata = {
+        "L5": {"filenames": []},
+        "L7": {"filenames": []},
+        "dates":[],
+        "sitename":'site1',
+    }
+    return metadata
+
+@pytest.mark.parametrize("sample_ROI_directory", ["site1"], indirect=True)
+def test_filter_metadata(sample_ROI_directory, sample_metadata, expected_filtered_metadata):
+    result = common.filter_metadata(sample_metadata, "site1", sample_ROI_directory)
+    
+    assert result == expected_filtered_metadata, "The output filtered metadata is not as expected."
+
+
+@pytest.mark.parametrize("empty_ROI_directory", ["site1"], indirect=True)
+def test_empty_roi_directory_filter_metadata(empty_ROI_directory, sample_metadata, expected_empty_filtered_metadata,sample_directory):
+    # if the RGB directory but exists and is empty then no filenames in result should be empty lists
+    result = common.filter_metadata(sample_metadata, "site1", empty_ROI_directory)
+    assert result == expected_empty_filtered_metadata, "The output filtered metadata is not as expected."
+
+    # should raise an error if the RGB directory within the ROI directory does not exist
+    with pytest.raises(Exception):
+        common.filter_metadata(sample_metadata, "site1", sample_directory)
+    
+
+    
+
+# Test cases
+def test_get_filtered_files_dict(sample_directory, expected_satellites):
+    result = common.get_filtered_files_dict(sample_directory, "jpg", "site1")
+    
+    assert result == expected_satellites, "The output file name dictionary is not as expected."
+
 
 
 # Test for preprocessing function
