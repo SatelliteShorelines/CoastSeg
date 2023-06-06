@@ -55,7 +55,7 @@
 
   "settings": {
     "sat_list": ["L8"],
-    "landsat_collection": "C01",
+    "landsat_collection": "C02",
     "dates": ["2018-12-01", "2019-03-01"],
     "cloud_thresh": 0.5,
     "dist_clouds": 300,

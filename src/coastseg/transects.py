@@ -95,8 +95,12 @@ class Transects:
         Initialize transects with the provided transects in a GeoDataFrame.
         """
         if not transects.empty:
+            if not transects.crs:
+                logger.warning(f"transects did not have a crs converting to crs 4326 \n {transects}")
+                transects.set_crs('EPSG:4326', inplace=True)
             transects = preprocess_geodataframe(transects,columns_to_keep=['id','geometry','slope'],create_ids=True)
-            # make sure all the ids in transects are unique
+            transects.to_crs('EPSG:4326', inplace=True)
+            # if not all the ids in transects are unique then create unique ids
             transects = create_unique_ids(transects,prefix_length=3)
             # @todo add the transects to the current dataframe
             # @todo make sure none of the ids already exist in the dataframe. this can be a flag to turn an exception on/off

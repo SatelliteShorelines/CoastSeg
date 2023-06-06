@@ -19,6 +19,7 @@ def test_transects_init(valid_bbox_gdf : gpd.GeoDataFrame):
     transects = Transects(bbox= valid_bbox_gdf)
     assert isinstance(transects, Transects), 'Output should be an instance of Transects class'
     assert isinstance(transects.gdf, gpd.GeoDataFrame), 'Transects attribute gdf should be a GeoDataFrame'
+    assert transects.gdf.crs.to_string() =='EPSG:4326'
 
 def test_transects_process_provided_transects():
     transects = gpd.GeoDataFrame(geometry=[Polygon([(0, 0), (1, 1), (1, 0)])])
@@ -26,10 +27,21 @@ def test_transects_process_provided_transects():
     transects['slope'] = 1.0
     transects_obj = Transects(transects=transects)
     assert not transects_obj.gdf.empty, 'gdf should not be empty after processing provided transects'
+    assert transects_obj.gdf.crs.to_string() =='EPSG:4326'
+
+def test_transects_process_provided_transects_in_different_crs():
+    transects = gpd.GeoDataFrame(geometry=[Polygon([(0, 0), (1, 1), (1, 0)])])
+    transects.set_crs('EPSG:4327', inplace=True)
+    transects['id'] = 'test_id'
+    transects['slope'] = 1.0
+    transects_obj = Transects(transects=transects)
+    assert not transects_obj.gdf.empty, 'gdf should not be empty after processing provided transects'
+    assert transects_obj.gdf.crs.to_string() =='EPSG:4326'
 
 def test_transects_process_bbox(valid_bbox_gdf : gpd.GeoDataFrame):
     transects_obj = Transects(bbox= valid_bbox_gdf)
     assert not transects_obj.gdf.empty, 'gdf should not be empty after processing bbox'
+    assert transects_obj.gdf.crs.to_string() =='EPSG:4326'
 
 def test_transects_with_valid_transects(valid_transects_gdf):
     transects_obj = Transects(transects=valid_transects_gdf)
@@ -38,4 +50,5 @@ def test_transects_with_valid_transects(valid_transects_gdf):
     assert set(transects_obj.gdf.columns) == set(columns_to_keep), 'gdf should contain columns id, slope and geometry'
     assert 'usa_CA_0288-0122' in list(transects_obj.gdf['id'])
     assert not any(transects_obj.gdf['id'].duplicated()) == True
+    assert transects_obj.gdf.crs.to_string() =='EPSG:4326'
 
