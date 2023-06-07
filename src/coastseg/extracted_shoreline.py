@@ -650,14 +650,15 @@ def plot_image_with_legend(
     Plots the original image, merged classes, and all classes with their corresponding legends.
 
     Args:
-    original_image (numpy.ndarray): The original image.
-    merged_overlay (numpy.ndarray): The image with merged classes overlay.
-    all_overlay (numpy.ndarray): The image with all classes overlay.
-    pixelated_shoreline (numpy.ndarray): The pixelated shoreline points.
-    merged_legend (list): A list of legend handles for the merged classes.
-    all_legend (list): A list of legend handles for all classes.
-    titles (list, optional): A list of titles for the subplots. Defaults to None.
+    original_image (numpy.ndarray): The original image. Must be a 2D or 3D numpy array.
+    merged_overlay (numpy.ndarray): The image with merged classes overlay. Must be a numpy array with the same shape as original_image.
+    all_overlay (numpy.ndarray): The image with all classes overlay. Must be a numpy array with the same shape as original_image.
+    pixelated_shoreline (numpy.ndarray): The pixelated shoreline points. Must be a 2D numpy array where each row represents a point.
+    merged_legend (list): A list of legend handles for the merged classes. Each handle must be a matplotlib artist.
+    all_legend (list): A list of legend handles for all classes. Each handle must be a matplotlib artist.
+    titles (list, optional): A list of titles for the subplots. Must contain three strings if provided. Defaults to ["Original Image", "Merged Classes", "All Classes"].
 
+    
     Returns:
     matplotlib.figure.Figure: The resulting figure.
     """
