@@ -91,7 +91,7 @@ def compute_transects_from_roi(
         transects. It returns time-series of cross-shore distance along each transect.
     Args:
         extracted_shorelines (dict): contains the extracted shorelines and corresponding metadata
-        transects_gdf (gpd.GeoDataFrame): transects in ROI with crs= output_crs in settings
+        transects_gdf (gpd.GeoDataFrame): transects in ROI with crs = output_crs in settings
         settings (dict): settings dict with keys
                     'along_dist': int
                         alongshore distance considered calculate the intersection
@@ -100,9 +100,9 @@ def compute_transects_from_roi(
                Not tidally corrected.
     """
     # create dict of numpy arrays of transect start and end points
-    print(f"transects_gdf.crs: {transects_gdf.crs}")
+    logger.info(f"transects.crs: {transects_gdf.crs} transects: {transects_gdf}")
     transects = common.get_transect_points_dict(transects_gdf)
-    logger.info(f"transects: {transects}")
+    logger.info(f"transects as dictionary for coastsat: {transects}")
     # print(f'settings to extract transects: {settings}')
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
     cross_distance = compute_intersection_QC(extracted_shorelines, transects, settings)
@@ -184,6 +184,7 @@ def process_satellite(
     pixel_size = get_pixel_size_for_satellite(satname)
     # get the minimum beach area in number of pixels depending on the satellite
     settings["min_length_sl"] = get_min_shoreline_length(satname, default_min_length_sl)
+    print(satname)
     # loop through the images
     espg_list = []
     geoaccuracy_list = []
@@ -1554,10 +1555,14 @@ class Extracted_Shoreline:
             input_crs
         """
         extract_shoreline_gdf = output_to_gdf(self.dictionary, "lines")
-        extract_shoreline_gdf.crs = input_crs
+        if not extract_shoreline_gdf.crs:
+            extract_shoreline_gdf.set_crs(input_crs, inplace=True)
+        logger.info(f"extract_shoreline_gdf inital crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
         if output_crs is not None:
             extract_shoreline_gdf = extract_shoreline_gdf.to_crs(output_crs)
+        logger.info(f"extract_shoreline_gdf final crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
         return extract_shoreline_gdf
+    
 
     def save_to_file(
         self,
