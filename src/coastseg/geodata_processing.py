@@ -76,10 +76,12 @@ def load_geofeatures_from_roi(roi_gdf: gpd.GeoDataFrame, feature_type: str) -> g
     elif feature_type == 'shoreline' or feature_type == 'shorelines':
         feature_object = shoreline.Shoreline(bbox=roi_gdf)
     else:
+        logger.error(f"Unsupported feature_type: {feature_type}")
         raise ValueError(f"Unsupported feature_type: {feature_type}")
 
     if feature_object.gdf.empty:
-        raise ValueError(f"No {feature_type}s were available in this region. Try uploading your own {feature_type}s.geojson")
+        logger.error(f"CoastSeg currently does not have {feature_type}s available in this region. Try uploading your own {feature_type}s.geojson")
+        raise Exception(f"CoastSeg currently does not have {feature_type}s available in this region. Try uploading your own {feature_type}s.geojson")
 
     feature_gdf = copy.deepcopy(feature_object.gdf)
 
