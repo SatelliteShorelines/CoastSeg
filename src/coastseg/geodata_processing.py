@@ -41,10 +41,10 @@ def create_geofeature_geodataframe(
     feature_type = feature_type.lower()  # Convert to lower case for case insensitive comparison
 
     if os.path.exists(geofeature_path):
-        # Load geofeatures
+        # Load features from file
         geofeature_gdf = load_feature_from_file(geofeature_path, feature_type)
     else: 
-        # if a geofeature file is not given Load geofeatures from ROI
+        # if a geofeature file is not given load features from ROI
         geofeature_gdf = load_geofeatures_from_roi(roi_gdf, feature_type)
 
     logger.info(f"{feature_type}_gdf: {geofeature_gdf}")
