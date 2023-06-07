@@ -173,6 +173,8 @@ def process_satellite(
     class_mapping: dict,
     save_location: str,
 ):
+    # set batch size
+    batch_size = 10
     logger.info(f"metadata: {metadata}")
     # filenames of tifs (ms) for this satellite
     filenames = metadata[satname]["filenames"]
@@ -196,46 +198,61 @@ def process_satellite(
     geoaccuracy_list = []
     timestamps = []
     tasks = []
-    for index in tqdm(
-        range(len(filenames)),
-        desc=f"Mapping Shorelines for {satname}",
-        leave=True,
-        position=0,
-    ):
-        image_epsg = metadata[satname]["epsg"][index]
-        # get image spatial reference system (epsg code) from metadata dict
-        espg_list.append(metadata[satname]["epsg"][index])
-        geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
-        timestamps.append(metadata[satname]["dates"][index])
 
-        tasks.append(
-            dask.delayed(process_satellite_image)(
-                filenames[index],
-                filepath,
-                settings,
-                satname,
-                collection,
-                image_epsg,
-                pixel_size,
-                session_path,
-                class_indices,
-                class_mapping,
-                save_location,
+
+    # compute number of batches
+    num_batches = len(filenames) // batch_size
+    if len(filenames) % batch_size != 0:
+        num_batches += 1
+
+    # initialize progress bar
+    pbar = tqdm(total=num_batches, desc=f"Mapping Shorelines for {satname}", leave=True, position=0)
+
+    for batch in range(num_batches):
+        espg_list = []
+        geoaccuracy_list = []
+        timestamps = []
+        tasks = []
+
+        # generate tasks for the current batch
+        for index in range(batch * batch_size, min((batch + 1) * batch_size, len(filenames))):
+            image_epsg = metadata[satname]["epsg"][index]
+            espg_list.append(metadata[satname]["epsg"][index])
+            geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
+            timestamps.append(metadata[satname]["dates"][index])
+
+            tasks.append(
+                dask.delayed(process_satellite_image)(
+                    filenames[index],
+                    filepath,
+                    settings,
+                    satname,
+                    collection,
+                    image_epsg,
+                    pixel_size,
+                    session_path,
+                    class_indices,
+                    class_mapping,
+                    save_location,
+                )
             )
-        )
-    # run the tasks in parallel
-    results = dask.compute(*tasks)
-    output = {}
-    for index, result in enumerate(results):
-        if result is None:
-            continue
-        output.setdefault(satname, {})
-        output[satname].setdefault("dates", []).append(timestamps[index])
-        output[satname].setdefault("geoaccuracy", []).append(geoaccuracy_list[index])
-        output[satname].setdefault("shorelines", []).append(result["shorelines"])
-        output[satname].setdefault("cloud_cover", []).append(result["cloud_cover"])
-        output[satname].setdefault("filename", []).append(filenames[index])
-        output[satname].setdefault("idx", []).append(index)
+        
+        # compute tasks in batches
+        results = dask.compute(*tasks)
+        pbar.update()  # update progress bar
+
+        for index, result in enumerate(results):
+            if result is None:
+                continue
+            output.setdefault(satname, {})
+            output[satname].setdefault("dates", []).append(timestamps[index])
+            output[satname].setdefault("geoaccuracy", []).append(geoaccuracy_list[index])
+            output[satname].setdefault("shorelines", []).append(result["shorelines"])
+            output[satname].setdefault("cloud_cover", []).append(result["cloud_cover"])
+            output[satname].setdefault("filename", []).append(filenames[index])
+            output[satname].setdefault("idx", []).append(index)
+
+    pbar.close()
     return output
 
 
