@@ -11,8 +11,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-commit-and-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      match: ${{ steps.commit.outputs.match }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Check commit for version tag
+        id: commit
+        run: |
+          commit_message=$(git log --format=%B -n 1 ${{ github.event.after }})
+          tag_name=${{ github.event.ref }}
+          if [[ "$commit_message" =~ v[0-9]+.[0-9]+.[0-9]+.* ]] || [[ "$tag_name" =~ v[0-9]+.[0-9]+.[0-9]+.* ]]; then
+            echo "::set-output name=match::true"
+          else
+            echo "::set-output name=match::false"
+          fi
+
   build:
     name: Build and deploy to PyPI
+    needs: check-commit-and-tag
+    if: needs.check-commit-and-tag.outputs.match == 'true'
     runs-on: "ubuntu-latest"
     defaults:
       run:
@@ -24,10 +44,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      # - name: Install dependencies
-      #   run: |
-      #     python -m pip install --upgrade pip
-      #     pip install setuptools wheel twine
       - name: Install pypa/build
         run: >-
           python -m

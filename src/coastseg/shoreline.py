@@ -98,7 +98,7 @@ class Shoreline:
         intersecting_files = get_intersecting_files(bbox)
 
         if not intersecting_files:
-            logger.warning(f"No intersecting shorelines found. BBox: {bbox}")
+            logger.error(f"No intersecting shorelines found. BBox: {bbox}")
             raise ValueError("No intersecting shorelines found. Try loading your own or draw a new bounding box.")
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -106,7 +106,8 @@ class Shoreline:
         shoreline_files = self.get_shoreline_files(intersecting_files, script_dir)
 
         if not shoreline_files:
-            raise FileNotFoundError("No shoreline files found.")
+            logger.error(f"No shoreline files found at {script_dir}")
+            raise FileNotFoundError(f"No shoreline files found at {script_dir}")
 
         # Read in each shoreline file and clip it to the bounding box
         columns_to_keep = [
