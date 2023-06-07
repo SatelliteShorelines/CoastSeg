@@ -1,8 +1,26 @@
+import os 
 import pytest
+from unittest.mock import MagicMock
 import geopandas as gpd
-from coastseg.shoreline import Shoreline
+from coastseg.shoreline import Shoreline,ShorelineServices
 
 from coastseg import exceptions
+
+
+# def test_ShorelineServices():
+#     # Create a mock object for ShorelineServices
+#     mock_services = MagicMock(ShorelineServices)
+
+#     # Now you can set return values for the mock object's methods
+#     mock_services.download_service.return_value = "download_service"
+#     mock_services.preprocess_service.return_value = "preprocess_service"
+#     mock_services.create_ids_service.return_value = "create_unique_ids_service"
+
+#     # Now you can use the mock object in your tests
+#     assert mock_services.download_service('a', 'b', 'c') == "download_service"
+#     assert mock_services.preprocess_service('test') == "preprocess_service"
+#     assert mock_services.create_ids_service('test') == "create_unique_ids_service"
+
 
 def test_shoreline_initialization():
     shoreline = Shoreline()
