@@ -8,6 +8,7 @@ import copy
 from glob import glob
 from typing import Optional, Union, List, Dict
 
+
 # Internal dependencies imports
 from coastseg import exceptions
 from coastseg import common
@@ -172,19 +173,24 @@ def process_satellite(
     class_mapping: dict,
     save_location: str,
 ):
+    logger.info(f"metadata: {metadata}")
+    # filenames of tifs (ms) for this satellite
+    filenames = metadata[satname]["filenames"]
+    output = {}
+    if len(filenames) == 0:
+        logger.warning(f"Satellite {satname} had no imagery")
+        return output
+    
     collection = settings["inputs"]["landsat_collection"]
     default_min_length_sl = settings["min_length_sl"]
     # deep copy settings
     settings = copy.deepcopy(settings)
     filepath = get_filepath(settings["inputs"], satname)
-    # get list of file associated with this satellite
-    filenames = metadata[satname]["filenames"]
-    logger.info(f"metadata: {metadata}")
-    # get the pixel size of the satellite in meters
     pixel_size = get_pixel_size_for_satellite(satname)
+
     # get the minimum beach area in number of pixels depending on the satellite
     settings["min_length_sl"] = get_min_shoreline_length(satname, default_min_length_sl)
-    print(satname)
+
     # loop through the images
     espg_list = []
     geoaccuracy_list = []
@@ -990,9 +996,14 @@ def extract_shorelines_with_dask(
         os.makedirs(filepath_jpg, exist_ok=True)
 
     # loop through satellite list
-
-    tasks = [
-        dask.delayed(process_satellite)(
+    # filenames = metadata[satname]["filenames"]
+    # output = {}
+    # if len(filenames) == 0:
+    #     logger.warning(f"Satellite {satname} had no imagery")
+    #     return output
+    result_dict ={}
+    for satname in metadata:
+        satellite_dict=process_satellite(
             satname,
             settings,
             metadata,
@@ -1001,24 +1012,9 @@ def extract_shorelines_with_dask(
             class_mapping,
             save_location,
         )
-        for satname in metadata
-    ]
-
-    with ProgressBar():
-        tuple_of_dicts = dask.compute(*tasks)
-    logger.info(f"dask tuple_of_dicts: {tuple_of_dicts}")
-
-    # convert from a tuple of dicts to single dictionary
-    extracted_shorelines_data = {}
-    if not all(not bool(inner_dict) for inner_dict in tuple_of_dicts):
-        result_dict = {
-            k: v for dictionary in tuple_of_dicts for k, v in dictionary.items()
-        }
-        # change the format to have one list sorted by date with all the shorelines (easier to use)
-        extracted_shorelines_data = combine_satellite_data(result_dict)
-
+        result_dict.update(satellite_dict)
+    extracted_shorelines_data = combine_satellite_data(result_dict)
     logger.info(f"extracted_shorelines_data: {extracted_shorelines_data}")
-
     return extracted_shorelines_data
 
 

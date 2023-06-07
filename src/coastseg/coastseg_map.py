@@ -1354,7 +1354,6 @@ class CoastSeg_Map:
                 )
                 common.to_file(transect_settings, transect_settings_path)
 
-        print(f"Saved to session at {session_name}")
 
     def save_csv_per_transect_for_roi(
         self, session_path: str, roi_id: list, rois: ROI
