@@ -206,7 +206,8 @@ def process_satellite(
         num_batches += 1
 
     # initialize progress bar
-    pbar = tqdm(total=num_batches, desc=f"Mapping Shorelines for {satname}", leave=True, position=0)
+    pbar = tqdm(total=len(filenames), desc=f"Mapping Shorelines for {satname}", leave=True, position=0)
+
 
     for batch in range(num_batches):
         espg_list = []
@@ -239,7 +240,9 @@ def process_satellite(
         
         # compute tasks in batches
         results = dask.compute(*tasks)
-        pbar.update()  # update progress bar
+        # update progress bar
+        num_tasks_computed = len(tasks)
+        pbar.update(num_tasks_computed)  
 
         for index, result in enumerate(results):
             if result is None:
