@@ -2,9 +2,44 @@ import os
 import pytest
 from unittest.mock import MagicMock
 import geopandas as gpd
+from shapely.geometry import Polygon
 from coastseg.shoreline import Shoreline,ShorelineServices
 
 from coastseg import exceptions
+
+from unittest.mock import MagicMock
+
+def test_create_geodataframe():
+
+    # Mock services
+    services = ShorelineServices()
+    services.download_service = MagicMock()
+    services.preprocess_service = MagicMock()
+    services.create_ids_service = MagicMock()
+
+    # Mock data
+    bbox_data = gpd.GeoDataFrame({
+        'geometry': [Polygon([(0, 0), (1, 0), (1, 1)])]
+    }, crs="EPSG:4326")
+
+    shoreline_files_data = ['file1.geojson', 'file2.geojson']
+
+    shoreline = Shoreline(bbox=bbox_data, services=services)
+    
+    # Test with a known bounding box and a known set of shoreline files
+    gdf = shoreline.create_geodataframe(bbox_data, shoreline_files_data)
+    services.preprocess_service.assert_called()
+    services.create_ids_service.assert_called()
+    assert isinstance(gdf, gpd.GeoDataFrame)
+
+    # Test with an empty list of shoreline files
+    with pytest.raises(FileNotFoundError):
+        gdf = shoreline.create_geodataframe(bbox_data, [])
+
+    # Test with an empty GeoDataFrame
+    empty_bbox_data = gpd.GeoDataFrame()
+    gdf = shoreline.create_geodataframe(empty_bbox_data, shoreline_files_data)
+    assert gdf.empty
 
 
 # def test_ShorelineServices():

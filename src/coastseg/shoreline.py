@@ -108,12 +108,13 @@ class Shoreline:
 
     def initialize_shorelines_with_bbox(self, bbox: gpd.GeoDataFrame):
         """ 
-        Load shorelines within the bounding box. The shorelines will be clipped to the bounding box.
+        Creates a geodataframe with shorelines within the bounding box. The shorelines will be clipped to the bounding box.
         Args:
             bbox (gpd.GeoDataFrame): bounding box
         """
         if not bbox.empty:
-            self.gdf = self.create_geodataframe(bbox)
+            shoreline_files=self.get_intersecting_shoreline_files(bbox)
+            self.gdf = self.create_geodataframe(bbox,shoreline_files)
 
     def get_clipped_shoreline(self, shoreline_file:str, bbox:gpd.GeoDataFrame, columns_to_keep:List[str]):
         """Read a shoreline file, preprocess it, and clip it to the bounding box."""
@@ -121,7 +122,25 @@ class Shoreline:
         shoreline = self.preprocess_service(shoreline, columns_to_keep)
         return gpd.clip(shoreline, bbox)
 
-    def create_geodataframe(self, bbox: gpd.GeoDataFrame, crs: str = "EPSG:4326") -> gpd.GeoDataFrame:
+    def get_intersecting_shoreline_files(self,bbox: gpd.GeoDataFrame,bounding_boxes_location:str="")->List[str]:
+        # load the intersecting shoreline files
+        bounding_boxes_location = bounding_boxes_location if bounding_boxes_location else os.path.join(self._download_location, "bounding_boxes")
+        os.makedirs(bounding_boxes_location,exist_ok=True)
+        intersecting_files = get_intersecting_files(bbox,bounding_boxes_location)
+        
+        if not intersecting_files:
+            logger.error(f"No intersecting shorelines found within the bounding box: {bbox}")
+            raise ValueError("No intersecting shorelines shorelines were available within the bounding box:. Try drawing a new bounding box elsewhere.")
+
+        # Download any missing shoreline files
+        shoreline_files = self.get_shoreline_files(intersecting_files, self._download_location)
+        if not shoreline_files:
+            logger.error(f"No shoreline files found.Intersecting files were {intersecting_files}")
+            raise FileNotFoundError(f"No shoreline files were found at {self._download_location}.")
+        return shoreline_files
+
+
+    def create_geodataframe(self, bbox: gpd.GeoDataFrame,shoreline_files:List[str] ,crs: str = "EPSG:4326") -> gpd.GeoDataFrame:
         """
         Creates a GeoDataFrame with the specified CRS, containing shorelines that intersect with the given bounding box.
         Downloads the shorelines from online.
@@ -132,29 +151,16 @@ class Shoreline:
         Returns:
             gpd.GeoDataFrame: GeoDataFrame with geometry column = rectangle and given CRS.
         """
-        # load the intersecting shoreline files
-        bounding_boxes_location = os.path.join(self._download_location, "bounding_boxes")
-        os.makedirs(bounding_boxes_location,exist_ok=True)
-        intersecting_files = get_intersecting_files(bbox,bounding_boxes_location)
-        
-        if not intersecting_files:
-            logger.error(f"No intersecting shorelines found for bounding box: {bbox}")
-            raise ValueError("No intersecting shorelines found. Try drawing a new bounding box.")
-
-
-        # Download any missing shoreline files
-        shoreline_files = self.get_shoreline_files(intersecting_files, self._download_location)
-
-        if not shoreline_files:
-            logger.error(f"No shoreline files found.Intersecting files were {intersecting_files}")
-            raise FileNotFoundError(f"No shoreline files were found.")
-
         # Read in each shoreline file and clip it to the bounding box
         columns_to_keep = [
             "id", "geometry", "river_label", "ERODIBILITY", "CSU_ID",
             "turbid_label", "slope_label", "sinuosity_label",
             "TIDAL_RANGE", "MEAN_SIG_WAVEHEIGHT"
         ]
+
+        if not shoreline_files:
+            logger.error(f"No shoreline files were provided to read shorelines from")
+            raise FileNotFoundError(f"No shoreline files were found at {self._download_location}.")
 
         shorelines_gdf = gpd.GeoDataFrame()
         shorelines = [self.get_clipped_shoreline(file, bbox, columns_to_keep) for file in shoreline_files]
