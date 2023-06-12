@@ -35,14 +35,12 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 - Coastseg can automatically extract shorelines from downloaded satellite imagery.
 
 ## Table of Contents 
-- [Quick Start](#quick-start)  
 - [Installation Instructions](#installation-instructions)  
-- [How to Use CoastSeg](how-to-use-coastSeg)
+- [Getting Started](#getting-tarted)
 
 ## Useful Links
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Google Colab](https://colab.research.google.com/github/Doodleverse/CoastSeg/blob/main/coastseg_for_google_colab.ipynb)
 - [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/Contribution-Guide)
 
 
