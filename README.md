@@ -118,31 +118,17 @@ First, you need to request access to Google Earth Engine at https://signup.earth
 
 Once you’ve created the coastseg environment you’ll need to run `git clone` the coastseg code onto your computer. Follow the guide [How to Clone CoastSeg](https://github.com/Doodleverse/CoastSeg/wiki/How-to-Clone-Coastseg) in the wiki for how to perform a git clone to download the coastseg code onto your computer.
 
-5. Launch Jupyter Lab
+4. Launch Jupyter Lab
 
 - Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
    ```bash
    jupyter lab SDS_coastsat_classifier.ipynb
    ```
 
-6. Use the `SDS_coastsat_classifier` to Download Imagery 
+5. Use the `SDS_coastsat_classifier` to Download Imagery 
 
 Check out the wiki guide  [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
 
-## Quick Start for Notebooks
-To get started with CoastSeg open this [google colab](https://colab.research.google.com/github/Doodleverse/CoastSeg/blob/main/coastseg_for_google_colab.ipynb) which will open a jupyter notebook online. The notebook will walk you through connecting to Google Earth Engine, connecting to your google drive so you can save your downloaded images, and using the map dashboard to download satellite imagery.
-
-Alternatively, if you want to get started on your local computer follow the installation instructions, activate the `coastseg` environment, then change to the `CoastSeg` directory `cd coastseg`. Run one of the following notebooks with `jupyter lab` to get started using coastseg. 
-
-**Notebook to Download Satellite Imagery** 
-```bash
-jupyter lab SDS_coastsat_classifier.ipynb
-```
-
-**Notebook to Run Image Segmentation Models**
-```bash
-jupyter lab SDS_unet_classifier.ipynb
-```
 
 # Authors
 
