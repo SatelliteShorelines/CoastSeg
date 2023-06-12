@@ -1206,25 +1206,17 @@ class CoastSeg_Map:
             failure_reason = "No transects intersect"
 
         else:
-            extracted_shoreline_x_transect = transects_in_roi_gdf[
-                transects_in_roi_gdf.intersects(roi_extracted_shoreline.gdf.unary_union)
-            ]
-
-            if extracted_shoreline_x_transect.empty:
-                failure_reason = "No extracted shorelines intersected transects"
-            else:
-                # Convert transects_in_roi_gdf to output_crs from settings
-                transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
-
-                # Compute cross shore distance of transects and extracted shorelines
-                extracted_shorelines_dict = roi_extracted_shoreline.dictionary
-                cross_distance = extracted_shoreline.compute_transects_from_roi(
-                    extracted_shorelines_dict,
-                    transects_in_roi_gdf,
-                    settings,
-                )
-                if cross_distance == 0:
-                    failure_reason = "Cross distance computation failed"
+            # Convert transects_in_roi_gdf to output_crs from settings
+            transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
+            # Compute cross shore distance of transects and extracted shorelines
+            extracted_shorelines_dict = roi_extracted_shoreline.dictionary
+            cross_distance = extracted_shoreline.compute_transects_from_roi(
+                extracted_shorelines_dict,
+                transects_in_roi_gdf,
+                settings,
+            )
+            if cross_distance == 0:
+                failure_reason = "Cross distance computation failed"
 
         return cross_distance, failure_reason
 
