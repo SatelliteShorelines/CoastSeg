@@ -83,7 +83,6 @@ def remove_small_objects_and_binarize(merged_labels, min_size):
     return filtered_image
 
 
-# @time_func
 def compute_transects_from_roi(
     extracted_shorelines: dict,
     transects_gdf: gpd.GeoDataFrame,
@@ -105,6 +104,7 @@ def compute_transects_from_roi(
     logger.info(f"transects.crs: {transects_gdf.crs} transects: {transects_gdf}")
     transects = common.get_transect_points_dict(transects_gdf)
     logger.info(f"transects as dictionary for coastsat: {transects}")
+    # print(f'settings to extract transects: {settings}')
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
     cross_distance = compute_intersection_QC(extracted_shorelines, transects, settings)
     return cross_distance
@@ -182,7 +182,7 @@ def process_satellite(
     if len(filenames) == 0:
         logger.warning(f"Satellite {satname} had no imagery")
         return output
-
+    
     collection = settings["inputs"]["landsat_collection"]
     default_min_length_sl = settings["min_length_sl"]
     # deep copy settings
@@ -199,18 +199,15 @@ def process_satellite(
     timestamps = []
     tasks = []
 
+
     # compute number of batches
     num_batches = len(filenames) // batch_size
     if len(filenames) % batch_size != 0:
         num_batches += 1
 
     # initialize progress bar
-    pbar = tqdm(
-        total=len(filenames),
-        desc=f"Mapping Shorelines for {satname}",
-        leave=True,
-        position=0,
-    )
+    pbar = tqdm(total=len(filenames), desc=f"Mapping Shorelines for {satname}", leave=True, position=0)
+
 
     for batch in range(num_batches):
         espg_list = []
@@ -219,9 +216,7 @@ def process_satellite(
         tasks = []
 
         # generate tasks for the current batch
-        for index in range(
-            batch * batch_size, min((batch + 1) * batch_size, len(filenames))
-        ):
+        for index in range(batch * batch_size, min((batch + 1) * batch_size, len(filenames))):
             image_epsg = metadata[satname]["epsg"][index]
             espg_list.append(metadata[satname]["epsg"][index])
             geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
@@ -242,21 +237,19 @@ def process_satellite(
                     save_location,
                 )
             )
-
+        
         # compute tasks in batches
         results = dask.compute(*tasks)
         # update progress bar
         num_tasks_computed = len(tasks)
-        pbar.update(num_tasks_computed)
+        pbar.update(num_tasks_computed)  
 
         for index, result in enumerate(results):
             if result is None:
                 continue
             output.setdefault(satname, {})
             output[satname].setdefault("dates", []).append(timestamps[index])
-            output[satname].setdefault("geoaccuracy", []).append(
-                geoaccuracy_list[index]
-            )
+            output[satname].setdefault("geoaccuracy", []).append(geoaccuracy_list[index])
             output[satname].setdefault("shorelines", []).append(result["shorelines"])
             output[satname].setdefault("cloud_cover", []).append(result["cloud_cover"])
             output[satname].setdefault("filename", []).append(filenames[index])
@@ -691,7 +684,7 @@ def plot_image_with_legend(
     all_legend (list): A list of legend handles for all classes. Each handle must be a matplotlib artist.
     titles (list, optional): A list of titles for the subplots. Must contain three strings if provided. Defaults to ["Original Image", "Merged Classes", "All Classes"].
 
-
+    
     Returns:
     matplotlib.figure.Figure: The resulting figure.
     """
@@ -1005,7 +998,7 @@ def find_shoreline(
     return shoreline
 
 
-# @time_func
+@time_func
 def extract_shorelines_with_dask(
     session_path: str,
     metadata: dict,
@@ -1029,9 +1022,9 @@ def extract_shorelines_with_dask(
     # if len(filenames) == 0:
     #     logger.warning(f"Satellite {satname} had no imagery")
     #     return output
-    result_dict = {}
+    result_dict ={}
     for satname in metadata:
-        satellite_dict = process_satellite(
+        satellite_dict=process_satellite(
             satname,
             settings,
             metadata,
@@ -1275,7 +1268,7 @@ class Extracted_Shoreline:
         )
         if self.dictionary == {}:
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
-            raise exceptions.No_Extracted_Shoreline(roi_id)
+            raise exceptions.No_Extracted_Shoreline(roi_id) 
 
         if is_list_empty(self.dictionary["shorelines"]):
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
@@ -1352,18 +1345,18 @@ class Extracted_Shoreline:
         logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
-        sitename = self.shoreline_settings["inputs"]["sitename"]
-        filepath_data = self.shoreline_settings["inputs"]["filepath"]
+        sitename = self.shoreline_settings['inputs']['sitename']
+        filepath_data = self.shoreline_settings['inputs']['filepath']
 
         # filter out files that were removed from RGB directory
         try:
-            metadata = common.filter_metadata(metadata, sitename, filepath_data)
+            metadata = common.filter_metadata(metadata,sitename,filepath_data)
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
             self.dictionary = {}
         else:
             logger.info(f"metadata: {metadata}")
-
+            
             # self.dictionary = self.extract_shorelines(
             #     shoreline,
             #     roi_settings,
@@ -1468,16 +1461,18 @@ class Extracted_Shoreline:
         )
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
-        sitename = self.shoreline_settings["inputs"]["sitename"]
-        filepath_data = self.shoreline_settings["inputs"]["filepath"]
+        sitename = self.shoreline_settings['inputs']['sitename']
+        filepath_data = self.shoreline_settings['inputs']['filepath']
 
         # filter out files that were removed from RGB directory
         try:
-            metadata = common.filter_metadata(metadata, sitename, filepath_data)
+            metadata = common.filter_metadata(metadata,sitename,filepath_data)
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
             return {}
 
+
+        
         logger.info(f"new metadata: {metadata}")
         logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
         # extract shorelines from ROI
@@ -1579,15 +1574,12 @@ class Extracted_Shoreline:
         extract_shoreline_gdf = output_to_gdf(self.dictionary, "lines")
         if not extract_shoreline_gdf.crs:
             extract_shoreline_gdf.set_crs(input_crs, inplace=True)
-        logger.info(
-            f"extract_shoreline_gdf inital crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}"
-        )
+        logger.info(f"extract_shoreline_gdf inital crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
         if output_crs is not None:
             extract_shoreline_gdf = extract_shoreline_gdf.to_crs(output_crs)
-        logger.info(
-            f"extract_shoreline_gdf final crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}"
-        )
+        logger.info(f"extract_shoreline_gdf final crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
         return extract_shoreline_gdf
+    
 
     def save_to_file(
         self,

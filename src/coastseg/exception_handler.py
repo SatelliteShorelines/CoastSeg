@@ -20,15 +20,22 @@ NO_CONFIG_ROIS = (
     "No ROIs were selected. Cannot save ROIs to config until ROIs are selected."
 )
 NO_CONFIG_SETTINGS = "Settings must be loaded before configuration files can be made.\nClick save settings"
-ROIS_NOT_DOWNLOADED = "Error! Cannot perform this operation because not all the ROIs were downloaded. Try downloading the ROIs again."
+ROIS_NOT_DOWNLOADED = (
+    "Not all ROI directories exist on your computer. Try downloading the ROIs again."
+)
 BBOX_NOT_FOUND = "Bounding Box not found on map"
 SESSION_NAME_NOT_FOUND = "No session name found.Enter a session name."
 EMPTY_SELECTED_ROIS = "Must select at least one ROI on the map"
 SETTINGS_NOT_FOUND = "No settings found. Click save settings."
 SHORELINE_NOT_FOUND = "No Shoreline found. Please load a shoreline on the map first."
 NO_ROI_SETTINGS = (
-    "No roi settings found. Click download imagery first or upload a session directory"
+    "No roi settings found. Click download imagery first or upload configs"
 )
+NO_EXTRACTED_SHORELINES = "No shorelines have been extracted. Extract shorelines first."
+NO_ROIS_WITH_EXTRACTED_SHORELINES = (
+    "You must select an ROI and extract shorelines before you can compute transects"
+)
+NO_CROSS_DISTANCE_TRANSECTS = "No cross distances transects have been computed"
 
 # Separate different exception checking and handling
 # Checking decides the message
@@ -60,9 +67,7 @@ def check_if_subset(subset: set, superset: set, superset_name: str, message: str
 
 def check_if_rois_downloaded(roi_settings: dict, roi_ids: list):
     if common.were_rois_downloaded(roi_settings, roi_ids) == False:
-        logger.error(
-            f"Error! Cannot perform this operation because not all the ROIs were downloaded. {roi_settings}"
-        )
+        logger.error(f"Not all rois were downloaded{roi_settings}")
         raise FileNotFoundError(ROIS_NOT_DOWNLOADED)
 
 
@@ -165,9 +170,7 @@ def handle_bbox_error(
 
 def launch_error_box(row: "ipywidgets.HBox", title: str = None, msg: str = None):
     # Show user error message
-    warning_box = common.create_warning_box(
-        title=title, msg=msg, msg_width="80%", box_width="100%"
-    )
+    warning_box = common.create_warning_box(title=title, msg=msg,msg_width="80%", box_width="100%")
     # clear row and close all widgets in self.file_row before adding new warning_box
     common.clear_row(row)
     # add instance of warning_box to row
