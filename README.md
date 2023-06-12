@@ -65,9 +65,7 @@ jupyter lab SDS_unet_classifier.ipynb
 In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) to install the python packages in an environment for Coastseg. After you install Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
 
 1. Create an Anaconda environment
-- This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it
-- You can also use `python 3.10`
-- We will install the CoastSeg package and its dependencies in this environment.
+- This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
   ```bash
   conda create --name coastseg python=3.10 -y
   ```
