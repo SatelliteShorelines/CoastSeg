@@ -122,7 +122,7 @@ Once you’ve created the coastseg environment you’ll need to run `git clone` 
 
 - Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
    ```bash
-   jupyter lab SDS_coastsat_classifier
+   jupyter lab SDS_coastsat_classifier.ipynb
    ```
 
 6. Use the `SDS_coastsat_classifier` to Download Imagery 
