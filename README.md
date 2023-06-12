@@ -42,7 +42,7 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 ## Useful Links
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Google Colab](https://colab.research.google.com/github/2320sharon/2320sharon/blob/main/coastseg_for_google_colab.ipynb)
+- [Google Colab](https://colab.research.google.com/github/Doodleverse/CoastSeg/blob/main/coastseg_for_google_colab.ipynb)
 - [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/Contribution-Guide)
 
 
@@ -130,7 +130,7 @@ Once you’ve created the coastseg environment you’ll need to run `git clone` 
 Check out the wiki guide  [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
 
 ## Quick Start for Notebooks
-To get started with CoastSeg open this [google colab](https://colab.research.google.com/github/2320sharon/2320sharon/blob/main/coastseg_for_google_colab.ipynb) which will open a jupyter notebook online. The notebook will walk you through connecting to Google Earth Engine, connecting to your google drive so you can save your downloaded images, and using the map dashboard to download satellite imagery.
+To get started with CoastSeg open this [google colab](https://colab.research.google.com/github/Doodleverse/CoastSeg/blob/main/coastseg_for_google_colab.ipynb) which will open a jupyter notebook online. The notebook will walk you through connecting to Google Earth Engine, connecting to your google drive so you can save your downloaded images, and using the map dashboard to download satellite imagery.
 
 Alternatively, if you want to get started on your local computer follow the installation instructions, activate the `coastseg` environment, then change to the `CoastSeg` directory `cd coastseg`. Run one of the following notebooks with `jupyter lab` to get started using coastseg. 
 
