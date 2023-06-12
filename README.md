@@ -101,17 +101,6 @@ In order to use Coastseg you need to install Python packages in an environment. 
    conda install -c conda-forge h5py
    ```
 
-**All the Installation Commands:**
-
-``` bash
-conda create --name coastseg python=3.10 -y
-conda activate coastseg
-conda install -c conda-forge geopandas jupyterlab -y
-pip install coastseg
-pip uninstall h5py
-conda install -c conda-forge h5py
-```
-
 ## **Having Installation Errors?**
 
 Use the command `conda clean --all` to clean old packages from your anaconda base environment. Ensure you are not in your coastseg environment or any other environment by running `conda deactivate`, to deactivate any environment you're in before running `conda clean --all`. It is recommended that you have Anaconda prompt (terminal for Mac and Linux) open as an administrator before you attempt to install `coastseg` again.
@@ -123,22 +112,14 @@ conda deactivate
 conda clean --all
 ```
 
-# How to Use CoastSeg
+# Getting Started
 
 1. Sign up to use Google Earth Engine Python API
 
 First, you need to request access to Google Earth Engine at https://signup.earthengine.google.com/. It takes about 1 day for Google to approve requests.
 
-2. Authenticate with earthengine
 
-Once your request has been approved, with the `coastseg` environment activated, run the following command on the Anaconda Prompt(or terminal) to link your environment to the GEE server:
-``` bash
-earthengine authenticate
-```
-A web browser will open, login with a gmail account and accept the terms and conditions. Then copy the authorization code into the Anaconda terminal. In the latest version of the earthengine-api, the authentication is done with gcloud. If an error is raised about gcloud missing, go to https://cloud.google.com/sdk/docs/install and install gcloud. After you have installed it, close the Anaconda Prompt and restart it, then activate the environment before running earthengine authenticate again. 
-
-
-3. Activate your conda environment
+2. Activate your conda environment
 
    ```bash
    conda activate coastseg
@@ -149,12 +130,12 @@ A web browser will open, login with a gmail account and accept the terms and con
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
-4. Install the CoastSeg from PyPi
+3. Install the CoastSeg from PyPi
    ```bash
    cd <location you downloaded coastseg>
    ex: cd C:\1_repos\CoastSeg
    ```
-5. Launch Jupyter Lab
+4. Launch Jupyter Lab
 - make you run this command in the coastseg directory so you can choose a notebook to use.
    ```bash
    jupyter lab
