@@ -127,7 +127,7 @@ Once you’ve created the coastseg environment you’ll need to run `git clone` 
 
 6. Use the `SDS_coastsat_classifier` to Download Imagery 
 
-Check out the wiki guide  [How to Download Imagery]([https://github.com/SatelliteShorelines/CoastSeg/wiki](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery)) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
+Check out the wiki guide  [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
 
 ## Quick Start for Notebooks
 To get started with CoastSeg open this [google colab](https://colab.research.google.com/github/2320sharon/2320sharon/blob/main/coastseg_for_google_colab.ipynb) which will open a jupyter notebook online. The notebook will walk you through connecting to Google Earth Engine, connecting to your google drive so you can save your downloaded images, and using the map dashboard to download satellite imagery.
