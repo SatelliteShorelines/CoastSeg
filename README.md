@@ -128,18 +128,19 @@ First, you need to request access to Google Earth Engine at https://signup.earth
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
-3. Install the CoastSeg from PyPi
+3. Download CoastSeg from GitHub
+Once you’ve created the coastseg environment you’ll need to run `git clone` the coastseg code onto your computer. Follow the guide [How to Clone CoastSeg](https://github.com/Doodleverse/CoastSeg/wiki/How-to-Clone-Coastseg) in the wiki for how to perform a git clone to download the coastseg code onto your computer.
+
+5. Launch Jupyter Lab
+- Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
    ```bash
-   cd <location you downloaded coastseg>
-   ex: cd C:\1_repos\CoastSeg
-   ```
-4. Launch Jupyter Lab
-- make you run this command in the coastseg directory so you can choose a notebook to use.
-   ```bash
-   jupyter lab
+   jupyter lab SDS_coastsat_classifier
    ```
 
 Check out our [wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
+
+6. Use the `SDS_coastsat_classifier` to Download Imagery 
+Check out the wiki guide  [How to Download Imagery]([https://github.com/SatelliteShorelines/CoastSeg/wiki](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery)) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
 
 
 # Authors
