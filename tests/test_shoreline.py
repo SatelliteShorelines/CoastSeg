@@ -9,7 +9,7 @@ from coastseg import exceptions
 
 from unittest.mock import MagicMock
 
-def test_create_geodataframe():
+def test_create_geodataframe(valid_bbox_gdf:gpd.GeoDataFrame,):
 
     # Mock services
     services = ShorelineServices()
@@ -18,9 +18,7 @@ def test_create_geodataframe():
     services.create_ids_service = MagicMock()
 
     # Mock data
-    bbox_data = gpd.GeoDataFrame({
-        'geometry': [Polygon([(0, 0), (1, 0), (1, 1)])]
-    }, crs="EPSG:4326")
+    bbox_data = valid_bbox_gdf
 
     shoreline_files_data = ['file1.geojson', 'file2.geojson']
 
