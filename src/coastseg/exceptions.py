@@ -83,9 +83,8 @@ class Shoreline_Not_Found(Exception):
     Args:
         Exception: Inherits from the base exception class
     """
-
     def __init__(
-        self, msg="No shorelines were found in this region. Draw a new bounding box."
+        self, msg="CoastSeg currently does not have shorelines available in this region. Try drawing a new bounding box somewhere else."
     ):
         self.msg = msg
         super().__init__(self.msg)

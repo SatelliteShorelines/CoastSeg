@@ -35,39 +35,21 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 - Coastseg can automatically extract shorelines from downloaded satellite imagery.
 
 ## Table of Contents 
-- [Quick Start](#quick-start)  
 - [Installation Instructions](#installation-instructions)  
-- [How to Use CoastSeg](how-to-use-coastSeg)
+- [Getting Started](#getting-tarted)
 
 ## Useful Links
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Google Colab](https://colab.research.google.com/github/2320sharon/2320sharon/blob/main/coastseg_for_google_colab.ipynb)
 - [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/Contribution-Guide)
 
-## Quick Start
-To get started with CoastSeg open this [google colab](https://colab.research.google.com/github/2320sharon/2320sharon/blob/main/coastseg_for_google_colab.ipynb) which will open a jupyter notebook online. The notebook will walk you through connecting to Google Earth Engine, connecting to your google drive so you can save your downloaded images, and using the map dashboard to download satellite imagery.
-
-Alternatively, if you want to get started on your local computer follow the installation instructions, activate the `coastseg` environment, then change to the `CoastSeg` directory `cd coastseg`. Run one of the following notebooks with `jupyter lab` to get started using coastseg. 
-
-**Notebook to Download Satellite Imagery** 
-```bash
-jupyter lab SDS_coastsat_classifier.ipynb
-```
-
-**Notebook to Run Image Segmentation Models**
-```bash
-jupyter lab SDS_unet_classifier.ipynb
-```
 
 ## Installation Instructions
 
 In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) to install the python packages in an environment for Coastseg. After you install Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
 
 1. Create an Anaconda environment
-- This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it
-- You can also use `python 3.10`
-- We will install the CoastSeg package and its dependencies in this environment.
+- This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
   ```bash
   conda create --name coastseg python=3.10 -y
   ```
@@ -101,17 +83,6 @@ In order to use Coastseg you need to install Python packages in an environment. 
    conda install -c conda-forge h5py
    ```
 
-**All the Installation Commands:**
-
-``` bash
-conda create --name coastseg python=3.10 -y
-conda activate coastseg
-conda install -c conda-forge geopandas jupyterlab -y
-pip install coastseg
-pip uninstall h5py
-conda install -c conda-forge h5py
-```
-
 ## **Having Installation Errors?**
 
 Use the command `conda clean --all` to clean old packages from your anaconda base environment. Ensure you are not in your coastseg environment or any other environment by running `conda deactivate`, to deactivate any environment you're in before running `conda clean --all`. It is recommended that you have Anaconda prompt (terminal for Mac and Linux) open as an administrator before you attempt to install `coastseg` again.
@@ -123,22 +94,14 @@ conda deactivate
 conda clean --all
 ```
 
-# How to Use CoastSeg
+# Getting Started
 
 1. Sign up to use Google Earth Engine Python API
 
 First, you need to request access to Google Earth Engine at https://signup.earthengine.google.com/. It takes about 1 day for Google to approve requests.
 
-2. Authenticate with earthengine
 
-Once your request has been approved, with the `coastseg` environment activated, run the following command on the Anaconda Prompt(or terminal) to link your environment to the GEE server:
-``` bash
-earthengine authenticate
-```
-A web browser will open, login with a gmail account and accept the terms and conditions. Then copy the authorization code into the Anaconda terminal. In the latest version of the earthengine-api, the authentication is done with gcloud. If an error is raised about gcloud missing, go to https://cloud.google.com/sdk/docs/install and install gcloud. After you have installed it, close the Anaconda Prompt and restart it, then activate the environment before running earthengine authenticate again. 
-
-
-3. Activate your conda environment
+2. Activate your conda environment
 
    ```bash
    conda activate coastseg
@@ -149,18 +112,20 @@ A web browser will open, login with a gmail account and accept the terms and con
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
-4. Install the CoastSeg from PyPi
+3. Download CoastSeg from GitHub
+
+Once you’ve created the coastseg environment you’ll need to run `git clone` the coastseg code onto your computer. Follow the guide [How to Clone CoastSeg](https://github.com/Doodleverse/CoastSeg/wiki/How-to-Clone-Coastseg) in the wiki for how to perform a git clone to download the coastseg code onto your computer.
+
+4. Launch Jupyter Lab
+
+- Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
    ```bash
-   cd <location you downloaded coastseg>
-   ex: cd C:\1_repos\CoastSeg
-   ```
-5. Launch Jupyter Lab
-- make you run this command in the coastseg directory so you can choose a notebook to use.
-   ```bash
-   jupyter lab
+   jupyter lab SDS_coastsat_classifier.ipynb
    ```
 
-Check out our [wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
+5. Use the `SDS_coastsat_classifier` to Download Imagery 
+
+Check out the wiki guide  [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
 
 
 # Authors

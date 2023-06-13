@@ -8,6 +8,7 @@ import copy
 from glob import glob
 from typing import Optional, Union, List, Dict
 
+
 # Internal dependencies imports
 from coastseg import exceptions
 from coastseg import common
@@ -91,7 +92,7 @@ def compute_transects_from_roi(
         transects. It returns time-series of cross-shore distance along each transect.
     Args:
         extracted_shorelines (dict): contains the extracted shorelines and corresponding metadata
-        transects_gdf (gpd.GeoDataFrame): transects in ROI with crs= output_crs in settings
+        transects_gdf (gpd.GeoDataFrame): transects in ROI with crs = output_crs in settings
         settings (dict): settings dict with keys
                     'along_dist': int
                         alongshore distance considered calculate the intersection
@@ -100,9 +101,9 @@ def compute_transects_from_roi(
                Not tidally corrected.
     """
     # create dict of numpy arrays of transect start and end points
-    print(f"transects_gdf.crs: {transects_gdf.crs}")
+    logger.info(f"transects.crs: {transects_gdf.crs} transects: {transects_gdf}")
     transects = common.get_transect_points_dict(transects_gdf)
-    logger.info(f"transects: {transects}")
+    logger.info(f"transects as dictionary for coastsat: {transects}")
     # print(f'settings to extract transects: {settings}')
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
     cross_distance = compute_intersection_QC(extracted_shorelines, transects, settings)
@@ -172,63 +173,89 @@ def process_satellite(
     class_mapping: dict,
     save_location: str,
 ):
+    # set batch size
+    batch_size = 10
+    logger.info(f"metadata: {metadata}")
+    # filenames of tifs (ms) for this satellite
+    filenames = metadata[satname]["filenames"]
+    output = {}
+    if len(filenames) == 0:
+        logger.warning(f"Satellite {satname} had no imagery")
+        return output
+    
     collection = settings["inputs"]["landsat_collection"]
     default_min_length_sl = settings["min_length_sl"]
     # deep copy settings
     settings = copy.deepcopy(settings)
     filepath = get_filepath(settings["inputs"], satname)
-    # get list of file associated with this satellite
-    filenames = metadata[satname]["filenames"]
-    logger.info(f"metadata: {metadata}")
-    # get the pixel size of the satellite in meters
     pixel_size = get_pixel_size_for_satellite(satname)
+
     # get the minimum beach area in number of pixels depending on the satellite
     settings["min_length_sl"] = get_min_shoreline_length(satname, default_min_length_sl)
+
     # loop through the images
     espg_list = []
     geoaccuracy_list = []
     timestamps = []
     tasks = []
-    for index in tqdm(
-        range(len(filenames)),
-        desc=f"Mapping Shorelines for {satname}",
-        leave=True,
-        position=0,
-    ):
-        image_epsg = metadata[satname]["epsg"][index]
-        # get image spatial reference system (epsg code) from metadata dict
-        espg_list.append(metadata[satname]["epsg"][index])
-        geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
-        timestamps.append(metadata[satname]["dates"][index])
 
-        tasks.append(
-            dask.delayed(process_satellite_image)(
-                filenames[index],
-                filepath,
-                settings,
-                satname,
-                collection,
-                image_epsg,
-                pixel_size,
-                session_path,
-                class_indices,
-                class_mapping,
-                save_location,
+
+    # compute number of batches
+    num_batches = len(filenames) // batch_size
+    if len(filenames) % batch_size != 0:
+        num_batches += 1
+
+    # initialize progress bar
+    pbar = tqdm(total=len(filenames), desc=f"Mapping Shorelines for {satname}", leave=True, position=0)
+
+
+    for batch in range(num_batches):
+        espg_list = []
+        geoaccuracy_list = []
+        timestamps = []
+        tasks = []
+
+        # generate tasks for the current batch
+        for index in range(batch * batch_size, min((batch + 1) * batch_size, len(filenames))):
+            image_epsg = metadata[satname]["epsg"][index]
+            espg_list.append(metadata[satname]["epsg"][index])
+            geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
+            timestamps.append(metadata[satname]["dates"][index])
+
+            tasks.append(
+                dask.delayed(process_satellite_image)(
+                    filenames[index],
+                    filepath,
+                    settings,
+                    satname,
+                    collection,
+                    image_epsg,
+                    pixel_size,
+                    session_path,
+                    class_indices,
+                    class_mapping,
+                    save_location,
+                )
             )
-        )
-    # run the tasks in parallel
-    results = dask.compute(*tasks)
-    output = {}
-    for index, result in enumerate(results):
-        if result is None:
-            continue
-        output.setdefault(satname, {})
-        output[satname].setdefault("dates", []).append(timestamps[index])
-        output[satname].setdefault("geoaccuracy", []).append(geoaccuracy_list[index])
-        output[satname].setdefault("shorelines", []).append(result["shorelines"])
-        output[satname].setdefault("cloud_cover", []).append(result["cloud_cover"])
-        output[satname].setdefault("filename", []).append(filenames[index])
-        output[satname].setdefault("idx", []).append(index)
+        
+        # compute tasks in batches
+        results = dask.compute(*tasks)
+        # update progress bar
+        num_tasks_computed = len(tasks)
+        pbar.update(num_tasks_computed)  
+
+        for index, result in enumerate(results):
+            if result is None:
+                continue
+            output.setdefault(satname, {})
+            output[satname].setdefault("dates", []).append(timestamps[index])
+            output[satname].setdefault("geoaccuracy", []).append(geoaccuracy_list[index])
+            output[satname].setdefault("shorelines", []).append(result["shorelines"])
+            output[satname].setdefault("cloud_cover", []).append(result["cloud_cover"])
+            output[satname].setdefault("filename", []).append(filenames[index])
+            output[satname].setdefault("idx", []).append(index)
+
+    pbar.close()
     return output
 
 
@@ -649,14 +676,15 @@ def plot_image_with_legend(
     Plots the original image, merged classes, and all classes with their corresponding legends.
 
     Args:
-    original_image (numpy.ndarray): The original image.
-    merged_overlay (numpy.ndarray): The image with merged classes overlay.
-    all_overlay (numpy.ndarray): The image with all classes overlay.
-    pixelated_shoreline (numpy.ndarray): The pixelated shoreline points.
-    merged_legend (list): A list of legend handles for the merged classes.
-    all_legend (list): A list of legend handles for all classes.
-    titles (list, optional): A list of titles for the subplots. Defaults to None.
+    original_image (numpy.ndarray): The original image. Must be a 2D or 3D numpy array.
+    merged_overlay (numpy.ndarray): The image with merged classes overlay. Must be a numpy array with the same shape as original_image.
+    all_overlay (numpy.ndarray): The image with all classes overlay. Must be a numpy array with the same shape as original_image.
+    pixelated_shoreline (numpy.ndarray): The pixelated shoreline points. Must be a 2D numpy array where each row represents a point.
+    merged_legend (list): A list of legend handles for the merged classes. Each handle must be a matplotlib artist.
+    all_legend (list): A list of legend handles for all classes. Each handle must be a matplotlib artist.
+    titles (list, optional): A list of titles for the subplots. Must contain three strings if provided. Defaults to ["Original Image", "Merged Classes", "All Classes"].
 
+    
     Returns:
     matplotlib.figure.Figure: The resulting figure.
     """
@@ -989,9 +1017,14 @@ def extract_shorelines_with_dask(
         os.makedirs(filepath_jpg, exist_ok=True)
 
     # loop through satellite list
-
-    tasks = [
-        dask.delayed(process_satellite)(
+    # filenames = metadata[satname]["filenames"]
+    # output = {}
+    # if len(filenames) == 0:
+    #     logger.warning(f"Satellite {satname} had no imagery")
+    #     return output
+    result_dict ={}
+    for satname in metadata:
+        satellite_dict=process_satellite(
             satname,
             settings,
             metadata,
@@ -1000,24 +1033,9 @@ def extract_shorelines_with_dask(
             class_mapping,
             save_location,
         )
-        for satname in metadata
-    ]
-
-    with ProgressBar():
-        tuple_of_dicts = dask.compute(*tasks)
-    logger.info(f"dask tuple_of_dicts: {tuple_of_dicts}")
-
-    # convert from a tuple of dicts to single dictionary
-    extracted_shorelines_data = {}
-    if not all(not bool(inner_dict) for inner_dict in tuple_of_dicts):
-        result_dict = {
-            k: v for dictionary in tuple_of_dicts for k, v in dictionary.items()
-        }
-        # change the format to have one list sorted by date with all the shorelines (easier to use)
-        extracted_shorelines_data = combine_satellite_data(result_dict)
-
+        result_dict.update(satellite_dict)
+    extracted_shorelines_data = combine_satellite_data(result_dict)
     logger.info(f"extracted_shorelines_data: {extracted_shorelines_data}")
-
     return extracted_shorelines_data
 
 
@@ -1554,10 +1572,14 @@ class Extracted_Shoreline:
             input_crs
         """
         extract_shoreline_gdf = output_to_gdf(self.dictionary, "lines")
-        extract_shoreline_gdf.crs = input_crs
+        if not extract_shoreline_gdf.crs:
+            extract_shoreline_gdf.set_crs(input_crs, inplace=True)
+        logger.info(f"extract_shoreline_gdf inital crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
         if output_crs is not None:
             extract_shoreline_gdf = extract_shoreline_gdf.to_crs(output_crs)
+        logger.info(f"extract_shoreline_gdf final crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
         return extract_shoreline_gdf
+    
 
     def save_to_file(
         self,

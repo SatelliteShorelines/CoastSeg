@@ -52,7 +52,7 @@ def test_transects_process_provided_transects_in_different_crs():
     assert not any( actual_transects.gdf['id'].duplicated())
 
 
-# 4. load transects from a transects  geodataframe with a CRS 4326
+# 4. load transects from a transects geodataframe with a CRS 4326
 def test_transects_with_valid_transects(valid_transects_gdf):
     actual_transects = Transects(transects=valid_transects_gdf)
     columns_to_keep = ['id', 'geometry','slope']
