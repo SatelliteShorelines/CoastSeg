@@ -4,11 +4,10 @@ import math
 from typing import List, Optional, Tuple
 import platform
 import logging
-import os, json, shutil
+import shutil
 from glob import glob
 import concurrent.futures
 import zipfile
-
 import requests
 
 from coastseg import common
@@ -27,10 +26,11 @@ from shapely.ops import split
 
 logger = logging.getLogger(__name__)
 
-
 def download_url_dict(url_dict):
     for save_path, url in url_dict.items():
-        with requests.get(url, stream=True) as response:
+        # get a response from the url
+        response = common.get_response(url, stream=True)
+        with response:
             logger.info(f"response: {response}")
             logger.info(f"response.status_code: {response.status_code}")
             logger.info(f"response.headers: {response.headers}")
@@ -52,7 +52,6 @@ def download_url_dict(url_dict):
                 raise Exception(
                     f"Response from API for status_code: {response.status_code}: {content}"
                 )
-                return False
 
             # raise an exception if the response status_code is not 200
             if response.status_code != 200:

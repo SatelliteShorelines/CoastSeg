@@ -230,7 +230,8 @@ def get_zenodo_release(zenodo_id: str) -> dict:
     Retrieves the JSON data for the Zenodo release with the given ID.
     """
     root_url = f"https://zenodo.org/api/records/{zenodo_id}"
-    response = requests.get(root_url)
+    # get a response from the url
+    response = common.get_response(root_url, stream=False)
     response.raise_for_status()
     return response.json()
 
