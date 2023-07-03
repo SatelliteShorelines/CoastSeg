@@ -60,6 +60,7 @@ class UI_Models:
         # list of RGB and MNDWI models available
         self.RGB_models = [
             "sat_RGB_4class_6950472",
+            "segformer_RGB_4class_7933015",
         ]
         self.five_band_models = [
             "sat_5band_4class_7344606",
@@ -85,14 +86,14 @@ class UI_Models:
         self.warning_row2 = HBox([])
         self.warning_row3 = HBox([])
 
-    def get_warning_box(self,position:int=1):
+    def get_warning_box(self, position: int = 1):
         if position == 1:
             return self.warning_row1
         if position == 2:
             return self.warning_row2
         if position == 3:
             return self.warning_row3
-        
+
     def clear_extract_shorelines_btn(
         self,
     ):
@@ -658,9 +659,11 @@ class UI_Models:
         # add instance of file_chooser to self.tidal_correct_file_row
         self.tidal_correct_file_row.children = [file_chooser]
 
-    def launch_error_box(self, title: str = None, msg: str = None,position:int=1):
+    def launch_error_box(self, title: str = None, msg: str = None, position: int = 1):
         # Show user error message
-        warning_box = common.create_warning_box(title=title, msg=msg,msg_width="60%",box_width="30%")
+        warning_box = common.create_warning_box(
+            title=title, msg=msg, msg_width="60%", box_width="30%"
+        )
         # clear row and close all widgets before adding new warning_box
         common.clear_row(self.get_warning_box(position))
         # add instance of warning_box to warning_row

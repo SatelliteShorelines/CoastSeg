@@ -191,7 +191,7 @@ class CoastSeg_Map:
             # ensure coastseg\data location exists
             # load the config files if they exist
             data_path = common.create_directory(os.getcwd(), "data")
-            config_loaded = self.load_config_files(dir_path,data_path)
+            config_loaded = self.load_config_files(dir_path, data_path)
             # load in settings files
             for file_name in os.listdir(dir_path):
                 file_path = os.path.join(dir_path, file_name)
@@ -294,8 +294,7 @@ class CoastSeg_Map:
         # update the list of roi's ids who have extracted shorelines
         self.update_roi_ids_with_extracted_shorelines(self.rois)
 
-
-    def update_roi_ids_with_extracted_shorelines(self, rois:ROI):
+    def update_roi_ids_with_extracted_shorelines(self, rois: ROI):
         # Check if no ROIs are loaded return nothing
         if rois is None:
             logger.warning("No ROIs found. Please load ROIs.")
@@ -330,7 +329,7 @@ class CoastSeg_Map:
             "multiple_inter",
             "prc_multiple",
         ),
-        load_nested_settings:bool=True,
+        load_nested_settings: bool = True,
     ):
         """
         Loads settings from a JSON file and applies them to the object.
@@ -368,11 +367,14 @@ class CoastSeg_Map:
             keys = list(keys)
 
         new_settings = common.read_json_file(filepath, raise_error=False)
-        logger.info(f"all of new settings read from file : {filepath} \n {new_settings}")
-        
-        nested_settings = new_settings.get('settings',{})
-        logger.info(f"all of new nested settings read from file : {filepath} \n {nested_settings }")
-        
+        logger.info(
+            f"all of new settings read from file : {filepath} \n {new_settings}"
+        )
+
+        nested_settings = new_settings.get("settings", {})
+        logger.info(
+            f"all of new nested settings read from file : {filepath} \n {nested_settings }"
+        )
 
         if new_settings is None:
             new_settings = {}
@@ -381,7 +383,9 @@ class CoastSeg_Map:
         if keys:
             new_settings = {k: new_settings[k] for k in keys if k in new_settings}
             if nested_settings:
-                nested_settings  = {k: nested_settings[k] for k in keys if k in nested_settings}
+                nested_settings = {
+                    k: nested_settings[k] for k in keys if k in nested_settings
+                }
 
         if new_settings != {}:
             self.set_settings(**new_settings)
@@ -429,7 +433,9 @@ class CoastSeg_Map:
                     self.add_feature_on_map(self.rois, feature_name)
             else:
                 # load shorelines, transects, or bbox features onto the map
-                self.load_feature_on_map(feature_name, gdf=feature_gdf,zoom_to_bounds=True)
+                self.load_feature_on_map(
+                    feature_name, gdf=feature_gdf, zoom_to_bounds=True
+                )
         del gdf
 
     def _extract_feature_gdf(
@@ -450,15 +456,19 @@ class CoastSeg_Map:
             ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
         """
         # Check if feature_type exists in the GeoDataFrame
-        if 'type' not in gdf.columns:
-            raise ValueError(f"Column 'type' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded")
+        if "type" not in gdf.columns:
+            raise ValueError(
+                f"Column 'type' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
+            )
 
         # select only the columns that are in the gdf
         keep_columns = [col for col in columns if col in gdf.columns]
 
         # If no columns from columns list exist in the GeoDataFrame, raise an error
         if not keep_columns:
-            raise ValueError(f"None of the columns {columns} exist in the GeoDataFrame.")
+            raise ValueError(
+                f"None of the columns {columns} exist in the GeoDataFrame."
+            )
 
         # select only the features that are of the correct type and have the correct columns
         feature_gdf = gdf[gdf["type"] == feature_type][keep_columns]
@@ -582,7 +592,7 @@ class CoastSeg_Map:
         self.rois.roi_settings = roi_settings
         logger.info(f"roi_settings: {roi_settings}")
 
-    def load_config_files(self, dir_path: str,save_path:str) -> None:
+    def load_config_files(self, dir_path: str, save_path: str) -> None:
         """Loads the configuration files from the specified directory
             Loads config_gdf.geojson first, then config.json.
 
@@ -749,15 +759,15 @@ class CoastSeg_Map:
         self.settings.update(kwargs)
         if "dates" in kwargs.keys():
             updated_dates = []
-            self.settings["dates"] = kwargs['dates']
-            for date_str in kwargs['dates']:
+            self.settings["dates"] = kwargs["dates"]
+            for date_str in kwargs["dates"]:
                 try:
-                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S')
+                    dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S")
                 except ValueError:
-                    dt = datetime.strptime(date_str, '%Y-%m-%d')
-                updated_dates.append(dt.strftime('%Y-%m-%d'))
+                    dt = datetime.strptime(date_str, "%Y-%m-%d")
+                updated_dates.append(dt.strftime("%Y-%m-%d"))
             self.settings["dates"] = updated_dates
-        
+
         for key, value in self.default_settings.items():
             self.settings.setdefault(key, value)
 
@@ -825,12 +835,13 @@ class CoastSeg_Map:
         geoaccuracy = properties.get("geoaccuracy", "unknown")
 
         self.feature_html.value = (
-        "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
-        "<b>Extracted Shoreline</b>"
-        f"<p>Date: {date}</p>"
-        f"<p>Geoaccuracy: {geoaccuracy}</p>"
-        f"<p>Cloud Cover: {cloud_cover}</p>"
-        f"<p>Satellite Name: {satname}</p>")
+            "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
+            "<b>Extracted Shoreline</b>"
+            f"<p>Date: {date}</p>"
+            f"<p>Geoaccuracy: {geoaccuracy}</p>"
+            f"<p>Cloud Cover: {cloud_cover}</p>"
+            f"<p>Satellite Name: {satname}</p>"
+        )
 
     def update_roi_html(self, feature, **kwargs):
         # Modifies html when roi is hovered over
@@ -868,18 +879,18 @@ class CoastSeg_Map:
         csu_id = properties.get("CSU_ID", "unknown")
 
         self.feature_html.value = (
-        "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
-        "<b>Shoreline</b>"
-        f"<p>ID: {shoreline_id}</p>"
-        f"<p>Mean Sig Waveheight: {mean_sig_waveheight}</p>"
-        f"<p>Tidal Range: {tidal_range}</p>"
-        f"<p>Erodibility: {erodibility}</p>"
-        f"<p>River: {river_label}</p>"
-        f"<p>Sinuosity: {sinuosity_label}</p>"
-        f"<p>Slope: {slope_label}</p>"
-        f"<p>Turbid: {turbid_label}</p>"
-        f"<p>CSU_ID: {csu_id}</p>")
-
+            "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
+            "<b>Shoreline</b>"
+            f"<p>ID: {shoreline_id}</p>"
+            f"<p>Mean Sig Waveheight: {mean_sig_waveheight}</p>"
+            f"<p>Tidal Range: {tidal_range}</p>"
+            f"<p>Erodibility: {erodibility}</p>"
+            f"<p>River: {river_label}</p>"
+            f"<p>Sinuosity: {sinuosity_label}</p>"
+            f"<p>Slope: {slope_label}</p>"
+            f"<p>Turbid: {turbid_label}</p>"
+            f"<p>CSU_ID: {csu_id}</p>"
+        )
 
     def get_all_roi_ids(self) -> List[str]:
         """
@@ -1346,7 +1357,6 @@ class CoastSeg_Map:
                 )
                 common.to_file(transect_settings, transect_settings_path)
 
-
     def save_csv_per_transect_for_roi(
         self, session_path: str, roi_id: list, rois: ROI
     ) -> None:
@@ -1801,20 +1811,24 @@ class CoastSeg_Map:
         # if file is passed read gdf from file
         if file:
             # gdf = common.read_gpd_file(file)
-            gdf = common.load_geodataframe_from_file(file,feature_type= feature_name)
+            gdf = common.load_geodataframe_from_file(file, feature_type=feature_name)
         # ensure the file gdf is not empty
         if gdf is not None:
             if gdf.empty:
                 logger.info(f"No {feature_name} was loaded on map")
                 return
-        
+
         # create the feature
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         if new_feature is None:
             return
         logger.info(f"new_feature: {new_feature} \ngdf: {gdf}")
         # load the features onto the map
-        self.add_feature_on_map(new_feature, feature_name, **kwargs,)
+        self.add_feature_on_map(
+            new_feature,
+            feature_name,
+            **kwargs,
+        )
 
     def add_feature_on_map(
         self,

@@ -748,8 +748,12 @@ class Zoo_Model:
         logger.info(f"output_epsg: {output_epsg}")
 
         # load transects and shorelines
-        transects_gdf =  geodata_processing.create_geofeature_geodataframe(transects_path, roi_gdf, output_epsg,'transect')
-        shoreline_gdf = geodata_processing.create_geofeature_geodataframe(shoreline_path, roi_gdf, output_epsg,'shoreline')
+        transects_gdf = geodata_processing.create_geofeature_geodataframe(
+            transects_path, roi_gdf, output_epsg, "transect"
+        )
+        shoreline_gdf = geodata_processing.create_geofeature_geodataframe(
+            shoreline_path, roi_gdf, output_epsg, "shoreline"
+        )
 
         # extract shorelines with most accurate crs
         new_espg = common.get_most_accurate_epsg(
@@ -1300,7 +1304,8 @@ class Zoo_Model:
         best_json_filename = best_model_filename.replace("_fullmodel.h5", ".json")
         best_modelcard_filename = best_model_filename.replace(
             "_fullmodel.h5", "_modelcard.json"
-        )
+        ).replace("_segformer", "")
+        print(best_modelcard_filename)
 
         # download best model files(.h5, .json) file
         download_filenames = [
@@ -1308,12 +1313,12 @@ class Zoo_Model:
             best_model_filename,
             best_modelcard_filename,
         ]
+        logger.info(f"download_filenames: {download_filenames}")
         download_dict.update(
             get_files_to_download(
                 available_files, download_filenames, model_id, model_path
             )
         )
-
         download_dict = check_if_files_exist(download_dict)
         # download the files that don't exist
         logger.info(f"URLs to download: {download_dict}")
@@ -1348,10 +1353,17 @@ class Zoo_Model:
             model_name.replace("_fullmodel.h5", ".json")
             for model_name in all_model_names
         ]
+        # modelcard_file_names = [
+        #     model_name.replace("_fullmodel.h5", "_modelcard.json")
+        #     for model_name in all_model_names
+        # ]
         modelcard_file_names = [
-            model_name.replace("_fullmodel.h5", "_modelcard.json")
+            model_name.replace("_fullmodel.h5", "_modelcard.json").replace(
+                "_segformer", ""
+            )
             for model_name in all_model_names
         ]
+        print(modelcard_file_names)
         all_json_reponses = []
 
         # for each filename online check if there a .json file
