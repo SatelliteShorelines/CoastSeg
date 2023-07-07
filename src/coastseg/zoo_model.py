@@ -1,11 +1,12 @@
 import copy
 import os
+import re
 import glob
 import asyncio
 import platform
 import json
 import logging
-from typing import List
+from typing import List, Set, Tuple
 
 from coastsat import SDS_tools
 from coastseg import transects
@@ -329,7 +330,85 @@ def get_five_band_imagery(
     return output_path
 
 
-def get_files(RGB_dir_path: str, img_dir_path: str):
+def matching_datetimes_files(dir1: str, dir2: str) -> Set[str]:
+    """
+    Get the matching datetimes from the filenames in two directories.
+
+    Args:
+        dir1 (str): Path to the first directory.
+        dir2 (str): Path to the second directory.
+
+    Returns:
+        Set[str]: A set of strings representing the common datetimes.
+    """
+    # Get the filenames in each directory
+    files1 = os.listdir(dir1)
+    files2 = os.listdir(dir2)
+
+    # Define a pattern to match the date-time part of the filenames
+    pattern = re.compile(
+        r"\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}"
+    )  # Matches YYYY-MM-DD-HH-MM-SS
+
+    # Create sets of the date-time parts of the filenames in each directory
+    files1_dates = {
+        re.search(pattern, filename).group(0)
+        for filename in files1
+        if re.search(pattern, filename)
+    }
+    files2_dates = {
+        re.search(pattern, filename).group(0)
+        for filename in files2
+        if re.search(pattern, filename)
+    }
+
+    # Find the intersection of the two sets
+    matching_files = files1_dates & files2_dates
+
+    return matching_files
+
+
+def get_full_paths(
+    dir1: str, dir2: str, common_dates: Set[str]
+) -> Tuple[List[str], List[str]]:
+    """
+    Get the full paths of the files with matching datetimes.
+
+    Args:
+        dir1 (str): Path to the first directory.
+        dir2 (str): Path to the second directory.
+        common_dates (Set[str]): A set of strings representing the common datetimes.
+
+    Returns:
+        Tuple[List[str], List[str]]: Two lists of strings representing the full paths of the matching files in dir1 and dir2.
+    """
+    # Get the filenames in each directory
+    files1 = os.listdir(dir1)
+    files2 = os.listdir(dir2)
+
+    # Define a pattern to match the date-time part of the filenames
+    pattern = re.compile(
+        r"\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}"
+    )  # Matches YYYY-MM-DD-HH-MM-SS
+
+    # Find the full paths of the files with the matching date-times
+    matching_files_dir1 = [
+        os.path.join(dir1, filename)
+        for filename in files1
+        if re.search(pattern, filename)
+        and re.search(pattern, filename).group(0) in common_dates
+    ]
+    matching_files_dir2 = [
+        os.path.join(dir2, filename)
+        for filename in files2
+        if re.search(pattern, filename)
+        and re.search(pattern, filename).group(0) in common_dates
+    ]
+
+    return matching_files_dir1, matching_files_dir2
+
+
+def get_files(RGB_dir_path: str, img_dir_path: str) -> np.ndarray:
     """returns matrix of files in RGB_dir_path and img_dir_path
     creates matrix: RGB x number of samples in img_dir_path
     Example:
@@ -342,19 +421,28 @@ def get_files(RGB_dir_path: str, img_dir_path: str):
 
     Raises:
         FileNotFoundError: raised if directory is not found
+    Returns:
+        np.ndarray: A matrix of matching files, shape (bands, number of samples).
     """
-    paths = [RGB_dir_path, img_dir_path]
+    if not os.path.exists(RGB_dir_path):
+        raise FileNotFoundError(f"{RGB_dir_path} not found")
+    if not os.path.exists(img_dir_path):
+        raise FileNotFoundError(f"{img_dir_path} not found")
+
+    # get the dates in both directories
+    common_dates = matching_datetimes_files(RGB_dir_path, img_dir_path)
+    # get the full paths to the dates that exist in each directory
+    matching_files_RGB_dir, matching_files_img_dir = get_full_paths(
+        RGB_dir_path, img_dir_path, common_dates
+    )
+    # the order must be RGB dir then not RGB dir for other code to work
+    # matching_files = sorted(matching_files_RGB_dir) + sorted(matching_files_img_dir)
     files = []
-    for data_path in paths:
-        if not os.path.exists(data_path):
-            raise FileNotFoundError(f"{data_path} not found")
-        f = sorted(glob(data_path + os.sep + "*.jpg"))
-        if len(f) < 1:
-            f = sorted(glob(data_path + os.sep + "images" + os.sep + "*.jpg"))
-        files.append(f)
-    # creates matrix:  bands(RGB) x number of samples
-    files = np.vstack(files).T
-    return files
+    files.append(sorted(matching_files_RGB_dir))
+    files.append(sorted(matching_files_img_dir))
+    # creates matrix:  matrix: RGB x number of samples in img_dir_path
+    matching_files = np.vstack(files).T
+    return matching_files
 
 
 def RGB_to_infrared(
@@ -749,8 +837,12 @@ class Zoo_Model:
         logger.info(f"output_epsg: {output_epsg}")
 
         # load transects and shorelines
-        transects_gdf =  geodata_processing.create_geofeature_geodataframe(transects_path, roi_gdf, output_epsg,'transect')
-        shoreline_gdf = geodata_processing.create_geofeature_geodataframe(shoreline_path, roi_gdf, output_epsg,'shoreline')
+        transects_gdf = geodata_processing.create_geofeature_geodataframe(
+            transects_path, roi_gdf, output_epsg, "transect"
+        )
+        shoreline_gdf = geodata_processing.create_geofeature_geodataframe(
+            shoreline_path, roi_gdf, output_epsg, "shoreline"
+        )
 
         # extract shorelines with most accurate crs
         new_espg = common.get_most_accurate_epsg(
