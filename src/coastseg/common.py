@@ -36,6 +36,60 @@ from ipywidgets import HTML
 
 logger = logging.getLogger(__name__)
 
+
+def get_cert_path_from_config(config_file='certifications.json'):
+    """
+    Get the certification path from the given configuration file.
+
+    This function checks if the configuration file exists, reads the config file contents, and gets the certification path.
+    If the certification path found in the config file is a valid file, it returns the certification path. Otherwise,
+    it returns an empty string.
+
+    Args:
+        config_file (str): The path to the configuration file containing the certification path. Default is 'certifications.json'.
+    
+    Returns:
+        str: The certification path if the config file exists and has a valid certification path, else an empty string.
+    """
+
+    # Check if the config file exists
+    if os.path.exists(config_file):
+        # Read the config file
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        
+        # Get the cert path
+        cert_path = config.get('cert_path')
+        
+        # If the cert path is a valid file, return it
+        if cert_path and os.path.isfile(cert_path):
+            return cert_path
+    
+    # If the config file doesn't exist, or the cert path isn't in it, or the cert path isn't a valid file, return an empty string
+    return ''
+
+def get_response(url, stream=True):
+    """
+    Get the response from the given URL with or without a certification path.
+
+    This function uses the get_cert_path_from_config() function to get a certification path, then sends an HTTP request (GET) to the
+    specified URL. The certification is used if available, otherwise the request is sent without it. The stream parameter
+    defines whether or not the response should be loaded progressively, and is set to True by default.
+
+    Args:
+        url (str): The URL to send the request to.
+        stream (bool): If True, loads the response progressively (default True).
+
+    Returns:
+        requests.models.Response: The HTTP response object.
+    """
+    cert_path = get_cert_path_from_config()
+    if cert_path:  # if cert_path is not empty
+        response = requests.get(url, stream=stream, verify=cert_path)
+    else:  # if cert_path is empty
+        response = requests.get(url, stream=stream)
+    return response
+
 def filter_metadata(metadata:dict,sitename:str,filepath_data:str)->dict[str]:
     """
     This function filters metadata to include only those files that exist in the given directory.
@@ -905,7 +959,9 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
         chunk_size (int, optional):  Defaults to 128.
     """
     logger.info(f"download url: {url}")
-    with requests.get(url, stream=True) as r:
+    # get a response from the url
+    response = get_response(url, stream=True)
+    with response as r:
         logger.info(r)
         if r.status_code == 404:
             logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
