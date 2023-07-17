@@ -30,7 +30,7 @@ jobs:
           conda list
       - name: Install coastseg with pip install -e .
         run: |
-          pip install -e .
+          pip install -e . --user
       - name: Pip install pytest
         run: |
           pip install pytest
