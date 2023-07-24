@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "0.0.72.dev1" 
+version = "0.0.72.dev2" 
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -23,11 +23,13 @@ dependencies = [
   "nest-asyncio",
   "tensorflow",
   "dask",
-  "ipywidgets>=8.0.6" ]
+  "ipywidgets>=8.0.6",
+  "transformers",
+  "chardet" ]
 # "pyTMD",
 #  "xarray"]
 license = { file="LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
