@@ -31,7 +31,7 @@ jobs:
       - name: Install coastseg from pip
         run: |
           python -m pip install --upgrade pip
-          pip install coastseg
+          pip install coastseg --user
       - name: Pip install pytest
         run: |
           pip install pytest

@@ -34,12 +34,14 @@ logger = logging.getLogger(__name__)
 
 # icons sourced from https://fontawesome.com/v4/icons/
 
+
 def convert_date(date_str):
     try:
         return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError as e:
         logger.error(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
         raise ValueError(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
+
 
 class UI:
     # all instances of UI will share the same debug_view
@@ -56,7 +58,6 @@ class UI:
         self.session_name = ""
         self.session_directory = ""
         self.tides_file = ""
-
 
         # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
         self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
@@ -314,14 +315,15 @@ class UI:
     ):
         return self.session_name
 
-
     def get_session_selection(self):
         output = Output()
-        box_layout =  Layout(width='350px',
-                    height='50px',
-                    flex_flow='row',
-                    overflow='auto',
-                    display='flex')
+        box_layout = Layout(
+            width="350px",
+            height="50px",
+            flex_flow="row",
+            overflow="auto",
+            display="flex",
+        )
 
         self.session_name_text = ipywidgets.Text(
             value="",
@@ -331,7 +333,14 @@ class UI:
             style={"description_width": "initial"},
         )
 
-        enter_button = ipywidgets.Button(description="Enter",layout=Layout(height="28px", width="80px",))
+        enter_button = ipywidgets.Button(
+            description="Enter",
+            layout=Layout(
+                height="28px",
+                width="80px",
+            ),
+        )
+
         @output.capture(clear_output=True)
         def enter_clicked(btn):
             # create the session directory
@@ -339,9 +348,7 @@ class UI:
             session_path = os.path.join(os.getcwd(), "sessions")
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
-                print(
-                    f"Session {session_name} already exists and will be overwritten."
-                )
+                print(f"Session {session_name} already exists and will be overwritten.")
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} was created.")
                 new_session_path = common.create_directory(session_path, session_name)
@@ -410,8 +417,10 @@ class UI:
         return dates_vbox
 
     def get_cloud_threshold_slider(self):
-        instr = HTML(value="<b>Cloud Threshold</b> \
-                     </br>- Maximum percetange of cloud pixels allowed")
+        instr = HTML(
+            value="<b>Cloud Threshold</b> \
+                     </br>- Maximum percetange of cloud pixels allowed"
+        )
         self.cloud_threshold_slider = ipywidgets.FloatSlider(
             value=0.5,
             min=0,
@@ -493,7 +502,7 @@ class UI:
 
         self.shoreline_buffer_slider = ipywidgets.IntSlider(
             value=50,
-            min=50,
+            min=1,
             max=1000,
             step=1,
             description="max_dist_ref (m):",
@@ -530,7 +539,8 @@ class UI:
 
     def get_min_chainage_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(value="<b> Max Landward Distance </b>\
+        label = HTML(
+            value="<b> Max Landward Distance </b>\
             </br>- Max distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned."
         )
 
@@ -548,7 +558,8 @@ class UI:
 
     def get_prc_multiple_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML( value="<b>Percentage of points std > max_std</b>\
+        label = HTML(
+            value="<b>Percentage of points std > max_std</b>\
             </br>- Percentage of points whose std > max_std that will be set to 'max'.Only in 'auto' mode."
         )
         # percentage of points whose std > max_std that will be set to 'max'
@@ -585,8 +596,10 @@ class UI:
 
     def get_outliers_mode(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(value="<b>Outliers Mode</b>\
-                     </br>-How to deal with multiple shoreline intersections.")
+        label = HTML(
+            value="<b>Outliers Mode</b>\
+                     </br>-How to deal with multiple shoreline intersections."
+        )
         # controls multiple_inter: ('auto','nan','max') defines how to deal with multiple shoreline intersections
         self.outliers_mode = Select(
             options=["auto", "nan", "max"],
@@ -617,7 +630,8 @@ class UI:
 
     def get_min_points_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(value="<b>Minimum Number Shoreline of Points</b> \
+        label = HTML(
+            value="<b>Minimum Number Shoreline of Points</b> \
             </br>- Minimum number of shoreline points to calculate an intersection"
         )
 
@@ -635,9 +649,7 @@ class UI:
 
     def get_min_length_sl_slider(self):
         # returns slider to control beach area slider
-        min_length_sl_instr = HTML(
-            value="<b>Minimum shoreline length</b>"
-        )
+        min_length_sl_instr = HTML(value="<b>Minimum shoreline length</b>")
 
         self.min_length_sl_slider = ipywidgets.IntSlider(
             value=500,
@@ -786,7 +798,6 @@ class UI:
             logger.info(f"start_date_str, end_date_str {start_date_str, end_date_str}")
             self.start_date.value = convert_date(start_date_str)
             self.end_date.value = convert_date(end_date_str)
-
 
         if "cloud_thresh" in settings:
             self.cloud_threshold_slider.value = settings.get("cloud_thresh", 0.5)
