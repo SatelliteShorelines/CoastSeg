@@ -1,4 +1,5 @@
 # CoastSeg
+
 [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb)
 
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
@@ -18,8 +19,8 @@
 
 ![official_coastseg](https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif)
 
-
 ## What is CoastSeg?
+
 Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook for downloading satellite imagery with [CoastSat](https://github.com/kvos/CoastSat) and applying image segmentation models to satellite imagery. CoastSeg provides an interactive interface for drawing Regions of Interest (ROIs) on a map, downloading satellite imagery, loading geojson files, extracting shorelines from satellite imagery, and more.
 
 - A mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo) models.
@@ -28,27 +29,31 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 - An interactive interface to apply segmentation models to satellite imagery
 
 ![gif of map with rectangles on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/create_rois_demo.gif)
+
 - Create ROIs(regions of interest) along the coast and automatically load shorelines on the map.
-- Use Google Earth Engine to automatically download satellite imagery for each ROI clicked on the map. 
+- Use Google Earth Engine to automatically download satellite imagery for each ROI clicked on the map.
 
 ![gif of map with extracted shorelines on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/extract_shorelines_and_transects.gif)
+
 - Coastseg can automatically extract shorelines from downloaded satellite imagery.
 
-## Table of Contents 
-- [Installation Instructions](#installation-instructions)  
+## Table of Contents
+
+- [Installation Instructions](#installation-instructions)
 - [Getting Started](#getting-tarted)
 
 ## Useful Links
+
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
 - [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/Contribution-Guide)
-
 
 ## Installation Instructions
 
 In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) to install the python packages in an environment for Coastseg. After you install Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
 
 1. Create an Anaconda environment
+
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
   ```bash
   conda create --name coastseg python=3.10 -y
@@ -79,9 +84,21 @@ In order to use Coastseg you need to install Python packages in an environment. 
    ```
 5. Uninstall the h5py installed by pip and reinstall with conda-forge
    ```bash
-   pip uninstall h5py
-   conda install -c conda-forge h5py
+   pip uninstall h5py -y
+   conda install -c conda-forge h5py -y
    ```
+
+## How to Update
+
+### Update to a specific version
+
+- To update coastseg to a specific version specify the version after the `==`
+
+`pip install coastseg==0.0.72.dev6`
+
+### Update to the latest version
+
+`pip install coastseg --upgrade`
 
 ## **Having Installation Errors?**
 
@@ -99,7 +116,6 @@ conda clean --all
 1. Sign up to use Google Earth Engine Python API
 
 First, you need to request access to Google Earth Engine at https://signup.earthengine.google.com/. It takes about 1 day for Google to approve requests.
-
 
 2. Activate your conda environment
 
@@ -119,14 +135,13 @@ Once you’ve created the coastseg environment you’ll need to run `git clone` 
 4. Launch Jupyter Lab
 
 - Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
-   ```bash
-   jupyter lab SDS_coastsat_classifier.ipynb
-   ```
+  ```bash
+  jupyter lab SDS_coastsat_classifier.ipynb
+  ```
 
-5. Use the `SDS_coastsat_classifier` to Download Imagery 
+5. Use the `SDS_coastsat_classifier` to Download Imagery
 
-Check out the wiki guide  [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download. 
-
+Check out the wiki guide [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download.
 
 # Authors
 
@@ -141,7 +156,9 @@ Contributions:
 - [@kvos](https://github.com/kvos)
 
 ## Citations
+
 Thank you to all the amazing research who contributed their transects to coastseg.
+
 1. Hawaii small islands https://pubs.usgs.gov/of/2011/1009/data.html
 2. Barter Island, Alaska https://www.sciencebase.gov/catalog/item/5fa1f10ad34e198cb793cee4
 3. Pacific Northwest, Gulf, and SE USA: Dr Sean Vitousek, USGS-PCMSC, based on DSAS transects
