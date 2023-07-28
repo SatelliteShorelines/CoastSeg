@@ -71,6 +71,30 @@ def time_func(func):
 from skimage import measure, morphology
 
 
+def read_from_dict(d: dict, keys_of_interest: list | set | tuple):
+    """
+    Function to extract the value from the first matching key in a dictionary.
+
+    Parameters:
+    d (dict): The dictionary from which to extract the value.
+    keys_of_interest (list | set | tuple): Iterable of keys to look for in the dictionary.
+    The function returns the value of the first matching key it finds.
+
+    Returns:
+    The value from the dictionary corresponding to the first key found in keys_of_interest,
+    or None if no matching keys are found.
+    Raises:
+    KeyError if the keys_of_interest were not in d
+    """
+    for key in keys_of_interest:
+        if key in d:
+            return d[key]
+    raise KeyError(f"{keys_of_interest} were not in {d}")
+
+
+import re
+
+
 def remove_small_objects_and_binarize(merged_labels, min_size):
     # Ensure the image is binary
     binary_image = merged_labels > 0
@@ -182,7 +206,7 @@ def process_satellite(
     if len(filenames) == 0:
         logger.warning(f"Satellite {satname} had no imagery")
         return output
-    
+
     collection = settings["inputs"]["landsat_collection"]
     default_min_length_sl = settings["min_length_sl"]
     # deep copy settings
@@ -199,15 +223,18 @@ def process_satellite(
     timestamps = []
     tasks = []
 
-
     # compute number of batches
     num_batches = len(filenames) // batch_size
     if len(filenames) % batch_size != 0:
         num_batches += 1
 
     # initialize progress bar
-    pbar = tqdm(total=len(filenames), desc=f"Mapping Shorelines for {satname}", leave=True, position=0)
-
+    pbar = tqdm(
+        total=len(filenames),
+        desc=f"Mapping Shorelines for {satname}",
+        leave=True,
+        position=0,
+    )
 
     for batch in range(num_batches):
         espg_list = []
@@ -216,7 +243,9 @@ def process_satellite(
         tasks = []
 
         # generate tasks for the current batch
-        for index in range(batch * batch_size, min((batch + 1) * batch_size, len(filenames))):
+        for index in range(
+            batch * batch_size, min((batch + 1) * batch_size, len(filenames))
+        ):
             image_epsg = metadata[satname]["epsg"][index]
             espg_list.append(metadata[satname]["epsg"][index])
             geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
@@ -237,19 +266,21 @@ def process_satellite(
                     save_location,
                 )
             )
-        
+
         # compute tasks in batches
         results = dask.compute(*tasks)
         # update progress bar
         num_tasks_computed = len(tasks)
-        pbar.update(num_tasks_computed)  
+        pbar.update(num_tasks_computed)
 
         for index, result in enumerate(results):
             if result is None:
                 continue
             output.setdefault(satname, {})
             output[satname].setdefault("dates", []).append(timestamps[index])
-            output[satname].setdefault("geoaccuracy", []).append(geoaccuracy_list[index])
+            output[satname].setdefault("geoaccuracy", []).append(
+                geoaccuracy_list[index]
+            )
             output[satname].setdefault("shorelines", []).append(result["shorelines"])
             output[satname].setdefault("cloud_cover", []).append(result["cloud_cover"])
             output[satname].setdefault("filename", []).append(filenames[index])
@@ -406,6 +437,7 @@ def process_satellite_image(
         im_nodata,
         georef,
         merged_labels,
+        ref_shoreline_buffer,
     )
     if shoreline is None:
         logger.warning(f"\nShoreline not found for {fn}")
@@ -446,7 +478,14 @@ def get_model_card_classes(model_card_path: str) -> dict:
         dict: dictionary of classes in model card and their corresponding index
     """
     model_card_data = common.read_json_file(model_card_path, raise_error=True)
-    model_card_classes = model_card_data["DATASET"]["CLASSES"]
+    logger.info(
+        f"model_card_path: {model_card_path} \nmodel_card_data: {model_card_data}"
+    )
+    # read the classes the model was trained with from either the dictionary under key "DATASET" or "DATASET1"
+    model_card_dataset = common.get_value_by_key_pattern(
+        model_card_data, patterns=("DATASET", "DATASET1")
+    )
+    model_card_classes = model_card_dataset["CLASSES"]
     return model_card_classes
 
 
@@ -684,7 +723,7 @@ def plot_image_with_legend(
     all_legend (list): A list of legend handles for all classes. Each handle must be a matplotlib artist.
     titles (list, optional): A list of titles for the subplots. Must contain three strings if provided. Defaults to ["Original Image", "Merged Classes", "All Classes"].
 
-    
+
     Returns:
     matplotlib.figure.Figure: The resulting figure.
     """
@@ -948,7 +987,7 @@ def mask_clouds_in_images(
 
 
 def simplified_find_contours(
-    im_labels: np.array, cloud_mask: np.array
+    im_labels: np.array, cloud_mask: np.array, reference_shoreline_buffer: np.array
 ) -> List[np.array]:
     """Find contours in a binary image using skimage.measure.find_contours and processes out contours that contain NaNs.
     Parameters:
@@ -964,7 +1003,12 @@ def simplified_find_contours(
     """
     # Apply the cloud mask by setting masked pixels to a special value (e.g., -1)
     im_labels_masked = im_labels.copy()
-    im_labels_masked[cloud_mask] = -1
+    # im_labels_masked[cloud_mask] = -1
+    # # Apply the reference shoreline buffer mask by setting masked pixels to a special value (e.g., -1)
+    # im_labels_masked[~reference_shoreline_buffer] = -1
+    im_labels_masked[cloud_mask] = np.NaN
+    # Apply the reference shoreline buffer mask by setting masked pixels to a special value (e.g., -1)
+    im_labels_masked[~reference_shoreline_buffer] = np.NaN
 
     # 0 or 1 labels means 0.5 is the threshold
     contours = measure.find_contours(im_labels_masked, 0.5)
@@ -984,9 +1028,12 @@ def find_shoreline(
     im_nodata,
     georef,
     im_labels,
+    reference_shoreline_buffer,
 ) -> np.array:
     try:
-        contours = simplified_find_contours(im_labels, cloud_mask)
+        contours = simplified_find_contours(
+            im_labels, cloud_mask, reference_shoreline_buffer
+        )
     except Exception as e:
         logger.error(f"{e}\nCould not map shoreline for this image: {fn}")
         return None
@@ -1022,9 +1069,9 @@ def extract_shorelines_with_dask(
     # if len(filenames) == 0:
     #     logger.warning(f"Satellite {satname} had no imagery")
     #     return output
-    result_dict ={}
+    result_dict = {}
     for satname in metadata:
-        satellite_dict=process_satellite(
+        satellite_dict = process_satellite(
             satname,
             settings,
             metadata,
@@ -1268,7 +1315,7 @@ class Extracted_Shoreline:
         )
         if self.dictionary == {}:
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
-            raise exceptions.No_Extracted_Shoreline(roi_id) 
+            raise exceptions.No_Extracted_Shoreline(roi_id)
 
         if is_list_empty(self.dictionary["shorelines"]):
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
@@ -1345,18 +1392,18 @@ class Extracted_Shoreline:
         logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
-        sitename = self.shoreline_settings['inputs']['sitename']
-        filepath_data = self.shoreline_settings['inputs']['filepath']
+        sitename = self.shoreline_settings["inputs"]["sitename"]
+        filepath_data = self.shoreline_settings["inputs"]["filepath"]
 
         # filter out files that were removed from RGB directory
         try:
-            metadata = common.filter_metadata(metadata,sitename,filepath_data)
+            metadata = common.filter_metadata(metadata, sitename, filepath_data)
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
             self.dictionary = {}
         else:
             logger.info(f"metadata: {metadata}")
-            
+
             # self.dictionary = self.extract_shorelines(
             #     shoreline,
             #     roi_settings,
@@ -1461,18 +1508,16 @@ class Extracted_Shoreline:
         )
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
-        sitename = self.shoreline_settings['inputs']['sitename']
-        filepath_data = self.shoreline_settings['inputs']['filepath']
+        sitename = self.shoreline_settings["inputs"]["sitename"]
+        filepath_data = self.shoreline_settings["inputs"]["filepath"]
 
         # filter out files that were removed from RGB directory
         try:
-            metadata = common.filter_metadata(metadata,sitename,filepath_data)
+            metadata = common.filter_metadata(metadata, sitename, filepath_data)
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
             return {}
 
-
-        
         logger.info(f"new metadata: {metadata}")
         logger.info(f"self.shoreline_settings: {self.shoreline_settings}")
         # extract shorelines from ROI
@@ -1574,12 +1619,15 @@ class Extracted_Shoreline:
         extract_shoreline_gdf = output_to_gdf(self.dictionary, "lines")
         if not extract_shoreline_gdf.crs:
             extract_shoreline_gdf.set_crs(input_crs, inplace=True)
-        logger.info(f"extract_shoreline_gdf inital crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
+        logger.info(
+            f"extract_shoreline_gdf inital crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}"
+        )
         if output_crs is not None:
             extract_shoreline_gdf = extract_shoreline_gdf.to_crs(output_crs)
-        logger.info(f"extract_shoreline_gdf final crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}")
+        logger.info(
+            f"extract_shoreline_gdf final crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}"
+        )
         return extract_shoreline_gdf
-    
 
     def save_to_file(
         self,

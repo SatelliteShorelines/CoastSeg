@@ -43,8 +43,10 @@ class Settings_UI:
 
     def get_no_data_slider(self):
         # returns slider to control no data slider
-        instructions = HTML(value="<b>Percentage Bad Pixels</b> \
-                            </br>Percentage of Bad Pixels Allowed")
+        instructions = HTML(
+            value="<b>Percentage Bad Pixels</b> \
+                            </br>Percentage of Bad Pixels Allowed"
+        )
 
         self.no_data_slider = ipywidgets.FloatSlider(
             value=50.0,
@@ -63,7 +65,8 @@ class Settings_UI:
 
     def get_min_points_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(value="<b>Minimum Number Shoreline of Points</b> \
+        label = HTML(
+            value="<b>Minimum Number Shoreline of Points</b> \
             </br>- Minimum number of shoreline points to calculate an intersection"
         )
 
@@ -81,13 +84,11 @@ class Settings_UI:
 
     def get_min_length_sl_slider(self):
         # returns slider to control beach area slider
-        min_length_sl_instr = HTML(
-            value="<b>Minimum shoreline length</b>"
-        )
+        min_length_sl_instr = HTML(value="<b>Minimum shoreline length</b>")
 
         self.min_length_sl_slider = ipywidgets.IntSlider(
             value=500,
-            min=50,
+            min=10,
             max=1000,
             step=1,
             description="min_length_sl (m):",
@@ -120,8 +121,10 @@ class Settings_UI:
 
     def get_outliers_mode(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(value="<b>Outliers Mode</b>\
-                     </br>-How to deal with multiple shoreline intersections.")
+        label = HTML(
+            value="<b>Outliers Mode</b>\
+                     </br>-How to deal with multiple shoreline intersections."
+        )
         # controls multiple_inter: ('auto','nan','max') defines how to deal with multiple shoreline intersections
         self.outliers_mode = Select(
             options=["auto", "nan", "max"],
@@ -159,7 +162,7 @@ class Settings_UI:
 
         self.beach_area_slider = ipywidgets.IntSlider(
             value=4500,
-            min=1000,
+            min=100,
             max=10000,
             step=10,
             description="min_beach_area (sqm):",
@@ -181,7 +184,7 @@ class Settings_UI:
 
         self.shoreline_buffer_slider = ipywidgets.IntSlider(
             value=50,
-            min=50,
+            min=5,
             max=1000,
             step=1,
             description="max_dist_ref (m):",
@@ -196,7 +199,8 @@ class Settings_UI:
 
     def get_prc_multiple_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML( value="<b>Percentage of points std > max_std</b>\
+        label = HTML(
+            value="<b>Percentage of points std > max_std</b>\
             </br>- Percentage of points whose std > max_std that will be set to 'max'.Only in 'auto' mode."
         )
         # percentage of points whose std > max_std that will be set to 'max'
@@ -237,8 +241,10 @@ class Settings_UI:
         return VBox([cloud_instr, self.cloud_slider])
 
     def get_cloud_threshold_slider(self):
-        instr = HTML(value="<b>Cloud Threshold</b> \
-                     </br>- Maximum percetange of cloud pixels allowed")
+        instr = HTML(
+            value="<b>Cloud Threshold</b> \
+                     </br>- Maximum percetange of cloud pixels allowed"
+        )
         self.cloud_threshold_slider = ipywidgets.FloatSlider(
             value=0.5,
             min=0,
@@ -277,7 +283,8 @@ class Settings_UI:
 
     def get_min_chainage_text(self) -> VBox:
         # returns slider to control beach area slider
-        label = HTML(value="<b> Max Landward Distance </b>\
+        label = HTML(
+            value="<b> Max Landward Distance </b>\
             </br>- Max distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned."
         )
 

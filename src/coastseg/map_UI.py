@@ -378,6 +378,7 @@ class UI:
             "dates_picker": self.get_dates_picker(),
             "satellite_radio": self.get_satellite_radio(),
             "sand_dropbox": self.get_sand_dropbox(),
+            "cloud_mask_issue": self.get_cloud_issue_toggle(),
             "min_length_sl_slider": self.get_min_length_sl_slider(),
             "beach_area_slider": self.get_beach_area_slider(),
             "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
@@ -435,6 +436,23 @@ class UI:
             style={"description_width": "initial"},
         )
         return VBox([instr, self.cloud_threshold_slider])
+
+    def get_cloud_issue_toggle(self):
+        instr = HTML(
+            value="<b>Cloud Mask Issue Toggle</b> \
+                     </br>- Defaults to False. Switch to True if sand pixels are masked (in black) on many images"
+        )
+        self.cloud_issue_toggle = ipywidgets.ToggleButtons(
+            options=["False", "True"],
+            description=" Switch to True if sand pixels are masked (in black) on many images",
+            disabled=False,
+            button_style="",
+            tooltips=[
+                "No cloud mask issue",
+                "Fix cloud masking",
+            ],
+        )
+        return VBox([instr, self.cloud_issue_toggle])
 
     def get_sand_dropbox(self):
         sand_color_instr = HTML(
@@ -502,7 +520,7 @@ class UI:
 
         self.shoreline_buffer_slider = ipywidgets.IntSlider(
             value=50,
-            min=1,
+            min=5,
             max=1000,
             step=1,
             description="max_dist_ref (m):",
@@ -524,7 +542,7 @@ class UI:
 
         self.beach_area_slider = ipywidgets.IntSlider(
             value=4500,
-            min=1000,
+            min=100,
             max=10000,
             step=10,
             description="min_beach_area (sqm):",
@@ -757,7 +775,14 @@ class UI:
         )
 
         self.feature_dropdown = ipywidgets.Dropdown(
-            options=["Shoreline", "Transects", "Bbox", "ROIs", "Extracted Shorelines"],
+            options=[
+                "Shoreline",
+                "Transects",
+                "Bbox",
+                "ROIs",
+                "Selected ROIs",
+                "Extracted Shorelines",
+            ],
             value="Shoreline",
             description="",
             disabled=False,
@@ -807,6 +832,9 @@ class UI:
 
         if "sand_color" in settings:
             self.sand_dropdown.value = settings.get("sand_color", "default")
+
+        if "cloud_mask_issue" in settings:
+            self.cloud_issue_toggle.value = str(settings.get("cloud_mask_issue", False))
 
         if "min_length_sl" in settings:
             self.min_length_sl_slider.value = settings.get("min_length_sl", 1000)
@@ -1048,6 +1076,7 @@ class UI:
             "along_dist": self.alongshore_distance_slider.value,
             "dist_clouds": self.cloud_slider.value,
             "min_beach_area": self.beach_area_slider.value,
+            "cloud_mask_issue": bool(self.cloud_issue_toggle.value),
             "min_length_sl": self.min_length_sl_slider.value,
             "sand_color": str(self.sand_dropdown.value),
             "cloud_thresh": self.cloud_threshold_slider.value,
@@ -1263,6 +1292,9 @@ class UI:
             elif "bbox" in btn.description.lower():
                 print(f"Removing bounding box")
                 self.coastseg_map.remove_bbox()
+            elif "selected" in btn.description.lower():
+                print(f"Removing Selected ROIs")
+                self.coastseg_map.remove_selected_rois()
             elif "rois" in btn.description.lower():
                 print(f"Removing ROIs")
                 self.coastseg_map.remove_all_rois()

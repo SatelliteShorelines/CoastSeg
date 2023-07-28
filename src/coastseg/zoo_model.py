@@ -9,16 +9,13 @@ import logging
 from typing import List, Set, Tuple
 
 from coastsat import SDS_tools
-from coastseg import transects
 from coastseg import common
 from coastseg import downloads
 from coastseg import sessions
-from coastseg import shoreline
 from coastseg import extracted_shoreline
 from coastseg import geodata_processing
 
 import geopandas as gpd
-import requests
 import skimage
 import aiohttp
 import tqdm

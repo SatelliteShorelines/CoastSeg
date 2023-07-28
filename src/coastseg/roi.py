@@ -1,4 +1,5 @@
 # Standard library imports
+from typing import Collection
 import logging
 from typing import Union, List
 
@@ -58,6 +59,25 @@ class ROI:
     def __repr__(self):
         return f"ROI: geodataframe {self.gdf}\nextracted_shorelines {self.extracted_shorelines}"
 
+    def remove_by_id(
+        self, ids_to_drop: list | set | tuple | str | int
+    ) -> gpd.GeoDataFrame:
+        if self.gdf.empty or "id" not in self.gdf.columns or ids_to_drop is None:
+            return self.gdf
+        if isinstance(ids_to_drop, (str, int)):
+            ids_to_drop = [
+                str(ids_to_drop)
+            ]  # Convert to list and ensure ids are strings
+        # Ensure all elements in ids_to_drop are strings for consistent comparison
+        ids_to_drop = set(map(str, ids_to_drop))
+        # drop the ids from the geodataframe
+        self.gdf = self.gdf[~self.gdf["id"].astype(str).isin(ids_to_drop)]
+        # remove the corresponding extracted shorelines
+        for roi_id in ids_to_drop:
+            self.remove_extracted_shorelines(roi_id)
+
+        return self.gdf
+
     def _initialize_from_roi_gdf(self, rois_gdf: gpd.GeoDataFrame) -> None:
         """
         Initialize the `gdf` attribute from a GeoDataFrame of ROIs.
@@ -72,9 +92,11 @@ class ROI:
             None.
         """
 
-        rois_gdf = common.preprocess_geodataframe(rois_gdf,columns_to_keep=['id','geometry'],create_ids=True)
+        rois_gdf = common.preprocess_geodataframe(
+            rois_gdf, columns_to_keep=["id", "geometry"], create_ids=True
+        )
         # make sure all the ids  are unique
-        rois_gdf = common.create_unique_ids(rois_gdf,prefix_length=3)
+        rois_gdf = common.create_unique_ids(rois_gdf, prefix_length=3)
         # get row ids of ROIs with area that's too large
         drop_ids = common.get_ids_with_invalid_area(rois_gdf)
         if drop_ids:
@@ -177,12 +199,12 @@ class ROI:
             print("Dropping ROIs that are an invalid size ")
             logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
             gdf.drop(index=drop_ids, axis=0, inplace=True)
-        # Combine the two GeoDataFrames
-        combined_gdf = pd.concat([self.gdf, gdf], axis=0)
-        no_duplicates_gdf = combined_gdf.drop_duplicates(subset=["id", "geometry"])
+        # Combine the two GeoDataFrames and drop duplicates from columns "id" and "geometry"
+        combined_gdf = pd.concat([self.gdf, gdf], axis=0).drop_duplicates(
+            subset=["id", "geometry"]
+        )
         # Convert the combined DataFrame back to a GeoDataFrame
-        no_duplicates_gdf = gpd.GeoDataFrame(no_duplicates_gdf, crs=self.gdf.crs)
-        self.gdf = no_duplicates_gdf
+        self.gdf = gpd.GeoDataFrame(combined_gdf, crs=self.gdf.crs)
         return self
 
     def get_all_extracted_shorelines(self) -> dict:
@@ -307,9 +329,18 @@ class ROI:
             )
 
         # clean the geodataframe
-        fishnet_intersect_gdf = common.preprocess_geodataframe(fishnet_intersect_gdf,columns_to_keep=['id','geometry',],create_ids=True)
+        fishnet_intersect_gdf = common.preprocess_geodataframe(
+            fishnet_intersect_gdf,
+            columns_to_keep=[
+                "id",
+                "geometry",
+            ],
+            create_ids=True,
+        )
         # make sure all the ids are unique
-        fishnet_intersect_gdf = common.create_unique_ids(fishnet_intersect_gdf,prefix_length=3)
+        fishnet_intersect_gdf = common.create_unique_ids(
+            fishnet_intersect_gdf, prefix_length=3
+        )
         logger.info(f"Created fishnet_intersect_gdf: {fishnet_intersect_gdf}")
         return fishnet_intersect_gdf
 

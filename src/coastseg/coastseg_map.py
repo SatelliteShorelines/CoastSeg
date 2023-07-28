@@ -1623,6 +1623,20 @@ class CoastSeg_Map:
         del self.rois
         self.rois = None
 
+    def remove_selected_rois(self) -> None:
+        """Removes all the unselected rois from the map"""
+        logger.info("Removing selected ROIs from map")
+        # Remove the selected and unselected rois
+        self.remove_layer_by_name(ROI.SELECTED_LAYER_NAME)
+        self.remove_layer_by_name(ROI.LAYER_NAME)
+        # delete selected ROIs from dataframe
+        if self.rois:
+            self.rois.remove_by_id(self.selected_set)
+        # clear all the ids from the selected set
+        self.selected_set = set()
+        # reload rest of ROIs on map
+        self.load_feature_on_map("roi", gdf=self.rois.gdf, zoom_to_bounds=True)
+
     def create_DrawControl(self, draw_control: "ipyleaflet.leaflet.DrawControl"):
         """Modifies given draw control so that only rectangles can be drawn
 
