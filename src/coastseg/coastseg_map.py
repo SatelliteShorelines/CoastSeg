@@ -3,7 +3,7 @@ import os
 import json
 import logging
 import glob
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 from collections import defaultdict
 
 from coastseg.bbox import Bounding_Box
@@ -33,6 +33,8 @@ from ipyleaflet import GeoJSON
 
 logger = logging.getLogger(__name__)
 
+SELECTED_LAYER_NAME = "Selected Shorelines"
+
 
 class CoastSeg_Map:
     def __init__(self):
@@ -58,6 +60,7 @@ class CoastSeg_Map:
 
         # ids of the selected rois
         self.selected_set = set()
+        self.selected_shorelines_set = set()
 
         # map objects
         self.rois = None
@@ -1602,7 +1605,6 @@ class CoastSeg_Map:
             f"layer_name {layer_name} \non_hover {on_hover}\n on_click {on_click}"
         )
         self.remove_layer_by_name(layer_name)
-        exception_handler.check_empty_layer(new_layer, layer_name)
         # when feature is hovered over on_hover function is called
         if on_hover is not None:
             new_layer.on_hover(on_hover)
@@ -1894,6 +1896,8 @@ class CoastSeg_Map:
         on_click = None
         if "roi" in feature_name.lower():
             on_click = self.geojson_onclick_handler
+        elif "shoreline" in feature_name.lower():
+            on_click = self.shoreline_onclick_handler
         return on_click
 
     def get_on_hover_handler(self, feature_name: str) -> callable:
@@ -1958,6 +1962,7 @@ class CoastSeg_Map:
         """
         if properties is None:
             return
+        print(f"id: {id}")
         logger.info(f"properties : {properties}")
         logger.info(f"ROI_id : {properties['id']}")
         logger.info(type(event))
@@ -1971,7 +1976,9 @@ class CoastSeg_Map:
         self.remove_layer_by_name(ROI.SELECTED_LAYER_NAME)
 
         selected_layer = GeoJSON(
-            data=self.convert_selected_set_to_geojson(self.selected_set),
+            data=self.convert_selected_set_to_geojson(
+                self.selected_set, ROI.LAYER_NAME
+            ),
             name=ROI.SELECTED_LAYER_NAME,
             hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
         )
@@ -1981,6 +1988,97 @@ class CoastSeg_Map:
             selected_layer,
             on_click=self.selected_onclick_handler,
             on_hover=self.update_roi_html,
+        )
+
+    def shoreline_onclick_handler(
+        self,
+        event: str = None,
+        row_id: int = None,
+        properties: dict = None,
+        **args,
+    ):
+        """On click handler for when unselected geojson is clicked.
+
+        Adds object's id to selected_objects_set. Replaces current selected layer with a new one that includes
+        recently clicked geojson.
+
+        Args:
+            event (str, optional): event fired ('click'). Defaults to None.
+            id (NoneType, optional):  Defaults to None.
+            properties (dict, optional): geojson dict for clicked geojson. Defaults to None.
+        """
+        if properties is None:
+            return
+        print(f"id : {row_id}")
+        print(args)
+        print(f"event: {event}")
+        print(f"properties : {properties}")
+        logger.info(f"properties : {properties}")
+        logger.info(f"id : {properties['id']}")
+        logger.info(type(event))
+        logger.info(type(row_id))
+        logger.info(row_id)
+        # Add id of clicked shape to selected_set
+        self.selected_shorelines_set.add(str(properties["id"]))
+        logger.info(f"Added ID to selected_objects_set: {self.selected_shorelines_set}")
+        # remove old selected layer
+        self.remove_layer_by_name(SELECTED_LAYER_NAME)
+
+        selected_layer = GeoJSON(
+            data=self.convert_selected_set_to_geojson(
+                self.selected_shorelines_set, Shoreline.LAYER_NAME
+            ),
+            name=SELECTED_LAYER_NAME,
+            hover_style={"fillColor": "orange", "fillOpacity": 0.1, "color": "orange"},
+        )
+        logger.info(f"selected_layer: {selected_layer}")
+        self.replace_layer_by_name(
+            SELECTED_LAYER_NAME,
+            selected_layer,
+            on_click=self.selected_shoreline_onclick_handler,
+            on_hover=None,
+        )
+
+    def selected_shoreline_onclick_handler(
+        self, event: str = None, id: "NoneType" = None, properties: dict = None, **args
+    ):
+        """On click handler for selected geojson layer.
+
+        Removes clicked layer's cid from the selected_set and replaces the select layer with a new one with
+        the clicked layer removed from select_layer.
+
+        Args:
+            event (str, optional): event fired ('click'). Defaults to None.
+            id (NoneType, optional):  Defaults to None.
+            properties (dict, optional): geojson dict for clicked selected geojson. Defaults to None.
+        """
+        if properties is None:
+            return
+
+        # Remove the current layers cid from selected set
+        print(f"selected_shoreline_onclick_handler: event : {event}")
+        print(f"selected_shoreline_onclick_handler: properties : {properties}")
+        logger.info(f"selected_shoreline_onclick_handler: properties : {properties}")
+        logger.info(
+            f"selected_shoreline_onclick_handler: ROI_id to remove : {properties['id']}"
+        )
+        self.selected_shorelines_set.remove(str(properties["id"]))
+        logger.info(f"selected set after ID removal: {self.selected_shorelines_set}")
+        self.remove_layer_by_name(SELECTED_LAYER_NAME)
+        # Recreate selected layers without layer that was removed
+
+        selected_layer = GeoJSON(
+            data=self.convert_selected_set_to_geojson(
+                self.selected_shorelines_set, Shoreline.LAYER_NAME
+            ),
+            name=SELECTED_LAYER_NAME,
+            hover_style={"fillColor": "orange", "fillOpacity": 0.1, "color": "orange"},
+        )
+        self.replace_layer_by_name(
+            SELECTED_LAYER_NAME,
+            selected_layer,
+            on_click=self.selected_shoreline_onclick_handler,
+            on_hover=None,
         )
 
     def selected_onclick_handler(
@@ -2008,7 +2106,9 @@ class CoastSeg_Map:
         # Recreate selected layers without layer that was removed
 
         selected_layer = GeoJSON(
-            data=self.convert_selected_set_to_geojson(self.selected_set),
+            data=self.convert_selected_set_to_geojson(
+                self.selected_set, ROI.LAYER_NAME
+            ),
             name=ROI.SELECTED_LAYER_NAME,
             hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
         )
@@ -2048,32 +2148,55 @@ class CoastSeg_Map:
             else:
                 print(f"Empty {feature.LAYER_NAME} cannot be saved to file")
 
-    def convert_selected_set_to_geojson(self, selected_set: set) -> dict:
+    def convert_selected_set_to_geojson(
+        self, selected_set: set, layer_name: str, style: Optional[Dict] = None
+    ) -> Dict:
         """Returns a geojson dict containing a FeatureCollection for all the geojson objects in the
         selected_set
         Args:
             selected_set (set): ids of selected geojson
+            layer_name (str): name of the layer to get geometries from
+            style (Optional[Dict]): style dictionary to be applied to each selected feature.
+                If no style is provided then a default style is used:
+                style = {
+                    "color": "blue",
+                    "weight": 2,
+                    "fillColor": "blue",
+                    "fillOpacity": 0.1,
+                }
         Returns:
-           dict: geojson dict containing FeatureCollection for all geojson objects in selected_set
+            Dict: geojson dict containing FeatureCollection for all geojson objects in selected_set
         """
-        # create a new geojson dictionary to hold selected ROIs
-        selected_rois = {"type": "FeatureCollection", "features": []}
-        roi_layer = self.map.find_layer(ROI.LAYER_NAME)
-        # if ROI layer does not exist throw an error
-        if roi_layer is not None:
-            exception_handler.check_empty_layer(roi_layer, "ROI")
-        # Copy only selected ROIs with id in selected_set
-        selected_rois["features"] = [
-            feature
-            for feature in roi_layer.data["features"]
-            if feature["properties"]["id"] in selected_set
-        ]
-        # Each selected ROI will be blue and unselected rois will appear black
-        for feature in selected_rois["features"]:
-            feature["properties"]["style"] = {
+        # create a new geojson dictionary to hold selected shapes
+        if style is None:
+            style = {
                 "color": "blue",
                 "weight": 2,
                 "fillColor": "blue",
                 "fillOpacity": 0.1,
             }
-        return selected_rois
+        selected_shapes = {"type": "FeatureCollection", "features": []}
+        layer = self.map.find_layer(layer_name)
+        # if ROI layer does not exist throw an error
+        if layer is not None:
+            exception_handler.check_empty_layer(layer, layer_name)
+        # Copy only selected features with id in selected_set
+        selected_features = [
+            feature
+            for feature in layer.data["features"]
+            if feature["properties"]["id"] in selected_set
+        ]
+        selected_shapes["features"] = [
+            {**feature, "properties": {**feature["properties"], "style": style}}
+            for feature in selected_features
+        ]
+        # # Copy only selected ROIs with id in selected_set
+        # selected_shapes["features"] = [
+        #     feature
+        #     for feature in layer.data["features"]
+        #     if feature["properties"]["id"] in selected_set
+        # ]
+        # # Each selected ROI will be blue and unselected rois will appear black
+        # for feature in selected_shapes["features"]:
+        #     feature["properties"]["style"] = style
+        return selected_shapes
