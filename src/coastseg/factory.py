@@ -19,8 +19,6 @@ logger = logging.getLogger(__name__)
 __all__ = ["Factory"]
 
 
-
-
 def merge_rectangles(gdf: GeoDataFrame) -> GeoDataFrame:
     """
     Merges all rectangles in a GeoDataFrame into a single shape.
@@ -33,7 +31,7 @@ def merge_rectangles(gdf: GeoDataFrame) -> GeoDataFrame:
                           The new GeoDataFrame has the same columns as the original.
     """
     # Ensure that the GeoDataFrame contains Polygons
-    if not all(gdf.geometry.geom_type == 'Polygon'):
+    if not all(gdf.geometry.geom_type == "Polygon"):
         raise ValueError("All shapes in the GeoDataFrame must be Polygons.")
 
     # Merge all shapes into one
@@ -43,6 +41,7 @@ def merge_rectangles(gdf: GeoDataFrame) -> GeoDataFrame:
     merged_gdf = GeoDataFrame([gdf.iloc[0]], geometry=[merged_shape], crs=gdf.crs)
 
     return merged_gdf
+
 
 def create_shoreline(
     coastsegmap, gdf: Optional[GeoDataFrame] = None, **kwargs
@@ -64,11 +63,11 @@ def create_shoreline(
     if gdf is not None:
         shoreline = Shoreline(shoreline=gdf)
     else:
-        # check if coastsegmap has a ROI 
+        # check if coastsegmap has a ROI
         if coastsegmap.rois is not None:
             if coastsegmap.rois.gdf.empty == False:
-                # merge ROI geometeries together and use that as the bbbox 
-                merged_rois=merge_rectangles(coastsegmap.rois.gdf)
+                # merge ROI geometeries together and use that as the bbbox
+                merged_rois = merge_rectangles(coastsegmap.rois.gdf)
                 shoreline = Shoreline(merged_rois)
                 exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
         else:
@@ -88,11 +87,11 @@ def create_transects(
     if gdf is not None:
         transects = Transects(transects=gdf)
     else:
-        # check if coastsegmap has a ROI 
+        # check if coastsegmap has a ROI
         if coastsegmap.rois is not None:
             if coastsegmap.rois.gdf.empty == False:
-                # merge ROI geometeries together and use that as the bbbox 
-                merged_rois=merge_rectangles(coastsegmap.rois.gdf)
+                # merge ROI geometeries together and use that as the bbbox
+                merged_rois = merge_rectangles(coastsegmap.rois.gdf)
                 transects = Transects(merged_rois)
                 exception_handler.check_if_gdf_empty(
                     transects.gdf,
@@ -100,7 +99,7 @@ def create_transects(
                     "Transects Not Found in this region. Draw a new bounding box",
                 )
         else:
-            # otherwise check if coastsegmap has a bbox 
+            # otherwise check if coastsegmap has a bbox
             exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
             exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
 

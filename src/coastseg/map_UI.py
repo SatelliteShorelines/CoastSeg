@@ -781,6 +781,7 @@ class UI:
                 "Bbox",
                 "ROIs",
                 "Selected ROIs",
+                "Selected Shorelines",
                 "Extracted Shorelines",
             ],
             value="Shoreline",
@@ -1283,6 +1284,12 @@ class UI:
             if "extracted shorelines" in btn.description.lower():
                 print(f"Removing extracted shoreline")
                 self.coastseg_map.remove_extracted_shoreline_layers()
+            elif "selected shorelines" in btn.description.lower():
+                print(f"Removing Selected Shorelines")
+                self.coastseg_map.remove_selected_shorelines()
+            elif "selected rois" in btn.description.lower():
+                print(f"Removing Selected ROIs")
+                self.coastseg_map.remove_selected_rois()
             elif "shoreline" in btn.description.lower():
                 print(f"Removing shoreline")
                 self.coastseg_map.remove_shoreline()
@@ -1292,9 +1299,6 @@ class UI:
             elif "bbox" in btn.description.lower():
                 print(f"Removing bounding box")
                 self.coastseg_map.remove_bbox()
-            elif "selected" in btn.description.lower():
-                print(f"Removing Selected ROIs")
-                self.coastseg_map.remove_selected_rois()
             elif "rois" in btn.description.lower():
                 print(f"Removing ROIs")
                 self.coastseg_map.remove_all_rois()

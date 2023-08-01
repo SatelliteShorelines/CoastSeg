@@ -1625,6 +1625,22 @@ class CoastSeg_Map:
         del self.rois
         self.rois = None
 
+    def remove_selected_shorelines(self) -> None:
+        """Removes all the unselected rois from the map"""
+        logger.info("Removing selected shorelines from map")
+        # Remove the selected and unselected rois
+        self.remove_layer_by_name(SELECTED_LAYER_NAME)
+        self.remove_layer_by_name(Shoreline.LAYER_NAME)
+        # delete selected ROIs from dataframe
+        if self.shoreline:
+            self.shoreline.remove_by_id(self.selected_shorelines_set)
+        # clear all the ids from the selected set
+        self.selected_shorelines_set = set()
+        # reload rest of ROIs on map
+        self.load_feature_on_map(
+            "shoreline", gdf=self.shoreline.gdf, zoom_to_bounds=True
+        )
+
     def remove_selected_rois(self) -> None:
         """Removes all the unselected rois from the map"""
         logger.info("Removing selected ROIs from map")
@@ -1962,19 +1978,10 @@ class CoastSeg_Map:
         """
         if properties is None:
             return
-        print(f"id: {id}")
-        logger.info(f"properties : {properties}")
-        logger.info(f"ROI_id : {properties['id']}")
-        logger.info(type(event))
-        logger.info(type(id))
-        logger.info(id)
         # Add id of clicked ROI to selected_set
-        ROI_id = str(properties["id"])
-        self.selected_set.add(ROI_id)
-        logger.info(f"Added ID to selected set: {self.selected_set}")
+        self.selected_set.add(str(properties["id"]))
         # remove old selected layer
         self.remove_layer_by_name(ROI.SELECTED_LAYER_NAME)
-
         selected_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(
                 self.selected_set, ROI.LAYER_NAME
@@ -1982,7 +1989,6 @@ class CoastSeg_Map:
             name=ROI.SELECTED_LAYER_NAME,
             hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
         )
-        logger.info(f"selected_layer: {selected_layer}")
         self.replace_layer_by_name(
             ROI.SELECTED_LAYER_NAME,
             selected_layer,
@@ -1993,7 +1999,7 @@ class CoastSeg_Map:
     def shoreline_onclick_handler(
         self,
         event: str = None,
-        row_id: int = None,
+        id: int = None,
         properties: dict = None,
         **args,
     ):
@@ -2009,21 +2015,10 @@ class CoastSeg_Map:
         """
         if properties is None:
             return
-        print(f"id : {row_id}")
-        print(args)
-        print(f"event: {event}")
-        print(f"properties : {properties}")
-        logger.info(f"properties : {properties}")
-        logger.info(f"id : {properties['id']}")
-        logger.info(type(event))
-        logger.info(type(row_id))
-        logger.info(row_id)
         # Add id of clicked shape to selected_set
         self.selected_shorelines_set.add(str(properties["id"]))
-        logger.info(f"Added ID to selected_objects_set: {self.selected_shorelines_set}")
         # remove old selected layer
         self.remove_layer_by_name(SELECTED_LAYER_NAME)
-
         selected_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(
                 self.selected_shorelines_set, Shoreline.LAYER_NAME
@@ -2031,7 +2026,6 @@ class CoastSeg_Map:
             name=SELECTED_LAYER_NAME,
             hover_style={"fillColor": "orange", "fillOpacity": 0.1, "color": "orange"},
         )
-        logger.info(f"selected_layer: {selected_layer}")
         self.replace_layer_by_name(
             SELECTED_LAYER_NAME,
             selected_layer,
@@ -2056,17 +2050,9 @@ class CoastSeg_Map:
             return
 
         # Remove the current layers cid from selected set
-        print(f"selected_shoreline_onclick_handler: event : {event}")
-        print(f"selected_shoreline_onclick_handler: properties : {properties}")
-        logger.info(f"selected_shoreline_onclick_handler: properties : {properties}")
-        logger.info(
-            f"selected_shoreline_onclick_handler: ROI_id to remove : {properties['id']}"
-        )
         self.selected_shorelines_set.remove(str(properties["id"]))
-        logger.info(f"selected set after ID removal: {self.selected_shorelines_set}")
         self.remove_layer_by_name(SELECTED_LAYER_NAME)
         # Recreate selected layers without layer that was removed
-
         selected_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(
                 self.selected_shorelines_set, Shoreline.LAYER_NAME
@@ -2097,14 +2083,9 @@ class CoastSeg_Map:
         if properties is None:
             return
         # Remove the current layers cid from selected set
-        logger.info(f"selected_onclick_handler: properties : {properties}")
-        logger.info(f"selected_onclick_handler: ROI_id to remove : {properties['id']}")
-        cid = properties["id"]
-        self.selected_set.remove(cid)
-        logger.info(f"selected set after ID removal: {self.selected_set}")
+        self.selected_set.remove(properties["id"])
         self.remove_layer_by_name(ROI.SELECTED_LAYER_NAME)
         # Recreate selected layers without layer that was removed
-
         selected_layer = GeoJSON(
             data=self.convert_selected_set_to_geojson(
                 self.selected_set, ROI.LAYER_NAME
@@ -2190,13 +2171,4 @@ class CoastSeg_Map:
             {**feature, "properties": {**feature["properties"], "style": style}}
             for feature in selected_features
         ]
-        # # Copy only selected ROIs with id in selected_set
-        # selected_shapes["features"] = [
-        #     feature
-        #     for feature in layer.data["features"]
-        #     if feature["properties"]["id"] in selected_set
-        # ]
-        # # Each selected ROI will be blue and unselected rois will appear black
-        # for feature in selected_shapes["features"]:
-        #     feature["properties"]["style"] = style
         return selected_shapes

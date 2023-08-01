@@ -70,6 +70,7 @@ class ROI:
             ]  # Convert to list and ensure ids are strings
         # Ensure all elements in ids_to_drop are strings for consistent comparison
         ids_to_drop = set(map(str, ids_to_drop))
+        logger.info(f"ids_to_drop from roi: {ids_to_drop}")
         # drop the ids from the geodataframe
         self.gdf = self.gdf[~self.gdf["id"].astype(str).isin(ids_to_drop)]
         # remove the corresponding extracted shorelines
