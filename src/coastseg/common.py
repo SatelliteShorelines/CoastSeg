@@ -125,7 +125,24 @@ def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[s
     filtered_files = get_filtered_files_dict(RGB_directory, "jpg", sitename)
     for satname in filtered_files:
         if satname in metadata:
-            metadata[satname]["filenames"] = list(filtered_files[satname])
+            idx_keep = list(
+                np.where(
+                    np.isin(
+                        np.array(metadata[satname]["filenames"]),
+                        list(filtered_files[satname]),
+                    )
+                )[0]
+            )
+            metadata[satname]["filenames"] = [
+                metadata[satname]["filenames"][i] for i in idx_keep
+            ]
+            metadata[satname]["epsg"] = [metadata[satname]["epsg"][i] for i in idx_keep]
+            metadata[satname]["dates"] = [
+                metadata[satname]["dates"][i] for i in idx_keep
+            ]
+            metadata[satname]["acc_georef"] = [
+                metadata[satname]["acc_georef"][i] for i in idx_keep
+            ]
     return metadata
 
 
