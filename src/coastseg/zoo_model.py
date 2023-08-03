@@ -1391,7 +1391,6 @@ class Zoo_Model:
         best_modelcard_filename = best_model_filename.replace(
             "_fullmodel.h5", "_modelcard.json"
         ).replace("_segformer", "")
-        print(best_modelcard_filename)
 
         # download best model files(.h5, .json) file
         download_filenames = [
@@ -1439,17 +1438,12 @@ class Zoo_Model:
             model_name.replace("_fullmodel.h5", ".json")
             for model_name in all_model_names
         ]
-        # modelcard_file_names = [
-        #     model_name.replace("_fullmodel.h5", "_modelcard.json")
-        #     for model_name in all_model_names
-        # ]
         modelcard_file_names = [
             model_name.replace("_fullmodel.h5", "_modelcard.json").replace(
                 "_segformer", ""
             )
             for model_name in all_model_names
         ]
-        print(modelcard_file_names)
         all_json_reponses = []
 
         # for each filename online check if there a .json file
