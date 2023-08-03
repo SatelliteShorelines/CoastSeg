@@ -53,23 +53,23 @@ class UI_Models:
             "sample_direc": None,
             "use_GPU": "0",
             "implementation": "BEST",
-            "model_type": "sat_RGB_4class_6950472",
+            "model_type": "segformer_RGB_4class_8190958",
             "otsu": False,
             "tta": False,
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
+            "segformer_RGB_4class_8190958",
             "sat_RGB_4class_6950472",
-            "segformer_RGB_4class_7933015",
         ]
-        self.five_band_models = [
-            "sat_5band_4class_7344606",
-        ]
+        # self.five_band_models = [
+        #     "sat_5band_4class_7344606",
+        # ]
         self.MNDWI_models = [
-            "sat_MNDWI_4class_7352850",
+            "segformer_MNDWI_4class_8190853",
         ]
         self.NDWI_models = [
-            "sat_NDWI_4class_7352859",
+            "segformer_NDWI_4class_8190742",
         ]
         self.session_name = ""
         self.shoreline_session_directory = ""
@@ -509,8 +509,8 @@ class UI_Models:
             self.model_dropdown.options = self.MNDWI_models
         if change["new"] == "NDWI":
             self.model_dropdown.options = self.NDWI_models
-        if change["new"] == "RGB+MNDWI+NDWI":
-            self.model_dropdown.options = self.five_band_models
+        # if change["new"] == "RGB+MNDWI+NDWI":
+        #     self.model_dropdown.options = self.five_band_models
 
     @run_model_view.capture(clear_output=True)
     def run_model_button_clicked(self, button):
