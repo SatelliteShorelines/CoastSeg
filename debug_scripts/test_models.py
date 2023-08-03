@@ -23,35 +23,32 @@ args = parser.parse_args()
 
 # get input directory from the args
 input_directory = args.path
+# for local testing only
+input_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_12_datetime06-05-23__04_16_45\jpg_files\preprocessed\RGB"
 
 # move them into their parent directories
 parent_directory_names = [
-    "sat_5band_4class_7344606",
-    "sat_MNDWI_4class_7352850",
-    "sat_NDWI_4class_7352859",
+    "segformer_RGB_4class_8190958",
     "sat_RGB_4class_6950472",
-    "segformer_RGB_4class_7933015",
+    "segformer_MNDWI_4class_8190853",
+    "segformer_NDWI_4class_8190742",
 ]
-
 
 available_models_dict = {
     "RGB": [
+        "segformer_RGB_4class_8190958",
         "sat_RGB_4class_6950472",
-        "segformer_RGB_4class_7933015",
-    ],
-    "RGB+MNDWI+NDWI": [
-        "sat_5band_4class_7344606",
     ],
     "MNDWI": [
-        "sat_MNDWI_4class_7352850",
+        "segformer_MNDWI_4class_8190853",
     ],
     "NDWI": [
-        "sat_NDWI_4class_7352859",
+        "segformer_NDWI_4class_8190742",
     ],
 }
 
-img_types = ["RGB", "RGB+MNDWI+NDWI", "MNDWI", "NDWI"]
 
+img_types = ["RGB", "MNDWI", "NDWI"]
 
 for img_type_index in range(len(img_types)):
     print(f"Running models for image input type {img_type_index}")
