@@ -146,18 +146,39 @@ def check_if_dirs_missing(missing_dirs: list, message: str = ""):
         logger.error(
             f"The following directories that were in the config file are missing: {missing_dirs}."
         )
-        raise FileNotFoundError(
-            f"The following directories that were in the config file are missing: {missing_dirs}.\n Load them into the data directory or download all the ROIs again. {message}"
+        raise exceptions.Missing_ROI_Data(
+            message=f"These directories in config.json were missing: {missing_dirs}.",
+            instructions=" You can either: 1. Load the missing directories into the data directory 2. Download the missing data.",
         )
 
 
 def handle_exception(error, row: "ipywidgets.HBox", title: str = None, msg: str = None):
-    error_message = f"{error}</br>Additional Information</br>" + traceback.format_exc()
     logger.error(f"{traceback.format_exc()}")
-    if isinstance(error, exceptions.Object_Not_Found):
-        error_message = str(error)
-    logger.error(f"{error_message}")
-    launch_error_box(row, title="Error", msg=error_message)
+    if isinstance(error, exceptions.Missing_ROI_Data):
+        logger.error(f"error.instructions: {error.instructions}")
+        launch_error_box(
+            row,
+            title="Warning Data Missing",
+            msg=error.msg,
+            instructions=error.instructions,
+        )
+    else:
+        error_message = (
+            f"{error}</br>Additional Information</br>" + traceback.format_exc()
+        )
+        if isinstance(error, exceptions.Object_Not_Found):
+            error_message = str(error)
+        logger.error(f"{error_message}")
+        launch_error_box(row, title="Error", msg=error_message)
+
+
+# def handle_warning(warning, row: "ipywidgets.HBox", title: str = None, msg: str = None):
+#     error_message = f"{warning}"
+#     logger.error(f"{traceback.format_exc()}")
+#     if isinstance(warning, exceptions.Object_Not_Found):
+#         error_message = str(warning)
+#     logger.error(f"{error_message}")
+#     launch_error_box(row, title="Error", msg=error_message)
 
 
 def handle_bbox_error(
@@ -168,9 +189,17 @@ def handle_bbox_error(
     launch_error_box(row, title="Error", msg=error_msg)
 
 
-def launch_error_box(row: "ipywidgets.HBox", title: str = None, msg: str = None):
+def launch_error_box(
+    row: "ipywidgets.HBox", title: str = None, msg: str = None, instructions: str = None
+):
     # Show user error message
-    warning_box = common.create_warning_box(title=title, msg=msg,msg_width="80%", box_width="100%")
+    warning_box = common.create_warning_box(
+        title=title,
+        msg=msg,
+        instructions=instructions,
+        msg_width="80%",
+        box_width="100%",
+    )
     # clear row and close all widgets in self.file_row before adding new warning_box
     common.clear_row(row)
     # add instance of warning_box to row

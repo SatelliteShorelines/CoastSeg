@@ -912,7 +912,11 @@ def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
 
 
 def create_warning_box(
-    title: str = None, msg: str = None, msg_width: str = "75%", box_width: str = "50%"
+    title: str = None,
+    msg: str = None,
+    instructions: str = None,
+    msg_width: str = "75%",
+    box_width: str = "50%",
 ) -> HBox:
     """
     Creates a warning box with a title and message that can be closed with a close button.
@@ -933,9 +937,16 @@ def create_warning_box(
     # create msg
     if msg is None:
         msg = "Something went wrong..."
+    if instructions is None:
+        instructions = ""
     warning_msg = HTML(
         f"<div style='max-height: 250px; overflow-x: hidden; overflow-y: visible; text-align: center;'>"
         f"<span style='color: red'>⚠️</span>{msg}"
+        f"</div>"
+    )
+    instructions_msg = HTML(
+        f"<div style='max-height: 250px; overflow-x: hidden; overflow-y: visible; text-align: center;'>"
+        f"<span style='color: red'></span>{instructions}"
         f"</div>"
     )
 
@@ -957,7 +968,7 @@ def create_warning_box(
 
     # create vertical box to hold title and msg
     warning_content = VBox(
-        [warning_title, warning_msg, close_button],
+        [warning_title, warning_msg, instructions_msg, close_button],
         layout=Layout(width=msg_width, max_width="95%"),
     )
 

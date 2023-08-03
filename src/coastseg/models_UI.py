@@ -662,7 +662,7 @@ class UI_Models:
     def launch_error_box(self, title: str = None, msg: str = None, position: int = 1):
         # Show user error message
         warning_box = common.create_warning_box(
-            title=title, msg=msg, msg_width="60%", box_width="30%"
+            title=title, msg=msg, instructions=None, msg_width="60%", box_width="30%"
         )
         # clear row and close all widgets before adding new warning_box
         common.clear_row(self.get_warning_box(position))

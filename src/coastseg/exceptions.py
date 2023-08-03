@@ -1,5 +1,5 @@
 class Object_Not_Found(Exception):
-    """BBox_Not_Found: raised when bounding box does not exist
+    """Object_Not_Found: raised when bounding box does not exist
     Args:
         Exception: Inherits from the base exception class
     """
@@ -7,6 +7,21 @@ class Object_Not_Found(Exception):
     def __init__(self, feature: str, message=""):
         self.msg = f"No {feature.lower()} found on the map.\n{message}"
         self.feature = feature
+        super().__init__(self.msg)
+
+    def __str__(self):
+        return f"{self.msg}"
+
+
+class Missing_ROI_Data(Exception):
+    """Missing_ROI_Data: raised when an ROI is loaded but the imagery has not been downloaded
+    Args:
+        Exception: Inherits from the base exception class
+    """
+
+    def __init__(self, message: str = "", instructions: str = ""):
+        self.msg = f"{message}"
+        self.instructions = f"{instructions}"
         super().__init__(self.msg)
 
     def __str__(self):
@@ -46,13 +61,18 @@ class Id_Not_Found(Exception):
     def __str__(self):
         return f"{self.msg}"
 
+
 class Duplicate_ID_Exception(Exception):
     """Id_Not_Found: raised when duplicate IDs are detected in a feature
     Args:
         Exception: Inherits from the base exception class
     """
 
-    def __init__(self, feature_type:str='feature', msg="Duplicate ids were detected.Do you want to override these IDs?"):
+    def __init__(
+        self,
+        feature_type: str = "feature",
+        msg="Duplicate ids were detected.Do you want to override these IDs?",
+    ):
         self.msg = msg
         if id is not None:
             self.msg = f"Duplicate ids for {feature_type} were detected.Do you want to override these IDs?"
@@ -83,8 +103,10 @@ class Shoreline_Not_Found(Exception):
     Args:
         Exception: Inherits from the base exception class
     """
+
     def __init__(
-        self, msg="CoastSeg currently does not have shorelines available in this region. Try drawing a new bounding box somewhere else."
+        self,
+        msg="CoastSeg currently does not have shorelines available in this region. Try drawing a new bounding box somewhere else.",
     ):
         self.msg = msg
         super().__init__(self.msg)
