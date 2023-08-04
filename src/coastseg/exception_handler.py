@@ -146,7 +146,7 @@ def check_if_dirs_missing(missing_dirs: list, message: str = ""):
         logger.error(
             f"The following directories that were in the config file are missing: {missing_dirs}."
         )
-        raise exceptions.Missing_ROI_Data(
+        raise exceptions.WarningException(
             message=f"These directories in config.json were missing: {missing_dirs}.",
             instructions=" You can either: 1. Load the missing directories into the data directory 2. Download the missing data.",
         )
@@ -154,7 +154,7 @@ def check_if_dirs_missing(missing_dirs: list, message: str = ""):
 
 def handle_exception(error, row: "ipywidgets.HBox", title: str = None, msg: str = None):
     logger.error(f"{traceback.format_exc()}")
-    if isinstance(error, exceptions.Missing_ROI_Data):
+    if isinstance(error, exceptions.WarningException):
         logger.error(f"error.instructions: {error.instructions}")
         launch_error_box(
             row,

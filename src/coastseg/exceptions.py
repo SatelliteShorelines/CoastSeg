@@ -12,13 +12,11 @@ class Object_Not_Found(Exception):
     def __str__(self):
         return f"{self.msg}"
 
-
-class Missing_ROI_Data(Exception):
-    """Missing_ROI_Data: raised when an ROI is loaded but the imagery has not been downloaded
+class WarningException(Exception):
+    """WarningException: class for all exceptions that contain custom instructions
     Args:
         Exception: Inherits from the base exception class
     """
-
     def __init__(self, message: str = "", instructions: str = ""):
         self.msg = f"{message}"
         self.instructions = f"{instructions}"
@@ -26,6 +24,7 @@ class Missing_ROI_Data(Exception):
 
     def __str__(self):
         return f"{self.msg}"
+
 
 
 class No_Extracted_Shoreline(Exception):

@@ -11,6 +11,7 @@ from typing import Callable, List
 from typing import Union
 from json import JSONEncoder
 import datetime
+from requests.exceptions import SSLError
 
 # Internal dependencies imports
 from coastseg import exceptions
@@ -52,18 +53,25 @@ def get_cert_path_from_config(config_file="certifications.json"):
     Returns:
         str: The certification path if the config file exists and has a valid certification path, else an empty string.
     """
-
-    # Check if the config file exists
+    logger.info(f"os.path.exists(config_file): {os.path.exists(config_file)}")
     if os.path.exists(config_file):
         # Read the config file
         with open(config_file, "r") as f:
-            config = json.load(f)
+            config_string = f.read()
+            logger.info(f"certifications.json contents: {config_string}")
+        try:
+            config = json.loads(config_string)
+        except json.JSONDecodeError:
+            config_string = config_string.replace('\\', '\\\\')
+            config = json.loads(config_string)
 
         # Get the cert path
         cert_path = config.get("cert_path")
+        logger.info(f"certifications.json cert_path: {cert_path}")
 
         # If the cert path is a valid file, return it
         if cert_path and os.path.isfile(cert_path):
+            logger.info(f"certifications.json cert_path isfile: {cert_path}")
             return cert_path
 
     # If the config file doesn't exist, or the cert path isn't in it, or the cert path isn't a valid file, return an empty string
@@ -85,11 +93,15 @@ def get_response(url, stream=True):
     Returns:
         requests.models.Response: The HTTP response object.
     """
-    cert_path = get_cert_path_from_config()
-    if cert_path:  # if cert_path is not empty
-        response = requests.get(url, stream=stream, verify=cert_path)
-    else:  # if cert_path is empty
-        response = requests.get(url, stream=stream)
+    # attempt a standard request then try with an ssl certificate
+    try:
+        response=requests.get(url, stream=stream)
+    except SSLError as e:
+        cert_path = get_cert_path_from_config()
+        if cert_path:  # if an ssl file was provided use it
+            response = requests.get(url, stream=stream, verify=cert_path)
+        else:  # if no ssl was provided
+            raise exceptions.WarningException("An SSL Verfication Error occured","Save the location of your SSL certification file to certifications.json when downloading over a secure network")
     return response
 
 
