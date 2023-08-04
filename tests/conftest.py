@@ -75,7 +75,7 @@ def valid_coastseg_map_with_settings() -> coastseg_map.CoastSeg_Map:
         sat_list=sat_list,
         landsat_collection=landsat_collection,
         dates=dates,
-        **pre_process_settings
+        **pre_process_settings,
     )
     return coastsegmap
 
@@ -118,7 +118,7 @@ def coastseg_map_with_rois(valid_rois_filepath) -> coastseg_map.CoastSeg_Map:
         sat_list=sat_list,
         landsat_collection=landsat_collection,
         dates=dates,
-        **pre_process_settings
+        **pre_process_settings,
     )
     # test if rois will added to coastsegmap and added to ROI layer
     coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
@@ -165,7 +165,7 @@ def coastseg_map_with_selected_roi_layer(
         sat_list=sat_list,
         landsat_collection=landsat_collection,
         dates=dates,
-        **pre_process_settings
+        **pre_process_settings,
     )
     # test if rois will added to coastsegmap and added to ROI layer
     coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
@@ -174,7 +174,9 @@ def coastseg_map_with_selected_roi_layer(
     coastsegmap.selected_set.add(ROI_id)
 
     selected_layer = GeoJSON(
-        data=coastsegmap.convert_selected_set_to_geojson(coastsegmap.selected_set),
+        data=coastsegmap.convert_selected_set_to_geojson(
+            coastsegmap.selected_set, layer_name=roi.ROI.LAYER_NAME
+        ),
         name=roi.ROI.SELECTED_LAYER_NAME,
         hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},
     )

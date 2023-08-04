@@ -74,7 +74,7 @@ def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     dates = settings["dates"]
     landsat_collection = settings["landsat_collection"]
     sat_list = settings["sat_list"]
-    
+
     # Add roi_settings to  actual_coastsegmap.rois
     selected_layer = actual_coastsegmap.map.find_layer(roi.ROI.SELECTED_LAYER_NAME)
     roi_settings = common.create_roi_settings(
@@ -153,12 +153,15 @@ def test_load_json_config_without_rois(valid_coastseg_map_with_settings, tmp_dat
     with pytest.raises(Exception):
         actual_coastsegmap.load_json_config("", tmp_data_path)
 
-def test_load_settings(downloaded_config_json_filepath,valid_coastseg_map_with_settings):  
-    # create instance of Coastseg_Map 
+
+def test_load_settings(
+    downloaded_config_json_filepath, valid_coastseg_map_with_settings
+):
+    # create instance of Coastseg_Map
     actual_coastsegmap = valid_coastseg_map_with_settings
     actual_coastsegmap.load_settings(downloaded_config_json_filepath)
 
-    actual_coastsegmap.settings["sat_list"] =  ["L8"]
+    actual_coastsegmap.settings["sat_list"] = ["L8"]
     actual_coastsegmap.settings["landsat_collection"] = "C02"
     actual_coastsegmap.settings["dates"] = ["2018-12-01", "2019-03-01"]
     actual_coastsegmap.settings["cloud_thresh"] = 0.5
@@ -174,6 +177,7 @@ def test_load_settings(downloaded_config_json_filepath,valid_coastseg_map_with_s
     actual_coastsegmap.settings["pan_off"] = "False"
     actual_coastsegmap.settings["max_dist_ref"] = 25
     actual_coastsegmap.settings["along_dist"] = 25
+
 
 # def test_load_json_config_downloaded(
 #     valid_coastseg_map_with_settings,
@@ -219,7 +223,6 @@ def test_load_settings(downloaded_config_json_filepath,valid_coastseg_map_with_s
 #     for key in actual_config["roi_ids"]:
 #         assert key in actual_coastsegmap.rois.roi_settings
 
-   
 
 def test_valid_shoreline_gdf(valid_shoreline_gdf: gpd.GeoDataFrame):
     """tests if a Shoreline will be created from a valid shoreline thats a gpd.GeoDataFrame
@@ -330,7 +333,7 @@ def test_select_roi_layer(
 
     selected_layer = GeoJSON(
         data=actual_coastsegmap.convert_selected_set_to_geojson(
-            actual_coastsegmap.selected_set
+            actual_coastsegmap.selected_set, layer_name=roi.ROI.LAYER_NAME
         ),
         name=roi.ROI.SELECTED_LAYER_NAME,
         hover_style={"fillColor": "blue", "fillOpacity": 0.1, "color": "aqua"},

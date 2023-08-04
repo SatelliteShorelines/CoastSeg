@@ -13,6 +13,7 @@ import geopandas as gpd
 import numpy as np
 from shapely import geometry
 
+
 # Test data
 @pytest.fixture(scope="function")
 def empty_ROI_directory(request):
@@ -20,12 +21,19 @@ def empty_ROI_directory(request):
     directory_name = request.param if hasattr(request, "param") else ""
 
     # Create subdirectories
-    os.makedirs(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB'))
+    os.makedirs(
+        os.path.join(temp_dir, directory_name, "jpg_files", "preprocessed", "RGB")
+    )
 
     filenames = []
 
     for fn in filenames:
-        with open(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB', fn), "w") as f:
+        with open(
+            os.path.join(
+                temp_dir, directory_name, "jpg_files", "preprocessed", "RGB", fn
+            ),
+            "w",
+        ) as f:
             f.write("test content")
 
     yield temp_dir
@@ -40,7 +48,9 @@ def sample_ROI_directory(request):
     directory_name = request.param if hasattr(request, "param") else ""
 
     # Create subdirectories
-    os.makedirs(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB'))
+    os.makedirs(
+        os.path.join(temp_dir, directory_name, "jpg_files", "preprocessed", "RGB")
+    )
 
     filenames = [
         "20210101_sat1_L5.jpg",
@@ -53,12 +63,18 @@ def sample_ROI_directory(request):
     ]
 
     for fn in filenames:
-        with open(os.path.join(temp_dir, directory_name, 'jpg_files', 'preprocessed','RGB', fn), "w") as f:
+        with open(
+            os.path.join(
+                temp_dir, directory_name, "jpg_files", "preprocessed", "RGB", fn
+            ),
+            "w",
+        ) as f:
             f.write("test content")
 
     yield temp_dir
 
     shutil.rmtree(temp_dir)
+
 
 @pytest.fixture(scope="function")
 def sample_directory():
@@ -82,24 +98,41 @@ def sample_directory():
 
     shutil.rmtree(temp_dir)
 
+
 @pytest.fixture(scope="module")
 def expected_satellites():
     return {
-        'L5': {'20210101_L5_site1_ms.tif'},
-        'L7': {'20210101_L7_site1_ms.tif'},
-        'L8': {'20210101_L8_site1_ms.tif'},
-        'L9': {'20210101_L9_site1_ms.tif'},
-        'S2': {'20210101_S2_site1_ms.tif'}
+        "L5": {"20210101_L5_site1_ms.tif"},
+        "L7": {"20210101_L7_site1_ms.tif"},
+        "L8": {"20210101_L8_site1_ms.tif"},
+        "L9": {"20210101_L9_site1_ms.tif"},
+        "S2": {"20210101_S2_site1_ms.tif"},
     }
+
 
 # Test data
 @pytest.fixture(scope="module")
 def sample_metadata():
     metadata = {
-        "L5": {"filenames": ["20210101_L5_site1_ms.tif", "20220101_L5_site1_ms.tif"]},
-        "L7": {"filenames": ["20210101_L7_site1_ms.tif", "20220101_L7_site1_ms.tif"]},
-        "dates":[],
-        "sitename":'site1',
+        "L5": {
+            "filenames": ["20210101_L5_site1_ms.tif", "20220101_L5_site1_ms.tif"],
+            "acc_georef": [9.185, 10.185],
+            "epsg": [32618, 32618],
+            "dates": [
+                "datetime.datetime(2020, 1, 5, 15, 33, 53, tzinfo=<UTC>)",
+                "datetime.datetime(2020, 1, 21, 15, 33, 50, tzinfo=<UTC>)",
+            ],
+        },
+        "L7": {
+            "filenames": ["20210101_L7_site1_ms.tif", "20220101_L7_site1_ms.tif"],
+            "acc_georef": [7.441, 5.693],
+            "epsg": [32618, 32618],
+            "dates": [
+                "datetime.datetime(2020, 1, 5, 15, 33, 53, tzinfo=<UTC>)",
+                "datetime.datetime(2020, 2, 22, 15, 33, 41, tzinfo=<UTC>)",
+            ],
+        },
+        "sitename": "site1",
     }
     return metadata
 
@@ -107,80 +140,122 @@ def sample_metadata():
 @pytest.fixture(scope="module")
 def expected_filtered_metadata():
     metadata = {
-        "L5": {"filenames": ["20210101_L5_site1_ms.tif"]},
-        "L7": {"filenames": ["20210101_L7_site1_ms.tif"]},
-        "dates":[],
-        "sitename":'site1',
+        "L5": {
+            "filenames": ["20210101_L5_site1_ms.tif"],
+            "acc_georef": [9.185],
+            "epsg": [32618],
+            "dates": ["datetime.datetime(2020, 1, 5, 15, 33, 53, tzinfo=<UTC>)"],
+        },
+        "L7": {
+            "filenames": ["20210101_L7_site1_ms.tif"],
+            "acc_georef": [7.441],
+            "epsg": [32618],
+            "dates": [
+                "datetime.datetime(2020, 1, 5, 15, 33, 53, tzinfo=<UTC>)",
+            ],
+        },
+        "sitename": "site1",
     }
     return metadata
+
 
 @pytest.fixture(scope="module")
 def expected_empty_filtered_metadata():
     metadata = {
-        "L5": {"filenames": []},
-        "L7": {"filenames": []},
-        "dates":[],
-        "sitename":'site1',
+        "L5": {
+            "filenames": [],
+            "acc_georef": [],
+            "epsg": [],
+            "dates": [],
+        },
+        "L7": {
+            "filenames": [],
+            "acc_georef": [],
+            "epsg": [],
+            "dates": [],
+        },
+        "sitename": "site1",
     }
     return metadata
 
+
 @pytest.mark.parametrize("sample_ROI_directory", ["site1"], indirect=True)
-def test_filter_metadata(sample_ROI_directory, sample_metadata, expected_filtered_metadata):
+def test_filter_metadata(
+    sample_ROI_directory, sample_metadata, expected_filtered_metadata
+):
     result = common.filter_metadata(sample_metadata, "site1", sample_ROI_directory)
-    
-    assert result == expected_filtered_metadata, "The output filtered metadata is not as expected."
+
+    assert (
+        result == expected_filtered_metadata
+    ), "The output filtered metadata is not as expected."
 
 
 @pytest.mark.parametrize("empty_ROI_directory", ["site1"], indirect=True)
-def test_empty_roi_directory_filter_metadata(empty_ROI_directory, sample_metadata, expected_empty_filtered_metadata,sample_directory):
+def test_empty_roi_directory_filter_metadata(
+    empty_ROI_directory,
+    sample_metadata,
+    expected_empty_filtered_metadata,
+    sample_directory,
+):
     # if the RGB directory but exists and is empty then no filenames in result should be empty lists
     result = common.filter_metadata(sample_metadata, "site1", empty_ROI_directory)
-    assert result == expected_empty_filtered_metadata, "The output filtered metadata is not as expected."
+    assert (
+        result == expected_empty_filtered_metadata
+    ), "The output filtered metadata is not as expected."
 
     # should raise an error if the RGB directory within the ROI directory does not exist
     with pytest.raises(Exception):
         common.filter_metadata(sample_metadata, "site1", sample_directory)
-    
 
-    
 
 # Test cases
 def test_get_filtered_files_dict(sample_directory, expected_satellites):
     result = common.get_filtered_files_dict(sample_directory, "jpg", "site1")
-    
-    assert result == expected_satellites, "The output file name dictionary is not as expected."
 
+    assert (
+        result == expected_satellites
+    ), "The output file name dictionary is not as expected."
 
 
 # Test for preprocessing function
 def test_preprocess_geodataframe():
-
     # Test when data is empty
     empty_data = gpd.GeoDataFrame()
     result = common.preprocess_geodataframe(empty_data)
     assert result.empty, "Result should be empty when data is empty."
 
     # Test when data contains "ID" column
-    data_with_ID = gpd.GeoDataFrame({'ID': [1, 2, 3], 'geometry': [None, None, None]})
+    data_with_ID = gpd.GeoDataFrame({"ID": [1, 2, 3], "geometry": [None, None, None]})
     result = common.preprocess_geodataframe(data_with_ID)
     assert "id" in result.columns, "Column 'ID' should be renamed to 'id'."
     assert "ID" not in result.columns, "Column 'ID' should not exist in the result."
 
     # Test when data does not contain "id" column
-    data_without_id = gpd.GeoDataFrame({'foo': [1, 2, 3], 'geometry': [None, None, None]})
-    result = common.preprocess_geodataframe(data_without_id,create_ids=True)
+    data_without_id = gpd.GeoDataFrame(
+        {"foo": [1, 2, 3], "geometry": [None, None, None]}
+    )
+    result = common.preprocess_geodataframe(data_without_id, create_ids=True)
     assert "id" in result.columns, "Column 'id' should be added when it does not exist."
 
     # Test when data does not contain "id" column
-    data_without_id = gpd.GeoDataFrame({'foo': [1, 2, 3], 'geometry': [None, None, None]})
-    result = common.preprocess_geodataframe(data_without_id,create_ids=False)
-    assert "id" not in result.columns, "Column 'id' should be added when it does not exist."
+    data_without_id = gpd.GeoDataFrame(
+        {"foo": [1, 2, 3], "geometry": [None, None, None]}
+    )
+    result = common.preprocess_geodataframe(data_without_id, create_ids=False)
+    assert (
+        "id" not in result.columns
+    ), "Column 'id' should be added when it does not exist."
 
     # Test when columns_to_keep is specified
-    data_with_extra_columns = gpd.GeoDataFrame({'id': [1, 2, 3], 'foo': ['a', 'b', 'c'], 'geometry': [None, None, None]})
-    columns_to_keep = ['id', 'geometry']
+    data_with_extra_columns = gpd.GeoDataFrame(
+        {"id": [1, 2, 3], "foo": ["a", "b", "c"], "geometry": [None, None, None]}
+    )
+    columns_to_keep = ["id", "geometry"]
     result = common.preprocess_geodataframe(data_with_extra_columns, columns_to_keep)
-    assert set(result.columns) == set(columns_to_keep), "Only specified columns should be kept."
+    assert set(result.columns) == set(
+        columns_to_keep
+    ), "Only specified columns should be kept."
+
 
 # @todo add a test like this back when you are ready
 # def test_duplicate_ids_exception():
@@ -197,17 +272,22 @@ def test_remove_z_coordinates():
     assert result.empty, "Result should be empty when geodf is empty."
 
     # Test when geodf contains geometries with z coordinates
-    data_with_z = gpd.GeoDataFrame({'geometry': [Point(1, 2, 3), Point(4, 5, 6)]})
+    data_with_z = gpd.GeoDataFrame({"geometry": [Point(1, 2, 3), Point(4, 5, 6)]})
     result = common.remove_z_coordinates(data_with_z)
-    assert not any(geom.has_z for geom in result.geometry), "All z coordinates should be removed."
-    
-    # Test when geodf contains MultiLineStrings
-    data_with_multilinestrings = gpd.GeoDataFrame({
-        'geometry': [MultiLineString([((1, 2), (3, 4)), ((5, 6), (7, 8))])],
-    })
-    result = common.remove_z_coordinates(data_with_multilinestrings)
-    assert all(isinstance(geom, LineString) for geom in result.geometry), "All MultiLineStrings should be exploded into LineStrings."
+    assert not any(
+        geom.has_z for geom in result.geometry
+    ), "All z coordinates should be removed."
 
+    # Test when geodf contains MultiLineStrings
+    data_with_multilinestrings = gpd.GeoDataFrame(
+        {
+            "geometry": [MultiLineString([((1, 2), (3, 4)), ((5, 6), (7, 8))])],
+        }
+    )
+    result = common.remove_z_coordinates(data_with_multilinestrings)
+    assert all(
+        isinstance(geom, LineString) for geom in result.geometry
+    ), "All MultiLineStrings should be exploded into LineStrings."
 
 
 def test_get_transect_points_dict(valid_transects_gdf):
@@ -320,7 +400,7 @@ def test_create_roi_settings(valid_selected_ROI_layer_data, valid_settings):
             "landsat_collection": "C01",
             "dates": ["2018-12-01", "2019-03-01"],
     """
-    filepath = "C\:Sharon"
+    filepath = r"C\:Sharon"
     date_str = datetime.date(2019, 4, 13).strftime("%m-%d-%y__%I_%M_%S")
     actual_roi_settings = common.create_roi_settings(
         valid_settings, valid_selected_ROI_layer_data, filepath, date_str
@@ -394,12 +474,12 @@ def test_config_geodataframe_to_file(tmp_path):
 
 def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_gdf):
     # test if a gdf is created with all the rois, shorelines and transects
-    epsg_code = 'epsg:4326'
+    epsg_code = "epsg:4326"
     if valid_rois_gdf is not None:
         if not valid_rois_gdf.empty:
             epsg_code = valid_rois_gdf.crs
     actual_gdf = common.create_config_gdf(
-        valid_rois_gdf, valid_shoreline_gdf, valid_transects_gdf,epsg_code=epsg_code
+        valid_rois_gdf, valid_shoreline_gdf, valid_transects_gdf, epsg_code=epsg_code
     )
     assert "type" in actual_gdf.columns
     assert actual_gdf[actual_gdf["type"] == "transect"].empty == False
@@ -408,12 +488,12 @@ def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_
 
     # test if a gdf is created with all the rois, transects if shorelines is None
     shorelines_gdf = None
-    epsg_code = 'epsg:4326'
+    epsg_code = "epsg:4326"
     if valid_rois_gdf is not None:
         if not valid_rois_gdf.empty:
             epsg_code = valid_rois_gdf.crs
     actual_gdf = common.create_config_gdf(
-        valid_rois_gdf, shorelines_gdf, valid_transects_gdf,epsg_code=epsg_code
+        valid_rois_gdf, shorelines_gdf, valid_transects_gdf, epsg_code=epsg_code
     )
     assert "type" in actual_gdf.columns
     assert actual_gdf[actual_gdf["type"] == "transect"].empty == False
@@ -421,11 +501,13 @@ def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_
     assert actual_gdf[actual_gdf["type"] == "roi"].empty == False
     # test if a gdf is created with all the rois if  transects and shorelines is None
     transects_gdf = None
-    epsg_code = 'epsg:4326'
+    epsg_code = "epsg:4326"
     if valid_rois_gdf is not None:
         if not valid_rois_gdf.empty:
             epsg_code = valid_rois_gdf.crs
-    actual_gdf = common.create_config_gdf(valid_rois_gdf, shorelines_gdf, transects_gdf,epsg_code=epsg_code)
+    actual_gdf = common.create_config_gdf(
+        valid_rois_gdf, shorelines_gdf, transects_gdf, epsg_code=epsg_code
+    )
     assert "type" in actual_gdf.columns
     assert actual_gdf[actual_gdf["type"] == "transect"].empty == True
     assert actual_gdf[actual_gdf["type"] == "shoreline"].empty == True
