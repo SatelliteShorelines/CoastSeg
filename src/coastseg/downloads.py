@@ -9,6 +9,7 @@ from glob import glob
 import concurrent.futures
 import zipfile
 import requests
+from datetime import datetime
 
 from coastseg import common
 
@@ -18,6 +19,8 @@ import aiohttp
 import tqdm
 import tqdm.auto
 import tqdm.asyncio
+from typing import Union
+from typing import Collection
 import ee
 from area import area
 import geopandas as gpd
@@ -25,6 +28,92 @@ from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.ops import split
 
 logger = logging.getLogger(__name__)
+
+
+def count_images_in_ee_collection(
+    polygon: list[list[float]],
+    start_date: Union(str, datetime),
+    end_date: Union(str, datetime),
+    max_cloud_cover: float = 99,
+    satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2"),
+) -> dict:
+    """
+    Count the number of images in specified satellite collections over a certain area and time period.
+
+    Parameters:
+    polygon (list[list[float]]): A list of lists representing the vertices of a polygon in lon/lat coordinates.
+    start_date (str or datetime): The start date of the time period. If a string, it should be in 'YYYY-MM-DD' format.
+    end_date (str or datetime): The end date of the time period. If a string, it should be in 'YYYY-MM-DD' format.
+    max_cloud_cover (float, optional): The maximum cloud cover percentage. Images with a cloud cover percentage higher than this will be excluded. Defaults to 99.
+    satellites (Collection[str], optional): A collection of satellite names. The function will return image counts for these satellites. Defaults to ("L5","L7","L8","L9","S2").
+
+    Returns:
+    dict: A dictionary where the keys are the satellite names and the values are the image counts.
+
+    Raises:
+    ValueError: If start_date or end_date are not strings or datetime objects.
+
+    Example:
+    >>> polygon = [[[151.2957545, -33.7390216],
+    ... [151.312234, -33.7390216],
+    ... [151.312234, -33.7012561],
+    ... [151.2957545, -33.7012561],
+    ... [151.2957545, -33.7390216]]]
+    >>> start_date = '2017-12-01'
+    >>> end_date = '2018-01-01'
+    >>> count_images(polygon, start_date, end_date)
+    """
+    # Check types of start_date and end_date
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    elif not isinstance(start_date, datetime):
+        raise ValueError("start_date must be a string or datetime object")
+
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+    elif not isinstance(end_date, datetime):
+        raise ValueError("end_date must be a string or datetime object")
+
+    # Check if EE was initialised or not
+    try:
+        ee.ImageCollection("LANDSAT/LT05/C01/T1_TOA")
+    except:
+        ee.Initialize()
+
+    col_names_T1 = {
+        "L5": "LANDSAT/LT05/C02/T1_TOA",
+        "L7": "LANDSAT/LE07/C02/T1_TOA",
+        "L8": "LANDSAT/LC08/C02/T1_TOA",
+        "L9": "LANDSAT/LC09/C02/T1_TOA",  # only C02 for Landsat 9
+        "S2": "COPERNICUS/S2",
+    }
+
+    image_counts = {}
+
+    for satellite in satellites:
+        if satellite in col_names_T1:
+            collection_name = col_names_T1[satellite]
+            collection = ee.ImageCollection(collection_name)
+            collection = collection.filterDate(start_date, end_date)
+            collection = collection.filterBounds(ee.Geometry.Polygon(polygon))
+
+            # Add a cloud cover filter for collections that have a 'CLOUD_COVER' property
+            if satellite in ["L5", "L7", "L8", "L9"]:
+                collection = collection.filter(
+                    ee.Filter.lt("CLOUD_COVER", max_cloud_cover)
+                )
+
+            # Add a cloud cover filter for collections that have a 'CLOUDY_PIXEL_PERCENTAGE' property
+            if satellite == "S2":
+                collection = collection.filter(
+                    ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_cover)
+                )
+
+            count = collection.size().getInfo()
+            image_counts[satellite] = count
+
+    return image_counts
+
 
 def download_url_dict(url_dict):
     for save_path, url in url_dict.items():

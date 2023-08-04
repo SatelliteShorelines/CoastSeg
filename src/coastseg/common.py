@@ -854,7 +854,7 @@ def mount_google_drive(name: str = "CoastSeg") -> None:
         print("Not running in Google Colab.")
 
 
-def create_hover_box(title: str, feature_html: HTML = None) -> VBox:
+def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
     """
     Creates a box with a title and optional HTML containing information about the feature that was
     last hovered over.
