@@ -30,8 +30,10 @@ input_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_12_date
 parent_directory_names = [
     "segformer_RGB_4class_8190958",
     "sat_RGB_4class_6950472",
-    "segformer_MNDWI_4class_8190853",
-    "segformer_NDWI_4class_8190742",
+    "segformer_MNDWI_4class_8213443",
+    "sat_MNDWI_4class_7352850",
+    "segformer_NDWI_4class_8213427",
+    "sat_NDWI_4class_7352859",
 ]
 
 available_models_dict = {
@@ -40,10 +42,12 @@ available_models_dict = {
         "sat_RGB_4class_6950472",
     ],
     "MNDWI": [
-        "segformer_MNDWI_4class_8190853",
+        "segformer_MNDWI_4class_8213443",
+        "sat_MNDWI_4class_7352850",
     ],
     "NDWI": [
-        "segformer_NDWI_4class_8190742",
+        "segformer_NDWI_4class_8213427",
+        "sat_NDWI_4class_7352859",
     ],
 }
 

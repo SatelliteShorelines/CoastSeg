@@ -493,7 +493,6 @@ class CoastSeg_Map:
         """
 
         self.validate_download_imagery_inputs()
-
         # selected_layer contains the selected ROIs
         selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
         logger.info(f"selected_layer: {selected_layer}")

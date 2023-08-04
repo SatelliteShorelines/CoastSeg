@@ -304,13 +304,13 @@ class Shoreline:
         )
 
     def download_shoreline(
-        self, filename: str, save_location: str, dataset_id: str = "7761607"
+        self, filename: str, save_location: str, dataset_id: str = "7814755"
     ):
         """Downloads the shoreline file from zenodo
         Args:
             filename (str): name of file to download
             save_location (str): full path to location to save the downloaded shoreline file
-            dataset_id (str, optional): zenodo id of file. Defaults to '7761607'.
+            dataset_id (str, optional): zenodo id of file. Defaults to '7814755'.
         """
 
         # Construct the download URL

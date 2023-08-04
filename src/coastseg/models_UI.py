@@ -66,10 +66,10 @@ class UI_Models:
         #     "sat_5band_4class_7344606",
         # ]
         self.MNDWI_models = [
-            "segformer_MNDWI_4class_8190853",
+            "segformer_MNDWI_4class_8213443",
         ]
         self.NDWI_models = [
-            "segformer_NDWI_4class_8190742",
+            "segformer_NDWI_4class_8213427",
         ]
         self.session_name = ""
         self.shoreline_session_directory = ""
