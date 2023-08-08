@@ -1,3 +1,4 @@
+# Standard library imports
 import os
 import re
 import glob
@@ -7,36 +8,55 @@ import math
 import logging
 import random
 import string
-from typing import Callable, List
-from typing import Union
-from json import JSONEncoder
 import datetime
-from requests.exceptions import SSLError
 
-# Internal dependencies imports
-from coastseg import exceptions
-
-
-from tqdm.auto import tqdm
+# Third-party imports
 import requests
-from area import area
 import geopandas as gpd
 import numpy as np
 import geojson
 import pandas as pd
 import shapely
-
+from area import area
+from tqdm.auto import tqdm
 from ipyfilechooser import FileChooser
+from ipywidgets import ToggleButton, HBox, VBox, Layout, HTML
+from requests.exceptions import SSLError
 
-from ipywidgets import ToggleButton
-from ipywidgets import HBox
-from ipywidgets import VBox
-from ipywidgets import Layout
-from ipywidgets import HTML
+# Specific classes/functions from modules
+from typing import Callable, List, Optional, Union
+from json import JSONEncoder
+
+# Internal dependencies imports
+from coastseg import exceptions
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
+# Logger setup
 logger = logging.getLogger(__name__)
+
+
+def get_roi_polygon(
+    roi_gdf: gpd.GeoDataFrame, roi_id: int
+) -> Optional[List[List[float]]]:
+    """
+    Extract polygon coordinates for a given ROI ID from a GeoDataFrame.
+
+    Parameters:
+    - roi_gdf (gpd.GeoDataFrame): GeoDataFrame with "id" and "geometry" columns.
+    - roi_id (int): ID of the region of interest.
+
+    Returns:
+    - Optional[List[List[float]]]: Polygon vertices or None if ROI ID is not found.
+
+    Example:
+    >>> polygon = get_roi_polygon(gdf, 1)
+    """
+    """Extract the polygonal geometry for a given ROI ID."""
+    geoseries = roi_gdf[roi_gdf["id"] == roi_id]["geometry"]
+    if not geoseries.empty:
+        return [[[x, y] for x, y in list(geoseries.iloc[0].exterior.coords)]]
+    return None
 
 
 def get_cert_path_from_config(config_file="certifications.json"):
@@ -62,7 +82,7 @@ def get_cert_path_from_config(config_file="certifications.json"):
         try:
             config = json.loads(config_string)
         except json.JSONDecodeError:
-            config_string = config_string.replace('\\', '\\\\')
+            config_string = config_string.replace("\\", "\\\\")
             config = json.loads(config_string)
 
         # Get the cert path
@@ -95,13 +115,16 @@ def get_response(url, stream=True):
     """
     # attempt a standard request then try with an ssl certificate
     try:
-        response=requests.get(url, stream=stream)
+        response = requests.get(url, stream=stream)
     except SSLError as e:
         cert_path = get_cert_path_from_config()
         if cert_path:  # if an ssl file was provided use it
             response = requests.get(url, stream=stream, verify=cert_path)
         else:  # if no ssl was provided
-            raise exceptions.WarningException("An SSL Verfication Error occured","Save the location of your SSL certification file to certifications.json when downloading over a secure network")
+            raise exceptions.WarningException(
+                "An SSL Verfication Error occured",
+                "Save the location of your SSL certification file to certifications.json when downloading over a secure network",
+            )
     return response
 
 

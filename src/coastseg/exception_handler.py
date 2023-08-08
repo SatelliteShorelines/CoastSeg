@@ -27,6 +27,7 @@ BBOX_NOT_FOUND = "Bounding Box not found on map"
 SESSION_NAME_NOT_FOUND = "No session name found.Enter a session name."
 EMPTY_SELECTED_ROIS = "Must select at least one ROI on the map"
 SETTINGS_NOT_FOUND = "No settings found. Click save settings."
+ROI_NOT_FOUND = "No ROIs found. Click Generate ROIs."
 SHORELINE_NOT_FOUND = "No Shoreline found. Please load a shoreline on the map first."
 NO_ROI_SETTINGS = (
     "No roi settings found. Click download imagery first or upload configs"
@@ -119,6 +120,8 @@ def check_if_None(feature, feature_type: str = "", message: str = ""):
             message = SETTINGS_NOT_FOUND
         if feature_type == "shoreline":
             message = SHORELINE_NOT_FOUND
+        if "roi" in feature_type.lower():
+            message = ROI_NOT_FOUND
         logger.error(f"{feature_type} is None")
         raise exceptions.Object_Not_Found(feature_type, message)
 

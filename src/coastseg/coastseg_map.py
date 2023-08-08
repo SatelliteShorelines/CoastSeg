@@ -1,34 +1,38 @@
-from datetime import datetime
+# Standard library imports
 import os
 import json
 import logging
 import glob
-from typing import Dict, List, Optional, Tuple, Union
+from datetime import datetime
 from collections import defaultdict
+from typing import Dict, List, Optional, Tuple, Union
 
-from coastseg.bbox import Bounding_Box
-from coastseg import common
-from coastseg import factory
-from coastseg.shoreline import Shoreline
-from coastseg.transects import Transects
-from coastseg.roi import ROI
-from coastseg import exceptions
-from coastseg import extracted_shoreline
-from coastseg import exception_handler
-from coastseg.zoo_model import tidal_corrections
-from coastseg.observable import Observable
-
-from coastsat import (
-    SDS_download,
-)
+# Third-party imports
 import pandas as pd
 import geopandas as gpd
 from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
-from ipywidgets import Layout, HTML
+from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
-from ipywidgets import HBox
-from ipyleaflet import GeoJSON
+
+# Internal/Local imports: specific classes/functions
+from coastseg.bbox import Bounding_Box
+from coastseg.shoreline import Shoreline
+from coastseg.transects import Transects
+from coastseg.roi import ROI
+from coastseg.downloads import count_images_in_ee_collection
+from coastseg.zoo_model import tidal_corrections
+
+# Internal/Local imports: modules
+from coastseg import (
+    common,
+    factory,
+    exceptions,
+    extracted_shoreline,
+    exception_handler,
+)
+from coastseg.observable import Observable
+from coastsat import SDS_download
 
 
 logger = logging.getLogger(__name__)
@@ -38,16 +42,34 @@ SELECTED_LAYER_NAME = "Selected Shorelines"
 
 class CoastSeg_Map:
     def __init__(self):
-        # settings:  used to select data to download and preprocess settings
+        # Basic settings and configurations
         self.settings = {}
-        # create default values for settings
         self.set_settings()
         self.session_name = ""
-        # Make the extracted shoreline layer observerable so that other widgets can update accordingly
+
+        # Factory for creating map objects
+        self.factory = factory.Factory()
+
+        # Observables
+        self._init_observables()
+
+        # Map objects and configurations
+        self.rois = None
+        self.transects = None
+        self.shoreline = None
+        self.bbox = None
+        self.selected_set = set()
+        self.selected_shorelines_set = set()
+        self._init_map_components()
+
+        # Warning and information boxes
+        self._init_info_boxes()
+
+    def _init_observables(self):
+        """Initialize observable attributes."""
         self.extracted_shoreline_layer = Observable(
             None, name="extracted_shoreline_layer"
         )
-        # Make the numbrt extracted shorelines observerable so that other widgets can update accordingly
         self.number_extracted_shorelines = Observable(
             0, name="number_extracted_shorelines"
         )
@@ -55,33 +77,25 @@ class CoastSeg_Map:
             [], name="roi_ids_with_shorelines"
         )
 
-        # factory is used to create map objects
-        self.factory = factory.Factory()
-
-        # ids of the selected rois
-        self.selected_set = set()
-        self.selected_shorelines_set = set()
-
-        # map objects
-        self.rois = None
-        self.transects = None
-        self.shoreline = None
-        self.bbox = None
+    def _init_map_components(self):
+        """Initialize map-related attributes and settings."""
         self.map = self.create_map()
         self.draw_control = self.create_DrawControl(DrawControl())
         self.draw_control.on_draw(self.handle_draw)
         self.map.add(self.draw_control)
-        layer_control = LayersControl(position="topright")
-        self.map.add(layer_control)
+        self.map.add(LayersControl(position="topright"))
 
-        # Warning and information boxes
+    def _init_info_boxes(self):
+        """Initialize info and warning boxes for the map."""
         self.warning_box = HBox([])
         self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
         self.map.add(self.warning_widget)
+
         self.roi_html = HTML("""""")
         self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html)
         self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
         self.map.add(self.roi_widget)
+
         self.feature_html = HTML("""""")
         self.hover_box = common.create_hover_box(
             title="Feature", feature_html=self.feature_html
@@ -477,6 +491,65 @@ class CoastSeg_Map:
         feature_gdf = gdf[gdf["type"] == feature_type][keep_columns]
 
         return feature_gdf
+
+    def preview_available_images(self):
+        """
+        Preview the available satellite images for selected regions of interest (ROIs).
+
+        This function checks if ROIs exist and if one has been selected. It then retrieves
+        the start and end dates from the settings and iterates over each selected ROI ID.
+        For each ROI, it extracts the polygonal geometry, queries the satellite image collections
+        using `count_images_in_ee_collection`, and prints the count of available images for each
+        satellite.
+
+        It provides a progress bar using `tqdm` to indicate the processing of each ROI.
+
+        Attributes:
+        rois (object): An object that should contain the ROIs, including a GeoDataFrame (`gdf` attribute)
+                    with "id" and "geometry" columns.
+        selected_set (iterable): A set or list of ROI IDs that have been selected for processing.
+        settings (dict): A dictionary containing configuration settings, including "dates" which is
+                        a list containing the start and end date in the format ['YYYY-MM-DD', 'YYYY-MM-DD'].
+
+        Raises:
+        Exception: If no ROIs are provided, if the ROIs GeoDataFrame is empty, or if no ROI has been selected.
+
+        Prints:
+        The ROI ID and the count of available images for each satellite.
+
+        Example usage:
+        >>> self.rois = <...>  # Load ROIs into the object
+        >>> self.selected_set = {1, 2, 3}  # Example IDs of selected ROIs
+        >>> self.settings = {"dates": ['2022-01-01', '2022-12-31']}
+        >>> preview_available_images()
+        ROI ID: 1
+        L5: 10 images
+        L7: 8 images
+        L8: 12 images
+        L9: 5 images
+        S2: 11 images
+        """
+        # check that ROIs exist and one has been clicked
+        exception_handler.check_if_None(self.rois, "ROI")
+        exception_handler.check_if_gdf_empty(self.rois.gdf, "ROI")
+        exception_handler.check_selected_set(self.selected_set)
+        # get the start and end date to check available images
+        start_date, end_date = self.settings["dates"]
+        # for each selected ID return the images available for each site
+        for roi_id in tqdm(self.selected_set, desc="Processing", leave=False):
+            polygon = common.get_roi_polygon(self.rois.gdf, roi_id)
+            if polygon:
+                images_count = count_images_in_ee_collection(
+                    polygon,
+                    start_date,
+                    end_date,
+                    satellites=set(self.settings["sat_list"]),
+                )
+                satellite_messages = [f"\nROI ID: {roi_id}"]
+                for sat in self.settings["sat_list"]:
+                    satellite_messages.append(f"{sat}: {images_count[sat]} images")
+
+                print("\n".join(satellite_messages))
 
     def download_imagery(self) -> None:
         """

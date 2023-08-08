@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 def count_images_in_ee_collection(
     polygon: list[list[float]],
-    start_date: Union(str, datetime),
-    end_date: Union(str, datetime),
+    start_date: Union[str, datetime],
+    end_date: Union[str, datetime],
     max_cloud_cover: float = 99,
     satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2"),
 ) -> dict:

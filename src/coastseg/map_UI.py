@@ -1,20 +1,18 @@
-# standard python imports
+# Standard Python imports
 import os
 import datetime
 import logging
-from collections import defaultdict
-from ipywidgets import Layout
 
-# internal python imports
+# Internal Python imports
 from coastseg import exception_handler
 from coastseg import common
 from coastseg.watchable_slider import Extracted_Shoreline_widget
 
-# external python imports
+
+# External Python imports
 import ipywidgets
 from IPython.display import display
 from ipyfilechooser import FileChooser
-
 from google.auth import exceptions as google_auth_exceptions
 from ipywidgets import Button
 from ipywidgets import HBox
@@ -27,12 +25,21 @@ from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
-
 from ipywidgets import FloatText
 
 logger = logging.getLogger(__name__)
 
 # icons sourced from https://fontawesome.com/v4/icons/
+
+BOX_LAYOUT = Layout(
+    width="350px",
+    min_height="0px",  # Initial height
+    max_height="250px",  # Maximum height
+    flex_flow="row",
+    overflow="auto",  # Will add scrollbar if content is too large
+    display="flex",
+    flex_grow=1,  # Allows the box to grow based on content
+)
 
 
 def convert_date(date_str):
@@ -50,6 +57,7 @@ class UI:
     debug_view = Output(layout={"border": "1px solid black"})
     # Output widget used to print messages and exceptions created by download progress
     download_view = Output(layout={"border": "1px solid black"})
+    preview_view = Output()
 
     def __init__(self, coastseg_map):
         # save an instance of coastseg_map
@@ -129,6 +137,11 @@ class UI:
             description="Download Imagery", icon="download", style=self.action_style
         )
         self.download_button.on_click(self.download_button_clicked)
+
+        self.preview_button = Button(
+            description="Preview Imagery", icon="eye", style=self.action_style
+        )
+        self.preview_button.on_click(self.preview_button_clicked)
 
         self.extract_shorelines_button = Button(
             description="Extract Shorelines", style=self.action_style
@@ -318,11 +331,13 @@ class UI:
     def get_session_selection(self):
         output = Output()
         box_layout = Layout(
+            min_height="0px",  # Initial height
             width="350px",
-            height="50px",
+            max_height="50px",
             flex_flow="row",
             overflow="auto",
             display="flex",
+            flex_grow=1,  # Allows the box to grow based on content
         )
 
         self.session_name_text = ipywidgets.Text(
@@ -965,6 +980,8 @@ class UI:
             [
                 self.instr_download_roi,
                 self.download_button,
+                self.preview_button,
+                ipywidgets.Box(children=[UI.preview_view], layout=BOX_LAYOUT),
                 self.extract_shorelines_button,
                 self.get_session_selection(),
                 self.create_tidal_correction_widget(),
@@ -1109,6 +1126,31 @@ class UI:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
         self.extract_shorelines_button.disabled = False
+        self.coastseg_map.map.default_style = {"cursor": "default"}
+
+    @preview_view.capture(clear_output=True)
+    def preview_button_clicked(self, btn):
+        UI.preview_view.clear_output()
+        UI.debug_view.clear_output()
+        self.coastseg_map.map.default_style = {"cursor": "wait"}
+        self.preview_button.disabled = True
+        UI.debug_view.append_stdout("Scroll down past map to see download progress.")
+        try:
+            try:
+                self.preview_button.disabled = True
+                self.coastseg_map.preview_available_images()
+            except Exception as error:
+                # renders error message as a box on map
+                exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+        except google_auth_exceptions.RefreshError as exception:
+            print(exception)
+            exception_handler.handle_exception(
+                exception,
+                self.coastseg_map.warning_box,
+                title="Authentication Error",
+                msg="Please authenticate with Google using the cell above: \n Authenticate and Initialize with Google Earth Engine (GEE)",
+            )
+        self.preview_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @download_view.capture(clear_output=True)
