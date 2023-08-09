@@ -639,8 +639,8 @@ def main():
     CONFIG_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\config_gdf.geojson"
     RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\transect_time_series.csv"
     # output file names
-    TIDE_PREDICTIONS_FILE_NAME = "tidal_predictions_fire_island.csv"
-    TIDALLY_CORRECTED_FILE_NAME = "tidally_corrected_time_series_fire_island.csv"
+    TIDE_PREDICTIONS_FILE_NAME = "tidal_predictions.csv"
+    TIDALLY_CORRECTED_FILE_NAME = "tidally_corrected_time_series.csv"
     # DEFAULT LOCATIONS OF FES 2014 TIDE MODEL
     MODEL_REGIONS_GEOJSON_PATH = get_location("tide_regions_map.geojson")
     FES_2014_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
