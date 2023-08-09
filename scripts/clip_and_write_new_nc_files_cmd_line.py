@@ -299,7 +299,7 @@ print(f"{len(geometries)} tide regions")
 unzip_gzip_files(load_tide_dir)
 unzip_gzip_files(ocean_tide_dir)
 
-# create a list of all the nc files in both the load and coean tide directories
+# create a list of all the nc files in both the load and ocean tide directories
 load_tide_nc_files = [
     f for f in glob(os.path.join(load_tide_dir, "*.nc")) if "clipped" not in f
 ]
