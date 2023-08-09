@@ -3,6 +3,7 @@ import os
 import pathlib
 from pathlib import Path
 import time
+import argparse
 from typing import Dict, Tuple, Union
 
 # Third-party imports
@@ -617,36 +618,116 @@ def tidally_correct_timeseries(
     return corrected_df
 
 
-def get_location(filename: str, check_parent_directory: bool = False):
+def get_location(filename: str, check_parent_directory: bool = False) -> Path:
+    """
+    Get the absolute path to a specified file.
+
+    The function searches for the file in the directory where the script is located.
+    Optionally, it can also check the parent directory.
+
+    Parameters:
+    - filename (str): The name of the file for which the path is sought.
+    - check_parent_directory (bool): If True, checks the parent directory for the file.
+      Default is False.
+
+    Returns:
+    - Path: The absolute path to the file.
+
+    Raises:
+    - FileNotFoundError: If the file is not found in the specified location(s).
+    """
     search_dir = Path(__file__).parent
     if check_parent_directory:
         # Move up to the parent directory and then to 'tide_model'
         file_path = search_dir.parent / filename
     else:
-        # search_dir = os.path.dirname(os.path.abspath(__file__))
-        # file_path = os.path.join(search_dir, filename)
         file_path = search_dir / filename
     if not os.path.exists(file_path):
         raise FileNotFoundError(file_path)
     return file_path
 
 
-def main():
-    # Placeholder for actual paths and constants, to be filled in by the user
-    REFERENCE_ELEVATION = 3
-    BEACH_SLOPE = 2
-    # MODIFY THESE PATHS
-    CONFIG_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\config_gdf.geojson"
-    RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\transect_time_series.csv"
-    # output file names
-    TIDE_PREDICTIONS_FILE_NAME = "tidal_predictions.csv"
-    TIDALLY_CORRECTED_FILE_NAME = "tidally_corrected_time_series.csv"
+def parse_arguments() -> argparse.Namespace:
+    """
+    Parse command-line arguments for the tide correction script.
+
+    Arguments and their defaults are defined within the function.
+
+    Returns:
+    - argparse.Namespace: A namespace containing the script's command-line arguments.
+    """
+    parser = argparse.ArgumentParser(description="Script to correct tides.")
     # DEFAULT LOCATIONS OF FES 2014 TIDE MODEL
+
     MODEL_REGIONS_GEOJSON_PATH = get_location("tide_regions_map.geojson")
     FES_2014_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
 
-    CONFIG = {
-        "DIRECTORY": FES_2014_MODEL_PATH,
+    parser.add_argument(
+        "-C",
+        "-c",
+        dest="config",
+        type=str,
+        required=True,
+        help="Set the CONFIG_FILE_PATH.",
+    )
+    parser.add_argument(
+        "-T",
+        "-t",
+        dest="timeseries",
+        type=str,
+        required=True,
+        help="Set the RAW_TIMESERIES_FILE_PATH.",
+    )
+    parser.add_argument(
+        "-E",
+        "-e",
+        dest="elevation",
+        type=float,
+        default=3,
+        help="Set the REFERENCE_ELEVATION.",
+    )
+    parser.add_argument(
+        "-S", "-s", dest="slope", type=float, default=2, help="Set the BEACH_SLOPE."
+    )
+    parser.add_argument(
+        "-P",
+        "-p",
+        dest="predictions",
+        type=str,
+        default="tidal_predictions.csv",
+        help="Set the TIDE_PREDICTIONS_FILE_NAME.",
+    )
+    parser.add_argument(
+        "-O",
+        "-o",
+        dest="output",
+        type=str,
+        default="tidally_corrected_time_series.csv",
+        help="Set the TIDALLY_CORRECTED_FILE_NAME.",
+    )
+    parser.add_argument(
+        "-R",
+        "-r",
+        dest="regions",
+        type=str,
+        default=MODEL_REGIONS_GEOJSON_PATH,
+        help="Set the MODEL_REGIONS_GEOJSON_PATH.",
+    )
+    parser.add_argument(
+        "-M",
+        "-m",
+        dest="model",
+        type=str,
+        default=FES_2014_MODEL_PATH,
+        help="Set the FES_2014_MODEL_PATH.",
+    )
+
+    return parser.parse_args()
+
+
+def setup_tide_model_config(model_path: str) -> dict:
+    return {
+        "DIRECTORY": model_path,
         "DELTA_TIME": [0],
         "GZIP": False,
         "MODEL": "FES2014",
@@ -659,8 +740,27 @@ def main():
         "FILL_VALUE": np.nan,
         "CUTOFF": 10,
         "METHOD": "bilinear",
-        "REGION_DIRECTORY": os.path.join(FES_2014_MODEL_PATH, "region"),
+        "REGION_DIRECTORY": os.path.join(model_path, "region"),
     }
+
+
+def main():
+    args = parse_arguments()
+    # Assigning the parsed arguments to the respective variables
+    REFERENCE_ELEVATION = args.elevation
+    BEACH_SLOPE = args.slope
+    CONFIG_FILE_PATH = args.config
+    # Set this manually for testing only
+    # CONFIG_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\config_gdf.geojson"
+    RAW_TIMESERIES_FILE_PATH = args.timeseries
+    # Set this manually for testing only
+    # RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\transect_time_series.csv"
+    TIDE_PREDICTIONS_FILE_NAME = args.predictions
+    TIDALLY_CORRECTED_FILE_NAME = args.output
+    MODEL_REGIONS_GEOJSON_PATH = args.regions
+    FES_2014_MODEL_PATH = args.model
+
+    tide_model_config = setup_tide_model_config(FES_2014_MODEL_PATH)
 
     # Read timeseries data
     raw_timeseries_df = read_csv(RAW_TIMESERIES_FILE_PATH)
@@ -673,7 +773,7 @@ def main():
         CONFIG_FILE_PATH,
         raw_timeseries_df,
         MODEL_REGIONS_GEOJSON_PATH,
-        CONFIG,
+        tide_model_config,
     )
     end_time = time.time()
     print(f"Time taken for all tide predictions: {end_time - start_time}s")
