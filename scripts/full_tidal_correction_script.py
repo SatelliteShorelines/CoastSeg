@@ -1,6 +1,7 @@
 # Standard library imports
 import os
 import pathlib
+from pathlib import Path
 import time
 from typing import Dict, Tuple, Union
 
@@ -616,20 +617,34 @@ def tidally_correct_timeseries(
     return corrected_df
 
 
+def get_location(filename: str, check_parent_directory: bool = False):
+    search_dir = Path(__file__).parent
+    if check_parent_directory:
+        # Move up to the parent directory and then to 'tide_model'
+        file_path = search_dir.parent / filename
+    else:
+        # search_dir = os.path.dirname(os.path.abspath(__file__))
+        # file_path = os.path.join(search_dir, filename)
+        file_path = search_dir / filename
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(file_path)
+    return file_path
+
+
 def main():
     # Placeholder for actual paths and constants, to be filled in by the user
     REFERENCE_ELEVATION = 3
     BEACH_SLOPE = 2
-    # input files
+    # MODIFY THESE PATHS
     CONFIG_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\config_gdf.geojson"
     RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\transect_time_series.csv"
     # output file names
     TIDE_PREDICTIONS_FILE_NAME = "tidal_predictions_fire_island.csv"
     TIDALLY_CORRECTED_FILE_NAME = "tidally_corrected_time_series_fire_island.csv"
+    # DEFAULT LOCATIONS OF FES 2014 TIDE MODEL
+    MODEL_REGIONS_GEOJSON_PATH = get_location("tide_regions_map.geojson")
+    FES_2014_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
 
-    # Constants used to predict the tide (only set these once)
-    MODEL_REGIONS_GEOJSON_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\tide_modeling_workflow\tide_regions_map.geojson"
-    FES_2014_MODEL_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\tide_model"
     CONFIG = {
         "DIRECTORY": FES_2014_MODEL_PATH,
         "DELTA_TIME": [0],
