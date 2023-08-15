@@ -2,12 +2,6 @@ name: build
 on:
   push:
     branches: [main]
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+dev[0-9]+"
   workflow_dispatch:
 
 jobs:
@@ -19,19 +13,42 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
+      - name: Check commit message
+        id: check_message
+        run: |
+          COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.event.after }})
+          MATCH_PATTERNS=("v[0-9]+.[0-9]+.[0-9]+"
+                          "v[0-9]+.[0-9]+.[0-9]+a[0-9]+"
+                          "v[0-9]+.[0-9]+.[0-9]+b[0-9]+"
+                          "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+                          "v[0-9]+.[0-9]+.[0-9]+dev[0-9]+")
+          for pattern in "${MATCH_PATTERNS[@]}"; do
+            if [[ $COMMIT_MSG =~ $pattern ]]; then
+              echo "Commit message matches pattern: $pattern"
+              echo "::set-output name=match::true"
+              exit 0
+            fi
+          done
+          echo "Commit message does not match any pattern. Exiting job."
+          echo "::set-output name=match::false"
+          exit 1
       - uses: actions/checkout@v3
+        if: steps.check_message.outputs.match == 'true'
         with:
           fetch-depth: "100"
       - uses: actions/setup-python@v4
+        if: steps.check_message.outputs.match == 'true'
         with:
           python-version: "3.10"
       - name: Install pypa/build
+        if: steps.check_message.outputs.match == 'true'
         run: >-
           python -m
           pip install
           build
           --user
       - name: Build a binary wheel and a source tarball
+        if: steps.check_message.outputs.match == 'true'
         run: >-
           python -m
           build
@@ -40,6 +57,7 @@ jobs:
           --outdir dist/
           .
       - name: Publish to PyPI
+        if: steps.check_message.outputs.match == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           verbose: true
