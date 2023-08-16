@@ -121,8 +121,8 @@ class CoastSeg_Map:
            ipyleaflet.Map: ipyleaflet interactive Map object
         """
         map_settings = {
-            "center_point": (40.8630302395, -124.166267),
-            "zoom": 13,
+            "center_point": (36.8470, -121.8024),
+            "zoom": 7,
             "draw_control": False,
             "measure_control": False,
             "fullscreen_control": False,
@@ -137,6 +137,7 @@ class CoastSeg_Map:
             center=map_settings["center_point"],
             zoom=map_settings["zoom"],
             layout=map_settings["Layout"],
+            world_copy_jump=True,
         )
 
     def compute_tidal_corrections(
