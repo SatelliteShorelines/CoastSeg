@@ -1,24 +1,52 @@
 import geopandas as gpd
-from shapely.geometry import Point, LineString
+from shapely.geometry import LineString
+import argparse
+import os
+import warnings
 
-# STEP 1: Enter in the name of the file to read from
-gdf = gpd.read_file(
-    r"C:\development\doodleverse\coastseg\CoastSeg\RM_config_gdf.geojson"
-)
+# Ignore UserWarning
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
-# Drop features whose "type" is not "transect"
-gdf = gdf[gdf["type"] == "transect"]
+# Example : python transects_swap_points.py -i "C:\development\doodleverse\coastseg\CoastSeg\RM_config_gdf.geojson"
+# Example :  python get_transects_points.py  -i "C:\development\doodleverse\coastseg\CoastSeg\shortened_transects_JB.geojson" -o "output3.geojson"
+# -o provides the name of the output geojson file to save the transect to
+def main(input_file, output_file):
+    # STEP 1: Read the file
+    # input_file = r"C:\development\doodleverse\coastseg\CoastSeg\RM_config_gdf.geojson"
+    if not os.path.exists(input_file):
+        raise FileNotFoundError(input_file)
+    gdf = gpd.read_file(input_file)
 
-# Reverse the coordinates of each LineString to swap origin and end points
-gdf["geometry"] = gdf["geometry"].apply(lambda geom: geom.coords[::-1])
+    # Drop features whose "type" is not "transect"
+    gdf = gdf[gdf["type"] == "transect"]
 
-# Create new GeoDataFrame for the reversed transects
-reversed_transects_gdf = gpd.GeoDataFrame(
-    gdf, geometry=gdf["geometry"].apply(lambda coords: LineString(coords))
-)
-# STEP 2: Enter in the names of the files to save to
-# Save the reversed transects GeoDataFrame to a GeoJSON file
-reversed_transects_gdf.to_file("reversed_RM_transects.geojson", driver="GeoJSON")
+    # Reverse the coordinates of each LineString to swap origin and end points
+    gdf["geometry"] = gdf["geometry"].apply(lambda geom: geom.coords[::-1])
 
-print("Reversed transects saved to 'reversed_transects.geojson'!")
+    # Create new GeoDataFrame for the reversed transects
+    reversed_transects_gdf = gpd.GeoDataFrame(
+        gdf, geometry=gdf["geometry"].apply(lambda coords: LineString(coords))
+    )
+
+    # STEP 2: Save the reversed transects GeoDataFrame to a GeoJSON file
+    reversed_transects_gdf.to_file(output_file, driver="GeoJSON")
+    print(f"Reversed transects saved to {output_file}!")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Provide a geojson file containing transects, then this script will reverse the origin and end point for each transects.  Example: python transects_swap_points.py -i input_file.geojson -o reversed_transects.geojson "
+    )
+    parser.add_argument(
+        "-i", "--input", required=True, help="Path to the input geojson file."
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        required=False,
+        default="reversed_transects.geojson",
+        help="Filename for the output geojson file.",
+    )
+    args = parser.parse_args()
+    main(args.input, args.output)

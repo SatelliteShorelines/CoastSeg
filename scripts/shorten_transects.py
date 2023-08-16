@@ -1,7 +1,17 @@
 import geopandas as gpd
 from shapely.geometry import LineString
+import argparse
 
 
+# Example 1: python shorten_transects.py  -i "C:\development\doodleverse\coastseg\CoastSeg\reversed_transects.geojson" -s 500
+# -s shorten the length of the transect by 500 meters by moving the origin seaward
+# Example 2: python shorten_transects.py -i "C:\development\doodleverse\coastseg\CoastSeg\reversed_transects.geojson" -s  500 -l 100
+# -s shorten the length of the transect by 500 meters by moving the origin towards the end point
+# -l lengthen the length of the transect by 100 meters by moving the end point more seaward
+# Example 3: python shorten_transects.py -i "C:\development\doodleverse\coastseg\CoastSeg\reversed_transects.geojson" -s  500 -l 100 -o "shortened_transects2.geojson"
+# -s shorten the length of the transect by 500 meters by moving the origin towards the end point
+# -l lengthen the length of the transect by 100 meters by moving the end point more seaward
+# -o save the new transects to file "shortened_transects2.geojson"
 def utm_zone_from_lonlat(lon, lat):
     """
     Get the UTM zone for a given longitude and latitude.
@@ -63,46 +73,72 @@ def lengthen_transect(line, distance):
     return LineString([start_point, new_end_point])
 
 
-# STEP 1: Enter in the name of the file to read from
-# Read the GeoJSON file
-gdf = gpd.read_file(
-    r"C:\development\doodleverse\coastseg\CoastSeg\reversed_RM_transects.geojson"
-)
+def main(
+    input_file: str, shorten_distance: float, lengthen_distance: float, output_file: str
+):
+    # Read the GeoJSON file
+    # input_file = r"C:\development\doodleverse\coastseg\CoastSeg\reversed_RM_transects.geojson"
+    gdf = gpd.read_file(input_file)
 
-# Drop features whose "type" is not "transect"
-gdf = gdf[gdf["type"] == "transect"]
+    # Drop features whose "type" is not "transect"
+    gdf = gdf[gdf["type"] == "transect"]
+
+    original_crs = gdf.crs
+
+    # Determine the appropriate UTM zone for the centroid of the data
+    centroid = gdf.unary_union.centroid
+    utm_epsg = utm_zone_from_lonlat(centroid.x, centroid.y)
+
+    # Convert to the determined UTM CRS
+    gdf_projected = gdf.to_crs(utm_epsg)
+
+    # Apply the shortening function to each geometry
+    gdf_projected["geometry"] = gdf_projected["geometry"].apply(
+        lambda geom: shorten_transect(geom, shorten_distance)
+    )
+
+    # Apply the shortening function to each geometry
+    gdf_projected["geometry"] = gdf_projected["geometry"].apply(
+        lambda geom: lengthen_transect(geom, lengthen_distance)
+    )
+
+    # Convert the GeoDataFrame back to EPSG:4326 if needed
+    gdf_shortened = gdf_projected.to_crs(original_crs)
+
+    # Save the shortened transects GeoDataFrame to a GeoJSON file
+    gdf_shortened.to_file(output_file, driver="GeoJSON")
+    print(f"Shortened transects saved to {output_file}!")
 
 
-original_crs = gdf.crs
-
-# Determine the appropriate UTM zone for the centroid of the data
-centroid = gdf.unary_union.centroid
-utm_epsg = utm_zone_from_lonlat(centroid.x, centroid.y)
-
-# Convert to the determined UTM CRS
-gdf_projected = gdf.to_crs(utm_epsg)
-print(gdf_projected)
-# Specify the distance by which you want to shorten the transect in meters.
-distance_to_shorten = 820  # e.g., 100 meters
-distance_to_length = 150  # e.g., 100 meters
-# Apply the shortening function to each geometry
-gdf_projected["geometry"] = gdf_projected["geometry"].apply(
-    lambda geom: shorten_transect(geom, distance_to_shorten)
-)
-
-# Apply the shortening function to each geometry
-gdf_projected["geometry"] = gdf_projected["geometry"].apply(
-    lambda geom: lengthen_transect(geom, distance_to_length)
-)
-
-print(gdf_projected)
-
-# Convert the GeoDataFrame back to EPSG:4326 if needed
-gdf_shortened = gdf_projected.to_crs(original_crs)
-
-# STEP 2: Enter in the names of the files to save to
-# Save the shortened transects GeoDataFrame to a GeoJSON file
-filename = "shortened_transects_RM.geojson"
-gdf_shortened.to_file(filename, driver="GeoJSON")
-
-print(f"Shortened transects saved to {filename}!")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Process a geojson file to shorten or lengthen transects."
+    )
+    parser = argparse.ArgumentParser(
+        description="Process a geojson file to shorten or lengthen transects. Shorten will move the origin seaward and lengthen will move the end point seaward  Example: python shorten_transects.py -i input_file.geojson -s 300 -l 100  "
+    )
+    parser.add_argument(
+        "-i", "--input", required=True, help="Path to the input geojson file."
+    )
+    parser.add_argument(
+        "-s",
+        "--shorten",
+        type=float,
+        default=0,
+        help="Distance by which to shorten the transect in meters.This will shorten the transect by moving the origin towards the end point.",
+    )
+    parser.add_argument(
+        "-l",
+        "--lengthen",
+        type=float,
+        default=0,
+        help="Distance by which to lengthen the transect in meters.This will lengthen the transect by moving the end points seaward.",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="shortened_transects.geojson",
+        help="Filename for the output geojson file.",
+    )
+    args = parser.parse_args()
+    main(args.input, args.shorten, args.lengthen, args.output)
