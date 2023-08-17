@@ -1,59 +1,57 @@
 # Standard library imports
 import colorsys
+import copy
 import fnmatch
+import json
 import logging
 import os
-import json
-import copy
 from glob import glob
-from typing import Optional, Union, List, Dict
-
-
-# Internal dependencies imports
-from coastseg import exceptions
-from coastseg import common
+from time import perf_counter
+from typing import Dict, List, Optional, Union
 
 # External dependencies imports
 import dask
-from dask.diagnostics import ProgressBar
 import geopandas as gpd
-import numpy as np
-from ipyleaflet import GeoJSON
-from matplotlib.pyplot import get_cmap
-from matplotlib.colors import rgb2hex
-from tqdm.auto import tqdm
-
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import skimage.measure as measure
-from coastsat import SDS_shoreline
-from coastsat import SDS_preprocess
+import skimage.morphology as morphology
+from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
 from coastsat.SDS_download import get_metadata
-from coastsat.SDS_transects import compute_intersection_QC
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
+    get_filenames,
+    get_filepath,
+    output_to_gdf,
     remove_duplicates,
     remove_inaccurate_georef,
-    output_to_gdf,
-    get_filepath,
-    get_filenames,
 )
-import pandas as pd
-import skimage.morphology as morphology
+from coastsat.SDS_transects import compute_intersection_QC
+from ipyleaflet import GeoJSON
+from matplotlib import gridspec
+from matplotlib.colors import rgb2hex
+from matplotlib.pyplot import get_cmap
+from skimage import measure, morphology
+from tqdm.auto import tqdm
 
+# Internal dependencies imports
+from coastseg import common, exceptions
+from coastseg.validation import get_satellites_in_directory
+from coastseg.filters import filter_model_outputs
+from coastseg.common import get_filtered_files_dict, edit_metadata
+
+
+# Set pandas option
 pd.set_option("mode.chained_assignment", None)
 
-# imports for show detection
-from coastsat import SDS_tools
-from matplotlib import gridspec
-import matplotlib.patches as mpatches
-import matplotlib.lines as mlines
-
-
+# Logger setup
 logger = logging.getLogger(__name__)
 
+# Module level variables
 __all__ = ["Extracted_Shoreline"]
-
-from time import perf_counter
 
 
 def time_func(func):
@@ -66,9 +64,6 @@ def time_func(func):
         return result
 
     return wrapper
-
-
-from skimage import measure, morphology
 
 
 def read_from_dict(d: dict, keys_of_interest: list | set | tuple):
@@ -90,9 +85,6 @@ def read_from_dict(d: dict, keys_of_interest: list | set | tuple):
         if key in d:
             return d[key]
     raise KeyError(f"{keys_of_interest} were not in {d}")
-
-
-import re
 
 
 def remove_small_objects_and_binarize(merged_labels, min_size):
@@ -406,7 +398,9 @@ def process_satellite_image(
         cloud_mask.shape, georef, image_epsg, pixel_size, settings
     )
     # read the model outputs from the npz file for this image
-    npz_file = find_matching_npz(filename, session_path)
+    npz_file = find_matching_npz(filename, os.path.join(session_path, "good"))
+    if npz_file is None:
+        npz_file = find_matching_npz(filename, session_path)
     logger.info(f"npz_file: {npz_file}")
     if npz_file is None:
         logger.warning(f"npz file not found for {filename}")
@@ -1069,6 +1063,19 @@ def extract_shorelines_with_dask(
     # if len(filenames) == 0:
     #     logger.warning(f"Satellite {satname} had no imagery")
     #     return output
+    good_folder = os.path.join(session_path, "good")
+    bad_folder = os.path.join(session_path, "bad")
+    satellites = get_satellites_in_directory(session_path)
+    # for each satellite sort the model outputs into good & bad
+    for satname in satellites:
+        # get all the model_outputs that have the satellite in the filename
+        files = glob(f"{session_path}{os.sep}*{satname}*.npz")
+        if len(files) != 0:
+            filter_model_outputs(satname, files, good_folder, bad_folder)
+
+    filtered_files = get_filtered_files_dict(good_folder, "npz", sitename)
+    metadata = edit_metadata(metadata, filtered_files)
+
     result_dict = {}
     for satname in metadata:
         satellite_dict = process_satellite(

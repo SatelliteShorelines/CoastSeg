@@ -29,6 +29,7 @@ from json import JSONEncoder
 
 # Internal dependencies imports
 from coastseg import exceptions
+from coastseg.validation import find_satellite_in_filename
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
@@ -158,6 +159,61 @@ def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[s
         )
     # filter out files that were removed from RGB directory
     filtered_files = get_filtered_files_dict(RGB_directory, "jpg", sitename)
+    metadata = edit_metadata(metadata, filtered_files)
+    return metadata
+
+
+def edit_metadata(
+    metadata: dict[str, Union[str, List[str]]], filtered_files: dict[str, set]
+) -> dict:
+    """Filters the metadata so that it contains the data for the filenames in filered_files
+
+    Args:
+        metadata (dict): A dictionary containing the metadata for each satellite
+        Each satellite has the following key fields "filenames","epsg","dates","acc_georef"
+        Example:
+        metadata = {
+            'L8':{
+                "filenames": ["2019-02-16-18-22-17_L8_sitename_ms.tif","2012-02-16-18-22-17_L8_sitename_ms.tif"],
+                "epsg":[4326,4326],
+                "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>),datetime.datetime(2012, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+                "acc_georef":[9.185,9.125],
+            }
+            'L9':{
+                "filenames": ["2019-02-16-18-22-17_L9_sitename_ms.tif"],
+                "epsg":[4326],
+                "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+                "acc_georef":[9.185],
+            }
+        }
+        filtered_files (dict): A dictionary containing a set of the tif filenames available for each satellite
+        Example:
+        filtered_files = {
+            "L5": {},
+            "L7": {},
+            "L8": {"2019-02-16-18-22-17_L8_sitename_ms.tif"},
+            "L9": {"2019-02-16-18-22-17_L9_sitename_ms.tif"},
+            "S2": {},
+        }
+
+    Returns:
+        dict: a filtered dictionary containing only the data for the filenames in filtered_files
+        Example:
+                metadata = {
+            'L8':{
+                "filenames": ["2019-02-16-18-22-17_L8_sitename_ms.tif"],
+                "epsg":[4326],
+                "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+                "acc_georef":[9.185],
+            }
+            'L9':{
+                "filenames": ["2019-02-16-18-22-17_L9_sitename_ms.tif"],
+                "epsg":[4326],
+                "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+                "acc_georef":[9.185],
+            }
+        }
+    """
     for satname in filtered_files:
         if satname in metadata:
             idx_keep = list(
@@ -207,29 +263,35 @@ def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> di
 
     satellites = {"L5": set(), "L7": set(), "L8": set(), "L9": set(), "S2": set()}
     for filepath in filepaths:
-        old_filename = os.path.basename(filepath)
-        parts = old_filename.split("_")
+        filename = os.path.basename(filepath)
+        parts = filename.split("_")
 
         if len(parts) < 2:
-            logging.warning(
-                f"Skipping file with unexpected name format: {old_filename}"
-            )
+            logging.warning(f"Skipping file with unexpected name format: {filename}")
             continue
 
         date = parts[0]
-        satname_parts = parts[-1].split(".")
 
-        if len(satname_parts) < 2:
+        satname = find_satellite_in_filename(filename)
+        if satname is None:
             logging.warning(
-                f"Skipping file with unexpected name format: {old_filename}"
+                f"Skipping file with unexpected name format which was missing a satname: {filename}"
             )
             continue
 
-        satname = satname_parts[0]
+        # satname_parts = parts[-1].split(".")
 
-        new_filename = f"{date}_{satname}_{sitename}_ms.tif"
+        # if len(satname_parts) < 2:
+        #     logging.warning(
+        #         f"Skipping file with unexpected name format: {old_filename}"
+        #     )
+        #     continue
+
+        # satname = satname_parts[0]
+
+        tif_filename = f"{date}_{satname}_{sitename}_ms.tif"
         if satname in satellites:
-            satellites[satname].add(new_filename)
+            satellites[satname].add(tif_filename)
 
     return satellites
 
