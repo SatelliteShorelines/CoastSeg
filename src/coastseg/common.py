@@ -1653,10 +1653,21 @@ def save_extracted_shorelines(
     :param extracted_shorelines: An Extracted_Shoreline object containing the extracted shorelines, shoreline settings, and dictionary.
     :param save_path: The path where the output files will be saved.
     """
+    # create a geodataframe of the extracted_shorelines as linestrings
+    extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
+        extracted_shorelines.shoreline_settings["output_epsg"],
+        output_crs="EPSG:4326",
+        geomtype="lines",
+    )
 
     # Save extracted shorelines as a GeoJSON file
     extracted_shorelines.to_file(
-        save_path, "extracted_shorelines.geojson", extracted_shorelines.gdf
+        save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
+    )
+
+    # Save extracted shorelines as a GeoJSON file
+    extracted_shorelines.to_file(
+        save_path, "extracted_shorelines_points.geojson", extracted_shorelines.gdf
     )
 
     # Save shoreline settings as a JSON file
