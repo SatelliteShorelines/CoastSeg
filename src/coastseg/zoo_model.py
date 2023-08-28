@@ -863,7 +863,7 @@ class Zoo_Model:
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         extracted_shorelines = (
-            extracted_shorelines.create_extracted_shorlines_from_session(
+            extracted_shorelines.create_extracted_shorelines_from_session(
                 roi_id,
                 shoreline_gdf,
                 roi_settings,
