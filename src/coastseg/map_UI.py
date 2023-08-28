@@ -26,6 +26,7 @@ from ipywidgets import Output
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
 from ipywidgets import FloatText
+from ipywidgets import Accordion
 
 logger = logging.getLogger(__name__)
 
@@ -385,7 +386,47 @@ class UI:
             self.coastseg_map.get_settings()
         )
         view_settings_vbox = VBox([self.settings_html, update_settings_btn])
-        return view_settings_vbox
+        html_settings_accordion = Accordion(children=[view_settings_vbox])
+        html_settings_accordion.set_title(0, "View Settings")
+        return html_settings_accordion
+
+    def get_advanced_settings_section(self):
+        # declare settings widgets
+        settings = {
+            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+            "sand_dropbox": self.get_sand_dropbox(),
+            "cloud_mask_issue": self.get_cloud_issue_toggle(),
+            "cloud_slider": self.get_cloud_slider(),
+            "along_dist": self.get_alongshore_distance_slider(),
+            "min_points": self.get_min_points_text(),
+            "max_std": self.get_max_std_text(),
+            "max_range": self.get_max_range_text(),
+            "min_chainage": self.get_min_chainage_text(),
+            "multiple_inter": self.get_outliers_mode(),
+            "prc_multiple": self.get_prc_multiple_text(),
+        }
+
+        # create settings vbox
+        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
+        return settings_vbox
+
+    def get_basic_settings_section(self):
+        # declare settings widgets
+        settings = {
+            "dates_picker": self.get_dates_picker(),
+            "satellite_radio": self.get_satellite_radio(),
+            "min_length_sl_slider": self.get_min_length_sl_slider(),
+            "beach_area_slider": self.get_beach_area_slider(),
+            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
+            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+        }
+
+        # create settings vbox
+        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
+        # settings_accordion = Accordion(children=[settings_vbox])
+        # settings_accordion.set_title(0, "Basic Settings")
+        # return settings_accordion
+        return settings_vbox
 
     def get_settings_section(self):
         # declare settings widgets
@@ -413,7 +454,9 @@ class UI:
             [widget for widget_name, widget in settings.items()]
             + [self.settings_btn_row]
         )
-        return settings_vbox
+        settings_accordion = Accordion(children=[settings_vbox])
+        settings_accordion.set_title(0, "Settings")
+        return settings_accordion
 
     def get_dates_picker(self):
         # Date Widgets
@@ -1002,10 +1045,26 @@ class UI:
             [self.instr_create_roi, ROI_btns_box, load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
         )
+        # option 1
+        settings_accordion = Accordion(
+            children=[
+                self.get_basic_settings_section(),
+                self.get_advanced_settings_section(),
+            ]
+        )
+        # settings_accordion.set_title(0, "Settings")
+        settings_accordion.set_title(0, "Basic Settings")
+        settings_accordion.set_title(1, "Advanced Settings")
+        settings_accordion.selected_index = 0
 
         self.settings_row = HBox(
             [
-                self.get_settings_section(),
+                VBox(
+                    [
+                        settings_accordion,
+                        self.settings_btn_row,
+                    ]
+                ),
                 self.get_view_settings_vbox(),
             ]
         )
