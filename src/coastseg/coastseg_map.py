@@ -40,6 +40,16 @@ logger = logging.getLogger(__name__)
 SELECTED_LAYER_NAME = "Selected Shorelines"
 
 
+def _file_exists(file_path: str, filename: str) -> bool:
+    """Helper function to check if a file exists and log its status."""
+    if os.path.exists(file_path):
+        logger.info(f"{filename} exists at location: {file_path}")
+        return True
+
+    logger.warning(f"{filename} file missing at {file_path}")
+    return False
+
+
 class CoastSeg_Map:
     def __init__(self):
         # Basic settings and configurations
@@ -602,6 +612,66 @@ class CoastSeg_Map:
         self.save_config()
         logger.info("Done downloading")
 
+    def _extract_and_validate_roi_settings(
+        self, json_data: dict, data_path: str, fields_of_interest: set = {}
+    ) -> dict:
+        """
+        Extracts ROI (Region of Interest) settings from the provided JSON data and validates
+        the existence of directories corresponding to each ROI's sitename.
+
+        This function iterates over ROI IDs in the JSON data, extracts settings relevant to
+        each ROI (based on fields of interest), and checks if directories for each ROI exist
+        at the provided data path.
+
+        Args:
+            json_data (dict): A dictionary containing settings and other data for multiple ROIs.
+            data_path (str): The base path where directories corresponding to each ROI's sitename should exist.
+            fields_of_interest (set, optional): A set of fields to extract from the JSON data for each ROI.
+                If not provided, a default set of fields will be used.
+
+        Returns:
+            dict: A dictionary mapping ROI IDs to their extracted settings.
+
+        Raises:
+            MissingDirectoriesError: If one or more directories specified in the extracted settings are missing.
+
+        Note:
+            If new entries are added to the provided `fields_of_interest` set, they will be
+            merged with the default fields set. If not provided, the function will use the default set.
+        """
+        fields_of_interest = fields_of_interest.union(
+            {
+                "dates",
+                "sitename",
+                "polygon",
+                "roi_id",
+                "sat_list",
+                "landsat_collection",
+                "filepath",
+            }
+        )
+
+        roi_settings = {}
+        missing_directories = []
+
+        for roi_id in json_data.get("roi_ids", []):
+            # create a dictionary containing the fields of interest for the ROI with the roi_id
+            roi_data = common.extract_roi_data(json_data, roi_id, fields_of_interest)
+            sitename = roi_data.get("sitename", "")
+            roi_path = os.path.join(data_path, sitename)
+
+            roi_data["filepath"] = data_path
+
+            if not os.path.exists(roi_path):
+                missing_directories.append(sitename)
+
+            roi_settings[str(roi_id)] = roi_data
+
+        # Check for missing directories
+        exception_handler.check_if_dirs_missing(missing_directories)
+
+        return roi_settings
+
     def load_json_config(self, filepath: str, data_path: str) -> None:
         """
         Loads a .json configuration file specified by the user.
@@ -612,7 +682,7 @@ class CoastSeg_Map:
         Args:
             self (object): CoastsegMap instance
             filepath (str): The filepath to the json config file
-            datapath (str): Full path to the coastseg data directory where downloaded data is saved
+            data_path (str): Full path to the coastseg data directory where downloaded data is saved
 
         Returns:
             None
@@ -631,73 +701,38 @@ class CoastSeg_Map:
         # Replace coastseg_map.settings with settings from config file
         self.set_settings(**json_data.get("settings", {}))
 
-        # Replace roi_settings for each ROI with contents of json_data
-        roi_settings = {}
-        missing_directories = []
-        fields_of_interest = [
-            "dates",
-            "sitename",
-            "polygon",
-            "roi_id",
-            "sat_list",
-            "sitename",
-            "landsat_collection",
-            "filepath",
-        ]
-
-        logger.info(f"json_data: {json_data}\n")
-
-        for roi_id in json_data.get("roi_ids", []):
-            logger.info(f"roi_id: {roi_id}")
-            # get the fields of interest from an roi with a matching id
-            roi_data = common.extract_roi_data(json_data, roi_id, fields_of_interest)
-
-            sitename = roi_data.get("sitename", "")
-            roi_path = os.path.join(data_path, sitename)
-            roi_data["filepath"] = data_path
-
-            if not os.path.exists(roi_path):
-                missing_directories.append(sitename)
-
-            roi_settings[str(roi_id)] = roi_data
-
-        # if any directories are missing tell the user list of missing directories
-        exception_handler.check_if_dirs_missing(missing_directories)
-
-        # Save input dictionaries for all ROIs
+        # creates a dictionary mapping ROI IDs to their extracted settings from json_data
+        roi_settings = self._extract_and_validate_roi_settings(json_data, data_path)
+        # Make sure each ROI has the specific settings for its save location, its ID, coordinates etc.
         self.rois.roi_settings = roi_settings
         logger.info(f"roi_settings: {roi_settings}")
 
-    def load_config_files(self, dir_path: str, save_path: str) -> None:
+    def load_config_files(self, dir_path: str, data_path: str) -> None:
         """Loads the configuration files from the specified directory
             Loads config_gdf.geojson first, then config.json.
 
         - config.json relies on config_gdf.geojson to load the rois on the map
         Args:
             dir_path (str): path to directory containing config files
-            save_path (str): path to directory where downloaded data will be saved
+            data_path (str): path to directory where downloaded data will be saved
         Raises:
             Exception: raised if config files are missing
         """
         # check if config files exist
         config_geojson_path = os.path.join(dir_path, "config_gdf.geojson")
         config_json_path = os.path.join(dir_path, "config.json")
-        logger.info(
-            f"config_gdf.geojson: {config_geojson_path} \n config.json location: {config_json_path}"
-        )
-        # cannot load config.json file if config_gdf.geojson file is missing
-        if not os.path.exists(config_geojson_path):
-            logger.warning(f"config_gdf.geojson file missing at {config_geojson_path}")
+
+        if not _file_exists(config_geojson_path, "config_gdf.geojson"):
             return False
+
+        # config.json contains all the settings for the map, shorelines and transects it must exist
+        if not _file_exists(config_json_path, "config.json"):
+            raise Exception(f"config.json file missing at {config_json_path}")
 
         # load the config files
         # load general settings from config.json file
         self.load_gdf_config(config_geojson_path)
-        # do not attempt to load config.json file if it is missing
-        if not os.path.exists(config_json_path):
-            logger.warning(f"config.json file missing at {config_json_path}")
-            raise Exception(f"config.json file missing at {config_json_path}")
-        self.load_json_config(config_json_path, save_path)
+        self.load_json_config(config_json_path, data_path)
         # return true if both config files exist
         return True
 
@@ -1090,7 +1125,7 @@ class CoastSeg_Map:
             shoreline_in_roi = gpd.clip(shoreline_gdf, single_roi)
             # extract shorelines from ROI
             extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
-            extracted_shorelines = extracted_shorelines.create_extracted_shorlines(
+            extracted_shorelines = extracted_shorelines.create_extracted_shorelines(
                 roi_id,
                 shoreline_in_roi,
                 roi_settings,
@@ -1804,19 +1839,13 @@ class CoastSeg_Map:
         # remove any existing extracted shorelines
         self.remove_extracted_shoreline_layers()
         # get the extracted shorelines for the selected roi
-
         if self.rois is not None:
             extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
             logger.info(
                 f"ROI ID { selected_id} extracted shorelines {extracted_shorelines}"
             )
-            # if extracted shorelines exist, load them onto map
-            if extracted_shorelines is not None:
-                logger.info(f"Extracted shorelines found for ROI {selected_id}")
-                self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
-            # if extracted shorelines do not exist, set the status to no extracted shorelines found
-            if extracted_shorelines is None:
-                logger.info(f"No extracted shorelines found for ROI {selected_id}")
+            # if extracted shorelines exist, load them onto map, if none exist nothing loads
+            self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
 
     def load_extracted_shorelines_to_map(self, row_number: int = 0) -> None:
         """Loads stylized extracted shorelines onto the map for a single selected region of interest (ROI).
@@ -1875,7 +1904,7 @@ class CoastSeg_Map:
 
     def load_extracted_shorelines_on_map(
         self,
-        extracted_shoreline: extracted_shoreline.Extracted_Shoreline,
+        extracted_shorelines: extracted_shoreline.Extracted_Shoreline,
         row_number: int = 0,
     ):
         """
@@ -1885,10 +1914,23 @@ class CoastSeg_Map:
             extracted_shoreline (Extracted_Shoreline): An instance of the Extracted_Shoreline class containing the extracted shoreline data.
             row_number (int, optional): The row number of the region of interest to plot. Defaults to 0.
         """
+        if extracted_shorelines is None:
+            return
         # Loads stylized extracted shorelines onto map for single roi
         logger.info(f"row_number: {row_number}")
-        new_layer = extracted_shoreline.get_styled_layer(row_number)
-        layer_name = extracted_shoreline.get_layer_name()
+        # Convert the extracted shoreline's geometry to points
+        points_gdf = extracted_shoreline.convert_linestrings_to_multipoints(
+            extracted_shorelines.gdf
+        )
+
+        new_layer = extracted_shorelines.get_styled_layer(
+            points_gdf,
+            row_number,
+            style={
+                "radius": 1,
+            },
+        )
+        layer_name = extracted_shorelines.get_layer_name()
         logger.info(
             f"Extracted shoreline layer: {new_layer}\n"
             f"Layer name: {layer_name}\n"
@@ -1898,7 +1940,7 @@ class CoastSeg_Map:
         self.map.add_layer(new_layer)
         # update the extracted shoreline layer and number of shorelines available
         self.extracted_shoreline_layer.set(new_layer)
-        self.number_extracted_shorelines.set(len(extracted_shoreline.gdf) - 1)
+        self.number_extracted_shorelines.set(len(points_gdf) - 1)
 
     def load_feature_on_map(
         self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs
