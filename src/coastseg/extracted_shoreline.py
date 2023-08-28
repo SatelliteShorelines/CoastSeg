@@ -1,34 +1,34 @@
 # Standard library imports
 import colorsys
+import copy
 import fnmatch
+import json
 import logging
 import os
-import json
-import copy
 from glob import glob
+from time import perf_counter
 from typing import Optional, Union, List, Dict
-
-
-# Internal dependencies imports
-from coastseg import exceptions
-from coastseg import common
 
 # External dependencies imports
 import dask
-from dask.diagnostics import ProgressBar
 import geopandas as gpd
-import numpy as np
-from ipyleaflet import GeoJSON
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 from matplotlib.pyplot import get_cmap
 from matplotlib.colors import rgb2hex
+import numpy as np
+from ipyleaflet import GeoJSON
+from skimage import measure, morphology
+import skimage.measure as measure
+import skimage.morphology as morphology
+import pandas as pd
 from tqdm.auto import tqdm
 
-import matplotlib.pyplot as plt
-import skimage.measure as measure
-from coastsat import SDS_shoreline
-from coastsat import SDS_preprocess
+
+# coastsat imports
+from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
 from coastsat.SDS_download import get_metadata
-from coastsat.SDS_transects import compute_intersection_QC
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
     remove_duplicates,
@@ -37,23 +37,16 @@ from coastsat.SDS_tools import (
     get_filepath,
     get_filenames,
 )
-import pandas as pd
-import skimage.morphology as morphology
+from coastsat.SDS_transects import compute_intersection_QC
 
+# Internal dependencies imports
+from coastseg import common, exceptions
+
+
+# Configuration and logging
 pd.set_option("mode.chained_assignment", None)
-
-# imports for show detection
-from coastsat import SDS_tools
-from matplotlib import gridspec
-import matplotlib.patches as mpatches
-import matplotlib.lines as mlines
-
-
 logger = logging.getLogger(__name__)
-
 __all__ = ["Extracted_Shoreline"]
-
-from time import perf_counter
 
 
 def time_func(func):
@@ -68,7 +61,78 @@ def time_func(func):
     return wrapper
 
 
-from skimage import measure, morphology
+from shapely.geometry import MultiPoint, LineString
+
+def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
+    
+    Args:
+    - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+    
+    Returns:
+    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame 
+                        already contains MultiPoints, the original GeoDataFrame is returned.
+    """
+
+    # Check if the gdf already contains MultiPoints
+    if any(gdf.geometry.type == 'MultiPoint'):
+        return gdf
+
+    def linestring_to_multipoint(linestring):
+        if isinstance(linestring, LineString):
+            return MultiPoint(linestring.coords)
+        return linestring
+
+    # Convert each LineString to a MultiPoint
+    gdf['geometry'] = gdf['geometry'].apply(linestring_to_multipoint)
+
+    return gdf
+
+def transform_gdf_to_crs(gdf, crs=4326):
+    """Convert the GeoDataFrame to the specified CRS."""
+    return gdf.to_crs(crs)
+
+
+def select_and_stringify(gdf, row_number):
+    """Select a single shoreline and stringify its datetime columns."""
+    single_shoreline = gdf.iloc[[row_number]]
+    return common.stringify_datetime_columns(single_shoreline)
+
+
+def convert_gdf_to_json(gdf):
+    """Convert a GeoDataFrame to a JSON representation."""
+    return json.loads(gdf.to_json())
+
+
+def style_layer(
+    geojson: dict, layer_name: str, color: str, style_dict: dict = {}
+) -> GeoJSON:
+    """Return styled GeoJson object with layer name
+    Args:
+        geojson (dict): geojson dictionary to be styled
+        layer_name(str): name of the GeoJSON layer
+        color(str): hex code or name of color render shorelines
+        style_dict (dict, optional): Additional style attributes to be merged with the default style.
+    Returns:
+        "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with color
+    """
+    assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+    # Default style dictionary
+    default_style = {
+        "color": color,  # Outline color
+        "opacity": 1,  # opacity 1 means no transparency
+        "weight": 3,  # Width
+        "fillColor": color,  # Fill color
+        "fillOpacity": 0.8,  # Fill opacity.
+        "radius": 1,
+    }
+
+    # If a style_dict is provided, merge it with the default style
+    default_style.update(style_dict)
+    return GeoJSON(
+        data=geojson, name=layer_name, style=default_style, point_style=default_style
+    )
 
 
 def read_from_dict(d: dict, keys_of_interest: list | set | tuple):
@@ -90,9 +154,6 @@ def read_from_dict(d: dict, keys_of_interest: list | set | tuple):
         if key in d:
             return d[key]
     raise KeyError(f"{keys_of_interest} were not in {d}")
-
-
-import re
 
 
 def remove_small_objects_and_binarize(merged_labels, min_size):
@@ -1284,7 +1345,7 @@ class Extracted_Shoreline:
         self.roi_id = shoreline_settings["inputs"]["roi_id"]
         return self
 
-    def create_extracted_shorlines(
+    def create_extracted_shorelines(
         self,
         roi_id: str = None,
         shoreline: gpd.GeoDataFrame = None,
@@ -1321,14 +1382,14 @@ class Extracted_Shoreline:
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
             raise exceptions.No_Extracted_Shoreline(roi_id)
 
-        map_crs = "EPSG:4326"
-        # extracted shorelines have map crs so they can be displayed on the map
         self.gdf = self.create_geodataframe(
-            self.shoreline_settings["output_epsg"], output_crs=map_crs
+            self.shoreline_settings["output_epsg"],
+            output_crs="EPSG:4326",
+            geomtype="points",
         )
         return self
 
-    def create_extracted_shorlines_from_session(
+    def create_extracted_shorelines_from_session(
         self,
         roi_id: str = None,
         shoreline: gpd.GeoDataFrame = None,
@@ -1604,7 +1665,7 @@ class Extracted_Shoreline:
         return shoreline_settings
 
     def create_geodataframe(
-        self, input_crs: str, output_crs: str = None
+        self, input_crs: str, output_crs: str = None, geomtype: str = "lines"
     ) -> gpd.GeoDataFrame:
         """Creates a geodataframe with the crs specified by input_crs. Converts geodataframe crs
         to output_crs if provided.
@@ -1616,7 +1677,7 @@ class Extracted_Shoreline:
             converted to output_crs if provided otherwise geodataframe's crs will be
             input_crs
         """
-        extract_shoreline_gdf = output_to_gdf(self.dictionary, "lines")
+        extract_shoreline_gdf = output_to_gdf(self.dictionary, geomtype)
         if not extract_shoreline_gdf.crs:
             extract_shoreline_gdf.set_crs(input_crs, inplace=True)
         logger.info(
@@ -1628,29 +1689,6 @@ class Extracted_Shoreline:
             f"extract_shoreline_gdf final crs {extract_shoreline_gdf.crs} extract_shoreline_gdf {extract_shoreline_gdf}"
         )
         return extract_shoreline_gdf
-
-    def save_to_file(
-        self,
-        sitename: str,
-        filepath: str,
-    ):
-        """save_to_file Save geodataframe to location specified by filepath into directory
-        specified by sitename
-
-        Args:
-            sitename (str): directory of roi shoreline was extracted from
-            filepath (str): full path to directory containing ROIs
-        """
-        savepath = os.path.join(filepath, sitename, Extracted_Shoreline.FILE_NAME)
-        logger.info(
-            f"Saving shoreline to file: {savepath}.\n Extracted Shoreline: {self.gdf}"
-        )
-        print(f"Saving shoreline to file: {savepath}")
-        self.gdf.to_file(
-            savepath,
-            driver="GeoJSON",
-            encoding="utf-8",
-        )
 
     def to_file(
         self, filepath: str, filename: str, data: Union[gpd.GeoDataFrame, dict]
@@ -1677,66 +1715,43 @@ class Extracted_Shoreline:
             if data != {}:
                 common.to_file(data, file_location)
 
-    def style_layer(self, geojson: dict, layer_name: str, color: str) -> GeoJSON:
-        """Return styled GeoJson object with layer name
-
-        Args:
-            geojson (dict): geojson dictionary to be styled
-            layer_name(str): name of the GeoJSON layer
-            color(str): hex code or name of color render shorelines
-
-        Returns:
-            "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with color
-        """
-        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": color,
-                "opacity": 1,
-                "weight": 3,
-            },
-        )
-
     def get_layer_name(self) -> list:
         """returns name of extracted shoreline layer"""
         layer_name = "extracted_shoreline"
         return layer_name
 
-    def get_styled_layer(self, row_number: int = 0) -> GeoJSON:
+    def get_styled_layer(
+        self, gdf, row_number: int = 0, map_crs: int = 4326, style: dict = {}
+    ) -> dict:
         """
         Returns a single shoreline feature as a GeoJSON object with a specified style.
 
         Args:
+        - gdf: The input GeoDataFrame.
         - row_number (int): The index of the shoreline feature to select from the GeoDataFrame.
+        - map_crs (int): The desired coordinate reference system.
+        - style (dict) default {} :
+            Additional style attributes to be merged with the default style.
 
         Returns:
-        - GeoJSON: A single shoreline feature as a GeoJSON object with a specified style.
+        - dict: A styled GeoJSON feature.
         """
-        # load extracted shorelines onto map
-        map_crs = 4326
-        layers = []
-        if self.gdf.empty:
-            return layers
-        # convert to map crs and turn in json dict
-        projected_gdf = self.gdf.to_crs(map_crs)
-        # select a single shoreline and convert it to json
-        single_shoreline = projected_gdf.iloc[[row_number]]
-        single_shoreline = common.stringify_datetime_columns(single_shoreline)
-        logger.info(f"single_shoreline.columns: {single_shoreline.columns}")
-        logger.info(f"single_shoreline: {single_shoreline}")
-        # convert geodataframe to json
-        features_json = json.loads(single_shoreline.to_json())
-        logger.info(f"single_shoreline features_json: {features_json}")
+        if gdf.empty:
+            return []
+
+        projected_gdf = transform_gdf_to_crs(gdf, map_crs)
+        single_shoreline = select_and_stringify(projected_gdf, row_number)
+        features_json = convert_gdf_to_json(single_shoreline)
         layer_name = self.get_layer_name()
-        logger.info(f"layer_name: {layer_name}")
-        logger.info(f"features_json['features']: {features_json['features']}")
-        # create a single layer
-        feature = features_json["features"][0]
-        new_layer = self.style_layer(feature, layer_name, "red")
-        logger.info(f"new_layer: {new_layer}")
-        return new_layer
+
+        # Ensure there are features to process.
+        if not features_json.get("features"):
+            return []
+
+        styled_feature = style_layer(
+            features_json["features"][0], layer_name, "red", style
+        )
+        return styled_feature
 
 
 def get_reference_shoreline(
