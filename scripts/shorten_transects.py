@@ -1,5 +1,5 @@
 import geopandas as gpd
-from shapely.geometry import LineString
+from shapely.geometry import Point, LineString, MultiLineString
 import argparse
 
 
@@ -24,13 +24,29 @@ def utm_zone_from_lonlat(lon, lat):
         return f"EPSG:326{zone_number}"
 
 
+def extract_origin(geom):
+    if isinstance(geom, MultiLineString):
+        # Access the first LineString's first point
+        return geom.geoms[0].coords[0]
+    else:  # Assuming it's a LineString
+        return geom.coords[0]
+
+
+def extract_end(geom):
+    if isinstance(geom, MultiLineString):
+        # Access the first LineString's last point
+        return geom.geoms[0].coords[-1]
+    else:  # Assuming it's a LineString
+        return geom.coords[-1]
+
+
 def shorten_transect(line, distance):
     """
     Shorten a transect by moving the origin closer to the end point
     by the specified distance.
     """
-    start_point = line.coords[0]
-    end_point = line.coords[-1]
+    start_point = extract_origin(line)
+    end_point = extract_end(line)
 
     # Calculate the direction vector
     direction = (end_point[0] - start_point[0], end_point[1] - start_point[1])
@@ -54,8 +70,8 @@ def lengthen_transect(line, distance):
     Lengthen a transect by pushing the end point out by the specified distance.
     """
     # Extract start and end points
-    start_point = line.coords[0]
-    end_point = line.coords[-1]
+    start_point = extract_origin(line)
+    end_point = extract_end(line)
 
     # Calculate the direction vector
     direction = (end_point[0] - start_point[0], end_point[1] - start_point[1])
@@ -81,7 +97,8 @@ def main(
     gdf = gpd.read_file(input_file)
 
     # Drop features whose "type" is not "transect"
-    gdf = gdf[gdf["type"] == "transect"]
+    if "type" in gdf.columns:
+        gdf = gdf[gdf["type"] == "transect"]
 
     original_crs = gdf.crs
 
