@@ -613,7 +613,7 @@ class CoastSeg_Map:
         logger.info("Done downloading")
 
     def _extract_and_validate_roi_settings(
-        self, json_data: dict, data_path: str, fields_of_interest: set = {}
+        self, json_data: dict, data_path: str, fields_of_interest: set = set()
     ) -> dict:
         """
         Extracts ROI (Region of Interest) settings from the provided JSON data and validates
