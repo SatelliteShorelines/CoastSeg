@@ -1,6 +1,7 @@
 import geopandas as gpd
 from shapely.geometry import Point
 import argparse
+from shapely.geometry import Point, MultiLineString
 
 
 # Example 1: python get_transects_points.py  -i "C:\development\doodleverse\coastseg\CoastSeg\shortened_transects_JB.geojson"
@@ -10,17 +11,32 @@ def main(input_file, origin_filename, end_filename):
     # input_file = r"C:\development\doodleverse\coastseg\CoastSeg\shortened_transects_JB.geojson"
     gdf = gpd.read_file(input_file)
 
+    def extract_origin(geom):
+        if isinstance(geom, MultiLineString):
+            # Access the first LineString's first point
+            return Point(geom.geoms[0].coords[0])
+        else:  # Assuming it's a LineString
+            return Point(geom.coords[0])
+
+    def extract_end(geom):
+        if isinstance(geom, MultiLineString):
+            # Access the first LineString's last point
+            return Point(geom.geoms[0].coords[-1])
+        else:  # Assuming it's a LineString
+            return Point(geom.coords[-1])
+
     # Drop features whose "type" is not "transect"
-    gdf = gdf[gdf["type"] == "transect"]
+    if "type" in gdf.columns:
+        gdf = gdf[gdf["type"] == "transect"]
 
     # Create GeoDataFrames for the origin and end points
     origin_gdf = gpd.GeoDataFrame(
-        gdf[["type"]],
-        geometry=gdf["geometry"].apply(lambda geom: Point(geom.coords[0])),
+        gdf[["id"]],
+        geometry=gdf["geometry"].apply(extract_origin),
     )
     end_gdf = gpd.GeoDataFrame(
-        gdf[["type"]],
-        geometry=gdf["geometry"].apply(lambda geom: Point(geom.coords[-1])),
+        gdf[["id"]],
+        geometry=gdf["geometry"].apply(extract_end),
     )
 
     # Save the origin and end GeoDataFrames to separate GeoJSON files
