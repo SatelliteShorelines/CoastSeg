@@ -14,6 +14,7 @@ from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
 from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
+import traitlets
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -39,6 +40,8 @@ logger = logging.getLogger(__name__)
 
 SELECTED_LAYER_NAME = "Selected Shorelines"
 
+__all__ = ["IDContainer", "CoastSeg_Map"]
+
 
 def _file_exists(file_path: str, filename: str) -> bool:
     """Helper function to check if a file exists and log its status."""
@@ -49,6 +52,12 @@ def _file_exists(file_path: str, filename: str) -> bool:
     logger.warning(f"{filename} file missing at {file_path}")
     return False
 
+
+class IDContainer(traitlets.HasTraits):
+    ids = traitlets.List(trait=traitlets.Unicode())
+
+class ExtractShorelinesContainer(traitlets.HasTraits):
+    max_shorelines = traitlets.Int(0)
 
 class CoastSeg_Map:
     def __init__(self):
@@ -61,6 +70,8 @@ class CoastSeg_Map:
         self.factory = factory.Factory()
 
         # Observables
+        self.id_container = IDContainer(ids=[])
+        self.extract_shorelines_container = ExtractShorelinesContainer(max_shorelines=0)
         self._init_observables()
 
         # Map objects and configurations
@@ -79,12 +90,6 @@ class CoastSeg_Map:
         """Initialize observable attributes."""
         self.extracted_shoreline_layer = Observable(
             None, name="extracted_shoreline_layer"
-        )
-        self.number_extracted_shorelines = Observable(
-            0, name="number_extracted_shorelines"
-        )
-        self.roi_ids_with_extracted_shorelines = Observable(
-            [], name="roi_ids_with_shorelines"
         )
 
     def _init_map_components(self):
@@ -330,7 +335,7 @@ class CoastSeg_Map:
         # Get the ids of the ROIs with extracted shorelines
         ids_with_extracted_shorelines = rois.get_ids_with_extracted_shorelines()
         # update observable list of ROI ids with extracted shorelines
-        self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
+        self.id_container.ids = ids_with_extracted_shorelines
 
     def load_settings(
         self,
@@ -613,7 +618,7 @@ class CoastSeg_Map:
         logger.info("Done downloading")
 
     def _extract_and_validate_roi_settings(
-        self, json_data: dict, data_path: str, fields_of_interest: set = {}
+        self, json_data: dict, data_path: str, fields_of_interest: set = set()
     ) -> dict:
         """
         Extracts ROI (Region of Interest) settings from the provided JSON data and validates
@@ -1263,7 +1268,7 @@ class CoastSeg_Map:
         ids_with_extracted_shorelines = self.get_roi_ids_with_extracted_shorelines(
             is_selected=False
         )
-        self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
+        self.id_container.ids = ids_with_extracted_shorelines
 
         self.save_session(roi_ids, save_transects=False)
 
@@ -1872,7 +1877,7 @@ class CoastSeg_Map:
 
         # Get the extracted shorelines for all ROIs
         ids_with_extracted_shorelines = self.rois.get_ids_with_extracted_shorelines()
-        self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
+        self.id_container.ids = ids_with_extracted_shorelines
 
         # Get the available ROI IDs
         available_ids = self.get_all_roi_ids()
@@ -1940,7 +1945,7 @@ class CoastSeg_Map:
         self.map.add_layer(new_layer)
         # update the extracted shoreline layer and number of shorelines available
         self.extracted_shoreline_layer.set(new_layer)
-        self.number_extracted_shorelines.set(len(points_gdf) - 1)
+        self.extract_shorelines_container.max_shorelines = len(points_gdf) - 1
 
     def load_feature_on_map(
         self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs

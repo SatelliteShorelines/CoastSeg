@@ -11,6 +11,7 @@ from coastseg.watchable_slider import Extracted_Shoreline_widget
 
 # External Python imports
 import ipywidgets
+import traitlets
 from IPython.display import display
 from ipyfilechooser import FileChooser
 from google.auth import exceptions as google_auth_exceptions
@@ -73,12 +74,6 @@ class UI:
         # have the slider watch the extracted_shoreline_layer, number_extracted_shorelines,roi_selected_to_extract_shoreline
         self.extract_shorelines_widget.watch(
             self.coastseg_map.extracted_shoreline_layer
-        )
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.number_extracted_shorelines
-        )
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.roi_ids_with_extracted_shorelines
         )
         self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(
             self.coastseg_map.load_extracted_shorelines_to_map
@@ -256,11 +251,30 @@ class UI:
         # add instance of warning_box to self.error_row
         self.error_row.children = [warning_box]
 
-    def create_tidal_correction_widget(self):
+    def create_tidal_correction_widget(self, id_container: "traitlets.HasTraits"):
         load_style = dict(button_color="#69add1", description_width="initial")
+
+        correct_tides_html = HTML(
+            value="<h3><b>Apply Tide Correction</b></h3> \
+               Only apply after extracting shorelines",
+            layout=Layout(margin="0px 5px 0px 0px"),
+        )
 
         self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
         self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
+
+        scrollable_select = SelectMultiple(
+            description="Select ROIs",
+            options=id_container.ids,
+            layout=Layout(overflow_y="auto", height="100px"),
+        )
+
+        # Function to update widget options when the traitlet changes
+        def update_widget_options(change):
+            scrollable_select.options = change["new"]
+
+        # When the traitlet,id_container, trait 'ids' changes the update_widget_options will be updated
+        id_container.observe(update_widget_options, names="ids")
 
         self.select_tides_button = Button(
             description="Select Tides",
@@ -278,9 +292,10 @@ class UI:
 
         return VBox(
             [
+                correct_tides_html,
                 self.beach_slope_text,
                 self.reference_elevation_text,
-                self.select_tides_button,
+                scrollable_select,
                 self.tidally_correct_button,
             ]
         )
@@ -1027,7 +1042,7 @@ class UI:
                 ipywidgets.Box(children=[UI.preview_view], layout=BOX_LAYOUT),
                 self.extract_shorelines_button,
                 self.get_session_selection(),
-                self.create_tidal_correction_widget(),
+                self.create_tidal_correction_widget(self.coastseg_map.id_container),
                 config_vbox,
             ]
         )
