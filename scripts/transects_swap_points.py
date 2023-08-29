@@ -1,5 +1,5 @@
 import geopandas as gpd
-from shapely.geometry import LineString
+from shapely.geometry import LineString, MultiLineString
 import argparse
 import os
 import warnings
@@ -11,6 +11,16 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # Example : python transects_swap_points.py -i "C:\development\doodleverse\coastseg\CoastSeg\RM_config_gdf.geojson"
 # Example :  python get_transects_points.py  -i "C:\development\doodleverse\coastseg\CoastSeg\shortened_transects_JB.geojson" -o "output3.geojson"
 # -o provides the name of the output geojson file to save the transect to
+
+
+def ReversePoints(geom):
+    if isinstance(geom, MultiLineString):
+        # Access the first LineString's first point
+        return geom.geoms[0].coords[::-1]
+    else:  # Assuming it's a LineString
+        return geom.coords[::-1]
+
+
 def main(input_file, output_file):
     # STEP 1: Read the file
     # input_file = r"C:\development\doodleverse\coastseg\CoastSeg\RM_config_gdf.geojson"
@@ -19,10 +29,12 @@ def main(input_file, output_file):
     gdf = gpd.read_file(input_file)
 
     # Drop features whose "type" is not "transect"
-    gdf = gdf[gdf["type"] == "transect"]
+    if "type" in gdf.columns:
+        gdf = gdf[gdf["type"] == "transect"]
 
     # Reverse the coordinates of each LineString to swap origin and end points
-    gdf["geometry"] = gdf["geometry"].apply(lambda geom: geom.coords[::-1])
+    # gdf["geometry"] = gdf["geometry"].apply(lambda geom: geom.coords[::-1])
+    gdf["geometry"] = gdf["geometry"].apply(lambda geom: ReversePoints(geom))
 
     # Create new GeoDataFrame for the reversed transects
     reversed_transects_gdf = gpd.GeoDataFrame(

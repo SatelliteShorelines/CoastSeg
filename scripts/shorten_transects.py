@@ -1,5 +1,5 @@
 import geopandas as gpd
-from shapely.geometry import Point, LineString, MultiLineString
+from shapely.geometry import LineString, MultiLineString
 import argparse
 
 
