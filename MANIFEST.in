@@ -3,10 +3,11 @@ include LICENSE
 include pyproject.toml
 include *.md
 
-# Include src, tests, and docs directories in package
+# Include src, tests,docs and scripts directories in package
 graft src
 graft tests
 graft docs
+graft scripts
 
 # Include bounding boxes for shorelines and transects
 recursive-include src/coastseg/bounding_boxes *.csv
