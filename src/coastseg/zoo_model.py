@@ -166,7 +166,7 @@ def compute_tidal_corrections(
     extract_shorelines_location = os.path.join(
         src_location, "extracted_shorelines_dict.json"
     )
-    extract_shorelines_dict = common.load_data_from_json(extract_shorelines_location)
+    extract_shorelines_dict = file_utilities.load_data_from_json(extract_shorelines_location)
     # tidally correct transect shorelines intersections
     tidal_corrections(
         roi_id,
@@ -270,7 +270,7 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
         NDWI_path = RGB_to_infrared(RGB_path, NIR_path, output_path, "NDWI")
         SWIR_path = os.path.join(output_path, "SWIR")
         MNDWI_path = RGB_to_infrared(RGB_path, SWIR_path, output_path, "MNDWI")
-        five_band_path = common.create_directory(output_path, "five_band")
+        five_band_path = file_utilities.create_directory(output_path, "five_band")
         output_path = get_five_band_imagery(
             RGB_path, MNDWI_path, NDWI_path, five_band_path
         )
@@ -774,7 +774,7 @@ class Zoo_Model:
             )
         logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
-        RGB_path = file_utilities.find_directory_recurively(src_directory, name="RGB")
+        RGB_path = file_utilities.find_directory_recursively(src_directory, name="RGB")
         # convert RGB to MNDWI, NDWI,or 5 band
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         logger.info(f"model_dict: {model_dict}")
@@ -796,8 +796,10 @@ class Zoo_Model:
         extract_shoreline_settings = self.get_settings()
 
         # create session path to store extracted shorelines and transects
-        sessions_dir_path = common.create_directory(os.getcwd(), "sessions")
-        new_session_path = common.create_directory(sessions_dir_path, session_name)
+        sessions_dir_path = file_utilities.create_directory(os.getcwd(), "sessions")
+        new_session_path = file_utilities.create_directory(
+            sessions_dir_path, session_name
+        )
 
         config_geojson_location = file_utilities.find_file_recursively(
             session_path, "config_gdf.geojson"
@@ -813,7 +815,7 @@ class Zoo_Model:
 
         # save model settings to session path
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
-        common.to_file(model_settings, model_settings_path)
+        file_utilities.to_file(model_settings, model_settings_path)
 
         # load the roi settings from the config file
         config = common.load_json_data_from_file(session_path, "config.json")
@@ -937,7 +939,7 @@ class Zoo_Model:
         # copy configs from data/roi_id location to session location
         common.copy_configs(roi_directory, session_path)
         model_settings_path = os.path.join(session_path, "model_settings.json")
-        common.write_to_json(model_settings_path, preprocessed_data)
+        file_utilities.write_to_json(model_settings_path, preprocessed_data)
 
         # copy files from out to session folder
         common.move_files(outputs_path, session_path, delete_src=True)
@@ -1011,8 +1013,8 @@ class Zoo_Model:
 
         # create a session
         session = sessions.Session()
-        sessions_path = common.create_directory(os.getcwd(), "sessions")
-        session_path = common.create_directory(sessions_path, session_name)
+        sessions_path = file_utilities.create_directory(os.getcwd(), "sessions")
+        session_path = file_utilities.create_directory(sessions_path, session_name)
 
         session.path = session_path
         session.name = session_name
@@ -1038,7 +1040,9 @@ class Zoo_Model:
     def get_model_directory(self, model_id: str):
         # Create a directory to hold the downloaded models
         downloaded_models_path = common.get_downloaded_models_dir()
-        model_directory = common.create_directory(downloaded_models_path, model_id)
+        model_directory = file_utilities.create_directory(
+            downloaded_models_path, model_id
+        )
         return model_directory
 
     def get_files_for_seg(

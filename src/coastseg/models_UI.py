@@ -165,7 +165,7 @@ class UI_Models:
         @output.capture(clear_output=True)
         def enter_clicked(btn):
             session_name = str(self.shoreline_session_name_text.value).strip()
-            session_path = common.create_directory(os.getcwd(), "sessions")
+            session_path = file_utilities.create_directory(os.getcwd(), "sessions")
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
                 print(f"Session {session_name} already exists at {new_session_path}")
@@ -192,7 +192,7 @@ class UI_Models:
         @output.capture(clear_output=True)
         def enter_clicked(btn):
             session_name = str(self.session_name_text.value).strip()
-            session_path = common.create_directory(os.getcwd(), "sessions")
+            session_path = file_utilities.create_directory(os.getcwd(), "sessions")
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
                 print(f"Session {session_name} already exists at {new_session_path}")
@@ -320,7 +320,7 @@ class UI_Models:
         config_json_location = file_utilities.find_file_recursively(
             session_directory, "config.json"
         )
-        config = common.load_data_from_json(config_json_location)
+        config = file_utilities.load_data_from_json(config_json_location)
         roi_id = config.get("roi_id", "")
         logger.info(f"roi_id: {roi_id}")
 

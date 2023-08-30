@@ -211,7 +211,7 @@ class CoastSeg_Map:
         for roi_id in roi_ids:
             # create roi directory in session path
             ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-            session_path = common.get_session_path(session_name, ROI_directory)
+            session_path = file_utilities.get_session_path(session_name, ROI_directory)
             # get extracted shoreline for each roi
             extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
             if extracted_shoreline is None:
@@ -258,7 +258,7 @@ class CoastSeg_Map:
         if os.path.isdir(dir_path):
             # ensure coastseg\data location exists
             # load the config files if they exist
-            data_path = common.create_directory(os.getcwd(), "data")
+            data_path = file_utilities.create_directory(os.getcwd(), "data")
             config_loaded = self.load_config_files(dir_path, data_path)
             # load in settings files
             for file_name in os.listdir(dir_path):
@@ -1092,9 +1092,11 @@ class CoastSeg_Map:
                     extracted_sl_gdf = geodata_processing.read_gpd_file(file)
                 if file.endswith(".json"):
                     if "settings" in os.path.basename(file):
-                        shoreline_settings = common.load_data_from_json(file)
+                        shoreline_settings = file_utilities.load_data_from_json(file)
                     if "dict" in os.path.basename(file):
-                        extracted_shoreline_dict = common.load_data_from_json(file)
+                        extracted_shoreline_dict = file_utilities.load_data_from_json(
+                            file
+                        )
 
             logger.info(f"ROI {roi_id} extracted_sl_gdf: {extracted_sl_gdf}")
             logger.info(f"ROI {roi_id} shoreline_settings: {shoreline_settings}")
@@ -1479,7 +1481,7 @@ class CoastSeg_Map:
         for roi_id in roi_ids:
             ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
             # create session directory
-            session_path = common.get_session_path(session_name, ROI_directory)
+            session_path = file_utilities.get_session_path(session_name, ROI_directory)
             # save source data
             self.save_config(session_path)
             # save extracted shorelines
@@ -1500,14 +1502,14 @@ class CoastSeg_Map:
 
                 save_path = os.path.join(session_path, "transects_cross_distances.json")
                 cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
-                common.to_file(cross_shore_distance, save_path)
+                file_utilities.to_file(cross_shore_distance, save_path)
 
                 # save transect settings to file
                 transect_settings = common.get_transect_settings(self.get_settings())
                 transect_settings_path = os.path.join(
                     session_path, "transects_settings.json"
                 )
-                common.to_file(transect_settings, transect_settings_path)
+                file_utilities.to_file(transect_settings, transect_settings_path)
 
     def save_csv_per_transect_for_roi(
         self, session_path: str, roi_id: list, rois: ROI
@@ -1599,7 +1601,9 @@ class CoastSeg_Map:
                 session_name = self.get_session_name()
                 session_path = os.path.join(os.getcwd(), "sessions", session_name)
                 ROI_directory = rois.roi_settings[roi_id]["sitename"]
-                session_path = common.create_directory(session_path, ROI_directory)
+                session_path = file_utilities.create_directory(
+                    session_path, ROI_directory
+                )
                 logger.info(f"session_path: {session_path}")
                 # save source data
                 self.save_config(session_path)
@@ -1671,7 +1675,7 @@ class CoastSeg_Map:
             session_name = self.get_session_name()
             ROI_directory = rois.roi_settings[roi_id]["sitename"]
             session_path = os.path.join(os.getcwd(), "sessions", session_name)
-            session_path = common.create_directory(session_path, ROI_directory)
+            session_path = file_utilities.create_directory(session_path, ROI_directory)
             logger.info(f"session_path: {session_path}")
             # save source data
             self.save_config(session_path)

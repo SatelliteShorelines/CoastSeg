@@ -25,11 +25,12 @@ import skimage.morphology as morphology
 import pandas as pd
 from tqdm.auto import tqdm
 import matplotlib.gridspec as gridspec
-
+from shapely.geometry import MultiPoint, LineString
 
 # coastsat imports
 from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
 from coastseg import geodata_processing
+from coastseg import file_utilities
 from coastsat.SDS_download import get_metadata
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
@@ -61,9 +62,6 @@ def time_func(func):
         return result
 
     return wrapper
-
-
-from shapely.geometry import MultiPoint, LineString
 
 
 def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -1236,7 +1234,7 @@ def load_extracted_shoreline_from_files(
         if file_type == "geojson":
             extracted_files[file_type] = geodata_processing.read_gpd_file(file_path)
         else:
-            extracted_files[file_type] = common.load_data_from_json(file_path)
+            extracted_files[file_type] = file_utilities.load_data_from_json(file_path)
 
     extracted_shorelines = Extracted_Shoreline()
     extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
@@ -1717,7 +1715,7 @@ class Extracted_Shoreline:
             )
         elif isinstance(data, dict):
             if data != {}:
-                common.to_file(data, file_location)
+                file_utilities.to_file(data, file_location)
 
     def get_layer_name(self) -> list:
         """returns name of extracted shoreline layer"""

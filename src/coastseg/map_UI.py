@@ -6,6 +6,7 @@ import logging
 # Internal Python imports
 from coastseg import exception_handler
 from coastseg import common
+from coastseg import file_utilities
 from coastseg.watchable_slider import Extracted_Shoreline_widget
 
 
@@ -380,7 +381,9 @@ class UI:
                 print(f"Session {session_name} already exists and will be overwritten.")
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} was created.")
-                new_session_path = common.create_directory(session_path, session_name)
+                new_session_path = file_utilities.create_directory(
+                    session_path, session_name
+                )
             self.coastseg_map.set_session_name(session_name)
 
         enter_button.on_click(enter_clicked)
