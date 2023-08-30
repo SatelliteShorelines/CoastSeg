@@ -23,6 +23,8 @@ from coastseg.transects import Transects
 from coastseg.roi import ROI
 from coastseg.downloads import count_images_in_ee_collection
 from coastseg.zoo_model import tidal_corrections
+from coastseg import file_utilities
+from coastseg import geodata_processing
 
 # Internal/Local imports: modules
 from coastseg import (
@@ -470,7 +472,8 @@ class CoastSeg_Map:
         Args:
             filepath (str): full path to config_gdf.geojson
         """
-        gdf = common.read_gpd_file(filepath)
+
+        gdf = geodata_processing.read_gpd_file(filepath)
         gdf = common.stringify_datetime_columns(gdf)
 
         # each possible type of feature and the columns that should be loaded
@@ -621,7 +624,7 @@ class CoastSeg_Map:
 
         # Get the file path where the downloaded imagery will be saved
         file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
-        date_str = common.generate_datestring()
+        date_str = file_utilities.find_file_recursively()
 
         settings = self.get_settings()
         # Create a list of download settings for each ROI
@@ -1086,7 +1089,7 @@ class CoastSeg_Map:
             for file in glob.glob(glob_str):
                 if file.endswith(".geojson"):
                     # load geodataframe
-                    extracted_sl_gdf = common.read_gpd_file(file)
+                    extracted_sl_gdf = geodata_processing.read_gpd_file(file)
                 if file.endswith(".json"):
                     if "settings" in os.path.basename(file):
                         shoreline_settings = common.load_data_from_json(file)
@@ -1999,7 +2002,6 @@ class CoastSeg_Map:
         """
         # if file is passed read gdf from file
         if file:
-            # gdf = common.read_gpd_file(file)
             gdf = common.load_geodataframe_from_file(file, feature_type=feature_name)
         # ensure the file gdf is not empty
         if gdf is not None:

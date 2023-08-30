@@ -7,6 +7,7 @@ import logging
 from coastseg import zoo_model
 from coastseg import settings_UI
 from coastseg import common
+from coastseg import file_utilities
 from coastseg.upload_feature_widget import FileUploader
 
 # external python imports
@@ -316,7 +317,7 @@ class UI_Models:
         logger.info(f"session_directory: {session_directory}")
         # get roi_id
         # @todo find a better way to load the roi id
-        config_json_location = common.find_file_recursively(
+        config_json_location = file_utilities.find_file_recursively(
             session_directory, "config.json"
         )
         config = common.load_data_from_json(config_json_location)

@@ -28,6 +28,7 @@ from tqdm.auto import tqdm
 
 # coastsat imports
 from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
+from coastseg import geodata_processing
 from coastsat.SDS_download import get_metadata
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
@@ -63,20 +64,21 @@ def time_func(func):
 
 from shapely.geometry import MultiPoint, LineString
 
+
 def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
-    
+
     Args:
     - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
-    
+
     Returns:
-    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame 
+    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
                         already contains MultiPoints, the original GeoDataFrame is returned.
     """
 
     # Check if the gdf already contains MultiPoints
-    if any(gdf.geometry.type == 'MultiPoint'):
+    if any(gdf.geometry.type == "MultiPoint"):
         return gdf
 
     def linestring_to_multipoint(linestring):
@@ -85,9 +87,10 @@ def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFram
         return linestring
 
     # Convert each LineString to a MultiPoint
-    gdf['geometry'] = gdf['geometry'].apply(linestring_to_multipoint)
+    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
 
     return gdf
+
 
 def transform_gdf_to_crs(gdf, crs=4326):
     """Convert the GeoDataFrame to the specified CRS."""
@@ -1230,7 +1233,7 @@ def load_extracted_shoreline_from_files(
 
         file_path = file_paths[0]  # Use the first file if there are multiple matches
         if file_type == "geojson":
-            extracted_files[file_type] = common.read_gpd_file(file_path)
+            extracted_files[file_type] = geodata_processing.read_gpd_file(file_path)
         else:
             extracted_files[file_type] = common.load_data_from_json(file_path)
 

@@ -5,8 +5,6 @@ from typing import Callable, List
 from typing import Union
 
 # Internal dependencies imports
-from coastseg import exceptions
-from coastseg import roi
 from coastseg import shoreline
 from coastseg import transects
 import geopandas as gpd

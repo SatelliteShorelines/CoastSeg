@@ -29,6 +29,8 @@ from json import JSONEncoder
 
 # Internal dependencies imports
 from coastseg import exceptions
+from coastseg import file_utilities
+
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
@@ -1365,91 +1367,6 @@ def preprocess_geodataframe(
     return data
 
 
-# def preprocess_geodataframe(data: gpd.GeoDataFrame = gpd.GeoDataFrame(), columns_to_keep: List[str] = None, overwrite_ids: bool = True) -> gpd.GeoDataFrame:
-#     """
-#     Preprocesses a GeoDataFrame by renaming column 'ID' to 'id' (if it exists),
-#     removing the z-axis from the data, adding a unique 'id' column if it doesn't exist,
-#     and keeping only specified columns.
-
-#     Parameters:
-#     data (gpd.GeoDataFrame, optional): Input GeoDataFrame to be preprocessed.
-#         If not provided, the function will return an empty GeoDataFrame.
-#     columns_to_keep (List[str], optional): List of column names to retain in the preprocessed DataFrame.
-#         If not provided, all columns in the DataFrame will be kept.
-#     overwrite_ids (bool, optional): If True, overwrite existing ids with row indices as ids. Defaults to True.
-
-#     Returns:
-#     gpd.GeoDataFrame: Preprocessed GeoDataFrame with specified transformations.
-#     """
-#     if not data.empty:
-#         # rename 'ID' to lowercase if it exists
-#         data.rename(columns={"ID": "id"}, inplace=True)
-
-#         # remove z-axis from data
-#         data = remove_z_coordinates(data)
-
-#         # check if 'id' column exists and is unique
-#         if "id" in data.columns.str.lower():
-#             if check_unique_ids(data):
-#                 if overwrite_ids:
-#                     data["id"] = data.index.astype(str).tolist()
-#             elif not overwrite_ids:
-#                 raise exceptions.Duplicate_ID_Exception('transects')
-
-#         # if an 'id' column does not exist, create one with row indices as ids
-#         if "id" not in data.columns.str.lower():
-#             data["id"] = data.index.astype(str).tolist()
-
-#         # if columns_to_keep is specified, keep only those columns
-#         if columns_to_keep:
-#             columns_to_keep = set(col.lower() for col in columns_to_keep)
-#             data = data[[col for col in data.columns if col.lower() in columns_to_keep]]
-
-#     return data
-
-# def merge_geodataframes(data: gpd.GeoDataFrame = gpd.GeoDataFrame(),old_data: gpd.GeoDataFrame = gpd.GeoDataFrame(), columns_to_keep: List[str] = None, overwrite_ids: bool = True) -> gpd.GeoDataFrame:
-#     """
-#     Preprocesses a GeoDataFrame by renaming column 'ID' to 'id' (if it exists),
-#     removing the z-axis from the data, adding a unique 'id' column if it doesn't exist,
-#     and keeping only specified columns.
-
-#     Parameters:
-#     data (gpd.GeoDataFrame, optional): Input GeoDataFrame to be preprocessed.
-#         If not provided, the function will return an empty GeoDataFrame.
-#     columns_to_keep (List[str], optional): List of column names to retain in the preprocessed DataFrame.
-#         If not provided, all columns in the DataFrame will be kept.
-#     overwrite_ids (bool, optional): If True, overwrite existing ids with row indices as ids. Defaults to True.
-
-#     Returns:
-#     gpd.GeoDataFrame: Preprocessed GeoDataFrame with specified transformations.
-#     """
-#     if not data.empty:
-#         # rename 'ID' to lowercase if it exists
-#         data.rename(columns={"ID": "id"}, inplace=True)
-
-#         # remove z-axis from data
-#         data = remove_z_coordinates(data)
-
-#         # check if 'id' column exists and is unique
-#         if "id" in data.columns.str.lower():
-#             if check_unique_ids(data):
-#                 if overwrite_ids:
-#                     data["id"] = data.index.astype(str).tolist()
-#             elif not overwrite_ids:
-#                 raise exceptions.Duplicate_ID_Exception('transects')
-
-#         # if an 'id' column does not exist, create one with row indices as ids
-#         if "id" not in data.columns.str.lower():
-#             data["id"] = data.index.astype(str).tolist()
-
-#         # if columns_to_keep is specified, keep only those columns
-#         if columns_to_keep:
-#             columns_to_keep = set(col.lower() for col in columns_to_keep)
-#             data = data[[col for col in data.columns if col.lower() in columns_to_keep]]
-
-#     return data
-
-
 def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
@@ -1751,79 +1668,6 @@ def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) ->
     return config
 
 
-# def create_config_gdf(
-#     rois_gdf: gpd.GeoDataFrame,
-#     shorelines_gdf: gpd.GeoDataFrame = None,
-#     transects_gdf: gpd.GeoDataFrame = None,
-#     bbox_gdf: gpd.GeoDataFrame = None,
-# ) -> gpd.GeoDataFrame():
-#     if rois_gdf is None:
-#         rois_gdf = gpd.GeoDataFrame()
-#     if shorelines_gdf is None:
-#         shorelines_gdf = gpd.GeoDataFrame()
-#     if transects_gdf is None:
-#         transects_gdf = gpd.GeoDataFrame()
-#     if bbox_gdf is None:
-#         bbox_gdf = gpd.GeoDataFrame()
-#     # create new column 'type' to indicate object type
-#     rois_gdf["type"] = "roi"
-#     shorelines_gdf["type"] = "shoreline"
-#     transects_gdf["type"] = "transect"
-#     bbox_gdf["type"] = "bbox"
-#     new_gdf = gpd.GeoDataFrame(pd.concat([rois_gdf, shorelines_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
-#     return new_gdf
-
-# def create_config_gdf(
-#     rois_gdf: gpd.GeoDataFrame,
-#     shorelines_gdf: gpd.GeoDataFrame = None,
-#     transects_gdf: gpd.GeoDataFrame = None,
-#     bbox_gdf: gpd.GeoDataFrame = None,
-#     epsg_code: int = None,
-# ) -> gpd.GeoDataFrame:
-
-#     if epsg_code is None and rois_gdf is None:
-#         raise Exception("Cannot save to config without a crs provided or a valid ROI geodataframe")
-
-#     if epsg_code is None and rois_gdf.empty:
-#         raise Exception("Cannot save to config without a crs provided or an empty ROI geodataframe")
-
-#     if rois_gdf is None:
-#         rois_gdf = gpd.GeoDataFrame()
-#     if rois_gdf is not None:
-#         rois_gdf = rois_gdf.to_crs(epsg_code)
-
-#     if epsg_code is None:
-#         epsg_code = rois_gdf.crs
-
-#     print(f'epsg_code: {epsg_code}')
-
-#     if shorelines_gdf is None:
-#         shorelines_gdf = gpd.GeoDataFrame()
-#     elif shorelines_gdf is not None:
-#         shorelines_gdf = shorelines_gdf.to_crs(epsg_code)
-#     if transects_gdf is None:
-#         transects_gdf = gpd.GeoDataFrame()
-#     elif transects_gdf is not None:
-#         transects_gdf = transects_gdf.to_crs(epsg_code)
-#     if bbox_gdf is None:
-#         bbox_gdf = gpd.GeoDataFrame()
-#     elif bbox_gdf is not None:
-#         bbox_gdf = bbox_gdf.to_crs(epsg_code)
-
-#     rois_gdf["type"] = "roi"
-#     shorelines_gdf["type"] = "shoreline"
-#     transects_gdf["type"] = "transect"
-#     bbox_gdf["type"] = "bbox"
-
-#     new_gdf = gpd.GeoDataFrame(pd.concat([rois_gdf, shorelines_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
-
-#     return new_gdf
-
-
 def create_config_gdf(
     rois_gdf: gpd.GeoDataFrame,
     shorelines_gdf: gpd.GeoDataFrame = None,
@@ -1875,37 +1719,6 @@ def create_config_gdf(
     return gpd.GeoDataFrame(config_gdf)
 
 
-# def create_config_gdf(
-#     rois_gdf: gpd.GeoDataFrame,
-#     shorelines_gdf: gpd.GeoDataFrame = None,
-#     transects_gdf: gpd.GeoDataFrame = None,
-#     bbox_gdf: gpd.GeoDataFrame = None,
-#     epsg_code: int = None,
-# ) -> gpd.GeoDataFrame:
-#     # Check if CRS is provided or if the ROI GeoDataFrame is empty
-#     if epsg_code is None and rois_gdf.empty:
-#         raise ValueError("Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame")
-#     if epsg_code is None:
-#         epsg_code = rois_gdf.crs
-
-#     # Set CRS for the GeoDataFrames
-#     rois_gdf = rois_gdf.to_crs(epsg_code) if rois_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-#     shorelines_gdf = shorelines_gdf.to_crs(epsg_code) if shorelines_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-#     transects_gdf = transects_gdf.to_crs(epsg_code) if transects_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-#     bbox_gdf = bbox_gdf.to_crs(epsg_code) if bbox_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-
-#     # Assign "type" column values
-#     rois_gdf["type"] = "roi"
-#     shorelines_gdf["type"] = "shoreline"
-#     transects_gdf["type"] = "transect"
-#     bbox_gdf["type"] = "bbox"
-
-#     # Concatenate GeoDataFrames
-#     config_gdf = pd.concat([rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True)
-
-#     return gpd.GeoDataFrame(config_gdf)
-
-
 def write_to_json(filepath: str, settings: dict):
     """ "Write the  settings dictionary to json file"""
     to_file(settings, filepath)
@@ -1942,7 +1755,7 @@ def get_jpgs_from_data() -> str:
         location = os.getcwd()
         name = "segmentation_data"
         # new folder "segmentation_data_datetime"
-        new_folder = mk_new_dir(name, location)
+        new_folder = file_utilities.mk_new_dir(name, location)
         # create subdirectories for each image type
         file_types = ["RGB", "SWIR", "NIR"]
         for file_type in file_types:
@@ -1958,7 +1771,7 @@ def get_jpgs_from_data() -> str:
                 + os.sep
                 + "*.jpg"
             )
-            copy_files_to_dst(src_path, new_path, glob_str)
+            file_utilities.copy_files_to_dst(src_path, new_path, glob_str)
             RGB_path = os.path.join(new_folder, "RGB")
         return RGB_path
     else:
@@ -2008,7 +1821,7 @@ def load_json_data_from_file(search_location: str, filename: str) -> dict:
         dict: Data read from the JSON file as a dictionary.
 
     """
-    file_path = find_file_recursively(search_location, filename)
+    file_path = file_utilities.find_file_recursively(search_location, filename)
     json_data = load_data_from_json(file_path)
     return json_data
 
@@ -2191,98 +2004,6 @@ def create_roi_settings(
         }
         roi_settings[roi_id] = inputs_dict
     return roi_settings
-
-
-def generate_datestring() -> str:
-    """Returns a datetime string in the following format %m-%d-%y__%I_%M_%S
-    EX: "ID_0__01-31-22_12_19_45"""
-    date = datetime.datetime.now()
-    return date.strftime("%m-%d-%y__%I_%M_%S")
-
-
-def mk_new_dir(name: str, location: str):
-    """Create new folder with name_datetime stamp at location
-    Args:
-        name (str): name of folder to create
-        location (str): full path to location to create folder
-    """
-    if os.path.exists(location):
-        new_folder = location + os.sep + name + "_" + generate_datestring()
-        os.mkdir(new_folder)
-        return new_folder
-    else:
-        raise Exception("Location provided does not exist.")
-
-
-def find_directory_recurively(path: str = ".", name: str = "RGB") -> str:
-    """
-    Recursively search for a directory named "RGB" in the given path or its subdirectories.
-
-    Args:
-        path (str): The starting directory to search in. Defaults to current directory.
-
-    Returns:
-        str: The path of the first directory named "RGB" found, or None if not found.
-    """
-    dir_location = None
-    if os.path.basename(path) == name:
-        dir_location = path
-    else:
-        for dirpath, dirnames, filenames in os.walk(path):
-            if name in dirnames:
-                dir_location = os.path.join(dirpath, name)
-
-    if not os.listdir(dir_location):
-        raise Exception(f"{name} directory is empty.")
-
-    if not dir_location:
-        raise Exception(f"{name} directory could not be found")
-
-    return dir_location
-
-
-def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
-    """
-    Recursively search for a file named "RGB" in the given path or its subdirectories.
-
-    Args:
-        path (str): The starting directory to search in. Defaults to current directory.
-
-    Returns:
-        str: The path of the first directory named "RGB" found, or None if not found.
-    """
-    file_location = None
-    if os.path.basename(path) == name:
-        file_location = path
-    else:
-        for dirpath, dirnames, filenames in os.walk(path):
-            if name in filenames:
-                file_location = os.path.join(dirpath, name)
-                return file_location
-
-    if not os.listdir(file_location):
-        raise Exception(f"{name} directory is empty.")
-
-    if not file_location:
-        raise Exception(f"{name} directory could not be found")
-
-    return file_location
-
-
-def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
-    """Copies all files from src_path to dest_path
-    Args:
-        src_path (str): full path to the data directory in coastseg
-        dst_path (str): full path to the images directory in Sniffer
-    """
-    if not os.path.exists(dst_path):
-        raise FileNotFoundError(f"dst_path: {dst_path} doesn't exist.")
-    elif not os.path.exists(src_path):
-        raise FileNotFoundError(f"src_path: {src_path} doesn't exist.")
-    else:
-        for file in glob.glob(glob_str):
-            shutil.copy(file, dst_path)
-        logger.info(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
 
 
 def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:

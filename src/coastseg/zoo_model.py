@@ -14,6 +14,7 @@ from coastseg import downloads
 from coastseg import sessions
 from coastseg import extracted_shoreline
 from coastseg import geodata_processing
+from coastseg import file_utilities
 
 import geopandas as gpd
 import skimage
@@ -773,7 +774,7 @@ class Zoo_Model:
             )
         logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
-        RGB_path = common.find_directory_recurively(src_directory, name="RGB")
+        RGB_path = file_utilities.find_directory_recurively(src_directory, name="RGB")
         # convert RGB to MNDWI, NDWI,or 5 band
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         logger.info(f"model_dict: {model_dict}")
@@ -798,7 +799,7 @@ class Zoo_Model:
         sessions_dir_path = common.create_directory(os.getcwd(), "sessions")
         new_session_path = common.create_directory(sessions_dir_path, session_name)
 
-        config_geojson_location = common.find_file_recursively(
+        config_geojson_location = file_utilities.find_file_recursively(
             session_path, "config_gdf.geojson"
         )
         logger.info(f"config_geojson_location: {config_geojson_location}")
@@ -822,7 +823,7 @@ class Zoo_Model:
             raise ValueError(f"{roi_id} roi settings did not exist")
 
         # read ROI from config geojson file
-        config_gdf = common.read_gpd_file(config_geojson_location)
+        config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
         roi_gdf = config_gdf[config_gdf["id"] == roi_id]
         if roi_gdf.empty:
             raise ValueError(
