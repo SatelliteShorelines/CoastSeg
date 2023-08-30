@@ -32,7 +32,6 @@ from coastseg import (
     extracted_shoreline,
     exception_handler,
 )
-from coastseg.observable import Observable
 from coastsat import SDS_download
 
 
@@ -40,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 SELECTED_LAYER_NAME = "Selected Shorelines"
 
-__all__ = ["IDContainer", "CoastSeg_Map"]
+__all__ = ["IDContainer", "ExtractShorelinesContainer", "CoastSeg_Map"]
 
 
 def _file_exists(file_path: str, filename: str) -> bool:
@@ -56,8 +55,49 @@ def _file_exists(file_path: str, filename: str) -> bool:
 class IDContainer(traitlets.HasTraits):
     ids = traitlets.List(trait=traitlets.Unicode())
 
+
 class ExtractShorelinesContainer(traitlets.HasTraits):
     max_shorelines = traitlets.Int(0)
+    layer_name = traitlets.Unicode("")
+    # geo_data = traitlets.Instance(klass=dict)
+    geo_data = traitlets.Instance(GeoJSON)
+    satname = traitlets.Unicode("")
+    date = traitlets.Unicode("")
+
+    def __init__(
+        self,
+        geo_data: GeoJSON = GeoJSON(data={}),
+    ):
+        super().__init__()
+        if geo_data:
+            self.geo_data = geo_data
+        self.observe(self._on_geo_data_changed, names="geo_data")
+
+    @traitlets.validate("satname")
+    def _validate_satname(self, proposal):
+        if isinstance(proposal["value"], str):
+            if proposal["value"] in set(["", "L5", "L7", "L8", "L9", "S2"]):
+                return proposal["value"]
+            else:
+                raise traitlets.TraitError(
+                    f"{proposal['value']}, satname must be one of the following L5,L7,L8,L9 or S2"
+                )
+        else:
+            raise traitlets.TraitError("satname must a be str")
+
+    def _on_geo_data_changed(self, change):
+        # change['new'] is a GeoJSON object with the methods .data and .name
+        if change["new"].data == {}:
+            self.layer_name = ""
+            self.satname = ""
+            self.date = ""
+        else:
+            self.layer_name = change["new"].name
+            properties = change["new"].data.get("properties", {})
+            if properties:
+                self.satname = properties.get("satname", "")
+                self.date = properties.get("date", "")
+
 
 class CoastSeg_Map:
     def __init__(self):
@@ -71,8 +111,7 @@ class CoastSeg_Map:
 
         # Observables
         self.id_container = IDContainer(ids=[])
-        self.extract_shorelines_container = ExtractShorelinesContainer(max_shorelines=0)
-        self._init_observables()
+        self.extract_shorelines_container = ExtractShorelinesContainer()
 
         # Map objects and configurations
         self.rois = None
@@ -85,12 +124,6 @@ class CoastSeg_Map:
 
         # Warning and information boxes
         self._init_info_boxes()
-
-    def _init_observables(self):
-        """Initialize observable attributes."""
-        self.extracted_shoreline_layer = Observable(
-            None, name="extracted_shoreline_layer"
-        )
 
     def _init_map_components(self):
         """Initialize map-related attributes and settings."""
@@ -1658,19 +1691,22 @@ class CoastSeg_Map:
         self.remove_all_rois()
         self.remove_layer_by_name("geodataframe")
         self.remove_extracted_shorelines()
+        # Clear the list of ROI IDs that have extracted shorelines available
 
     def remove_extracted_shorelines(self):
-        """Removes extracted shorelines from the map and removes extracted shorelines from ROIs"""
+        """Removes all extracted shorelines from the map and removes extracted shorelines from ROIs"""
         # empty extracted shorelines dictionary
         if self.rois is not None:
             self.rois.remove_extracted_shorelines(remove_all=True)
         # remove extracted shoreline vectors from the map
         self.remove_extracted_shoreline_layers()
+        self.id_container.ids = []
+        self.extract_shorelines_container.max_shorelines = 0
 
     def remove_extracted_shoreline_layers(self):
-        if self.extracted_shoreline_layer.get() is not None:
-            self.map.remove_layer(self.extracted_shoreline_layer.get())
-            self.extracted_shoreline_layer.set(None)
+        if self.extract_shorelines_container.geo_data.data != {}:
+            self.remove_layer_by_name(self.extract_shorelines_container.geo_data.name)
+            self.extract_shorelines_container.geo_data = GeoJSON(data={})
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
@@ -1877,7 +1913,6 @@ class CoastSeg_Map:
 
         # Get the extracted shorelines for all ROIs
         ids_with_extracted_shorelines = self.rois.get_ids_with_extracted_shorelines()
-        self.id_container.ids = ids_with_extracted_shorelines
 
         # Get the available ROI IDs
         available_ids = self.get_all_roi_ids()
@@ -1894,6 +1929,8 @@ class CoastSeg_Map:
         if not roi_ids_with_extracted_shorelines:
             logger.warning("No ROIs found with extracted shorelines.")
             return
+
+        self.id_container.ids = list(ids_with_extracted_shorelines)
 
         # Load extracted shorelines for the first ROI ID with extracted shorelines
         for selected_id in roi_ids_with_extracted_shorelines:
@@ -1927,6 +1964,7 @@ class CoastSeg_Map:
         points_gdf = extracted_shoreline.convert_linestrings_to_multipoints(
             extracted_shorelines.gdf
         )
+        self.extract_shorelines_container.max_shorelines = len(points_gdf) - 1
 
         new_layer = extracted_shorelines.get_styled_layer(
             points_gdf,
@@ -1944,8 +1982,7 @@ class CoastSeg_Map:
         # new_layer.on_hover(self.update_extracted_shoreline_html)
         self.map.add_layer(new_layer)
         # update the extracted shoreline layer and number of shorelines available
-        self.extracted_shoreline_layer.set(new_layer)
-        self.extract_shorelines_container.max_shorelines = len(points_gdf) - 1
+        self.extract_shorelines_container.geo_data = new_layer
 
     def load_feature_on_map(
         self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs

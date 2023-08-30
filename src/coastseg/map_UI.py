@@ -72,9 +72,7 @@ class UI:
         # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
         self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
         # have the slider watch the extracted_shoreline_layer, number_extracted_shorelines,roi_selected_to_extract_shoreline
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.extracted_shoreline_layer
-        )
+
         self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(
             self.coastseg_map.load_extracted_shorelines_to_map
         )
