@@ -24,6 +24,7 @@ import skimage.measure as measure
 import skimage.morphology as morphology
 import pandas as pd
 from tqdm.auto import tqdm
+import matplotlib.gridspec as gridspec
 
 
 # coastsat imports
