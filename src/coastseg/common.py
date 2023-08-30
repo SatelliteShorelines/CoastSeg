@@ -236,11 +236,6 @@ def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> di
     return satellites
 
 
-def get_all_subdirectories(directory: str) -> List[str]:
-    """Return a list of all subdirectories in the given directory, including the directory itself."""
-    return [dirpath for dirpath, dirnames, filenames in os.walk(directory)]
-
-
 def load_geodataframe_from_file(
     feature_path: str, feature_type: str
 ) -> gpd.GeoDataFrame:
@@ -366,38 +361,8 @@ def save_transects(
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
     transect_settings_path = os.path.join(save_location, "transects_settings.json")
-    to_file(transect_settings, transect_settings_path)
-    to_file(cross_distance_transects, save_path)
-
-
-def check_file_path(file_path, make_dirs=True):
-    """Gets the absolute file path.
-
-    Args:
-        file_path (str): The path to the file.
-        make_dirs (bool, optional): Whether to create the directory if it does not exist. Defaults to True.
-
-    Raises:
-        FileNotFoundError: If the directory could not be found.
-        TypeError: If the input directory path is not a string.
-
-    Returns:
-        str: The absolute path to the file.
-    """
-    if isinstance(file_path, str):
-        if file_path.startswith("~"):
-            file_path = os.path.expanduser(file_path)
-        else:
-            file_path = os.path.abspath(file_path)
-
-        file_dir = os.path.dirname(file_path)
-        if not os.path.exists(file_dir) and make_dirs:
-            os.makedirs(file_dir)
-
-        return file_path
-
-    else:
-        raise TypeError("The provided file path must be a string.")
+    file_utilities.to_file(transect_settings, transect_settings_path)
+    file_utilities.to_file(cross_distance_transects, save_path)
 
 
 def get_downloaded_models_dir() -> str:
@@ -439,64 +404,6 @@ def get_value_by_key_pattern(d: dict, patterns: list | set | tuple):
     raise KeyError(f"None of {patterns} matched keys in {d.keys()}")
 
 
-def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
-    """
-    Reads a JSON file and returns the parsed data as a dictionary.
-
-    Args:
-        json_file_path (str): The path to the JSON file.
-        encoding (str, optional): The encoding of the file. Defaults to "utf-8".
-        raise_error (bool, optional): Set to True if an error should be raised if the file doesn't exist.
-
-    Returns:
-        dict: The parsed JSON data as a dictionary.
-
-    Raises:
-        FileNotFoundError: If the file does not exist and `raise_error` is True.
-
-    """
-    if not os.path.exists(json_file_path):
-        if raise_error:
-            raise FileNotFoundError(
-                f"Model settings file does not exist at {json_file_path}"
-            )
-        else:
-            return None
-    with open(json_file_path, "r", encoding=encoding) as f:
-        data = json.load(f)
-    return data
-
-
-def find_file_by_regex(
-    search_path: str, search_pattern: str = r"^config\.json$"
-) -> str:
-    """Searches for a file with matching regex in the specified directory
-
-    Args:
-        search_path (str): the directory path to search for the  file matching the search pattern
-        search_pattern (str): the regular expression pattern to search for the config file
-
-    Returns:
-        str: the file path to the `config.json` file
-
-    Raises:
-        FileNotFoundError: if a `config.json` file is not found in the specified directory
-    """
-    logger.info(f"searching directory for config.json: {search_path}")
-    config_regex = re.compile(search_pattern, re.IGNORECASE)
-    logger.info(f"search_pattern: {search_pattern}")
-
-    for file in os.listdir(search_path):
-        if config_regex.match(file):
-            logger.info(f"{file} matched regex")
-            file_path = os.path.join(search_path, file)
-            return file_path
-
-    raise FileNotFoundError(
-        f"file matching pattern {search_pattern} was not found at {search_path}"
-    )
-
-
 def copy_configs(src: str, dst: str) -> None:
     """Copy config files from source directory to destination directory.
 
@@ -522,27 +429,6 @@ def copy_configs(src: str, dst: str) -> None:
             logger.info(f"Copying {config_json_path} to {dst_file}")
             shutil.copy(config_json_path, dst_file)
 
-
-def validate_config_files_exist(src: str) -> bool:
-    """Check if config files exist in the source directory.
-    Looks for files with names starting with "config_gdf" and ending with ".geojson"
-    and a file named "config.json" in the source directory.
-    Args:
-        src (str): the source directory
-    Returns:
-        bool: True if both files exist, False otherwise
-    """
-    files = os.listdir(src)
-    config_gdf_exists = False
-    config_json_exists = False
-    for file in files:
-        if file.startswith("config_gdf") and file.endswith(".geojson"):
-            config_gdf_exists = True
-        elif file == "config.json":
-            config_json_exists = True
-        if config_gdf_exists and config_json_exists:
-            return True
-    return False
 
 
 def create_file_chooser(
@@ -731,43 +617,6 @@ def load_cross_distances_from_file(dir_path):
         transect_dict[key] = tmp
     logger.info(f"Loaded transect cross shore distances from: {dir_path}")
     return transect_dict
-
-
-def find_parent_directory(
-    path: str, directory_name: str, stop_directory: str = ""
-) -> Union[str, None]:
-    """
-    Find the path to the parent directory that contains the specified directory name.
-
-    Parameters:
-        path (str): The path to start the search from.
-        directory_name (str): The name of the directory to search for.
-        stop_directory (str): Optional. A directory name to stop the search at.
-                              If this is specified, the search will stop when this
-                              directory is reached. If not specified, the search will
-                              continue until the top-level directory is reached.
-
-    Returns:
-        str or None: The path to the parent directory containing the directory with
-                     the specified name, or None if the directory is not found.
-    """
-    while True:
-        # check if the current directory name contains the target directory name
-        if directory_name in os.path.basename(path):
-            return path
-
-        # get the parent directory
-        parent_dir = os.path.dirname(path)
-
-        # check if the parent directory is the same as the current directory
-        if parent_dir == path or os.path.basename(path) == stop_directory:
-            print(
-                f"Reached top-level directory without finding '{directory_name}':", path
-            )
-            return None
-
-        # update the path to the parent directory and continue the loop
-        path = parent_dir
 
 
 def extract_roi_id(path: str) -> str:
@@ -969,23 +818,6 @@ def clear_row(row: HBox):
     row.children = []
 
 
-def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
-    """save_to_geojson_file Saves given geojson to a geojson file at outfile
-    Args:
-        out_file (str): The output file path
-        geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
-    """
-    # Save the geojson to a file
-    out_file = check_file_path(out_file)
-    ext = os.path.splitext(out_file)[1].lower()
-    if ext == ".geojson":
-        out_geojson = out_file
-    else:
-        out_geojson = os.path.splitext(out_file)[1] + ".geojson"
-    with open(out_geojson, "w") as f:
-        json.dump(geojson, f, **kwargs)
-
-
 def download_url(url: str, save_path: str, filename: str = None, chunk_size: int = 128):
     """Downloads the data from the given url to the save_path location.
     Args:
@@ -1028,37 +860,6 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                         pbar.update(len(chunk))
         else:
             logger.warning("Content length not found in response headers")
-
-
-def filter_files(files: List[str], avoid_patterns: List[str]) -> List[str]:
-    """
-    Filter a list of filepaths based on a list of avoid patterns.
-
-    Args:
-        files: A list of filepaths to filter.
-        avoid_patterns: A list of regular expression patterns to avoid.
-
-    Returns:
-        A list of filepaths whose filenames do not match any of the patterns in avoid_patterns.
-
-    Examples:
-        >>> files = ['/path/to/file1.txt', '/path/to/file2.txt', '/path/to/avoid_file.txt']
-        >>> avoid_patterns = ['.*avoid.*']
-        >>> filtered_files = filter_files(files, avoid_patterns)
-        >>> print(filtered_files)
-        ['/path/to/file1.txt', '/path/to/file2.txt']
-
-    """
-    filtered_files = []
-    for file in files:
-        # Check if the file's name matches any of the avoid patterns
-        for pattern in avoid_patterns:
-            if re.match(pattern, os.path.basename(file)):
-                break
-        else:
-            # If the file's name does not match any of the avoid patterns, add it to the filtered files list
-            filtered_files.append(file)
-    return filtered_files
 
 
 def get_center_rectangle(coords: list) -> tuple:
@@ -1200,26 +1001,6 @@ def extract_fields(data, key=None, fields_of_interest=None):
     return extracted_data
 
 
-def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
-    """Saves config to config.json or config_gdf.geojson
-    config's type is dict or geodataframe respectively
-
-    Args:
-        config (Union[dict, gpd.GeoDataFrame]): data to save to config file
-        file_path (str): full path to directory to save config file
-    """
-    if isinstance(config, dict):
-        filename = f"config.json"
-        save_path = os.path.abspath(os.path.join(file_path, filename))
-        file_utilities.write_to_json(save_path, config)
-        logger.info(f"Saved config json: {filename} \nSaved to {save_path}")
-    elif isinstance(config, gpd.GeoDataFrame):
-        filename = f"config_gdf.geojson"
-        save_path = os.path.abspath(os.path.join(file_path, filename))
-        logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
-        config.to_file(save_path, driver="GeoJSON")
-
-
 def check_unique_ids(data: gpd.GeoDataFrame) -> bool:
     """
     Checks if all the ids in the 'id' column of a geodataframe are unique. If the 'id' column does not exist returns False
@@ -1311,31 +1092,6 @@ def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
     for item in list(features):
         new_dict = {**new_dict, **item}
     return new_dict
-
-
-def move_files(src_dir: str, dst_dir: str, delete_src: bool = False) -> None:
-    """
-    Moves every file in a source directory to a destination directory, and has the option to delete the source directory when finished.
-
-    The function uses the `shutil` library to move the files from the source directory to the destination directory. If the `delete_src` argument is set to `True`, the function will delete the source directory after all the files have been moved.
-
-    Args:
-    - src_dir (str): The path of the source directory.
-    - dst_dir (str): The path of the destination directory.
-    - delete_src (bool, optional): A flag indicating whether to delete the source directory after the files have been moved. Default is `False`.
-
-    Returns:
-    - None
-    """
-    logger.info(f"Moving files from {src_dir} to dst_dir. Delete Source:{delete_src}")
-    if not os.path.exists(dst_dir):
-        os.makedirs(dst_dir)
-    for filename in os.listdir(src_dir):
-        src_file = os.path.join(src_dir, filename)
-        dst_file = os.path.join(dst_dir, filename)
-        shutil.move(src_file, dst_file)
-    if delete_src:
-        os.rmdir(src_dir)
 
 
 def get_cross_distance_df(
@@ -1467,7 +1223,9 @@ def save_extracted_shoreline_figures(
     if os.path.exists(extracted_shoreline_figure_path):
         dst_path = os.path.join(save_path, "jpg_files", "detection")
         logger.info(f"dst_path : {dst_path }")
-        move_files(extracted_shoreline_figure_path, dst_path, delete_src=True)
+        file_utilities.move_files(
+            extracted_shoreline_figure_path, dst_path, delete_src=True
+        )
 
 
 def save_extracted_shorelines(
@@ -1633,24 +1391,6 @@ def create_config_gdf(
     return gpd.GeoDataFrame(config_gdf)
 
 
-def read_geojson_file(geojson_file: str) -> dict:
-    """Returns the geojson of the selected ROIs from the file specified by geojson_file"""
-    with open(geojson_file) as f:
-        data = geojson.load(f)
-    return data
-
-
-def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
-    """
-    Returns geodataframe from geopandas geodataframe file
-    """
-    if os.path.exists(filename):
-        logger.info(f"Opening \n {filename}")
-        return gpd.read_file(filename)
-    else:
-        raise FileNotFoundError
-
-
 def get_jpgs_from_data() -> str:
     """Returns the folder where all jpgs were copied from the data folder in coastseg.
     This is where the model will save the computed segmentations."""
@@ -1698,7 +1438,7 @@ def save_config_files(
 ):
     # save config files
     config_json = create_json_config(roi_settings, shoreline_settings, roi_ids=roi_ids)
-    config_to_file(config_json, save_location)
+    file_utilities.config_to_file(config_json, save_location)
     # save a config geodataframe with the rois, reference shoreline and transects
     if roi_gdf is not None:
         if not roi_gdf.empty:
@@ -1709,7 +1449,7 @@ def save_config_files(
         transects_gdf=transects_gdf,
         epsg_code=epsg_code,
     )
-    config_to_file(config_gdf, save_location)
+    file_utilities.config_to_file(config_gdf, save_location)
 
 
 def rename_jpgs(src_path: str) -> None:

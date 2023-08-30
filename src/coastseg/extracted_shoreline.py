@@ -540,7 +540,7 @@ def get_model_card_classes(model_card_path: str) -> dict:
     Returns:
         dict: dictionary of classes in model card and their corresponding index
     """
-    model_card_data = common.read_json_file(model_card_path, raise_error=True)
+    model_card_data = file_utilities.read_json_file(model_card_path, raise_error=True)
     logger.info(
         f"model_card_path: {model_card_path} \nmodel_card_data: {model_card_data}"
     )
@@ -1421,7 +1421,9 @@ class Extracted_Shoreline:
 
         # read model settings from session path
         model_settings_path = os.path.join(session_path, "model_settings.json")
-        model_settings = common.read_json_file(model_settings_path, raise_error=True)
+        model_settings = file_utilities.read_json_file(
+            model_settings_path, raise_error=True
+        )
         # get model type from model settings
         model_type = model_settings.get("model_type", "")
         if model_type == "":
@@ -1434,7 +1436,7 @@ class Extracted_Shoreline:
         logger.info(
             f"Searching for model card in downloaded_models_path: {downloaded_models_path}"
         )
-        model_card_path = common.find_file_by_regex(
+        model_card_path = file_utilities.find_file_by_regex(
             downloaded_models_path, r".*modelcard\.json$"
         )
         # get the water index from the model card

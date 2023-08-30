@@ -7,6 +7,7 @@ import shutil
 
 from coastseg import exceptions
 from coastseg import common
+from coastseg import file_utilities
 
 from shapely.geometry import LineString, MultiLineString, Point
 import geopandas as gpd
@@ -444,7 +445,7 @@ def test_config_dict_to_file(tmp_path):
         }
     }
     filepath = tmp_path
-    common.config_to_file(config, filepath)
+    file_utilities.config_to_file(config, filepath)
     assert tmp_path.exists()
     expected_path = tmp_path / "config.json"
     assert expected_path.exists()
@@ -466,7 +467,7 @@ def test_config_geodataframe_to_file(tmp_path):
     d = {"col1": ["name1"], "geometry": [geometry.Point(1, 2)]}
     config = gpd.GeoDataFrame(d, crs="EPSG:4326")
     filepath = tmp_path
-    common.config_to_file(config, filepath)
+    file_utilities.config_to_file(config, filepath)
     assert tmp_path.exists()
     expected_path = tmp_path / "config_gdf.geojson"
     assert expected_path.exists()

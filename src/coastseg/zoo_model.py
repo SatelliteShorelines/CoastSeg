@@ -166,7 +166,9 @@ def compute_tidal_corrections(
     extract_shorelines_location = os.path.join(
         src_location, "extracted_shorelines_dict.json"
     )
-    extract_shorelines_dict = file_utilities.load_data_from_json(extract_shorelines_location)
+    extract_shorelines_dict = file_utilities.load_data_from_json(
+        extract_shorelines_location
+    )
     # tidally correct transect shorelines intersections
     tidal_corrections(
         roi_id,
@@ -765,7 +767,7 @@ class Zoo_Model:
             dict: The updated model dictionary containing the paths to the processed data.
         """
         # if configs do not exist then raise an error and do not save the session
-        if not common.validate_config_files_exist(src_directory):
+        if not file_utilities.validate_config_files_exist(src_directory):
             logger.warning(
                 f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
             )
@@ -929,7 +931,7 @@ class Zoo_Model:
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
         # if configs do not exist then raise an error and do not save the session
-        if not common.validate_config_files_exist(roi_directory):
+        if not file_utilities.validate_config_files_exist(roi_directory):
             logger.warning(
                 f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
             )
@@ -942,7 +944,7 @@ class Zoo_Model:
         file_utilities.write_to_json(model_settings_path, preprocessed_data)
 
         # copy files from out to session folder
-        common.move_files(outputs_path, session_path, delete_src=True)
+        file_utilities.move_files(outputs_path, session_path, delete_src=True)
         session.save(session.path)
 
     def prepare_model(self, model_implementation: str, model_id: str):
@@ -1028,7 +1030,9 @@ class Zoo_Model:
             "percent_no_data": percent_no_data,
         }
         # get parent roi_directory from the selected imagery directory
-        roi_directory = common.find_parent_directory(src_directory, "ID_", "data")
+        roi_directory = file_utilities.find_parent_directory(
+            src_directory, "ID_", "data"
+        )
         print(f"Preprocessing the data at {roi_directory}")
         model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
         logger.info(f"model_dict: {model_dict}")
@@ -1070,7 +1074,9 @@ class Zoo_Model:
             sample_direc, file_extensions
         )
         # filter out files whose filenames match any of the avoid_patterns
-        model_ready_files = common.filter_files(model_ready_files, avoid_patterns)
+        model_ready_files = file_utilities.filter_files(
+            model_ready_files, avoid_patterns
+        )
         logger.info(f"Filtered files for {avoid_patterns}: {model_ready_files}\n")
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
         logger.info(

@@ -355,7 +355,7 @@ class CoastSeg_Map:
         logger.info(f"Loading session from session directory: {session_path}")
 
         # load the session from the parent directory and subdirectories within session path
-        directories_to_load = common.get_all_subdirectories(session_path)
+        directories_to_load = file_utilities.get_all_subdirectories(session_path)
         for directory in directories_to_load:
             self.load_session_from_directory(directory)
 
@@ -434,7 +434,7 @@ class CoastSeg_Map:
         if isinstance(keys, set):
             keys = list(keys)
 
-        new_settings = common.read_json_file(filepath, raise_error=False)
+        new_settings = file_utilities.read_json_file(filepath, raise_error=False)
         logger.info(
             f"all of new settings read from file : {filepath} \n {new_settings}"
         )
@@ -736,7 +736,7 @@ class CoastSeg_Map:
         logger.info(f"filepath: {filepath}")
         exception_handler.check_if_None(self.rois)
 
-        json_data = common.read_json_file(filepath, raise_error=True)
+        json_data = file_utilities.read_json_file(filepath, raise_error=True)
         json_data = json_data or {}
 
         # Replace coastseg_map.settings with settings from config file
@@ -835,8 +835,8 @@ class CoastSeg_Map:
 
         if filepath is not None:
             # if a filepath is provided then save the config.json and config_gdf.geojson immediately
-            common.config_to_file(config_json, filepath)
-            common.config_to_file(config_gdf, filepath)
+            file_utilities.config_to_file(config_json, filepath)
+            file_utilities.config_to_file(config_gdf, filepath)
         elif filepath is None:
             # data has been downloaded before so inputs have keys 'filepath' and 'sitename'
             if is_downloaded == True:
@@ -848,17 +848,17 @@ class CoastSeg_Map:
                         os.path.join(config_json[roi_id]["filepath"], sitename)
                     )
                     # save to config.json
-                    common.config_to_file(config_json, filepath)
+                    file_utilities.config_to_file(config_json, filepath)
                     # save to config_gdf.geojson
-                    common.config_to_file(config_gdf, filepath)
+                    file_utilities.config_to_file(config_gdf, filepath)
                 print("Saved config files for each ROI")
             elif is_downloaded == False:
                 # if data is not downloaded save to coastseg directory
                 filepath = os.path.abspath(os.getcwd())
                 # save to config.json
-                common.config_to_file(config_json, filepath)
+                file_utilities.config_to_file(config_json, filepath)
                 # save to config_gdf.geojson
-                common.config_to_file(config_gdf, filepath)
+                file_utilities.config_to_file(config_gdf, filepath)
                 print("Saved config files for each ROI")
 
     def set_settings(self, **kwargs):
