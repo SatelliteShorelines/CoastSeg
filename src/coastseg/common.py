@@ -8,13 +8,11 @@ import math
 import logging
 import random
 import string
-import datetime
 
 # Third-party imports
 import requests
 import geopandas as gpd
 import numpy as np
-import geojson
 import pandas as pd
 import shapely
 from area import area
@@ -25,12 +23,10 @@ from requests.exceptions import SSLError
 
 # Specific classes/functions from modules
 from typing import Callable, List, Optional, Union
-from json import JSONEncoder
 
 # Internal dependencies imports
 from coastseg import exceptions
 from coastseg import file_utilities
-
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
@@ -430,7 +426,6 @@ def copy_configs(src: str, dst: str) -> None:
             shutil.copy(config_json_path, dst_file)
 
 
-
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
     title: str = None,
@@ -618,22 +613,6 @@ def load_cross_distances_from_file(dir_path):
     logger.info(f"Loaded transect cross shore distances from: {dir_path}")
     return transect_dict
 
-
-def extract_roi_id(path: str) -> str:
-    """extracts the ROI ID from the path
-
-    Args:
-        path (str): path containing ROI directory
-
-    Returns:
-        str: ID of the ROI within the path
-    """
-    pattern = r"ID_([A-Za-z0-9]+)"
-    match = re.search(pattern, path)
-    if match:
-        return match.group(1)
-    else:
-        return None
 
 
 def mount_google_drive(name: str = "CoastSeg") -> None:

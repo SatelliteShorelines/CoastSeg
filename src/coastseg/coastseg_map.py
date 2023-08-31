@@ -44,16 +44,6 @@ SELECTED_LAYER_NAME = "Selected Shorelines"
 __all__ = ["IDContainer", "ExtractShorelinesContainer", "CoastSeg_Map"]
 
 
-def _file_exists(file_path: str, filename: str) -> bool:
-    """Helper function to check if a file exists and log its status."""
-    if os.path.exists(file_path):
-        logger.info(f"{filename} exists at location: {file_path}")
-        return True
-
-    logger.warning(f"{filename} file missing at {file_path}")
-    return False
-
-
 class IDContainer(traitlets.HasTraits):
     ids = traitlets.List(trait=traitlets.Unicode())
 
@@ -211,7 +201,9 @@ class CoastSeg_Map:
         for roi_id in roi_ids:
             # create roi directory in session path
             ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-            session_path = file_utilities.get_session_path(session_name, ROI_directory)
+            session_path = file_utilities.create_session_path(
+                session_name, ROI_directory
+            )
             # get extracted shoreline for each roi
             extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
             if extracted_shoreline is None:
@@ -333,6 +325,8 @@ class CoastSeg_Map:
         self.remove_all()
         self.load_session(session_path)
 
+
+
     def load_session(self, session_path: str) -> None:
         """
         Load a session from the given path.
@@ -350,6 +344,7 @@ class CoastSeg_Map:
         """
         # load the session name
         session_path = os.path.abspath(session_path)
+         
         session_name = os.path.basename(session_path)
         self.set_session_name(session_name)
         logger.info(f"Loading session from session directory: {session_path}")
@@ -763,11 +758,11 @@ class CoastSeg_Map:
         config_geojson_path = os.path.join(dir_path, "config_gdf.geojson")
         config_json_path = os.path.join(dir_path, "config.json")
 
-        if not _file_exists(config_geojson_path, "config_gdf.geojson"):
+        if not file_utilities.file_exists(config_geojson_path, "config_gdf.geojson"):
             return False
 
         # config.json contains all the settings for the map, shorelines and transects it must exist
-        if not _file_exists(config_json_path, "config.json"):
+        if not file_utilities.file_exists(config_json_path, "config.json"):
             raise Exception(f"config.json file missing at {config_json_path}")
 
         # load the config files
@@ -1481,7 +1476,9 @@ class CoastSeg_Map:
         for roi_id in roi_ids:
             ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
             # create session directory
-            session_path = file_utilities.get_session_path(session_name, ROI_directory)
+            session_path = file_utilities.create_session_path(
+                session_name, ROI_directory
+            )
             # save source data
             self.save_config(session_path)
             # save extracted shorelines
