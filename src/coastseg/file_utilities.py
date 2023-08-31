@@ -3,14 +3,11 @@ import re
 import glob
 import shutil
 import json
-import math
 import logging
-import random
-import string
 import datetime
 
 # Specific classes/functions from modules
-from typing import Callable, List, Optional, Union
+from typing import List, Union
 from json import JSONEncoder
 
 # Third-party imports
@@ -18,11 +15,56 @@ import geopandas as gpd
 import geojson
 import numpy as np
 
-# Internal dependencies imports
-from coastseg import exceptions
-
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def load_package_resource(
+    resource_name: str,
+    file_name: str = "",
+    pkg_name: str = "coastseg",
+) -> str:
+    """
+    Loads a resource from a package.
+
+    Args:
+        resource_name (str): Name of the resource to load.
+        file_name (str): Specific file name within the resource, if applicable.
+        pkg_name (str): Name of the package where the resource is located.
+
+    Returns:
+        str: Absolute path to the resource or file.
+
+    Raises:
+        ImportError: If necessary importlib resources are not available.
+        FileNotFoundError: If the resource or file is not found.
+    """
+    try:
+        from importlib import resources
+    except (ImportError, AttributeError):
+        try:
+            # Use importlib backport for Python older than 3.9
+            import importlib_resources as resources
+        except ImportError:
+            raise ImportError(
+                "Both importlib.resources and importlib_resources are unavailable. Ensure you have the necessary packages installed."
+            )
+    # Get the resource location
+    resource_location = resources.files(pkg_name).joinpath(resource_name)
+    # Check if the resource exists and is a directory
+    if not (resource_location.exists() and resource_location.is_dir()):
+        raise FileNotFoundError(resource_location)
+    # If a file name is provided, update the resource location and check again
+    if file_name:
+        resource_location = resource_location.joinpath(file_name)
+        if not resource_location.exists():
+            raise FileNotFoundError(resource_location)
+
+    return os.path.abspath(resource_location)
+
+
+def directory_exists(directory_name):
+    return os.path.isdir(directory_name)
 
 
 def generate_datestring() -> str:
@@ -30,6 +72,7 @@ def generate_datestring() -> str:
     EX: "ID_0__01-31-22_12_19_45"""
     date = datetime.datetime.now()
     return date.strftime("%m-%d-%y__%I_%M_%S")
+
 
 def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
     """
@@ -58,6 +101,25 @@ def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> 
         data = json.load(f)
     return data
 
+
+def get_session_contents_location(session_name: str, roi_id: str = ""):
+    session_path = get_session_location(session_name)
+    if roi_id:
+        roi_location = find_matching_directory_by_id(session_path, roi_id)
+        if roi_location is not None:
+            session_path = roi_location
+        # check if a config file exists in the session if it doesn't then this isn't correct
+        try:
+            find_file_by_regex(session_path, r"^config\.json$")
+        except FileNotFoundError:
+            raise Exception(
+                f"Session Directory didn't contains config json file {session_path}"
+            )
+    if not os.path.isdir(session_path):
+        raise Exception(f"Session Directory didn't exist {session_path}")
+    return session_path
+
+
 def find_file_by_regex(
     search_path: str, search_pattern: str = r"^config\.json$"
 ) -> str:
@@ -68,15 +130,13 @@ def find_file_by_regex(
         search_pattern (str): the regular expression pattern to search for the config file
 
     Returns:
-        str: the file path to the `config.json` file
+        str: the file path that matched the search_pattern
 
     Raises:
-        FileNotFoundError: if a `config.json` file is not found in the specified directory
+        FileNotFoundError: if a file is not found in the specified directory
     """
-    logger.info(f"searching directory for config.json: {search_path}")
+    logger.info(f"searching directory for config : {search_path}")
     config_regex = re.compile(search_pattern, re.IGNORECASE)
-    logger.info(f"search_pattern: {search_pattern}")
-
     for file in os.listdir(search_path):
         if config_regex.match(file):
             logger.info(f"{file} matched regex")
@@ -86,6 +146,7 @@ def find_file_by_regex(
     raise FileNotFoundError(
         f"file matching pattern {search_pattern} was not found at {search_path}"
     )
+
 
 def validate_config_files_exist(src: str) -> bool:
     """Check if config files exist in the source directory.
@@ -107,6 +168,7 @@ def validate_config_files_exist(src: str) -> bool:
         if config_gdf_exists and config_json_exists:
             return True
     return False
+
 
 def move_files(src_dir: str, dst_dir: str, delete_src: bool = False) -> None:
     """
@@ -136,6 +198,7 @@ def move_files(src_dir: str, dst_dir: str, delete_src: bool = False) -> None:
 def get_all_subdirectories(directory: str) -> List[str]:
     """Return a list of all subdirectories in the given directory, including the directory itself."""
     return [dirpath for dirpath, dirnames, filenames in os.walk(directory)]
+
 
 def find_parent_directory(
     path: str, directory_name: str, stop_directory: str = ""
@@ -172,6 +235,7 @@ def find_parent_directory(
 
         # update the path to the parent directory and continue the loop
         path = parent_dir
+
 
 def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
     """Saves config to config.json or config_gdf.geojson
@@ -271,9 +335,100 @@ def check_file_path(file_path, make_dirs=True):
         raise TypeError("The provided file path must be a string.")
 
 
-def get_session_path(session_name: str, ROI_directory: str) -> str:
+def get_session_location(session_name: str = "") -> str:
+    """
+    Gets the session location path based on the provided session name.
+    If the session directory doesn't exist, it creates one.
+
+    Parameters:
+    - session_name (str, optional): Name of the session. Defaults to "".
+
+    Returns:
+    - str: Path to the session location.
+
+    Note:
+    - This function assumes the presence of a function named `create_directory`.
+    """
+
+    base_path = os.getcwd()
+    session_dir = "sessions"
+    session_path = (
+        os.path.join(base_path, session_dir, session_name)
+        if session_name
+        else os.path.join(base_path, session_dir)
+    )
+    return session_path
+
+
+def file_exists(file_path: str, filename: str) -> bool:
+    """Helper function to check if a file exists and log its status."""
+    if os.path.exists(file_path):
+        logger.info(f"{filename} exists at location: {file_path}")
+        return True
+
+    logger.warning(f"{filename} file missing at {file_path}")
+    return False
+
+
+def extract_roi_id(path: str) -> str:
+    """extracts the ROI ID from the path
+
+    Args:
+        path (str): path containing ROI directory
+
+    Returns:
+        str: ID of the ROI within the path
+    """
+    pattern = r"ID_([A-Za-z0-9]+)"
+    match = re.search(pattern, path)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
+def find_matching_directory_by_id(base_directory: str, roi_id: str) -> str:
+    """
+    Loops through all directories in the given base_directory to find a directory with a matching ROI ID.
+
+    Args:
+        base_directory (str): Path to the directory containing subdirectories to check.
+        roi_id (str): ROI ID to match against directories.
+
+    Returns:
+        str: Path to the matching directory if found. Otherwise, returns None.
+    """
+
+    # Iterate over each directory in the base_directory
+    for dir_name in os.listdir(base_directory):
+        dir_path = os.path.join(base_directory, dir_name)
+
+        # Check if it's a directory and has the matching ROI ID
+        if os.path.isdir(dir_path) and extract_roi_id(dir_name) == roi_id:
+            return dir_path
+
+    # If no matching directory is found, return None
+    return None
+
+
+def create_session_path(session_name: str, ROI_directory_name: str) -> str:
+    """
+    Creates a session path by joining the current working directory, a fixed "sessions" directory, and the provided session name.
+    After constructing the path, it further creates the sub directory provided ROI_directory.
+
+    Parameters:
+    - session_name (str): Name of the session for which the path has to be created.
+    - ROI_directory_name (str): The name of the directory related to the region of interest (ROI) that will be appended to the session path.
+
+    Returns:
+    - str: The path to the newly created session directory.
+
+    Note:
+    - This function assumes the presence of a function named `create_directory` and a logger object named `logger`.
+    """
+
     session_path = os.path.join(os.getcwd(), "sessions", session_name)
-    session_path = create_directory(session_path, ROI_directory)
+    session_path = create_directory(session_path, ROI_directory_name)
     logger.info(f"session_path: {session_path}")
     return session_path
 
@@ -306,6 +461,24 @@ def write_to_json(filepath: str, settings: dict):
 
 
 def to_file(data: dict, filepath: str) -> None:
+    """
+    Serializes a dictionary to a JSON file, handling special serialization for datetime and numpy ndarray objects.
+
+    The function handles two special cases:
+    1. If the data contains datetime.date or datetime.datetime objects, they are serialized to their ISO format.
+    2. If the data contains numpy ndarray objects, they are converted to lists before serialization.
+
+    Parameters:
+    - data (dict): Dictionary containing the data to be serialized to a JSON file.
+    - filepath (str): Path (including filename) where the JSON file should be saved.
+
+    Returns:
+    - None
+
+    Note:
+    - This function requires the json, datetime, and numpy modules to be imported.
+    """
+
     class DateTimeEncoder(JSONEncoder):
         # Override the default method
         def default(self, obj):
@@ -402,20 +575,6 @@ def mk_new_dir(name: str, location: str):
         return new_folder
     else:
         raise Exception("Location provided does not exist.")
-
-
-def to_file(data: dict, filepath: str) -> None:
-    class DateTimeEncoder(JSONEncoder):
-        # Override the default method
-        def default(self, obj):
-            if isinstance(obj, (datetime.date, datetime.datetime)):
-                return obj.isoformat()
-            if isinstance(obj, (np.ndarray)):
-                new_obj = [array.tolist() for array in obj]
-                return new_obj
-
-    with open(filepath, "w") as fp:
-        json.dump(data, fp, cls=DateTimeEncoder)
 
 
 def read_geojson_file(geojson_file: str) -> dict:
