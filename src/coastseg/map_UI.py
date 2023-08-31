@@ -556,7 +556,7 @@ class UI:
 
         self.cloud_slider = ipywidgets.IntSlider(
             value=300,
-            min=100,
+            min=0,
             max=1000,
             step=1,
             description="dist_clouds (m):",
