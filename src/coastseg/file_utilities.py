@@ -9,14 +9,47 @@ import datetime
 # Specific classes/functions from modules
 from typing import List, Union
 from json import JSONEncoder
+from contextlib import contextmanager
+from tqdm.auto import tqdm
 
 # Third-party imports
 import geopandas as gpd
 import geojson
 import numpy as np
 
+
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def progress_bar_context(use_progress_bar: bool, total: int = 6, description: str = ""):
+    """
+    Context manager for handling progress bar creation and updates.
+
+    Parameters:
+    -----------
+    use_progress_bar : bool
+        If True, a tqdm progress bar will be displayed. Otherwise, it's a no-op.
+
+    Yields:
+    -------
+    function
+        A function to call for updating the progress bar. If use_progress_bar is False,
+        it's a no-op.
+    """
+    if use_progress_bar:
+        progress_bar = tqdm(total=total, dynamic_ncols=True, desc=description)
+
+        def update(message: str):
+            progress_bar.set_description(message)
+            progress_bar.update(1)
+
+        yield update
+        progress_bar.close()
+    else:
+        # If not using a progress bar, just yield a no-op function
+        yield lambda message: None
 
 
 def load_package_resource(
@@ -335,28 +368,35 @@ def check_file_path(file_path, make_dirs=True):
         raise TypeError("The provided file path must be a string.")
 
 
-def get_session_location(session_name: str = "") -> str:
+def get_session_location(
+    session_name: str = "", base_path: str = "", raise_error: bool = False
+) -> str:
     """
     Gets the session location path based on the provided session name.
     If the session directory doesn't exist, it creates one.
 
     Parameters:
     - session_name (str, optional): Name of the session. Defaults to "".
-
+    - base_path (str, optional): location of parent directory containing sessions directory. Defaults to "".
+    - raise_error (bool,optional): Raise a FileNotFound error is session_path does not exist. Defaults to False
     Returns:
     - str: Path to the session location.
 
     Note:
     - This function assumes the presence of a function named `create_directory`.
     """
-
-    base_path = os.getcwd()
+    if not (base_path and os.path.exists(base_path)):
+        base_path = os.getcwd()
     session_dir = "sessions"
     session_path = (
         os.path.join(base_path, session_dir, session_name)
         if session_name
         else os.path.join(base_path, session_dir)
     )
+    # if raise error is True and the session_path does not exist raise FileNotFound
+    if not os.path.exists(session_path) and raise_error:
+        raise FileNotFoundError(session_path)
+
     return session_path
 
 
