@@ -65,6 +65,49 @@ def correct_all_tides(
             update(f"{roi_id} was tidally corrected")
 
 
+def save_transect_settings(
+    session_path: str,
+    reference_elevation: float,
+    beach_slope: float,
+    filename: str = "transects_settings.json",
+) -> None:
+    """
+    Update and save transect settings with the provided reference elevation and beach slope.
+
+    Parameters:
+    -----------
+    session_path : str
+        Path to the session directory where the transect settings JSON file is located.
+    reference_elevation : float
+        The reference elevation value to be updated in the transect settings.
+    beach_slope : float
+        The beach slope value to be updated in the transect settings.
+    filename : str, optional
+        The name of the JSON file containing the transect settings. Defaults to "transects_settings.json".
+
+    Returns:
+    --------
+    None
+
+    Notes:
+    ------
+    The function reads the existing settings file in the session directory (as specified by the
+    `filename` parameter), updates the reference elevation and beach slope values, and then
+    writes the updated settings back to the same file.
+
+    Raises:
+    -------
+    FileNotFoundError:
+        If the specified settings file does not exist in the given session path.
+    """
+    transects_settings = file_utilities.read_json_file(
+        os.path.join(session_path, filename), raise_error=True
+    )
+    transects_settings["reference_elevation"] = reference_elevation
+    transects_settings["beach_slope"] = beach_slope
+    file_utilities.to_file(transects_settings, os.path.join(session_path, filename))
+
+
 def correct_tides(
     roi_id: str,
     session_name: str,
@@ -130,6 +173,11 @@ def correct_tides(
         session_path = file_utilities.get_session_contents_location(
             session_name, roi_id
         )
+        # read in transect_settings.json from session_path save the beach slope and reference shoreline
+        save_transect_settings(
+            session_path, reference_elevation, beach_slope, "transects_settings.json"
+        )
+
         predicted_tides_df.to_csv(os.path.join(session_path, "predicted_tides.csv"))
         tide_corrected_timeseries_df = tidally_correct_timeseries(
             raw_timeseries_df,
