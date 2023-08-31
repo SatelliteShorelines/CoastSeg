@@ -83,57 +83,6 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> li
     return valid_images
 
 
-def tidal_corrections(
-    roi_id,
-    beach_slope,
-    reference_elevation,
-    extract_shorelines_dict,
-    cross_distance: dict,
-    tide_data: pd.DataFrame,
-    save_path,
-):
-    # tides for each date in extracted shorelines
-    tides_for_dates = get_tides_level(extract_shorelines_dict["dates"], tide_data)
-    correction = (tides_for_dates - reference_elevation) / beach_slope
-
-    cross_distance_tidally_corrected = {}
-    for key in cross_distance.keys():
-        cross_distance_tidally_corrected[key] = cross_distance[key] + correction
-
-    common.create_csv_per_transect(
-        roi_id,
-        save_path,
-        cross_distance_tidally_corrected,
-        extract_shorelines_dict,
-        filename="_timeseries_tidally_corrected.csv",
-    )
-    common.save_transect_intersections(
-        save_path,
-        extract_shorelines_dict,
-        cross_distance_tidally_corrected,
-        filename="timeseries_tidally_corrected.csv",
-    )
-
-
-# tides for each date in extracted shorelines
-def get_tides_level(
-    extracted_shoreline_dates: np.array, tide_data: pd.DataFrame
-) -> np.array:
-    """Gets the tide level for each of the dates that a shoreline was extracted
-    Args:
-        extract_shorelines_dict (np.array): dates for each extracted shoreliens
-        tide_data (pd.DataFrame): dates and tide levels
-    Returns:
-        np.array: tide level for each of the dates that a shoreline was extracted
-    """
-    tide_dates = [pytz.utc.localize(_.to_pydatetime()) for _ in tide_data["dates"]]
-    tides = np.array(tide_data["tides"])
-    tides_for_dates = SDS_tools.get_closest_datapoint(
-        extracted_shoreline_dates, tide_dates, tides
-    )
-    return tides_for_dates
-
-
 def compute_tidal_corrections(
     roi_id: str,
     src_location: str,
