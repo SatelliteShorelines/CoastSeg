@@ -68,7 +68,6 @@ class UI:
 
         self.session_name = ""
         self.session_directory = ""
-        self.tides_file = ""
 
         # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
         self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
@@ -262,7 +261,7 @@ class UI:
         self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
         self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
 
-        scrollable_select = SelectMultiple(
+        self.scrollable_select = SelectMultiple(
             description="Select ROIs",
             options=id_container.ids,
             layout=Layout(overflow_y="auto", height="100px"),
@@ -270,7 +269,7 @@ class UI:
 
         # Function to update widget options when the traitlet changes
         def update_widget_options(change):
-            scrollable_select.options = change["new"]
+            self.scrollable_select.options = change["new"]
 
         # When the traitlet,id_container, trait 'ids' changes the update_widget_options will be updated
         id_container.observe(update_widget_options, names="ids")
@@ -294,17 +293,19 @@ class UI:
                 correct_tides_html,
                 self.beach_slope_text,
                 self.reference_elevation_text,
-                scrollable_select,
+                self.scrollable_select,
                 self.tidally_correct_button,
             ]
         )
 
     @debug_view.capture(clear_output=True)
     def tidally_correct_button_clicked(self, button):
-        if self.tides_file == "":
+        # get the selected ROI IDs if none selected give an error message
+        selected_rois = self.scrollable_select.value
+        if not selected_rois:
             self.launch_error_box(
                 "Cannot correct tides",
-                "Must enter a select a tide file first",
+                "Must enter a select an ROI ID first",
             )
             return
 
@@ -312,7 +313,7 @@ class UI:
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
         self.coastseg_map.compute_tidal_corrections(
-            self.tides_file, beach_slope, reference_elevation
+            selected_rois, beach_slope, reference_elevation
         )
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
 

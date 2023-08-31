@@ -3,10 +3,10 @@ import os
 import logging
 import pathlib
 from pathlib import Path
-from typing import Dict, Tuple, Union
+from typing import Collection, Dict, Tuple, Union
 
 from coastseg import file_utilities
-from coastseg import tide_model
+from coastseg.file_utilities import progress_bar_context
 
 # Third-party imports
 from tqdm.auto import tqdm
@@ -33,37 +33,97 @@ def update_progress_bar(progress_bar, description: str, update_amount: float):
     return progress_bar
 
 
-def correct_tides(
-    roi_id: str,
+def correct_all_tides(
+    roi_ids: Collection,
     session_name: str,
-    REFERENCE_ELEVATION: float,
+    reference_elevation: float,
     beach_slope: float,
-    model_location: str,
     use_progress_bar: bool = True,
 ):
     if use_progress_bar:
         # Create a tqdm progress bar
         progress_bar = tqdm(total=6, dynamic_ncols=True)
         update_progress_bar(progress_bar, f"", 1)
-    # create the settings used to run the tide_model
+    # validate tide model exists at CoastSeg/tide_model
+    model_location = get_tide_model_location()
+    # load the regions the tide model was clipped to from geojson file
     tide_regions_file = file_utilities.load_package_resource(
         "tide_model", "tide_regions_map.geojson"
     )
-    tide_model_config = setup_tide_model_config(model_location)
+
+    for roi_id in roi_ids:
+        correct_tides(
+            roi_id,
+            session_name,
+            reference_elevation,
+            beach_slope,
+            model_location,
+            tide_regions_file,
+            use_progress_bar,
+        )
+        logger.info(f"{roi_id} was tidally corrected")
+        print(f"\n{roi_id} was tidally corrected")
+        logger.info(f"{roi_id} was tidally corrected")
+
+
+def correct_tides(
+    roi_id: str,
+    session_name: str,
+    reference_elevation: float,
+    beach_slope: float,
+    model_location: str,
+    tide_regions_file: str,
+    use_progress_bar: bool = True,
+) -> pd.DataFrame:
+    """
+    Correct the tides for a given Region Of Interest (ROI) using a tide model.
+
+    Parameters:
+    -----------
+    roi_id : str
+        Identifier for the Region Of Interest.
+    session_name : str
+        Name of the session.
+    reference_elevation : float
+        Reference elevation value.
+    beach_slope : float
+        Slope of the beach.
+    model_location : str
+        Path to the tide model.
+    tide_regions_file : str
+        Path to the file containing the regions the tide model was clipped to.
+    use_progress_bar : bool, optional
+        If True, a tqdm progress bar will be displayed. Default is True.
+
+    Returns:
+    --------
+    pd.DataFrame
+        A DataFrame containing tide-corrected time series data for the specified ROI.
+
+    Notes:
+    ------
+    - This function will set up the tide model, get the time series for the ROI, and predict tides.
+    - Tidally corrected time series data will be saved to the session location for the ROI.
+    """
+    if use_progress_bar:
+        # Create a tqdm progress bar
+        progress_bar = tqdm(total=6, dynamic_ncols=True)
+        update_progress_bar(progress_bar, f"", 1)
+    # create the settings used to run the tide_model
     if use_progress_bar:
         update_progress_bar(progress_bar, f"Setting up the tide model : {roi_id}", 1)
-    # load the time series
-    raw_timeseries_df = get_timeseries(roi_id, session_name)
+    tide_model_config = setup_tide_model_config(model_location)
     if use_progress_bar:
         update_progress_bar(progress_bar, f"Getting time series for ROI : {roi_id}", 1)
+    # load the time series
+    raw_timeseries_df = get_timeseries(roi_id, session_name)
     # read the transects from the config_gdf.geojson file
-    transects_gdf = get_transects(roi_id, session_name)
     if use_progress_bar:
         update_progress_bar(progress_bar, f"Getting transects for ROI : {roi_id}", 1)
+    transects_gdf = get_transects(roi_id, session_name)
 
     if use_progress_bar:
         update_progress_bar(progress_bar, f"Predicting tides : {roi_id}", 1)
-
     predicted_tides_df = predict_tides(
         transects_gdf,
         raw_timeseries_df,
@@ -75,13 +135,20 @@ def correct_tides(
             progress_bar, f"Tidally correcting time series for ROI : {roi_id}", 1
         )
 
+    # optionally save to session location in ROI save the predicted tides to csv
+    session_path = file_utilities.get_session_contents_location(session_name, roi_id)
+    predicted_tides_df.to_csv(os.path.join(session_path, "predicted_tides.csv"))
+
     tide_corrected_timeseries_df = tidally_correct_timeseries(
         raw_timeseries_df,
         predicted_tides_df,
-        REFERENCE_ELEVATION,
+        reference_elevation,
         beach_slope,
     )
-    # save to session location in ROI
+    # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
+    tide_corrected_timeseries_df.to_csv(
+        os.path.join(session_path, "transect_time_series_tidally_corrected.csv")
+    )
 
     return tide_corrected_timeseries_df
 
