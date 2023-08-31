@@ -5,7 +5,7 @@ import logging
 import glob
 from datetime import datetime
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Collection, Dict, List, Optional, Tuple, Union
 
 # Third-party imports
 import pandas as pd
@@ -22,9 +22,9 @@ from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
 from coastseg.downloads import count_images_in_ee_collection
-from coastseg.zoo_model import tidal_corrections
 from coastseg import file_utilities
 from coastseg import geodata_processing
+from coastseg import tide_correction
 
 # Internal/Local imports: modules
 from coastseg import (
@@ -181,53 +181,21 @@ class CoastSeg_Map:
         )
 
     def compute_tidal_corrections(
-        self, tides_location: str, beach_slope: float, reference_elevation: float
+        self, roi_ids: Collection, beach_slope: float, reference_elevation: float
     ):
+        logger.info(
+            f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
+        )
+        # session_path = file_utilities.get_session_location(
+        #     session_name=session_name, raise_error=True
+        # )
         session_name = self.get_session_name()
-        session_path = os.path.join(os.getcwd(), "sessions", session_name)
-        if not os.path.exists(session_path):
-            raise FileNotFoundError(session_path)
-        # get selected ROIs
-        roi_ids = self.get_selected_roi_ids()
-        exception_handler.check_selected_set(self.selected_set)
-        tide_data = pd.read_csv(tides_location, parse_dates=["dates"])
-        if "tides" not in tide_data.columns or "dates" not in tide_data.columns:
-            logger.error(
-                f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
-            )
-            raise Exception(
-                f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
-            )
-        for roi_id in roi_ids:
-            # create roi directory in session path
-            ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-            session_path = file_utilities.create_session_path(
-                session_name, ROI_directory
-            )
-            # get extracted shoreline for each roi
-            extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
-            if extracted_shoreline is None:
-                logger.info(f"No extracted shorelines for ROI: {roi_id}")
-                print(f"No extracted shorelines for ROI: {roi_id}")
-                continue
-            # get extracted transect for each roi
-            cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
-            if cross_shore_distance is None:
-                logger.info(f"No cross_shore_distance for ROI: {roi_id}")
-                print(f"No cross_shore_distance for ROI: {roi_id}")
-                continue
-            tidal_corrections(
-                roi_id,
-                beach_slope,
-                reference_elevation,
-                extracted_shoreline.dictionary,
-                cross_shore_distance,
-                tide_data,
-                session_path,
-            )
-            logger.info(f"{roi_id} was tidally corrected")
-            print(f"\n{roi_id} was tidally corrected")
-        logger.info(f"{roi_id} was tidally corrected")
+        tide_correction.correct_all_tides(
+            roi_ids,
+            session_name,
+            reference_elevation,
+            beach_slope,
+        )
         print("\ntidal corrections completed")
 
     def load_session_files(self, dir_path: str) -> None:
