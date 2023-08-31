@@ -813,7 +813,7 @@ class Zoo_Model:
             session_path, "model_settings.json"
         )
         source_directory = model_settings.get("sample_direc", "")
-        roi_id = common.extract_roi_id(source_directory)
+        roi_id = file_utilities.extract_roi_id(source_directory)
 
         # save model settings to session path
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
