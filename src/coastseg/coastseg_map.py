@@ -325,8 +325,6 @@ class CoastSeg_Map:
         self.remove_all()
         self.load_session(session_path)
 
-
-
     def load_session(self, session_path: str) -> None:
         """
         Load a session from the given path.
@@ -342,10 +340,29 @@ class CoastSeg_Map:
         Returns:
             None.
         """
+
+        def get_parent_session_name(session_path: str) -> str:
+            split_array = session_path.split(os.sep)
+            # get the index of the sessions directroy which contains all the sessions
+            parent_index = split_array.index("sessions")
+            # get the parent session name aka not a sub directory for a specific ROI
+            parent_session_name = split_array[parent_index + 1]
+            if not (
+                os.path.exists(os.sep.join(split_array[: parent_index + 1]))
+                and os.path.isdir(os.sep.join(split_array[: parent_index + 1]))
+            ):
+                raise FileNotFoundError(f"{os.sep.join(split_array[:parent_index+1])}")
+            return parent_session_name
+
         # load the session name
         session_path = os.path.abspath(session_path)
-         
-        session_name = os.path.basename(session_path)
+
+        session_name = get_parent_session_name(session_path)
+        print(f"session_path: {session_path}")
+        print(f"session_name: {session_name}")
+        logger.info(f"session_path: {session_path}")
+        logger.info(f"session_name: {session_name}")
+        # session_name = os.path.basename(session_path)
         self.set_session_name(session_name)
         logger.info(f"Loading session from session directory: {session_path}")
 

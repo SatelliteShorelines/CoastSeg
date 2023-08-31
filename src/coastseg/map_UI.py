@@ -1302,12 +1302,10 @@ class UI:
                 if filechooser.selected:
                     self.coastseg_map.map.default_style = {"cursor": "wait"}
                     self.coastseg_map.load_fresh_session(filechooser.selected)
-                    logger.info(f"filechooser.selected: {filechooser.selected}")
-                    session_name = os.path.basename(
-                        os.path.abspath(filechooser.selected)
-                    )
-                    logger.info(f"session_name: {session_name}")
-                    self.session_name_text.value = session_name
+                    # self.session_name_text.value = os.path.basename(
+                    #     os.path.abspath(filechooser.selected)
+                    # )
+                    self.session_name_text.value = self.coastseg_map.get_session_name()
                     self.settings_html.value = self.get_settings_html(
                         self.coastseg_map.get_settings()
                     )
