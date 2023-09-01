@@ -9,7 +9,6 @@ from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
 
 # Third-party imports
-from tqdm.auto import tqdm
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -27,10 +26,18 @@ from shapely.geometry import Point
 logger = logging.getLogger(__name__)
 
 
-def update_progress_bar(progress_bar, description: str, update_amount: float):
-    progress_bar.set_description(description)
-    progress_bar.update(update_amount)
-    return progress_bar
+def save_csv_per_id(
+    df: pd.DataFrame,
+    save_location: str,
+    filename: str = "timeseries_tidally_corrected",
+    id_column_name: str = "transect_id",
+):
+    new_df = pd.DataFrame()
+    unique_ids = df[id_column_name].unique()
+    for uid in unique_ids:
+        new_filename = f"{uid}_{filename}"
+        new_df = df[df[id_column_name] == uid]
+        new_df.to_csv(os.path.join(save_location, new_filename))
 
 
 def correct_all_tides(
@@ -188,6 +195,12 @@ def correct_tides(
         # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
         tide_corrected_timeseries_df.to_csv(
             os.path.join(session_path, "transect_time_series_tidally_corrected.csv")
+        )
+        # save a csv for each transect that was tidally corrected
+        save_csv_per_id(
+            tide_corrected_timeseries_df,
+            session_path,
+            filename="timeseries_tidally_corrected",
         )
         update(f"{roi_id} was tidally corrected")
     return tide_corrected_timeseries_df
