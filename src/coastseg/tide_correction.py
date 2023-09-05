@@ -322,16 +322,18 @@ def sub_directory_contains_files(
     """
 
     if not os.path.isdir(sub_directory_path):
-        raise Exception(f"Directory did not exist {sub_directory_path}")
+        raise Exception(
+            f" Missing directory {os.path.basename(sub_directory_path)} at {sub_directory_path}"
+        )
         return False
 
     files_with_extension = [
         f for f in os.listdir(sub_directory_path) if f.endswith(extension)
     ]
-    if not len(files_with_extension) == count:
-        raise Exception(
-            f"The model was not clipped {os.path.basename(sub_directory_path)} only contained {len(files_with_extension)} when it should have contained {count} files"
-        )
+    # if len(files_with_extension) != count:
+    # raise Exception(
+    #     f"The tide model was not correctly clipped {os.path.basename(sub_directory_path)} only contained {len(files_with_extension)} when it should have contained {count} files"
+    # )
     return len(files_with_extension) == count
 
 
@@ -353,28 +355,28 @@ def contains_sub_directories(directory_name: str, num_regions: int) -> bool:
         load_tide_path = os.path.join(region_dir, "fes2014", "load_tide")
         ocean_tide_path = os.path.join(region_dir, "fes2014", "ocean_tide")
 
-        # if not (os.path.isdir(load_tide_path) and os.path.isdir(ocean_tide_path)):
-        #     raise Exception(f"Directory did not exist {sub_directory_path}")
-        #     return False
+        if not os.path.isdir(region_dir):
+            raise Exception(
+                f"Tide Model was not clipped correctly. Missing the directory '{os.path.basename(region_dir)}' for region {i} at {region_dir}"
+            )
 
         if not os.path.isdir(load_tide_path):
-            raise Exception(f"Directory did not exist {load_tide_path}")
+            raise Exception(
+                f"Tide Model was not clipped correctly. Region {i} was missing directory '{os.path.basename(load_tide_path)}' at {load_tide_path}"
+            )
 
         if not os.path.isdir(ocean_tide_path):
-            raise Exception(f"Directory did not exist {ocean_tide_path}")
+            raise Exception(
+                f"Tide Model was not clipped correctly. Region {i} was missing directory '{os.path.basename(ocean_tide_path)}' at {ocean_tide_path}"
+            )
 
-        # if not (
-        #     sub_directory_contains_files(load_tide_path, ".nc", 34)
-        #     and sub_directory_contains_files(ocean_tide_path, ".nc", 34)
-        # ):
-        #     return False
         if not sub_directory_contains_files(load_tide_path, ".nc", 34):
             raise Exception(
-                f"Directory did not contain all 34 .nc files {load_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(load_tide_path)}' directory did not contain all 34 .nc files at {load_tide_path}"
             )
         if not sub_directory_contains_files(ocean_tide_path, ".nc", 34):
             raise Exception(
-                f"Directory did not contain all 34 .nc files {ocean_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(ocean_tide_path)}' directory did not contain all 34 .nc files at {ocean_tide_path}"
             )
 
     return True
