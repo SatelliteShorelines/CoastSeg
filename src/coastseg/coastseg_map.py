@@ -190,13 +190,22 @@ class CoastSeg_Map:
         #     session_name=session_name, raise_error=True
         # )
         session_name = self.get_session_name()
-        tide_correction.correct_all_tides(
-            roi_ids,
-            session_name,
-            reference_elevation,
-            beach_slope,
-        )
-        print("\ntidal corrections completed")
+        try:
+            tide_correction.correct_all_tides(
+                roi_ids,
+                session_name,
+                reference_elevation,
+                beach_slope,
+            )
+        except Exception as e:
+            exception_handler.handle_exception(
+                e,
+                self.warning_box,
+                title="Tide Model Not Found Error",
+                msg=str(e),
+            )
+        else:
+            print("\ntidal corrections completed")
 
     def load_session_files(self, dir_path: str) -> None:
         """
@@ -326,10 +335,7 @@ class CoastSeg_Map:
         session_path = os.path.abspath(session_path)
 
         session_name = get_parent_session_name(session_path)
-        print(f"session_path: {session_path}")
-        print(f"session_name: {session_name}")
-        logger.info(f"session_path: {session_path}")
-        logger.info(f"session_name: {session_name}")
+        logger.info(f"session_name: {session_name} session_path: {session_path}")
         # session_name = os.path.basename(session_path)
         self.set_session_name(session_name)
         logger.info(f"Loading session from session directory: {session_path}")

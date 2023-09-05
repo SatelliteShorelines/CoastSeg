@@ -896,7 +896,6 @@ class UI:
     ):
         if "dates" in settings:
             start_date_str, end_date_str = settings["dates"]
-            logger.info(f"start_date_str, end_date_str {start_date_str, end_date_str}")
             self.start_date.value = convert_date(start_date_str)
             self.end_date.value = convert_date(end_date_str)
 

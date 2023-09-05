@@ -272,8 +272,13 @@ def setup_tide_model_config(model_path: str) -> dict:
 
 
 def get_tide_model_location(location: str = "tide_model"):
+    logger.info(f"Checking if tide model exists at {location}")
     if validate_tide_model_exists(location):
         return os.path.abspath(location)
+    else:
+        raise Exception(
+            f"Tide model not found at: '{os.path.abspath(location)}'. Ensure the model is downloaded to this location."
+        )
 
 
 def validate_tide_model_exists(location: str) -> bool:
@@ -294,6 +299,7 @@ def validate_tide_model_exists(location: str) -> bool:
     """
 
     location = os.path.abspath(location)
+    logger.info(f"Tide model absolute path {location}")
     # check if tide directory exists and if the model was clipped to the 10 regions
     if os.path.isdir(location) and contains_sub_directories(location, 10):
         return True
