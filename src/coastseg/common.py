@@ -232,38 +232,6 @@ def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> di
     return satellites
 
 
-def load_geodataframe_from_file(
-    feature_path: str, feature_type: str
-) -> gpd.GeoDataFrame:
-    """
-    Load a geographic feature from a file. The file is read into a GeoDataFrame.
-    Can read both geojson files and config_gdf.geojson files
-
-    Args:
-        feature_path (str): Path to the feature file.
-        feature_type (str): Type of the geographic feature, e.g. 'shoreline', 'transect','rois','bbox'
-
-    Returns:
-        gpd.GeoDataFrame: Geographic feature as a GeoDataFrame.
-
-    Raises:
-        ValueError: If the feature file is empty.
-    """
-    logger.info(f"Attempting to load {feature_type} from a file")
-    feature_gdf = read_gpd_file(feature_path)
-    try:
-        # attempt to load features from a config file
-        feature_gdf = extract_feature_from_geodataframe(
-            feature_gdf, feature_type=feature_type
-        )
-    except ValueError as e:
-        # if it isn't a config file then just ignore the error
-        logger.info(f"This probably wasn't a config : {feature_path} \n {e}")
-    if feature_gdf.empty:
-        raise ValueError(f"Empty {feature_type} file provided: {feature_path}")
-    return feature_gdf
-
-
 def create_unique_ids(data, prefix_length: int = 3):
     # if not all the ids in data are unique
     if not check_unique_ids(data):

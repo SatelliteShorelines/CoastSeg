@@ -608,9 +608,9 @@ class CoastSeg_Map:
         selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
         logger.info(f"selected_layer: {selected_layer}")
 
-        # Get the file path where the downloaded imagery will be saved
+        # Get the location where the downloaded imagery will be saved
         file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
-        date_str = file_utilities.find_file_recursively()
+        date_str = file_utilities.generate_datestring()
 
         settings = self.get_settings()
         # Create a list of download settings for each ROI
@@ -893,6 +893,7 @@ class CoastSeg_Map:
             "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
             "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
+            # "apply_cloud_mask": False,
         }
         self.settings.update(kwargs)
         if "dates" in kwargs.keys():
@@ -1994,7 +1995,9 @@ class CoastSeg_Map:
         """
         # if file is passed read gdf from file
         if file:
-            gdf = common.load_geodataframe_from_file(file, feature_type=feature_name)
+            gdf = geodata_processing.load_geodataframe_from_file(
+                file, feature_type=feature_name
+            )
         # ensure the file gdf is not empty
         if gdf is not None:
             if gdf.empty:
