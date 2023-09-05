@@ -5,7 +5,7 @@ import logging
 import glob
 from datetime import datetime
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Collection, Dict, List, Optional, Tuple, Union
 
 # Third-party imports
 import pandas as pd
@@ -14,6 +14,7 @@ from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
 from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
+import traitlets
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -21,7 +22,9 @@ from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
 from coastseg.downloads import count_images_in_ee_collection
-from coastseg.zoo_model import tidal_corrections
+from coastseg import file_utilities
+from coastseg import geodata_processing
+from coastseg import tide_correction
 
 # Internal/Local imports: modules
 from coastseg import (
@@ -31,7 +34,6 @@ from coastseg import (
     extracted_shoreline,
     exception_handler,
 )
-from coastseg.observable import Observable
 from coastsat import SDS_download
 
 
@@ -39,15 +41,54 @@ logger = logging.getLogger(__name__)
 
 SELECTED_LAYER_NAME = "Selected Shorelines"
 
+__all__ = ["IDContainer", "ExtractShorelinesContainer", "CoastSeg_Map"]
 
-def _file_exists(file_path: str, filename: str) -> bool:
-    """Helper function to check if a file exists and log its status."""
-    if os.path.exists(file_path):
-        logger.info(f"{filename} exists at location: {file_path}")
-        return True
 
-    logger.warning(f"{filename} file missing at {file_path}")
-    return False
+class IDContainer(traitlets.HasTraits):
+    ids = traitlets.List(trait=traitlets.Unicode())
+
+
+class ExtractShorelinesContainer(traitlets.HasTraits):
+    max_shorelines = traitlets.Int(0)
+    layer_name = traitlets.Unicode("")
+    # geo_data = traitlets.Instance(klass=dict)
+    geo_data = traitlets.Instance(GeoJSON)
+    satname = traitlets.Unicode("")
+    date = traitlets.Unicode("")
+
+    def __init__(
+        self,
+        geo_data: GeoJSON = GeoJSON(data={}),
+    ):
+        super().__init__()
+        if geo_data:
+            self.geo_data = geo_data
+        self.observe(self._on_geo_data_changed, names="geo_data")
+
+    @traitlets.validate("satname")
+    def _validate_satname(self, proposal):
+        if isinstance(proposal["value"], str):
+            if proposal["value"] in set(["", "L5", "L7", "L8", "L9", "S2"]):
+                return proposal["value"]
+            else:
+                raise traitlets.TraitError(
+                    f"{proposal['value']}, satname must be one of the following L5,L7,L8,L9 or S2"
+                )
+        else:
+            raise traitlets.TraitError("satname must a be str")
+
+    def _on_geo_data_changed(self, change):
+        # change['new'] is a GeoJSON object with the methods .data and .name
+        if change["new"].data == {}:
+            self.layer_name = ""
+            self.satname = ""
+            self.date = ""
+        else:
+            self.layer_name = change["new"].name
+            properties = change["new"].data.get("properties", {})
+            if properties:
+                self.satname = properties.get("satname", "")
+                self.date = properties.get("date", "")
 
 
 class CoastSeg_Map:
@@ -61,7 +102,8 @@ class CoastSeg_Map:
         self.factory = factory.Factory()
 
         # Observables
-        self._init_observables()
+        self.id_container = IDContainer(ids=[])
+        self.extract_shorelines_container = ExtractShorelinesContainer()
 
         # Map objects and configurations
         self.rois = None
@@ -74,18 +116,6 @@ class CoastSeg_Map:
 
         # Warning and information boxes
         self._init_info_boxes()
-
-    def _init_observables(self):
-        """Initialize observable attributes."""
-        self.extracted_shoreline_layer = Observable(
-            None, name="extracted_shoreline_layer"
-        )
-        self.number_extracted_shorelines = Observable(
-            0, name="number_extracted_shorelines"
-        )
-        self.roi_ids_with_extracted_shorelines = Observable(
-            [], name="roi_ids_with_shorelines"
-        )
 
     def _init_map_components(self):
         """Initialize map-related attributes and settings."""
@@ -151,51 +181,21 @@ class CoastSeg_Map:
         )
 
     def compute_tidal_corrections(
-        self, tides_location: str, beach_slope: float, reference_elevation: float
+        self, roi_ids: Collection, beach_slope: float, reference_elevation: float
     ):
+        logger.info(
+            f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
+        )
+        # session_path = file_utilities.get_session_location(
+        #     session_name=session_name, raise_error=True
+        # )
         session_name = self.get_session_name()
-        session_path = os.path.join(os.getcwd(), "sessions", session_name)
-        if not os.path.exists(session_path):
-            raise FileNotFoundError(session_path)
-        # get selected ROIs
-        roi_ids = self.get_selected_roi_ids()
-        exception_handler.check_selected_set(self.selected_set)
-        tide_data = pd.read_csv(tides_location, parse_dates=["dates"])
-        if "tides" not in tide_data.columns or "dates" not in tide_data.columns:
-            logger.error(
-                f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
-            )
-            raise Exception(
-                f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
-            )
-        for roi_id in roi_ids:
-            # create roi directory in session path
-            ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-            session_path = common.get_session_path(session_name, ROI_directory)
-            # get extracted shoreline for each roi
-            extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
-            if extracted_shoreline is None:
-                logger.info(f"No extracted shorelines for ROI: {roi_id}")
-                print(f"No extracted shorelines for ROI: {roi_id}")
-                continue
-            # get extracted transect for each roi
-            cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
-            if cross_shore_distance is None:
-                logger.info(f"No cross_shore_distance for ROI: {roi_id}")
-                print(f"No cross_shore_distance for ROI: {roi_id}")
-                continue
-            tidal_corrections(
-                roi_id,
-                beach_slope,
-                reference_elevation,
-                extracted_shoreline.dictionary,
-                cross_shore_distance,
-                tide_data,
-                session_path,
-            )
-            logger.info(f"{roi_id} was tidally corrected")
-            print(f"\n{roi_id} was tidally corrected")
-        logger.info(f"{roi_id} was tidally corrected")
+        tide_correction.correct_all_tides(
+            roi_ids,
+            session_name,
+            reference_elevation,
+            beach_slope,
+        )
         print("\ntidal corrections completed")
 
     def load_session_files(self, dir_path: str) -> None:
@@ -218,7 +218,7 @@ class CoastSeg_Map:
         if os.path.isdir(dir_path):
             # ensure coastseg\data location exists
             # load the config files if they exist
-            data_path = common.create_directory(os.getcwd(), "data")
+            data_path = file_utilities.create_directory(os.getcwd(), "data")
             config_loaded = self.load_config_files(dir_path, data_path)
             # load in settings files
             for file_name in os.listdir(dir_path):
@@ -308,14 +308,34 @@ class CoastSeg_Map:
         Returns:
             None.
         """
+
+        def get_parent_session_name(session_path: str) -> str:
+            split_array = session_path.split(os.sep)
+            # get the index of the sessions directroy which contains all the sessions
+            parent_index = split_array.index("sessions")
+            # get the parent session name aka not a sub directory for a specific ROI
+            parent_session_name = split_array[parent_index + 1]
+            if not (
+                os.path.exists(os.sep.join(split_array[: parent_index + 1]))
+                and os.path.isdir(os.sep.join(split_array[: parent_index + 1]))
+            ):
+                raise FileNotFoundError(f"{os.sep.join(split_array[:parent_index+1])}")
+            return parent_session_name
+
         # load the session name
         session_path = os.path.abspath(session_path)
-        session_name = os.path.basename(session_path)
+
+        session_name = get_parent_session_name(session_path)
+        print(f"session_path: {session_path}")
+        print(f"session_name: {session_name}")
+        logger.info(f"session_path: {session_path}")
+        logger.info(f"session_name: {session_name}")
+        # session_name = os.path.basename(session_path)
         self.set_session_name(session_name)
         logger.info(f"Loading session from session directory: {session_path}")
 
         # load the session from the parent directory and subdirectories within session path
-        directories_to_load = common.get_all_subdirectories(session_path)
+        directories_to_load = file_utilities.get_all_subdirectories(session_path)
         for directory in directories_to_load:
             self.load_session_from_directory(directory)
 
@@ -330,7 +350,7 @@ class CoastSeg_Map:
         # Get the ids of the ROIs with extracted shorelines
         ids_with_extracted_shorelines = rois.get_ids_with_extracted_shorelines()
         # update observable list of ROI ids with extracted shorelines
-        self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
+        self.id_container.ids = ids_with_extracted_shorelines
 
     def load_settings(
         self,
@@ -394,7 +414,7 @@ class CoastSeg_Map:
         if isinstance(keys, set):
             keys = list(keys)
 
-        new_settings = common.read_json_file(filepath, raise_error=False)
+        new_settings = file_utilities.read_json_file(filepath, raise_error=False)
         logger.info(
             f"all of new settings read from file : {filepath} \n {new_settings}"
         )
@@ -432,7 +452,8 @@ class CoastSeg_Map:
         Args:
             filepath (str): full path to config_gdf.geojson
         """
-        gdf = common.read_gpd_file(filepath)
+
+        gdf = geodata_processing.read_gpd_file(filepath)
         gdf = common.stringify_datetime_columns(gdf)
 
         # each possible type of feature and the columns that should be loaded
@@ -583,7 +604,7 @@ class CoastSeg_Map:
 
         # Get the file path where the downloaded imagery will be saved
         file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
-        date_str = common.generate_datestring()
+        date_str = file_utilities.find_file_recursively()
 
         settings = self.get_settings()
         # Create a list of download settings for each ROI
@@ -695,7 +716,7 @@ class CoastSeg_Map:
         logger.info(f"filepath: {filepath}")
         exception_handler.check_if_None(self.rois)
 
-        json_data = common.read_json_file(filepath, raise_error=True)
+        json_data = file_utilities.read_json_file(filepath, raise_error=True)
         json_data = json_data or {}
 
         # Replace coastseg_map.settings with settings from config file
@@ -722,11 +743,11 @@ class CoastSeg_Map:
         config_geojson_path = os.path.join(dir_path, "config_gdf.geojson")
         config_json_path = os.path.join(dir_path, "config.json")
 
-        if not _file_exists(config_geojson_path, "config_gdf.geojson"):
+        if not file_utilities.file_exists(config_geojson_path, "config_gdf.geojson"):
             return False
 
         # config.json contains all the settings for the map, shorelines and transects it must exist
-        if not _file_exists(config_json_path, "config.json"):
+        if not file_utilities.file_exists(config_json_path, "config.json"):
             raise Exception(f"config.json file missing at {config_json_path}")
 
         # load the config files
@@ -794,8 +815,8 @@ class CoastSeg_Map:
 
         if filepath is not None:
             # if a filepath is provided then save the config.json and config_gdf.geojson immediately
-            common.config_to_file(config_json, filepath)
-            common.config_to_file(config_gdf, filepath)
+            file_utilities.config_to_file(config_json, filepath)
+            file_utilities.config_to_file(config_gdf, filepath)
         elif filepath is None:
             # data has been downloaded before so inputs have keys 'filepath' and 'sitename'
             if is_downloaded == True:
@@ -807,17 +828,17 @@ class CoastSeg_Map:
                         os.path.join(config_json[roi_id]["filepath"], sitename)
                     )
                     # save to config.json
-                    common.config_to_file(config_json, filepath)
+                    file_utilities.config_to_file(config_json, filepath)
                     # save to config_gdf.geojson
-                    common.config_to_file(config_gdf, filepath)
+                    file_utilities.config_to_file(config_gdf, filepath)
                 print("Saved config files for each ROI")
             elif is_downloaded == False:
                 # if data is not downloaded save to coastseg directory
                 filepath = os.path.abspath(os.getcwd())
                 # save to config.json
-                common.config_to_file(config_json, filepath)
+                file_utilities.config_to_file(config_json, filepath)
                 # save to config_gdf.geojson
-                common.config_to_file(config_gdf, filepath)
+                file_utilities.config_to_file(config_gdf, filepath)
                 print("Saved config files for each ROI")
 
     def set_settings(self, **kwargs):
@@ -1048,12 +1069,14 @@ class CoastSeg_Map:
             for file in glob.glob(glob_str):
                 if file.endswith(".geojson"):
                     # load geodataframe
-                    extracted_sl_gdf = common.read_gpd_file(file)
+                    extracted_sl_gdf = geodata_processing.read_gpd_file(file)
                 if file.endswith(".json"):
                     if "settings" in os.path.basename(file):
-                        shoreline_settings = common.load_data_from_json(file)
+                        shoreline_settings = file_utilities.load_data_from_json(file)
                     if "dict" in os.path.basename(file):
-                        extracted_shoreline_dict = common.load_data_from_json(file)
+                        extracted_shoreline_dict = file_utilities.load_data_from_json(
+                            file
+                        )
 
             logger.info(f"ROI {roi_id} extracted_sl_gdf: {extracted_sl_gdf}")
             logger.info(f"ROI {roi_id} shoreline_settings: {shoreline_settings}")
@@ -1263,7 +1286,7 @@ class CoastSeg_Map:
         ids_with_extracted_shorelines = self.get_roi_ids_with_extracted_shorelines(
             is_selected=False
         )
-        self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
+        self.id_container.ids = ids_with_extracted_shorelines
 
         self.save_session(roi_ids, save_transects=False)
 
@@ -1438,7 +1461,9 @@ class CoastSeg_Map:
         for roi_id in roi_ids:
             ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
             # create session directory
-            session_path = common.get_session_path(session_name, ROI_directory)
+            session_path = file_utilities.create_session_path(
+                session_name, ROI_directory
+            )
             # save source data
             self.save_config(session_path)
             # save extracted shorelines
@@ -1459,14 +1484,14 @@ class CoastSeg_Map:
 
                 save_path = os.path.join(session_path, "transects_cross_distances.json")
                 cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
-                common.to_file(cross_shore_distance, save_path)
+                file_utilities.to_file(cross_shore_distance, save_path)
 
                 # save transect settings to file
                 transect_settings = common.get_transect_settings(self.get_settings())
                 transect_settings_path = os.path.join(
                     session_path, "transects_settings.json"
                 )
-                common.to_file(transect_settings, transect_settings_path)
+                file_utilities.to_file(transect_settings, transect_settings_path)
 
     def save_csv_per_transect_for_roi(
         self, session_path: str, roi_id: list, rois: ROI
@@ -1558,7 +1583,9 @@ class CoastSeg_Map:
                 session_name = self.get_session_name()
                 session_path = os.path.join(os.getcwd(), "sessions", session_name)
                 ROI_directory = rois.roi_settings[roi_id]["sitename"]
-                session_path = common.create_directory(session_path, ROI_directory)
+                session_path = file_utilities.create_directory(
+                    session_path, ROI_directory
+                )
                 logger.info(f"session_path: {session_path}")
                 # save source data
                 self.save_config(session_path)
@@ -1630,7 +1657,7 @@ class CoastSeg_Map:
             session_name = self.get_session_name()
             ROI_directory = rois.roi_settings[roi_id]["sitename"]
             session_path = os.path.join(os.getcwd(), "sessions", session_name)
-            session_path = common.create_directory(session_path, ROI_directory)
+            session_path = file_utilities.create_directory(session_path, ROI_directory)
             logger.info(f"session_path: {session_path}")
             # save source data
             self.save_config(session_path)
@@ -1653,19 +1680,22 @@ class CoastSeg_Map:
         self.remove_all_rois()
         self.remove_layer_by_name("geodataframe")
         self.remove_extracted_shorelines()
+        # Clear the list of ROI IDs that have extracted shorelines available
 
     def remove_extracted_shorelines(self):
-        """Removes extracted shorelines from the map and removes extracted shorelines from ROIs"""
+        """Removes all extracted shorelines from the map and removes extracted shorelines from ROIs"""
         # empty extracted shorelines dictionary
         if self.rois is not None:
             self.rois.remove_extracted_shorelines(remove_all=True)
         # remove extracted shoreline vectors from the map
         self.remove_extracted_shoreline_layers()
+        self.id_container.ids = []
+        self.extract_shorelines_container.max_shorelines = 0
 
     def remove_extracted_shoreline_layers(self):
-        if self.extracted_shoreline_layer.get() is not None:
-            self.map.remove_layer(self.extracted_shoreline_layer.get())
-            self.extracted_shoreline_layer.set(None)
+        if self.extract_shorelines_container.geo_data.data != {}:
+            self.remove_layer_by_name(self.extract_shorelines_container.geo_data.name)
+            self.extract_shorelines_container.geo_data = GeoJSON(data={})
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
@@ -1872,7 +1902,6 @@ class CoastSeg_Map:
 
         # Get the extracted shorelines for all ROIs
         ids_with_extracted_shorelines = self.rois.get_ids_with_extracted_shorelines()
-        self.roi_ids_with_extracted_shorelines.set(ids_with_extracted_shorelines)
 
         # Get the available ROI IDs
         available_ids = self.get_all_roi_ids()
@@ -1889,6 +1918,8 @@ class CoastSeg_Map:
         if not roi_ids_with_extracted_shorelines:
             logger.warning("No ROIs found with extracted shorelines.")
             return
+
+        self.id_container.ids = list(ids_with_extracted_shorelines)
 
         # Load extracted shorelines for the first ROI ID with extracted shorelines
         for selected_id in roi_ids_with_extracted_shorelines:
@@ -1922,6 +1953,7 @@ class CoastSeg_Map:
         points_gdf = extracted_shoreline.convert_linestrings_to_multipoints(
             extracted_shorelines.gdf
         )
+        self.extract_shorelines_container.max_shorelines = len(points_gdf) - 1
 
         new_layer = extracted_shorelines.get_styled_layer(
             points_gdf,
@@ -1939,8 +1971,7 @@ class CoastSeg_Map:
         # new_layer.on_hover(self.update_extracted_shoreline_html)
         self.map.add_layer(new_layer)
         # update the extracted shoreline layer and number of shorelines available
-        self.extracted_shoreline_layer.set(new_layer)
-        self.number_extracted_shorelines.set(len(points_gdf) - 1)
+        self.extract_shorelines_container.geo_data = new_layer
 
     def load_feature_on_map(
         self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs
@@ -1957,7 +1988,6 @@ class CoastSeg_Map:
         """
         # if file is passed read gdf from file
         if file:
-            # gdf = common.read_gpd_file(file)
             gdf = common.load_geodataframe_from_file(file, feature_type=feature_name)
         # ensure the file gdf is not empty
         if gdf is not None:

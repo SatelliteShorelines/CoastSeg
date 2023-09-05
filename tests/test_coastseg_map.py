@@ -4,6 +4,7 @@ from coastseg import shoreline
 from coastseg import transects
 from coastseg import roi
 from coastseg import exceptions
+from coastseg import file_utilities
 from coastseg import coastseg_map
 from coastseg import common
 from leafmap import Map
@@ -201,7 +202,7 @@ def test_load_settings(
 #     # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
 #     actual_coastsegmap.load_json_config(downloaded_config_json_filepath, tmp_data_path)
 #     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
-#     actual_config = common.read_json_file(downloaded_config_json_filepath)
+#     actual_config = file_utilities.read_json_file(downloaded_config_json_filepath)
 #     for key in actual_config["roi_ids"]:
 #         assert key in actual_coastsegmap.rois.roi_settings
 
@@ -219,7 +220,7 @@ def test_load_settings(
 #     # test if settings are correctly loaded when valid json config without 'filepath' & 'sitename' keys is loaded
 #     actual_coastsegmap.load_json_config(config_json_filepath, tmp_data_path)
 #     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
-#     actual_config = common.read_json_file(config_json_filepath)
+#     actual_config = file_utilities.read_json_file(config_json_filepath)
 #     for key in actual_config["roi_ids"]:
 #         assert key in actual_coastsegmap.rois.roi_settings
 

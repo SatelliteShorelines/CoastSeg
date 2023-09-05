@@ -25,10 +25,12 @@ import skimage.morphology as morphology
 import pandas as pd
 from tqdm.auto import tqdm
 import matplotlib.gridspec as gridspec
-
+from shapely.geometry import MultiPoint, LineString
 
 # coastsat imports
 from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
+from coastseg import geodata_processing
+from coastseg import file_utilities
 from coastsat.SDS_download import get_metadata
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
@@ -62,22 +64,20 @@ def time_func(func):
     return wrapper
 
 
-from shapely.geometry import MultiPoint, LineString
-
 def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
-    
+
     Args:
     - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
-    
+
     Returns:
-    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame 
+    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
                         already contains MultiPoints, the original GeoDataFrame is returned.
     """
 
     # Check if the gdf already contains MultiPoints
-    if any(gdf.geometry.type == 'MultiPoint'):
+    if any(gdf.geometry.type == "MultiPoint"):
         return gdf
 
     def linestring_to_multipoint(linestring):
@@ -86,9 +86,10 @@ def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFram
         return linestring
 
     # Convert each LineString to a MultiPoint
-    gdf['geometry'] = gdf['geometry'].apply(linestring_to_multipoint)
+    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
 
     return gdf
+
 
 def transform_gdf_to_crs(gdf, crs=4326):
     """Convert the GeoDataFrame to the specified CRS."""
@@ -539,7 +540,7 @@ def get_model_card_classes(model_card_path: str) -> dict:
     Returns:
         dict: dictionary of classes in model card and their corresponding index
     """
-    model_card_data = common.read_json_file(model_card_path, raise_error=True)
+    model_card_data = file_utilities.read_json_file(model_card_path, raise_error=True)
     logger.info(
         f"model_card_path: {model_card_path} \nmodel_card_data: {model_card_data}"
     )
@@ -1231,9 +1232,9 @@ def load_extracted_shoreline_from_files(
 
         file_path = file_paths[0]  # Use the first file if there are multiple matches
         if file_type == "geojson":
-            extracted_files[file_type] = common.read_gpd_file(file_path)
+            extracted_files[file_type] = geodata_processing.read_gpd_file(file_path)
         else:
-            extracted_files[file_type] = common.load_data_from_json(file_path)
+            extracted_files[file_type] = file_utilities.load_data_from_json(file_path)
 
     extracted_shorelines = Extracted_Shoreline()
     extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
@@ -1420,7 +1421,9 @@ class Extracted_Shoreline:
 
         # read model settings from session path
         model_settings_path = os.path.join(session_path, "model_settings.json")
-        model_settings = common.read_json_file(model_settings_path, raise_error=True)
+        model_settings = file_utilities.read_json_file(
+            model_settings_path, raise_error=True
+        )
         # get model type from model settings
         model_type = model_settings.get("model_type", "")
         if model_type == "":
@@ -1433,7 +1436,7 @@ class Extracted_Shoreline:
         logger.info(
             f"Searching for model card in downloaded_models_path: {downloaded_models_path}"
         )
-        model_card_path = common.find_file_by_regex(
+        model_card_path = file_utilities.find_file_by_regex(
             downloaded_models_path, r".*modelcard\.json$"
         )
         # get the water index from the model card
@@ -1714,7 +1717,7 @@ class Extracted_Shoreline:
             )
         elif isinstance(data, dict):
             if data != {}:
-                common.to_file(data, file_location)
+                file_utilities.to_file(data, file_location)
 
     def get_layer_name(self) -> list:
         """returns name of extracted shoreline layer"""

@@ -6,11 +6,13 @@ import logging
 # Internal Python imports
 from coastseg import exception_handler
 from coastseg import common
+from coastseg import file_utilities
 from coastseg.watchable_slider import Extracted_Shoreline_widget
 
 
 # External Python imports
 import ipywidgets
+import traitlets
 from IPython.display import display
 from ipyfilechooser import FileChooser
 from google.auth import exceptions as google_auth_exceptions
@@ -66,20 +68,11 @@ class UI:
 
         self.session_name = ""
         self.session_directory = ""
-        self.tides_file = ""
 
         # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
         self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
         # have the slider watch the extracted_shoreline_layer, number_extracted_shorelines,roi_selected_to_extract_shoreline
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.extracted_shoreline_layer
-        )
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.number_extracted_shorelines
-        )
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.roi_ids_with_extracted_shorelines
-        )
+
         self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(
             self.coastseg_map.load_extracted_shorelines_to_map
         )
@@ -256,11 +249,30 @@ class UI:
         # add instance of warning_box to self.error_row
         self.error_row.children = [warning_box]
 
-    def create_tidal_correction_widget(self):
+    def create_tidal_correction_widget(self, id_container: "traitlets.HasTraits"):
         load_style = dict(button_color="#69add1", description_width="initial")
+
+        correct_tides_html = HTML(
+            value="<h3><b>Apply Tide Correction</b></h3> \
+               Only apply after extracting shorelines",
+            layout=Layout(margin="0px 5px 0px 0px"),
+        )
 
         self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
         self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
+
+        self.scrollable_select = SelectMultiple(
+            description="Select ROIs",
+            options=id_container.ids,
+            layout=Layout(overflow_y="auto", height="100px"),
+        )
+
+        # Function to update widget options when the traitlet changes
+        def update_widget_options(change):
+            self.scrollable_select.options = change["new"]
+
+        # When the traitlet,id_container, trait 'ids' changes the update_widget_options will be updated
+        id_container.observe(update_widget_options, names="ids")
 
         self.select_tides_button = Button(
             description="Select Tides",
@@ -278,19 +290,22 @@ class UI:
 
         return VBox(
             [
+                correct_tides_html,
                 self.beach_slope_text,
                 self.reference_elevation_text,
-                self.select_tides_button,
+                self.scrollable_select,
                 self.tidally_correct_button,
             ]
         )
 
     @debug_view.capture(clear_output=True)
     def tidally_correct_button_clicked(self, button):
-        if self.tides_file == "":
+        # get the selected ROI IDs if none selected give an error message
+        selected_rois = self.scrollable_select.value
+        if not selected_rois:
             self.launch_error_box(
                 "Cannot correct tides",
-                "Must enter a select a tide file first",
+                "Must enter a select an ROI ID first",
             )
             return
 
@@ -298,7 +313,7 @@ class UI:
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
         self.coastseg_map.compute_tidal_corrections(
-            self.tides_file, beach_slope, reference_elevation
+            selected_rois, beach_slope, reference_elevation
         )
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
 
@@ -367,7 +382,9 @@ class UI:
                 print(f"Session {session_name} already exists and will be overwritten.")
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} was created.")
-                new_session_path = common.create_directory(session_path, session_name)
+                new_session_path = file_utilities.create_directory(
+                    session_path, session_name
+                )
             self.coastseg_map.set_session_name(session_name)
 
         enter_button.on_click(enter_clicked)
@@ -1027,7 +1044,7 @@ class UI:
                 ipywidgets.Box(children=[UI.preview_view], layout=BOX_LAYOUT),
                 self.extract_shorelines_button,
                 self.get_session_selection(),
-                self.create_tidal_correction_widget(),
+                self.create_tidal_correction_widget(self.coastseg_map.id_container),
                 config_vbox,
             ]
         )
@@ -1286,12 +1303,10 @@ class UI:
                 if filechooser.selected:
                     self.coastseg_map.map.default_style = {"cursor": "wait"}
                     self.coastseg_map.load_fresh_session(filechooser.selected)
-                    logger.info(f"filechooser.selected: {filechooser.selected}")
-                    session_name = os.path.basename(
-                        os.path.abspath(filechooser.selected)
-                    )
-                    logger.info(f"session_name: {session_name}")
-                    self.session_name_text.value = session_name
+                    # self.session_name_text.value = os.path.basename(
+                    #     os.path.abspath(filechooser.selected)
+                    # )
+                    self.session_name_text.value = self.coastseg_map.get_session_name()
                     self.settings_html.value = self.get_settings_html(
                         self.coastseg_map.get_settings()
                     )

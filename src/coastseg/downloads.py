@@ -12,6 +12,7 @@ import requests
 from datetime import datetime
 
 from coastseg import common
+from coastseg import file_utilities
 
 import asyncio
 import nest_asyncio
@@ -1052,7 +1053,7 @@ def create_ROI_directories(download_path: str, roi_id: str, dates):
     roi_name = f"ID_{roi_id}_dates_{dates[0]}_to_{dates[1]}"
     roi_path = os.path.join(download_path, roi_name)
     # create directory to hold all multiband files
-    multiband_path = common.create_directory(roi_path, "multiband")
+    multiband_path = file_utilities.create_directory(roi_path, "multiband")
     # create subdirectories for each year
     start_date = dates[0].split("-")[0]
     end_date = dates[1].split("-")[0]
