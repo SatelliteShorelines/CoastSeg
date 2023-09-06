@@ -614,7 +614,7 @@ class UI:
         )
 
         self.shoreline_buffer_slider = ipywidgets.IntSlider(
-            value=50,
+            value=100,
             min=5,
             max=1000,
             step=1,
