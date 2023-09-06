@@ -320,8 +320,11 @@ class CoastSeg_Map:
 
         def get_parent_session_name(session_path: str) -> str:
             split_array = session_path.split(os.sep)
-            # get the index of the sessions directroy which contains all the sessions
-            parent_index = split_array.index("sessions")
+            # get the index of the sessions directory which contains all the sessions
+            if "data" in split_array:
+                return os.path.basename(session_path)
+            if "sessions" in split_array:
+                parent_index = split_array.index("sessions")
             # get the parent session name aka not a sub directory for a specific ROI
             parent_session_name = split_array[parent_index + 1]
             if not (
@@ -356,7 +359,12 @@ class CoastSeg_Map:
         # Get the ids of the ROIs with extracted shorelines
         ids_with_extracted_shorelines = rois.get_ids_with_extracted_shorelines()
         # update observable list of ROI ids with extracted shorelines
-        self.id_container.ids = ids_with_extracted_shorelines
+        if ids_with_extracted_shorelines is None:
+            self.id_container.ids = []
+        elif not isinstance(ids_with_extracted_shorelines, list):
+            self.id_container.ids = list(ids_with_extracted_shorelines)
+        else:
+            self.id_container.ids = ids_with_extracted_shorelines
 
     def load_settings(
         self,
@@ -634,6 +642,7 @@ class CoastSeg_Map:
                 cloud_threshold=settings.get("cloud_thresh"),
                 cloud_mask_issue=settings.get("cloud_mask_issue"),
                 save_jpg=True,
+                apply_cloud_mask=settings.get("apply_cloud_mask", True),
             )
         # 3.save settings used to download rois and the objects on map to config files
         self.save_config()
@@ -893,7 +902,7 @@ class CoastSeg_Map:
             "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
             "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
-            # "apply_cloud_mask": False,
+            "apply_cloud_mask": True,
         }
         self.settings.update(kwargs)
         if "dates" in kwargs.keys():
@@ -1293,7 +1302,12 @@ class CoastSeg_Map:
         ids_with_extracted_shorelines = self.get_roi_ids_with_extracted_shorelines(
             is_selected=False
         )
-        self.id_container.ids = ids_with_extracted_shorelines
+        if ids_with_extracted_shorelines is None:
+            self.id_container.ids = []
+        elif not isinstance(ids_with_extracted_shorelines, list):
+            self.id_container.ids = list(ids_with_extracted_shorelines)
+        else:
+            self.id_container.ids = ids_with_extracted_shorelines
 
         self.save_session(roi_ids, save_transects=False)
 
@@ -1798,7 +1812,8 @@ class CoastSeg_Map:
         # clear all the ids from the selected set
         self.selected_set = set()
         # reload rest of ROIs on map
-        self.load_feature_on_map("roi", gdf=self.rois.gdf, zoom_to_bounds=True)
+        if hasattr(self.rois, "gdf"):
+            self.load_feature_on_map("roi", gdf=self.rois.gdf, zoom_to_bounds=True)
 
     def create_DrawControl(self, draw_control: "ipyleaflet.leaflet.DrawControl"):
         """Modifies given draw control so that only rectangles can be drawn
@@ -1926,8 +1941,12 @@ class CoastSeg_Map:
             logger.warning("No ROIs found with extracted shorelines.")
             return
 
-        self.id_container.ids = list(ids_with_extracted_shorelines)
-
+        if ids_with_extracted_shorelines is None:
+            self.id_container.ids = []
+        elif not isinstance(ids_with_extracted_shorelines, list):
+            self.id_container.ids = list(ids_with_extracted_shorelines)
+        else:
+            self.id_container.ids = ids_with_extracted_shorelines
         # Load extracted shorelines for the first ROI ID with extracted shorelines
         for selected_id in roi_ids_with_extracted_shorelines:
             extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
