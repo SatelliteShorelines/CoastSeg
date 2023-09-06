@@ -25,9 +25,9 @@ dependencies = [
   "dask",
   "ipywidgets>=8.0.6",
   "transformers",
-  "chardet" ]
-# "pyTMD",
-#  "xarray"]
+  "chardet" ,
+  "pyTMD",
+  "xarray"]
 license = { file="LICENSE" }
 requires-python = ">=3.9"
 classifiers = [
