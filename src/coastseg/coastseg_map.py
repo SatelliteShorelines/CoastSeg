@@ -1795,10 +1795,11 @@ class CoastSeg_Map:
             self.shoreline.remove_by_id(self.selected_shorelines_set)
         # clear all the ids from the selected set
         self.selected_shorelines_set = set()
-        # reload rest of ROIs on map
-        self.load_feature_on_map(
-            "shoreline", gdf=self.shoreline.gdf, zoom_to_bounds=True
-        )
+        # reload rest of shorelines on map
+        if hasattr(self.shoreline, "gdf"):
+            self.load_feature_on_map(
+                "shoreline", gdf=self.shoreline.gdf, zoom_to_bounds=True
+            )
 
     def remove_selected_rois(self) -> None:
         """Removes all the unselected rois from the map"""
