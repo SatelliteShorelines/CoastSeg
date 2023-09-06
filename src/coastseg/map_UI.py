@@ -637,7 +637,7 @@ class UI:
 
         self.beach_area_slider = ipywidgets.IntSlider(
             value=1000,
-            min=100,
+            min=10,
             max=10000,
             step=10,
             description="min_beach_area (sqm):",
