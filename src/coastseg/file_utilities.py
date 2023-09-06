@@ -574,7 +574,6 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
 
     return dir_location
 
-
 def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
     """
     Recursively search for a file named "RGB" in the given path or its subdirectories.

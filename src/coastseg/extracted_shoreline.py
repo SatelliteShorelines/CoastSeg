@@ -433,6 +433,7 @@ def process_satellite_image(
         settings["cloud_mask_issue"],
         settings["pan_off"],
         collection,
+        apply_cloud_mask=settings.get("apply_cloud_mask", True),
     )
 
     logger.info(f"process_satellite_image_settings: {settings}")
@@ -1650,6 +1651,7 @@ class Extracted_Shoreline:
             "dist_clouds",
             "percent_no_data",
             "model_session_path",  # path to model session file
+            "apply_cloud_mask",
         ]
         logger.info(f"settings used to create shoreline settings: {settings}")
         shoreline_settings = {k: v for k, v in settings.items() if k in SHORELINE_KEYS}
