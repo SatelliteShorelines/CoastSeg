@@ -45,6 +45,10 @@ BOX_LAYOUT = Layout(
 )
 
 
+def str_to_bool(var: str) -> bool:
+    return var == "True"
+
+
 def convert_date(date_str):
     try:
         return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -410,7 +414,6 @@ class UI:
     def get_advanced_settings_section(self):
         # declare settings widgets
         settings = {
-            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
             "sand_dropbox": self.get_sand_dropbox(),
             "cloud_mask_issue": self.get_cloud_issue_toggle(),
             "cloud_slider": self.get_cloud_slider(),
@@ -435,6 +438,7 @@ class UI:
             "min_length_sl_slider": self.get_min_length_sl_slider(),
             "beach_area_slider": self.get_beach_area_slider(),
             "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
+            "apply_cloud_mask": self.get_apply_could_mask_toggle(),
             "cloud_threshold_slider": self.get_cloud_threshold_slider(),
         }
 
@@ -445,35 +449,35 @@ class UI:
         # return settings_accordion
         return settings_vbox
 
-    def get_settings_section(self):
-        # declare settings widgets
-        settings = {
-            "dates_picker": self.get_dates_picker(),
-            "satellite_radio": self.get_satellite_radio(),
-            "sand_dropbox": self.get_sand_dropbox(),
-            "cloud_mask_issue": self.get_cloud_issue_toggle(),
-            "min_length_sl_slider": self.get_min_length_sl_slider(),
-            "beach_area_slider": self.get_beach_area_slider(),
-            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
-            "cloud_slider": self.get_cloud_slider(),
-            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
-            "along_dist": self.get_alongshore_distance_slider(),
-            "min_points": self.get_min_points_text(),
-            "max_std": self.get_max_std_text(),
-            "max_range": self.get_max_range_text(),
-            "min_chainage": self.get_min_chainage_text(),
-            "multiple_inter": self.get_outliers_mode(),
-            "prc_multiple": self.get_prc_multiple_text(),
-        }
+    # def get_settings_section(self):
+    #     # declare settings widgets
+    #     settings = {
+    #         "dates_picker": self.get_dates_picker(),
+    #         "satellite_radio": self.get_satellite_radio(),
+    #         "sand_dropbox": self.get_sand_dropbox(),
+    #         "cloud_mask_issue": self.get_cloud_issue_toggle(),
+    #         "min_length_sl_slider": self.get_min_length_sl_slider(),
+    #         "beach_area_slider": self.get_beach_area_slider(),
+    #         "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
+    #         "cloud_slider": self.get_cloud_slider(),
+    #         "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+    #         "along_dist": self.get_alongshore_distance_slider(),
+    #         "min_points": self.get_min_points_text(),
+    #         "max_std": self.get_max_std_text(),
+    #         "max_range": self.get_max_range_text(),
+    #         "min_chainage": self.get_min_chainage_text(),
+    #         "multiple_inter": self.get_outliers_mode(),
+    #         "prc_multiple": self.get_prc_multiple_text(),
+    #     }
 
-        # create settings vbox
-        settings_vbox = VBox(
-            [widget for widget_name, widget in settings.items()]
-            + [self.settings_btn_row]
-        )
-        settings_accordion = Accordion(children=[settings_vbox])
-        settings_accordion.set_title(0, "Settings")
-        return settings_accordion
+    #     # create settings vbox
+    #     settings_vbox = VBox(
+    #         [widget for widget_name, widget in settings.items()]
+    #         + [self.settings_btn_row]
+    #     )
+    #     settings_accordion = Accordion(children=[settings_vbox])
+    #     settings_accordion.set_title(0, "Settings")
+    #     return settings_accordion
 
     def get_dates_picker(self):
         # Date Widgets
@@ -495,7 +499,7 @@ class UI:
     def get_cloud_threshold_slider(self):
         instr = HTML(
             value="<b>Cloud Threshold</b> \
-                     </br>- Maximum percetange of cloud pixels allowed"
+                     </br>- Maximum percentage of cloud pixels allowed"
         )
         self.cloud_threshold_slider = ipywidgets.FloatSlider(
             value=0.5,
@@ -528,6 +532,22 @@ class UI:
             ],
         )
         return VBox([instr, self.cloud_issue_toggle])
+
+    def get_apply_could_mask_toggle(self):
+        instr = HTML(
+            value="<b>Cloud Mask Toggle</b> \
+                     </br>- Defaults to True. Switch to False to turn off cloud masking."
+        )
+        self.apply_cloud_mask_toggle = ipywidgets.ToggleButtons(
+            options=["True", "False"],
+            description="Apply Cloud Masking",
+            disabled=False,
+            tooltips=[
+                "Cloud Masking On",
+                "Cloud Masking Off",
+            ],
+        )
+        return VBox([instr, self.apply_cloud_mask_toggle])
 
     def get_sand_dropbox(self):
         sand_color_instr = HTML(
@@ -616,7 +636,7 @@ class UI:
         )
 
         self.beach_area_slider = ipywidgets.IntSlider(
-            value=4500,
+            value=1000,
             min=100,
             max=10000,
             step=10,
@@ -899,6 +919,11 @@ class UI:
             self.start_date.value = convert_date(start_date_str)
             self.end_date.value = convert_date(end_date_str)
 
+        if "apply_cloud_mask" in settings:
+            self.apply_cloud_mask_toggle.value = str(
+                settings.get("apply_cloud_mask", True)
+            )
+
         if "cloud_thresh" in settings:
             self.cloud_threshold_slider.value = settings.get("cloud_thresh", 0.5)
 
@@ -967,6 +992,7 @@ class UI:
         <p>save_figure: {settings.get("save_figure", "unknown")}</p>
         <p>min_beach_area: {settings.get("min_beach_area", "unknown")}</p>
         <p>min_length_sl: {settings.get("min_length_sl", "unknown")}</p>
+        <p>apply_cloud_mask: {settings.get("apply_cloud_mask", "unknown")}</p>
         <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
         <p>sand_color: {settings.get("sand_color", "unknown")}</p>
         <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
@@ -1165,11 +1191,12 @@ class UI:
         settings = {
             "sat_list": list(self.satellite_selection.value),
             "dates": [str(self.start_date.value), str(self.end_date.value)],
+            "apply_cloud_mask": str_to_bool(self.apply_cloud_mask_toggle.value),
             "max_dist_ref": self.shoreline_buffer_slider.value,
             "along_dist": self.alongshore_distance_slider.value,
             "dist_clouds": self.cloud_slider.value,
             "min_beach_area": self.beach_area_slider.value,
-            "cloud_mask_issue": bool(self.cloud_issue_toggle.value),
+            "cloud_mask_issue": str_to_bool(self.cloud_issue_toggle.value),
             "min_length_sl": self.min_length_sl_slider.value,
             "sand_color": str(self.sand_dropdown.value),
             "cloud_thresh": self.cloud_threshold_slider.value,
