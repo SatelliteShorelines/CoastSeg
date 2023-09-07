@@ -2,8 +2,9 @@
 bbox.geojson
 fishnet_rois.geojson
 rois.geojson
-*tide_model*
-
+*tide_modeling_workflow*
+*tide_model4*
+/*tide_model/*
 # ignore any geojson, csv, py files in the main coastseg directory
 /*.geojson
 /*.py
