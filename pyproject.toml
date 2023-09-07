@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "0.0.75dev13" 
+version = "0.0.75dev14" 
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -18,16 +18,16 @@ dependencies = [
   "ipyfilechooser>=0.6.0",
   "tqdm",
   "leafmap>=0.14.0",
-  "geojson",
+  "geojson", # installed by leafmap
   "aiohttp",
   "nest-asyncio",
   "tensorflow",
   "dask",
   "ipywidgets>=8.0.6",
   "transformers",
-  "chardet" ]
-#  "xarray"]
-#  "pyTMD",
+  "chardet",
+  "xarray",
+  "pyTMD"]
 license = { file="LICENSE" }
 requires-python = ">=3.9"
 classifiers = [
