@@ -18,6 +18,7 @@ rois.geojson
 !download_tide_model.py
 !Download_tide_model.ipynb
 !certifications.json
+!src/coastseg/tide_model/tide_regions_map.geojson
 
 myscripts/*
 debug_scripts/sessions/*
