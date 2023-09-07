@@ -82,7 +82,9 @@ In order to use Coastseg you need to install Python packages in an environment. 
    pip install coastseg
    ```
 5. Uninstall the h5py installed by pip and reinstall with conda-forge
+   - `pip install jsonschema==4.19.0` is a temporary command you have to run until issue https://github.com/stac-utils/pystac/issues/1214 is resolved
    ```bash
+   pip install jsonschema==4.19.0  
    pip uninstall h5py -y
    conda install -c conda-forge h5py -y
    ```
