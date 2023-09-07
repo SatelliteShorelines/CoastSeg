@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def progress_bar_context(use_progress_bar: bool, total: int = 6, description: str = ""):
+def progress_bar_context(
+    use_progress_bar: bool, total: int = 6, description: str = "", **kwargs
+):
     """
     Context manager for handling progress bar creation and updates.
 
@@ -39,11 +41,11 @@ def progress_bar_context(use_progress_bar: bool, total: int = 6, description: st
         it's a no-op.
     """
     if use_progress_bar:
-        progress_bar = tqdm(total=total, dynamic_ncols=True, desc=description)
+        progress_bar = tqdm(total=total, dynamic_ncols=True, desc=description, **kwargs)
 
-        def update(message: str):
+        def update(message: str, update_value: float = 1):
             progress_bar.set_description(message)
-            progress_bar.update(1)
+            progress_bar.update(update_value)
 
         yield update
         progress_bar.close()
@@ -573,6 +575,7 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
         raise Exception(f"{name} directory could not be found")
 
     return dir_location
+
 
 def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
     """
