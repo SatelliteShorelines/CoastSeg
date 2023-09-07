@@ -2,6 +2,24 @@
 bbox.geojson
 fishnet_rois.geojson
 rois.geojson
+*tide_model*
+
+# ignore any geojson, csv, py files in the main coastseg directory
+/*.geojson
+/*.py
+/*.csv
+/*.json
+/*.drawio
+/*.yml
+/*.txt
+
+# But don't ignore these specific files
+!download_tide_model.py
+!Download_tide_model.ipynb
+!certifications.json
+
+myscripts/*
+debug_scripts/sessions/*
 src/coastseg/shorelines/*
 src/coastseg/downloaded_models/*
 src/*/downloaded_models/*
