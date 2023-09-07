@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "0.0.75dev11" 
+version = "0.0.75dev12" 
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -26,8 +26,8 @@ dependencies = [
   "ipywidgets>=8.0.6",
   "transformers",
   "chardet" ,
-  "pyTMD",
   "xarray"]
+#  "pyTMD",
 license = { file="LICENSE" }
 requires-python = ">=3.9"
 classifiers = [
