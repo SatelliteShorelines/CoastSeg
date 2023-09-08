@@ -4,13 +4,12 @@ from typing import Optional, Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
-from coastseg.common import preprocess_geodataframe
+from coastseg.common import preprocess_geodataframe, validate_geometry_types
 
 # External dependencies imports
 import geopandas as gpd
 from shapely.geometry import shape
 from ipyleaflet import GeoJSON
-
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +64,9 @@ class Bounding_Box:
             create_ids=False,
             output_crs="EPSG:4326",
         )
+        validate_geometry_types(
+            bbox_gdf, set(["Polygon", "MultiPolygon"]), feature_type="Bounding Box"
+        )
         return bbox_gdf
 
     def create_geodataframe(
@@ -88,6 +90,9 @@ class Bounding_Box:
             columns_to_keep=["geometry"],
             create_ids=False,
             output_crs="EPSG:4326",
+        )
+        validate_geometry_types(
+            geojson_bbox, set(["Polygon", "MultiPolygon"]), feature_type="Bounding Box"
         )
         return geojson_bbox
 
