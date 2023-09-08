@@ -22,7 +22,7 @@ class Bounding_Box:
     A Bounding Box drawn by user.
     """
 
-    MAX_AREA = 3000000000  # UNITS = Sq. Meters
+    MAX_AREA = 100000000000  # UNITS = Sq. Meters
     MIN_AREA = 1000  # UNITS = Sq. Meters
     LAYER_NAME = "Bbox"
 

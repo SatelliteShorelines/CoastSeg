@@ -2294,6 +2294,7 @@ class CoastSeg_Map:
             feature.gdf[feature.gdf["id"].isin(self.selected_set)].to_file(
                 feature.filename, driver="GeoJSON"
             )
+            print(f"Saved selected ROIs to {feature.filename}")
         else:
             logger.info(f"Saving feature type( {feature}) to file")
             if hasattr(feature, "gdf"):
