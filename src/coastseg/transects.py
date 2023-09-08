@@ -4,7 +4,11 @@ import os
 from typing import List, Optional
 
 # Internal dependencies imports
-from coastseg.common import preprocess_geodataframe, create_unique_ids
+from coastseg.common import (
+    preprocess_geodataframe,
+    create_unique_ids,
+    validate_geometry_types,
+)
 
 # External dependencies imports
 import geopandas as gpd
@@ -56,6 +60,11 @@ def load_intersecting_transects(
             )
     selected_transects = preprocess_geodataframe(
         selected_transects, columns_to_keep=["id", "geometry", "slope"], create_ids=True
+    )
+    validate_geometry_types(
+        selected_transects,
+        set(["LineString", "MultiLineString"]),
+        feature_type="transects",
     )
     # make sure all the ids in selected_transects are unique
     selected_transects = create_unique_ids(selected_transects, prefix_length=3)
@@ -114,6 +123,12 @@ class Transects:
                 create_ids=True,
                 output_crs="EPSG:4326",
             )
+            validate_geometry_types(
+                transects,
+                set(["LineString", "MultiLineString"]),
+                feature_type="transects",
+                help_message=f"The uploaded transects need to be LineStrings.",
+            )
             # if not all the ids in transects are unique then create unique ids
             transects = create_unique_ids(transects, prefix_length=3)
             # @todo add the transects to the current dataframe
@@ -158,6 +173,11 @@ class Transects:
             transects_in_bbox,
             columns_to_keep=["id", "geometry", "slope"],
             create_ids=True,
+        )
+        validate_geometry_types(
+            transects_in_bbox,
+            set(["LineString", "MultiLineString"]),
+            feature_type="transects",
         )
         # make sure all the ids in transects_in_bbox are unique
         transects_in_bbox = create_unique_ids(transects_in_bbox, prefix_length=3)
