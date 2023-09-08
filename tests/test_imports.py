@@ -46,13 +46,6 @@ def test_import_common():
         assert False, "Failed to import common"
 
 
-def test_import_downloaded_models():
-    try:
-        from coastseg import downloaded_models
-    except ImportError:
-        assert False, "Failed to import downloaded_models"
-
-
 def test_import_downloads():
     try:
         from coastseg import downloads
@@ -163,13 +156,6 @@ def test_import_transects():
         from coastseg import transects
     except ImportError:
         assert False, "Failed to import transects"
-
-
-def test_import_zoo_model():
-    try:
-        from coastseg import zoo_model
-    except ImportError:
-        assert False, "Failed to import zoo_model"
 
 
 def test_import_zoo_model():
