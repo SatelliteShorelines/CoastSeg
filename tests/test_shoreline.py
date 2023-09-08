@@ -88,7 +88,7 @@ def test_initialize_shorelines_with_provided_shorelines(valid_shoreline_gdf):
 # 2. load shorelines from a shorelines geodataframe with a CRS 4327 with no id
 def test_initialize_shorelines_with_wrong_CRS(valid_shoreline_gdf):
     # change the crs of the geodataframe
-    shorelines_diff_crs = valid_shoreline_gdf.to_crs("EPSG:4326", inplace=False)
+    shorelines_diff_crs = valid_shoreline_gdf.to_crs("EPSG:4327", inplace=False)
     actual_shoreline = Shoreline(shoreline=shorelines_diff_crs)
     assert not actual_shoreline.gdf.empty
     assert "id" in actual_shoreline.gdf.columns

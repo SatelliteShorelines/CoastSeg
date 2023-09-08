@@ -38,13 +38,35 @@ def test_transects_init(valid_bbox_gdf: gpd.GeoDataFrame):
     assert not any(actual_transects.gdf["id"].duplicated())
 
 
-# 2. load transects from a bbox geodataframe with no crs
+# 2. load transects from a
 def test_transects_process_provided_transects():
     lines_coords = [((10, 10), (20, 20)), ((30, 30), (40, 50)), ((50, 60), (70, 80))]
     linestrings = [LineString([start, end]) for start, end in lines_coords]
     # Create a GeoDataFrame
     transects = gpd.GeoDataFrame(
         {"geometry": linestrings}, crs="EPSG:4326"  # Setting the desired CRS
+    )
+    transects["id"] = "test_id"
+    transects["slope"] = 1.0
+    actual_transects = Transects(transects=transects)
+    assert isinstance(
+        actual_transects, Transects
+    ), "Output should be an instance of Transects class"
+    assert (
+        not actual_transects.gdf.empty
+    ), "gdf should not be empty after processing provided transects"
+    assert actual_transects.gdf.crs.to_string() == "EPSG:4326"
+    assert "id" in actual_transects.gdf.columns
+    assert not any(actual_transects.gdf["id"].duplicated())
+
+
+# load transects with crs
+def test_load_transect_with_different_crs():
+    lines_coords = [((10, 10), (20, 20)), ((30, 30), (40, 50)), ((50, 60), (70, 80))]
+    linestrings = [LineString([start, end]) for start, end in lines_coords]
+    # Create a GeoDataFrame
+    transects = gpd.GeoDataFrame(
+        {"geometry": linestrings}, crs="EPSG:2033"  # Setting the desired CRS
     )
     transects["id"] = "test_id"
     transects["slope"] = 1.0
