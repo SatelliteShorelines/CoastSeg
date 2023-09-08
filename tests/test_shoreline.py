@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import MagicMock
 import geopandas as gpd
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString
 from coastseg.shoreline import Shoreline, ShorelineServices
 
 from coastseg import exceptions
@@ -59,6 +59,26 @@ def test_shoreline_initialization():
     shoreline = Shoreline()
     assert isinstance(shoreline, Shoreline)
     assert isinstance(shoreline.gdf, gpd.GeoDataFrame)
+
+
+# Test that when shoreline is not a linestring an error is thrown
+def test_shoreline_wrong_geometry():
+    polygon_gdf = gpd.GeoDataFrame(
+        geometry=[
+            Polygon(
+                [
+                    (-122.66944064253451, 36.96768728778939),
+                    (-122.66944064253451, 34.10377172691159),
+                    (-117.75040020737816, 34.10377172691159),
+                    (-117.75040020737816, 36.96768728778939),
+                    (-122.66944064253451, 36.96768728778939),
+                ]
+            )
+        ],
+        crs="epsg:4326",
+    )
+    with pytest.raises(exceptions.InvalidGeometryType):
+        Shoreline(shoreline=polygon_gdf)
 
 
 # 1. load shorelines from a shorelines geodataframe with a CRS 4326 with no id

@@ -27,7 +27,7 @@ def test_ROI_too_large():
         roi.ROI(rois_gdf=rectangle)
 
 
-# Test that when ROI's area is too large an error is thrown
+# Test that when ROI is not a polygon an error is thrown
 def test_ROI_wrong_geometry():
     line = gpd.GeoDataFrame(
         geometry=[
