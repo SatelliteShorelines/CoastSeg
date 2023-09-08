@@ -4,6 +4,95 @@ from coastseg import roi
 from coastseg import exceptions
 import geopandas as gpd
 import pyproj
+from shapely.geometry import Polygon, LineString
+
+
+# Test that when ROI's area is too large an error is thrown
+def test_ROI_too_large():
+    rectangle = gpd.GeoDataFrame(
+        geometry=[
+            Polygon(
+                [
+                    (-122.66944064253451, 36.96768728778939),
+                    (-122.66944064253451, 34.10377172691159),
+                    (-117.75040020737816, 34.10377172691159),
+                    (-117.75040020737816, 36.96768728778939),
+                    (-122.66944064253451, 36.96768728778939),
+                ]
+            )
+        ],
+        crs="epsg:4326",
+    )
+    with pytest.raises(exceptions.InvalidSize):
+        roi.ROI(rois_gdf=rectangle)
+
+
+# Test that when ROI's area is too large an error is thrown
+def test_ROI_wrong_geometry():
+    line = gpd.GeoDataFrame(
+        geometry=[
+            LineString(
+                [
+                    (-120.83849150866949, 35.43786191889319),
+                    (-120.93431712689429, 35.40749430666743),
+                ]
+            )
+        ],
+        crs="epsg:4326",
+    )
+    with pytest.raises(exceptions.InvalidGeometryType):
+        roi.ROI(rois_gdf=line)
+
+
+# create ROIs from geodataframe with a different CRS
+def test_initialize_from_roi_gdf_different_crs():
+    CRS = "epsg:2033"
+    rectangle = gpd.GeoDataFrame(
+        geometry=[
+            Polygon(
+                [
+                    (-121.12083854611063, 35.56544740627308),
+                    (-121.12083854611063, 35.53742390816822),
+                    (-121.08749373817861, 35.53742390816822),
+                    (-121.08749373817861, 35.56544740627308),
+                    (-121.12083854611063, 35.56544740627308),
+                ]
+            )
+        ],
+        crs="epsg:4326",
+    )
+    rectangle.to_crs(CRS, inplace=True)
+    rois = roi.ROI(rois_gdf=rectangle)
+    assert hasattr(rois, "gdf")
+    assert isinstance(rois.gdf, gpd.GeoDataFrame)
+    assert rois.gdf.empty == False
+    assert isinstance(rois.gdf.crs, pyproj.CRS)
+    assert rois.gdf.crs == "epsg:4326"
+
+
+# create ROIs from geodataframe with CRS 4326 (default CRS for map)
+def test_initialize_from_roi_gdf():
+    CRS = "epsg:4326"
+    rectangle = gpd.GeoDataFrame(
+        geometry=[
+            Polygon(
+                [
+                    (-121.12083854611063, 35.56544740627308),
+                    (-121.12083854611063, 35.53742390816822),
+                    (-121.08749373817861, 35.53742390816822),
+                    (-121.08749373817861, 35.56544740627308),
+                    (-121.12083854611063, 35.56544740627308),
+                ]
+            )
+        ],
+        crs=CRS,
+    )
+    rois = roi.ROI(rois_gdf=rectangle)
+    assert hasattr(rois, "gdf")
+    assert isinstance(rois.gdf, gpd.GeoDataFrame)
+    assert rois.gdf.empty == False
+    assert isinstance(rois.gdf.crs, pyproj.CRS)
+    assert rois.gdf.crs == CRS
 
 
 def test_create_geodataframe(
@@ -205,9 +294,9 @@ def test_add_extracted_shoreline(valid_ROI: roi.ROI):
     Args:
        transect_compatible_roi (gpd.GeoDataFrame): valid rois as a gpd.GeoDataFrame
     """
-    roi_id='23'
+    roi_id = "23"
     expected_dict = {
-        '23': {
+        "23": {
             "filename": ["ms.tif", "2019.tif"],
             "cloud_cover": [0.14, 0.0],
             "geoaccuracy": [7.9, 9.72],
@@ -216,7 +305,7 @@ def test_add_extracted_shoreline(valid_ROI: roi.ROI):
             "satname": ["L8", "L8"],
         }
     }
-    valid_ROI.add_extracted_shoreline(expected_dict[roi_id],roi_id)
+    valid_ROI.add_extracted_shoreline(expected_dict[roi_id], roi_id)
     # valid_ROI.add_extracted_shoreline(expected_dict)
     assert valid_ROI.extracted_shorelines != {}
     # assert valid_ROI.extracted_shorelines == expected_dict
