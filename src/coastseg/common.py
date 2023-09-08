@@ -547,6 +547,28 @@ def is_in_google_colab() -> bool:
 def get_ids_with_invalid_area(
     geometry: gpd.GeoDataFrame, max_area: float = 98000000, min_area: float = 0
 ) -> set:
+    """
+    Get the indices of geometries with areas outside the specified range.
+
+    This function checks the areas of each geometry in a given GeoDataFrame. If the area
+    is either greater than `max_area` or less than `min_area`, the index of that geometry
+    is added to the set of invalid geometries.
+
+    Note:
+        - The provided GeoDataFrame is assumed to be in CRS EPSG:4326.
+        - Returned areas are in meters squared.
+
+    Args:
+        geometry (gpd.GeoDataFrame): The GeoDataFrame containing the geometries to check.
+        max_area (float, optional): The maximum allowable area for a valid geometry. Defaults to 98000000.
+        min_area (float, optional): The minimum allowable area for a valid geometry. Defaults to 0.
+
+    Returns:
+        set: A set of indices corresponding to the geometries with areas outside the specified range.
+
+    Raises:
+        TypeError: If the provided geometry is not a GeoDataFrame.
+    """
     if isinstance(geometry, gpd.GeoDataFrame):
         geometry = json.loads(geometry.to_json())
     if isinstance(geometry, dict):
@@ -580,7 +602,6 @@ def load_cross_distances_from_file(dir_path):
         transect_dict[key] = tmp
     logger.info(f"Loaded transect cross shore distances from: {dir_path}")
     return transect_dict
-
 
 
 def mount_google_drive(name: str = "CoastSeg") -> None:
@@ -967,6 +988,7 @@ def preprocess_geodataframe(
     data: gpd.GeoDataFrame = gpd.GeoDataFrame(),
     columns_to_keep: List[str] = None,
     create_ids: bool = True,
+    output_crs: str = None,
 ) -> gpd.GeoDataFrame:
     """
     This function preprocesses a GeoDataFrame. It performs several transformations:
@@ -1005,6 +1027,8 @@ def preprocess_geodataframe(
         if columns_to_keep:
             columns_to_keep = set(col.lower() for col in columns_to_keep)
             data = data[[col for col in data.columns if col.lower() in columns_to_keep]]
+        if output_crs:
+            data = data.to_crs(output_crs)
 
     return data
 
