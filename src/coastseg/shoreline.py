@@ -134,7 +134,7 @@ class Shoreline:
                 )
                 shorelines.set_crs("EPSG:4326", inplace=True)
             shorelines = self.preprocess_service(
-                shorelines, columns_to_keep, create_ids=True
+                shorelines, columns_to_keep, create_ids=True, output_crs="EPSG:4326"
             )
             # make sure all the ids are unique with 3 random chars in front of id number
             shorelines = self.create_ids_service(shorelines, 3)
