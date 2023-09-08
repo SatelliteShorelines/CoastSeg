@@ -5,6 +5,7 @@ from typing import Union, List
 
 # Internal dependencies imports
 from coastseg import common
+from coastseg.common import validate_geometry_types
 from coastseg import exceptions
 
 # External dependencies imports
@@ -101,6 +102,9 @@ class ROI:
             columns_to_keep=["id", "geometry"],
             create_ids=True,
             output_crs="EPSG:4326",
+        )
+        validate_geometry_types(
+            rois_gdf, set(["Polygon", "MultiPolygon"]), feature_type="ROI"
         )
         # make sure all the ids  are unique
         rois_gdf = common.create_unique_ids(rois_gdf, prefix_length=3)
@@ -351,6 +355,9 @@ class ROI:
                 "geometry",
             ],
             create_ids=True,
+        )
+        validate_geometry_types(
+            fishnet_intersect_gdf, set(["Polygon", "MultiPolygon"]), feature_type="ROI"
         )
         # make sure all the ids are unique
         fishnet_intersect_gdf = common.create_unique_ids(
