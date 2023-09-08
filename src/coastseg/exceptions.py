@@ -189,6 +189,45 @@ class InvalidSize(Exception):
         return f"{self.msg}"
 
 
+class InvalidGeometryType(Exception):
+    """
+    Raised when a feature's geometry type doesn't match the expected type(s).
+
+    Attributes:
+        feature_name (str): The name of the feature causing the exception.
+        msg (str): A descriptive error message.
+        expected_geom_types (set): A set of expected geometry types.
+        wrong_geom_type (str): The geometry type that caused the exception.
+    """
+
+    def __init__(
+        self,
+        msg: str,
+        feature_name: str,
+        expected_geom_types: set,
+        wrong_geom_type: str,
+        help_msg: str = None,
+        error_code: int = None,
+    ):
+        self.feature_name = feature_name
+        self.expected_geom_types = expected_geom_types
+        self.wrong_geom_type = wrong_geom_type
+        self.help_msg = help_msg
+        self.error_code = error_code
+        self.msg = f"{feature_name} : {msg}. Expected: {', '.join(expected_geom_types)}, but got: {wrong_geom_type}."
+
+        if self.help_msg is not None:
+            self.msg += f" \n {self.help_msg}"
+
+        if self.error_code is not None:
+            self.msg += f" | Error Code: {self.error_code}"
+
+        super().__init__(self.msg)
+
+    def __str__(self):
+        return f"{self.msg}"
+
+
 class DownloadError(Exception):
     """DownloadError: raised when a download error occurs.
     Args:

@@ -27,11 +27,48 @@ from typing import Callable, List, Optional, Union
 # Internal dependencies imports
 from coastseg import exceptions
 from coastseg import file_utilities
+from coastseg.exceptions import InvalidGeometryType
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def validate_geometry_types(
+    gdf: gpd.GeoDataFrame,
+    valid_types: set,
+    feature_type: str = "Feature",
+    help_message: str = None,
+) -> None:
+    """
+    Check if all geometries in a GeoDataFrame are of the given valid types.
+
+    Args:
+        gdf (gpd.GeoDataFrame): The GeoDataFrame containing the geometries to check.
+        valid_types (set): A set of valid geometry types.
+        feature_type (str): The name of the feature
+
+    Raises:
+        ValueError: If any geometry in the GeoDataFrame is not of a type in valid_types.
+    """
+
+    # Extract the geometry types of the GeoDataFrame
+    geometry_types = gdf.geometry.geom_type.unique()
+
+    for geom_type in geometry_types:
+        if geom_type not in valid_types:
+            raise InvalidGeometryType(
+                f"The {feature_type} contained a geometry of type '{geom_type}'",
+                feature_name=feature_type,
+                expected_geom_types=valid_types,
+                wrong_geom_type=geom_type,
+                help_msg=help_message
+            )
+            # raise ValueError(
+            #     f"The {feature_type} contained a geometry of type '{geom_type}' which is not in the list of valid types: {valid_types}"
+            # )
+
 
 
 def get_roi_polygon(
