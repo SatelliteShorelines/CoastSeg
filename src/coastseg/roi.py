@@ -25,6 +25,8 @@ class ROI:
 
     LAYER_NAME = "ROIs"
     SELECTED_LAYER_NAME = "Selected ROIs"
+    MAX_SIZE = 98000000  # 98km^2 area
+    MIN_SIZE = 0
 
     def __init__(
         self,
@@ -92,20 +94,32 @@ class ROI:
         Raises:
             None.
         """
+        # make sure to perform a CRS check here too
 
         rois_gdf = common.preprocess_geodataframe(
-            rois_gdf, columns_to_keep=["id", "geometry"], create_ids=True
+            rois_gdf,
+            columns_to_keep=["id", "geometry"],
+            create_ids=True,
+            output_crs="EPSG:4326",
         )
         # make sure all the ids  are unique
         rois_gdf = common.create_unique_ids(rois_gdf, prefix_length=3)
         # get row ids of ROIs with area that's too large
-        drop_ids = common.get_ids_with_invalid_area(rois_gdf)
+        drop_ids = common.get_ids_with_invalid_area(
+            rois_gdf, max_area=ROI.MAX_SIZE, min_area=ROI.MIN_SIZE
+        )
         if drop_ids:
-            print("Dropping ROIs that are an invalid size ")
+            print(f"Dropping IDs {drop_ids}")
             logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
             rois_gdf.drop(index=drop_ids, axis=0, inplace=True)
+            if rois_gdf.empty:
+                raise exceptions.InvalidSize(
+                    "The ROI(s) had an invalid size.",
+                    "ROI",
+                    max_size=ROI.MAX_SIZE,
+                    min_size=ROI.MIN_SIZE,
+                )
 
-        rois_gdf.to_crs("EPSG:4326")
         self.gdf = rois_gdf
 
     def _initialize_from_bbox_and_shoreline(
