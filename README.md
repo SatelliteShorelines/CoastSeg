@@ -18,14 +18,42 @@
 
 ![official_coastseg](https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif)
 
+## News
+We are thrilled to announce the official release of CoastSeg version 1.0.0! Please see the [release notes](https://github.com/Doodleverse/CoastSeg/releases/tag/v1.0.0). If you are an existing CoastSeg user, to upgrade to this latest version of CoastSeg:
+
+```
+git pull origin main
+```
+
+then: 
+```
+pip install coastseg==1.0.0
+```
+
 ## What is CoastSeg?
 
-Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook for downloading satellite imagery with [CoastSat](https://github.com/kvos/CoastSat) and applying image segmentation models to satellite imagery. CoastSeg provides an interactive interface for drawing Regions of Interest (ROIs) on a map, downloading satellite imagery, loading geojson files, extracting shorelines from satellite imagery, and more.
+Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook for downloading satellite imagery with [CoastSat](https://github.com/kvos/CoastSat) and applying Doodleverse/[Zoo](https://github.com/Doodleverse/segmentation_zoo) image segmentation models to satellite imagery. CoastSeg provides an interactive interface for drawing Regions of Interest (ROIs) on a map, downloading satellite imagery, loading geojson files, extracting shorelines from satellite imagery, and much more. In a nutshell, it is ...
 
-- A mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo) models.
-- An interactive interface to download satellite imagery using CoastSat from Google Earth Engine
-- An interactive interface for extracting shorelines from satellite imagery
-- An interactive interface to apply segmentation models to satellite imagery
+- ... an easy way to download time-series of cloud-masked and post-processed satellite imagery anywhere in the world
+- ... a mapping extension for [CoastSat](https://github.com/kvos/CoastSat) using [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo) models.
+- ... an interactive interface to download satellite imagery using CoastSat from Google Earth Engine
+- ... an interactive interface for extracting shorelines from satellite imagery
+- ... an interactive interface to apply segmentation models to satellite imagery
+
+In more detail, CoastSeg represents the following advances in satellite-derived shoreline workflows:
+
+1. An emulation of the CoastSat methodology for defining a shoreline extraction project, image downloading, shoreline extraction, shoreline filtering, and tide correction, all within a single jupyter notebook that can be accessed online
+2. A pip-installable package for CoastSat workflows
+3. Use of concurrency for image downloads from Google Earth Engine
+4. A faster and more convenient API-based methodology for tidal height estimation, using pyTMD
+5. An initial implementation of an alternative shoreline mapping workflow using Zoo models from the Doodleverse
+6. A conda environment that can work on secure networks
+7. Script-based data wrangling utilities
+8. Hyperparameter experimentation and tracking using an organizational workflow idea called ‘Sessions’
+9. Supporting databases for transects, reference shorelines, beach slopes, and other useful metadata variables
+10. A deep-learning based shoreline extraction workflow (still in development)
+
+Version 1 is now stable, and we have a lot of planned new features for version 2.
 
 ![gif of map with rectangles on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/create_rois_demo.gif)
 
@@ -49,9 +77,13 @@ Coastseg stands for Coastal Segmentation, it is an interactive jupyter notebook 
 
 ## Installation Instructions
 
-In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) to install the python packages in an environment for Coastseg. After you install Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
+We recommend that you use Windows 10, Windows 11, or Ubuntu Linux. Mac users, please see [here](https://github.com/Doodleverse/CoastSeg/wiki/01.-How-to-Install-CoastSeg#mac-users)
 
-1. Create an Anaconda environment
+In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) to install the python packages in an environment for Coastseg. 
+
+After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
+
+1. Create an miniconda/Anaconda environment
 
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
   ```bash
@@ -84,7 +116,7 @@ In order to use Coastseg you need to install Python packages in an environment. 
 5. Uninstall the h5py installed by pip and reinstall with conda-forge
    - `pip install jsonschema==4.19.0` is a temporary command you have to run until issue https://github.com/stac-utils/pystac/issues/1214 is resolved
    ```bash
-   pip install jsonschema==4.19.0  
+   pip install jsonschema==4.19.0 --user  
    pip uninstall h5py -y
    conda install -c conda-forge h5py -y
    ```
@@ -100,6 +132,10 @@ In order to use Coastseg you need to install Python packages in an environment. 
 ### Update to the latest version
 
 `pip install coastseg --upgrade`
+
+### Apply the `jsonschema` patch
+
+`pip install jsonschema==4.19.0 --user`
 
 ## **Having Installation Errors?**
 
@@ -144,17 +180,24 @@ Once you’ve created the coastseg environment you’ll need to run `git clone` 
 
 Check out the wiki guide [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download.
 
+5. Use the `add_new_transects_notebook` to Download Imagery
+
+
 # Authors
 
 Package maintainers:
 
-- [@dbuscombe-usgs](https://github.com/dbuscombe-usgs) Marda Science / USGS Pacific Coastal and Marine Science Center.
-- [@2320sharon](https://github.com/2320sharon) : Lead Software Developer
+- [@dbuscombe-usgs](https://github.com/dbuscombe-usgs)  Contracted to USGS Pacific Coastal and Marine Science Center.
+- [@2320sharon](https://github.com/2320sharon) : Lead Software Developer / Contracted to USGS Pacific Coastal and Marine Science Center.
 
 Contributions:
 
 - [@ebgoldstein](https://github.com/ebgoldstein)
-- [@kvos](https://github.com/kvos)
+- [@venuswku](https://github.com/venuswku)
+- [@robbibt](https://github.com/robbibt)
+- [@edlazarus](https://github.com/edlazarus)
+- Beta testers: Catherine Janda, Ann Gibbs, Jon Warrick, Andrea O’Neill, Kathryn Weber, Julia Heslin (USGS)
+- We would like to express our gratitude to all the contributors who made this release possible. Thank you to everyone who tested the beta versions of coastseg and provided us with the feedback we needed to improve coastseg. Thanks also to the developers and maintainers of pyTMD, DEA-tools, xarray, and GDAL, without which this project would be impossible
 
 ## Citations
 
@@ -170,3 +213,4 @@ Thank you to all the amazing research who contributed their transects to coastse
 8. Himmelstoss, E.A., Kratzmann, M., Hapke, C., Thieler, E.R., and List, J., 2010, The National Assessment of Shoreline Change: A GIS Compilation of Vector Shorelines and Associated Shoreline Change Data for the New England and Mid-Atlantic Coasts: U.S. Geological Survey Open-File Report 2010-1119, available at https://pubs.usgs.gov/of/2010/1119/.
 9. Kilian Vos. (2023). Time-series of shoreline change along the Pacific Rim (v1.4) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.7758183
 10. Vos, Kilian, Wen, Deng, Harley, Mitchell D., Turner, Ian L., & Splinter, Kristen D. (2022). Beach-face slope dataset for Australia (Version 2) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.7272538
+11. Gibbs, A.E., Jones, B.M., and Richmond, B.M., 2020, A GIS compilation of vector shorelines and coastal bluff edge positions, and associated rate-of-change data for Barter Island, Alaska: U.S. Geological Survey data release, https://doi.org/10.5066/P9CRBC5I.
