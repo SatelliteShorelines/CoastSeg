@@ -1,0 +1,54 @@
+# ✍️ Description:
+# This workflow will be triggered automatically when a tag is pushed to the repo.
+# It will create a create a new pip package to release it to pypi with the version specificed by the git tag.
+# 🚨 GTHUB SECRETS REQUIRED: secrets.PYPI_TOKEN
+#                            - Used to publish the package to the pypi
+name: Publish to Package to PyPi
+on:
+  push:
+    # only release a new pip package if the commit it tagged ex.v1.0.3 or v1.2.0dev1
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+dev[0-9]+"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build package and deploy to PyPi
+
+    runs-on: "ubuntu-latest"
+    defaults:
+      run:
+        # Set the default shell to the bash login shell. Use a login shell to ensure a complete environment initialization, aligning with local development setups and loading necessary profiles and paths.
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Load the last 1 commits
+          fetch-depth: "1"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install pypa/build
+        # use the "-" to use YAML's "folded style", which splits a single line string into multiple lines for readability
+        run: >-
+          python -m
+          pip install
+          build
+          --user
+      - name: Build a binary wheel and a source tarball
+        run: >-
+          python -m
+          build
+          --sdist
+          --wheel
+          --outdir dist/
+          .
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          password: ${{ secrets.PYPI_TOKEN }}
