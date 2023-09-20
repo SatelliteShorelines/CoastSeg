@@ -633,6 +633,9 @@ class CoastSeg_Map:
         inputs_list = list(roi_settings.values())
         logger.info(f"inputs_list {inputs_list}")
 
+        # Save settings used to download rois and the objects on map to config files
+        self.save_config()
+
         # 2. For each ROI use download settings to download imagery and save to jpg
         print("Download in progress")
         # for each ROI use the ROI settings to download imagery and save to jpg
@@ -644,8 +647,6 @@ class CoastSeg_Map:
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
             )
-        # 3.save settings used to download rois and the objects on map to config files
-        self.save_config()
         logger.info("Done downloading")
 
     def _extract_and_validate_roi_settings(
@@ -794,6 +795,7 @@ class CoastSeg_Map:
         exception_handler.check_empty_roi_layer(selected_layer)
         logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
 
+        # @todo can this be removed since we don't have a save_config button anymore?
         # if the rois do not have any settings then save the currently loaded settings to the ROIs
         if not self.rois.roi_settings:
             filepath = filepath or os.path.abspath(os.getcwd())

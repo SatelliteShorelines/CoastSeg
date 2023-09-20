@@ -272,23 +272,24 @@ def find_parent_directory(
         path = parent_dir
 
 
-def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
+def config_to_file(config: Union[dict, gpd.GeoDataFrame], filepath: str):
     """Saves config to config.json or config_gdf.geojson
     config's type is dict or geodataframe respectively
 
     Args:
         config (Union[dict, gpd.GeoDataFrame]): data to save to config file
-        file_path (str): full path to directory to save config file
+        filepath (str): full path to directory to save config file
     """
     if isinstance(config, dict):
         filename = f"config.json"
-        save_path = os.path.abspath(os.path.join(file_path, filename))
+        save_path = os.path.abspath(os.path.join(filepath, filename))
         write_to_json(save_path, config)
         logger.info(f"Saved config json: {filename} \nSaved to {save_path}")
     elif isinstance(config, gpd.GeoDataFrame):
         filename = f"config_gdf.geojson"
-        save_path = os.path.abspath(os.path.join(file_path, filename))
+        save_path = os.path.abspath(os.path.join(filepath, filename))
         logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         config.to_file(save_path, driver="GeoJSON")
 
 
@@ -497,6 +498,7 @@ def create_directory(file_path: str, name: str) -> str:
 
 def write_to_json(filepath: str, settings: dict):
     """ "Write the  settings dictionary to json file"""
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     to_file(settings, filepath)
     # with open(filepath, "w", encoding="utf-8") as output_file:
     #     json.dump(settings, output_file)
