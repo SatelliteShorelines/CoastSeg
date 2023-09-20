@@ -612,15 +612,15 @@ class CoastSeg_Map:
         """
 
         self.validate_download_imagery_inputs()
-        # selected_layer contains the selected ROIs
-        selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
-        logger.info(f"selected_layer: {selected_layer}")
 
         # Get the location where the downloaded imagery will be saved
         file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
         date_str = file_utilities.generate_datestring()
-
         settings = self.get_settings()
+
+        # selected_layer contains the selected ROIs
+        selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
+        logger.info(f"selected_layer: {selected_layer}")
         # Create a list of download settings for each ROI
         roi_settings = common.create_roi_settings(
             settings, selected_layer.data, file_path, date_str
@@ -794,6 +794,7 @@ class CoastSeg_Map:
         exception_handler.check_empty_roi_layer(selected_layer)
         logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
 
+        # if the rois do not have any settings then save the currently loaded settings to the ROIs
         if not self.rois.roi_settings:
             filepath = filepath or os.path.abspath(os.getcwd())
             roi_settings = common.create_roi_settings(
@@ -806,15 +807,24 @@ class CoastSeg_Map:
         selected_roi_settings = {
             roi_id: self.rois.roi_settings[roi_id] for roi_id in roi_ids
         }
+        # combine the settings for each ROI with the rest of the currently loaded settings
         config_json = common.create_json_config(selected_roi_settings, settings)
 
-        shorelines_gdf = self.shoreline.gdf if self.shoreline else None
-        transects_gdf = self.transects.gdf if self.transects else None
-        bbox_gdf = self.bbox.gdf if self.bbox else None
+        shorelines_gdf = (
+            self.shoreline.gdf
+            if self.shoreline and hasattr(self.shoreline, "gdf")
+            else None
+        )
+        transects_gdf = (
+            self.transects.gdf
+            if self.transects and hasattr(self.transects, "gdf")
+            else None
+        )
+        bbox_gdf = self.bbox.gdf if self.bbox and hasattr(self.bbox, "gdf") else None
         selected_rois = self.get_selected_rois(roi_ids)
+        logger.info(f"selected_rois: {selected_rois}")
 
         # save all selected rois, shorelines, transects and bbox to config geodataframe
-        logger.info(f"selected_rois: {selected_rois}")
         if selected_rois is not None:
             if not selected_rois.empty:
                 epsg_code = selected_rois.crs
@@ -828,13 +838,17 @@ class CoastSeg_Map:
         logger.info(f"config_gdf: {config_gdf} ")
         is_downloaded = common.were_rois_downloaded(self.rois.roi_settings, roi_ids)
 
-        if filepath is not None:
-            # if a filepath is provided then save the config.json and config_gdf.geojson immediately
-            file_utilities.config_to_file(config_json, filepath)
-            file_utilities.config_to_file(config_gdf, filepath)
-        elif filepath is None:
-            # data has been downloaded before so inputs have keys 'filepath' and 'sitename'
-            if is_downloaded == True:
+        def save_config_files(config_json, config_gdf, path):
+            """Helper function to save config files."""
+            file_utilities.config_to_file(config_json, path)
+            file_utilities.config_to_file(config_gdf, path)
+
+        if filepath:
+            # If a filepath is provided then save the config.json and config_gdf.geojson immediately
+            save_config_files(config_json, config_gdf, filepath)
+        else:
+            # if  data has been downloaded before then inputs have keys 'filepath' and 'sitename'
+            if is_downloaded:
                 # write config_json file to each directory where a roi was saved
                 roi_ids = config_json["roi_ids"]
                 for roi_id in roi_ids:
@@ -842,19 +856,13 @@ class CoastSeg_Map:
                     filepath = os.path.abspath(
                         os.path.join(config_json[roi_id]["filepath"], sitename)
                     )
-                    # save to config.json
-                    file_utilities.config_to_file(config_json, filepath)
-                    # save to config_gdf.geojson
-                    file_utilities.config_to_file(config_gdf, filepath)
+                    save_config_files(config_json, config_gdf, filepath)
                 print("Saved config files for each ROI")
-            elif is_downloaded == False:
+            else:
                 # if data is not downloaded save to coastseg directory
                 filepath = os.path.abspath(os.getcwd())
-                # save to config.json
-                file_utilities.config_to_file(config_json, filepath)
-                # save to config_gdf.geojson
-                file_utilities.config_to_file(config_gdf, filepath)
-                print("Saved config files for each ROI")
+                save_config_files(config_json, config_gdf, filepath)
+                print(f"Saved config files for each ROI to {filepath}")
 
     def set_settings(self, **kwargs):
         """

@@ -1343,8 +1343,15 @@ def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) ->
     config = {**inputs}
     config["roi_ids"] = roi_ids
     config["settings"] = settings
-    logger.info(f"config_json: {config} ")
+    logger.info(f"config_json: {config}")
     return config
+
+
+def set_crs_or_initialize_empty(gdf: gpd.GeoDataFrame, epsg_code: str):
+    """Set the CRS for the given GeoDataFrame or initialize an empty one."""
+    if gdf is not None and not gdf.empty:
+        return gdf.to_crs(epsg_code)
+    return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
 
 
 def create_config_gdf(
@@ -1354,48 +1361,54 @@ def create_config_gdf(
     bbox_gdf: gpd.GeoDataFrame = None,
     epsg_code: int = None,
 ) -> gpd.GeoDataFrame:
-    if epsg_code is None and rois_gdf is None:
+    """
+    Create a concatenated GeoDataFrame from provided GeoDataFrames with a consistent CRS.
+
+    Parameters:
+    - rois_gdf (gpd.GeoDataFrame): The GeoDataFrame containing Regions of Interest (ROIs).
+    - shorelines_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing shorelines. Defaults to None.
+    - transects_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing transects. Defaults to None.
+    - bbox_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing bounding boxes. Defaults to None.
+    - epsg_code (int, optional): The EPSG code for the desired CRS. If not provided and rois_gdf is non-empty,
+      the CRS of rois_gdf will be used. If not provided and rois_gdf is empty, an error will be raised.
+
+    Returns:
+    - gpd.GeoDataFrame: A concatenated GeoDataFrame with a consistent CRS, and a "type" column
+      indicating the type of each geometry (either "roi", "shoreline", "transect", or "bbox").
+
+    Raises:
+    - ValueError: If both epsg_code is None and rois_gdf is None or empty.
+
+    Notes:
+    - The function will convert each provided GeoDataFrame to the specified CRS.
+    - If any of the input GeoDataFrames is None or empty, it will be initialized as an empty GeoDataFrame
+      with the specified CRS.
+    """
+    # Determine CRS
+    if not epsg_code and (rois_gdf is None or rois_gdf.empty):
         raise ValueError(
-            "Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame"
+            "Either provide a valid epsg code or a non-empty rois_gdf to determine the CRS."
         )
-    # Check if CRS is provided or if the ROI GeoDataFrame is empty
-    if epsg_code is None and rois_gdf.empty:
-        raise ValueError(
-            "Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame"
-        )
-    if epsg_code is None:
+    if not epsg_code:
         epsg_code = rois_gdf.crs
 
-    # Set CRS for the non-empty GeoDataFrames
-    if rois_gdf is not None and not rois_gdf.empty:
-        rois_gdf = rois_gdf.to_crs(epsg_code)
-    else:
-        rois_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    if shorelines_gdf is not None and not shorelines_gdf.empty:
-        shorelines_gdf = shorelines_gdf.to_crs(epsg_code)
-    else:
-        shorelines_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    if transects_gdf is not None and not transects_gdf.empty:
-        transects_gdf = transects_gdf.to_crs(epsg_code)
-    else:
-        transects_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    if bbox_gdf is not None and not bbox_gdf.empty:
-        bbox_gdf = bbox_gdf.to_crs(epsg_code)
-    else:
-        bbox_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
+    # Dictionary to map gdf variables to their types
+    gdfs = {
+        "roi": rois_gdf,
+        "shoreline": shorelines_gdf,
+        "transect": transects_gdf,
+        "bbox": bbox_gdf,
+    }
 
-    # Assign "type" column values
-    rois_gdf["type"] = "roi"
-    shorelines_gdf["type"] = "shoreline"
-    transects_gdf["type"] = "transect"
-    bbox_gdf["type"] = "bbox"
+    # Process each GeoDataFrame
+    for gdf_type, gdf in gdfs.items():
+        gdfs[gdf_type] = set_crs_or_initialize_empty(gdf, epsg_code)
+        gdfs[gdf_type]["type"] = gdf_type
 
     # Concatenate GeoDataFrames
-    config_gdf = pd.concat(
-        [rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True
-    )
+    config_gdf = pd.concat(gdfs.values(), ignore_index=True)
 
-    return gpd.GeoDataFrame(config_gdf)
+    return config_gdf
 
 
 def get_jpgs_from_data() -> str:
