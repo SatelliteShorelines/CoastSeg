@@ -802,7 +802,7 @@ class CoastSeg_Map:
             )
             self.rois.set_roi_settings(roi_settings)
 
-        # create dictionary to be saved to config.json
+        # create dictionary of settings for each ROI to be saved to config.json
         roi_ids = self.get_selected_roi_ids()
         selected_roi_settings = {
             roi_id: self.rois.roi_settings[roi_id] for roi_id in roi_ids
@@ -811,16 +811,10 @@ class CoastSeg_Map:
         config_json = common.create_json_config(selected_roi_settings, settings)
 
         shorelines_gdf = (
-            self.shoreline.gdf
-            if self.shoreline and hasattr(self.shoreline, "gdf")
-            else None
+            getattr(self.shoreline, "gdf", None) if self.shoreline else None
         )
-        transects_gdf = (
-            self.transects.gdf
-            if self.transects and hasattr(self.transects, "gdf")
-            else None
-        )
-        bbox_gdf = self.bbox.gdf if self.bbox and hasattr(self.bbox, "gdf") else None
+        transects_gdf = getattr(self.transects, "gdf", None) if self.transects else None
+        bbox_gdf = getattr(self.bbox, "gdf", None) if self.bbox else None
         selected_rois = self.get_selected_rois(roi_ids)
         logger.info(f"selected_rois: {selected_rois}")
 
