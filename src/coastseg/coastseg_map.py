@@ -35,7 +35,7 @@ from coastseg import (
     exception_handler,
 )
 from coastsat import SDS_download
-
+from coastsat.SDS_download import get_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +207,63 @@ class CoastSeg_Map:
         else:
             print("\ntidal corrections completed")
 
+    def load_metadata(self, settings: dict = {}, ids: Collection = set([])):
+        """
+        Loads metadata either based on user-provided settings or a collection of ROI IDs.
+
+        This method either takes in a dictionary with site-specific settings to load metadata
+        for a particular site, or iterates over a collection of ROI IDs to load their respective
+        metadata using the settings associated with those ROI IDs.
+
+        Note that coastsat's `get_metadata` is used to actually perform the metadata loading.
+
+        Parameters:
+        -----------
+        settings: dict, optional
+            A dictionary containing settings for a specific site. The settings should
+            include 'sitename' and 'filepath_data' keys, among others. Default is an empty dict.
+
+        ids: Collection, optional
+            A collection (e.g., set, list) of ROI IDs to load metadata for. Default is an empty set.
+
+        Raises:
+        -----------
+        FileNotFoundError:
+            If the directory specified in the settings or by ROI IDs does not exist.
+
+        Exception:
+            If neither settings nor ids are provided.
+
+        Returns:
+        -----------
+        None
+            metadata dictionary
+
+        Examples:
+        -----------
+        >>> load_metadata(settings={'sitename': 'site1', 'filepath_data': '/path/to/data'})
+        >>> load_metadata(ids={1, 2, 3})
+
+        """
+        if settings and isinstance(settings, dict):
+            return get_metadata(settings)
+        elif ids:
+            for roi_id in ids:
+                # if the ROI directory did not exist then print a warning and proceed
+                try:
+                    logger.info(
+                        f"Loading metadata using {self.rois.roi_settings[str(roi_id)]}"
+                    )
+                    metadata = get_metadata(self.rois.roi_settings[str(roi_id)])
+                    logger.info(f"Metadata for ROI ID {str(roi_id)}:{metadata}")
+                    return metadata
+                except FileNotFoundError as e:
+                    logger.error(f"Metadata not loaded for ROI ID {str(roi_id)} {e}")
+                    print(f"Metadata not loaded for ROI ID {str(roi_id)} {e}")
+
+        else:
+            raise Exception(f"Must provide settings or list of IDs to load metadata.")
+
     def load_session_files(self, dir_path: str) -> None:
         """
         Load the configuration files from the given directory.
@@ -229,6 +286,11 @@ class CoastSeg_Map:
             # load the config files if they exist
             data_path = file_utilities.create_directory(os.getcwd(), "data")
             config_loaded = self.load_config_files(dir_path, data_path)
+            # create metadata files for each ROI loaded in using coastsat's get_metadata()
+            if self.rois and getattr(self.rois, "roi_settings"):
+                self.load_metadata(ids=list(self.rois.roi_settings.keys()))
+            else:
+                logger.warning(f"No ROIs were able to have their metadata loaded.")
             # load in settings files
             for file_name in os.listdir(dir_path):
                 file_path = os.path.join(dir_path, file_name)
