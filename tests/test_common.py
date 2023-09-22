@@ -7,11 +7,129 @@ import shutil
 
 from coastseg import exceptions
 from coastseg import common
+from coastseg import file_utilities
 
 from shapely.geometry import LineString, MultiLineString, Point
 import geopandas as gpd
 import numpy as np
 from shapely import geometry
+
+import geopandas as gpd
+import pandas as pd
+from shapely.geometry import Point
+import pytest
+
+
+def test_valid_input():
+    rois = gpd.GeoDataFrame({"geometry": [Point(1, 1)]}, crs="EPSG:4326")
+
+    result = common.create_config_gdf(rois)
+    assert not result.empty
+    assert result.crs == "EPSG:4326"
+    assert "type" in result.columns
+    assert result["type"][0] == "roi"
+
+
+def test_with_multiple_gdfs():
+    rois = gpd.GeoDataFrame({"geometry": [Point(1, 1), Point(2, 2)]}, crs="EPSG:4326")
+
+    shorelines = gpd.GeoDataFrame(
+        {"geometry": [LineString([(0, 0), (1, 1)])]}, crs="EPSG:4326"
+    )
+
+    result = common.create_config_gdf(rois, shorelines_gdf=shorelines, epsg_code=3857)
+
+    assert not result.empty
+    assert result.crs == "EPSG:3857"
+    assert result["type"].nunique() == 2
+    assert set(result["type"].unique()) == {"roi", "shoreline"}
+
+
+def test_with_empty_rois_and_no_epsg():
+    with pytest.raises(ValueError):
+        result = common.create_config_gdf(None)
+
+
+def test_with_empty_rois_and_valid_epsg():
+    result = common.create_config_gdf(None, epsg_code=3857)
+    assert result.empty
+    assert result.crs == "EPSG:3857"
+
+
+def test_with_all_gdfs():
+    rois = gpd.GeoDataFrame({"geometry": [Point(1, 1), Point(2, 2)]}, crs="EPSG:4326")
+
+    shorelines = gpd.GeoDataFrame(
+        {"geometry": [LineString([(0, 0), (1, 1)])]}, crs="EPSG:4326"
+    )
+
+    transects = gpd.GeoDataFrame(
+        {"geometry": [LineString([(2, 2), (3, 3)])]}, crs="EPSG:4326"
+    )
+
+    bbox = gpd.GeoDataFrame({"geometry": [Point(3, 3), Point(4, 4)]}, crs="EPSG:4326")
+
+    result = common.create_config_gdf(
+        rois,
+        shorelines_gdf=shorelines,
+        transects_gdf=transects,
+        bbox_gdf=bbox,
+        epsg_code=3857,
+    )
+
+    assert not result.empty
+    assert result.crs == "EPSG:3857"
+    assert result["type"].nunique() == 4
+    assert set(result["type"].unique()) == {"roi", "shoreline", "transect", "bbox"}
+
+
+def test_set_crs_for_non_empty_gdf_with_same_epsg():
+    # Create a GeoDataFrame with some data
+    gdf = gpd.GeoDataFrame({"geometry": [Point(1, 1)]}, crs="EPSG:4326")
+
+    result = common.set_crs_or_initialize_empty(gdf, "EPSG:4326")
+
+    # Check that the resulting GeoDataFrame has the correct CRS
+    assert result.crs == "EPSG:4326"
+    # Check that the data remains unchanged
+    assert not result.empty
+
+
+def test_set_crs_for_non_empty_gdf():
+    # Create a GeoDataFrame with some data
+    gdf = gpd.GeoDataFrame({"geometry": [Point(1, 1)]}, crs="EPSG:4326")
+
+    result = common.set_crs_or_initialize_empty(gdf, "EPSG:3857")
+
+    # Check that the resulting GeoDataFrame has the correct CRS
+    assert result.crs == "EPSG:3857"
+    # Check that the data remains unchanged
+    assert not result.empty
+
+
+def test_initialize_empty_for_none_gdf():
+    result = common.set_crs_or_initialize_empty(None, "EPSG:3857")
+
+    # Check that the resulting GeoDataFrame is empty but has the correct CRS
+    assert result.crs == "EPSG:3857"
+    assert result.empty
+
+
+def test_initialize_empty_for_empty_gdf():
+    gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+    result = common.set_crs_or_initialize_empty(gdf, "EPSG:3857")
+
+    # Check that the resulting GeoDataFrame is empty but has the correct CRS
+    assert result.crs == "EPSG:3857"
+    assert result.empty
+
+
+def test_raise_exception_on_invalid_crs():
+    gdf = gpd.GeoDataFrame({"geometry": [Point(1, 1)]}, crs="EPSG:4326")
+
+    with pytest.raises(Exception):
+        # Attempt to convert to a non-existent EPSG code
+        common.set_crs_or_initialize_empty(gdf, "EPSG:999999")
 
 
 # Test data
@@ -444,7 +562,7 @@ def test_config_dict_to_file(tmp_path):
         }
     }
     filepath = tmp_path
-    common.config_to_file(config, filepath)
+    file_utilities.config_to_file(config, filepath)
     assert tmp_path.exists()
     expected_path = tmp_path / "config.json"
     assert expected_path.exists()
@@ -466,7 +584,7 @@ def test_config_geodataframe_to_file(tmp_path):
     d = {"col1": ["name1"], "geometry": [geometry.Point(1, 2)]}
     config = gpd.GeoDataFrame(d, crs="EPSG:4326")
     filepath = tmp_path
-    common.config_to_file(config, filepath)
+    file_utilities.config_to_file(config, filepath)
     assert tmp_path.exists()
     expected_path = tmp_path / "config_gdf.geojson"
     assert expected_path.exists()

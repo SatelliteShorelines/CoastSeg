@@ -8,13 +8,11 @@ import math
 import logging
 import random
 import string
-import datetime
 
 # Third-party imports
 import requests
 import geopandas as gpd
 import numpy as np
-import geojson
 import pandas as pd
 import shapely
 from area import area
@@ -25,16 +23,52 @@ from requests.exceptions import SSLError
 
 # Specific classes/functions from modules
 from typing import Callable, List, Optional, Union
-from json import JSONEncoder
 
 # Internal dependencies imports
 from coastseg import exceptions
 from coastseg.validation import find_satellite_in_filename
+from coastseg import file_utilities
+from coastseg.exceptions import InvalidGeometryType
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def validate_geometry_types(
+    gdf: gpd.GeoDataFrame,
+    valid_types: set,
+    feature_type: str = "Feature",
+    help_message: str = None,
+) -> None:
+    """
+    Check if all geometries in a GeoDataFrame are of the given valid types.
+
+    Args:
+        gdf (gpd.GeoDataFrame): The GeoDataFrame containing the geometries to check.
+        valid_types (set): A set of valid geometry types.
+        feature_type (str): The name of the feature
+
+    Raises:
+        ValueError: If any geometry in the GeoDataFrame is not of a type in valid_types.
+    """
+
+    # Extract the geometry types of the GeoDataFrame
+    geometry_types = gdf.geometry.geom_type.unique()
+
+    for geom_type in geometry_types:
+        if geom_type not in valid_types:
+            raise InvalidGeometryType(
+                f"The {feature_type} contained a geometry of type '{geom_type}'",
+                feature_name=feature_type,
+                expected_geom_types=valid_types,
+                wrong_geom_type=geom_type,
+                help_msg=help_message,
+            )
+            # raise ValueError(
+            #     f"The {feature_type} contained a geometry of type '{geom_type}' which is not in the list of valid types: {valid_types}"
+            # )
 
 
 def get_roi_polygon(
@@ -296,43 +330,6 @@ def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> di
     return satellites
 
 
-def get_all_subdirectories(directory: str) -> List[str]:
-    """Return a list of all subdirectories in the given directory, including the directory itself."""
-    return [dirpath for dirpath, dirnames, filenames in os.walk(directory)]
-
-
-def load_geodataframe_from_file(
-    feature_path: str, feature_type: str
-) -> gpd.GeoDataFrame:
-    """
-    Load a geographic feature from a file. The file is read into a GeoDataFrame.
-    Can read both geojson files and config_gdf.geojson files
-
-    Args:
-        feature_path (str): Path to the feature file.
-        feature_type (str): Type of the geographic feature, e.g. 'shoreline', 'transect','rois','bbox'
-
-    Returns:
-        gpd.GeoDataFrame: Geographic feature as a GeoDataFrame.
-
-    Raises:
-        ValueError: If the feature file is empty.
-    """
-    logger.info(f"Attempting to load {feature_type} from a file")
-    feature_gdf = read_gpd_file(feature_path)
-    try:
-        # attempt to load features from a config file
-        feature_gdf = extract_feature_from_geodataframe(
-            feature_gdf, feature_type=feature_type
-        )
-    except ValueError as e:
-        # if it isn't a config file then just ignore the error
-        logger.info(f"This probably wasn't a config : {feature_path} \n {e}")
-    if feature_gdf.empty:
-        raise ValueError(f"Empty {feature_type} file provided: {feature_path}")
-    return feature_gdf
-
-
 def create_unique_ids(data, prefix_length: int = 3):
     # if not all the ids in data are unique
     if not check_unique_ids(data):
@@ -426,38 +423,8 @@ def save_transects(
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
     transect_settings_path = os.path.join(save_location, "transects_settings.json")
-    to_file(transect_settings, transect_settings_path)
-    to_file(cross_distance_transects, save_path)
-
-
-def check_file_path(file_path, make_dirs=True):
-    """Gets the absolute file path.
-
-    Args:
-        file_path (str): The path to the file.
-        make_dirs (bool, optional): Whether to create the directory if it does not exist. Defaults to True.
-
-    Raises:
-        FileNotFoundError: If the directory could not be found.
-        TypeError: If the input directory path is not a string.
-
-    Returns:
-        str: The absolute path to the file.
-    """
-    if isinstance(file_path, str):
-        if file_path.startswith("~"):
-            file_path = os.path.expanduser(file_path)
-        else:
-            file_path = os.path.abspath(file_path)
-
-        file_dir = os.path.dirname(file_path)
-        if not os.path.exists(file_dir) and make_dirs:
-            os.makedirs(file_dir)
-
-        return file_path
-
-    else:
-        raise TypeError("The provided file path must be a string.")
+    file_utilities.to_file(transect_settings, transect_settings_path)
+    file_utilities.to_file(cross_distance_transects, save_path)
 
 
 def get_downloaded_models_dir() -> str:
@@ -499,64 +466,6 @@ def get_value_by_key_pattern(d: dict, patterns: list | set | tuple):
     raise KeyError(f"None of {patterns} matched keys in {d.keys()}")
 
 
-def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
-    """
-    Reads a JSON file and returns the parsed data as a dictionary.
-
-    Args:
-        json_file_path (str): The path to the JSON file.
-        encoding (str, optional): The encoding of the file. Defaults to "utf-8".
-        raise_error (bool, optional): Set to True if an error should be raised if the file doesn't exist.
-
-    Returns:
-        dict: The parsed JSON data as a dictionary.
-
-    Raises:
-        FileNotFoundError: If the file does not exist and `raise_error` is True.
-
-    """
-    if not os.path.exists(json_file_path):
-        if raise_error:
-            raise FileNotFoundError(
-                f"Model settings file does not exist at {json_file_path}"
-            )
-        else:
-            return None
-    with open(json_file_path, "r", encoding=encoding) as f:
-        data = json.load(f)
-    return data
-
-
-def find_file_by_regex(
-    search_path: str, search_pattern: str = r"^config\.json$"
-) -> str:
-    """Searches for a file with matching regex in the specified directory
-
-    Args:
-        search_path (str): the directory path to search for the  file matching the search pattern
-        search_pattern (str): the regular expression pattern to search for the config file
-
-    Returns:
-        str: the file path to the `config.json` file
-
-    Raises:
-        FileNotFoundError: if a `config.json` file is not found in the specified directory
-    """
-    logger.info(f"searching directory for config.json: {search_path}")
-    config_regex = re.compile(search_pattern, re.IGNORECASE)
-    logger.info(f"search_pattern: {search_pattern}")
-
-    for file in os.listdir(search_path):
-        if config_regex.match(file):
-            logger.info(f"{file} matched regex")
-            file_path = os.path.join(search_path, file)
-            return file_path
-
-    raise FileNotFoundError(
-        f"file matching pattern {search_pattern} was not found at {search_path}"
-    )
-
-
 def copy_configs(src: str, dst: str) -> None:
     """Copy config files from source directory to destination directory.
 
@@ -581,28 +490,6 @@ def copy_configs(src: str, dst: str) -> None:
             dst_file = os.path.join(dst, "config.json")
             logger.info(f"Copying {config_json_path} to {dst_file}")
             shutil.copy(config_json_path, dst_file)
-
-
-def validate_config_files_exist(src: str) -> bool:
-    """Check if config files exist in the source directory.
-    Looks for files with names starting with "config_gdf" and ending with ".geojson"
-    and a file named "config.json" in the source directory.
-    Args:
-        src (str): the source directory
-    Returns:
-        bool: True if both files exist, False otherwise
-    """
-    files = os.listdir(src)
-    config_gdf_exists = False
-    config_json_exists = False
-    for file in files:
-        if file.startswith("config_gdf") and file.endswith(".geojson"):
-            config_gdf_exists = True
-        elif file == "config.json":
-            config_json_exists = True
-        if config_gdf_exists and config_json_exists:
-            return True
-    return False
 
 
 def create_file_chooser(
@@ -724,13 +611,6 @@ def get_transect_settings(settings: dict) -> dict:
     return transect_settings
 
 
-def get_session_path(session_name: str, ROI_directory: str) -> str:
-    session_path = os.path.join(os.getcwd(), "sessions", session_name)
-    session_path = create_directory(session_path, ROI_directory)
-    logger.info(f"session_path: {session_path}")
-    return session_path
-
-
 def create_directory_in_google_drive(path: str, name: str) -> str:
     """
     Creates a new directory with the provided name in the given path.
@@ -762,23 +642,31 @@ def is_in_google_colab() -> bool:
         return False
 
 
-def to_file(data: dict, filepath: str) -> None:
-    class DateTimeEncoder(JSONEncoder):
-        # Override the default method
-        def default(self, obj):
-            if isinstance(obj, (datetime.date, datetime.datetime)):
-                return obj.isoformat()
-            if isinstance(obj, (np.ndarray)):
-                new_obj = [array.tolist() for array in obj]
-                return new_obj
-
-    with open(filepath, "w") as fp:
-        json.dump(data, fp, cls=DateTimeEncoder)
-
-
 def get_ids_with_invalid_area(
     geometry: gpd.GeoDataFrame, max_area: float = 98000000, min_area: float = 0
 ) -> set:
+    """
+    Get the indices of geometries with areas outside the specified range.
+
+    This function checks the areas of each geometry in a given GeoDataFrame. If the area
+    is either greater than `max_area` or less than `min_area`, the index of that geometry
+    is added to the set of invalid geometries.
+
+    Note:
+        - The provided GeoDataFrame is assumed to be in CRS EPSG:4326.
+        - Returned areas are in meters squared.
+
+    Args:
+        geometry (gpd.GeoDataFrame): The GeoDataFrame containing the geometries to check.
+        max_area (float, optional): The maximum allowable area for a valid geometry. Defaults to 98000000.
+        min_area (float, optional): The minimum allowable area for a valid geometry. Defaults to 0.
+
+    Returns:
+        set: A set of indices corresponding to the geometries with areas outside the specified range.
+
+    Raises:
+        TypeError: If the provided geometry is not a GeoDataFrame.
+    """
     if isinstance(geometry, gpd.GeoDataFrame):
         geometry = json.loads(geometry.to_json())
     if isinstance(geometry, dict):
@@ -798,7 +686,7 @@ def load_cross_distances_from_file(dir_path):
     glob_str = os.path.join(dir_path, "*transects_cross_distances.json*")
     for file in glob.glob(glob_str):
         if os.path.basename(file) == "transects_cross_distances.json":
-            transect_dict = load_data_from_json(file)
+            transect_dict = file_utilities.load_data_from_json(file)
 
     if transect_dict is None:
         logger.warning(
@@ -812,105 +700,6 @@ def load_cross_distances_from_file(dir_path):
         transect_dict[key] = tmp
     logger.info(f"Loaded transect cross shore distances from: {dir_path}")
     return transect_dict
-
-
-def find_parent_directory(
-    path: str, directory_name: str, stop_directory: str = ""
-) -> Union[str, None]:
-    """
-    Find the path to the parent directory that contains the specified directory name.
-
-    Parameters:
-        path (str): The path to start the search from.
-        directory_name (str): The name of the directory to search for.
-        stop_directory (str): Optional. A directory name to stop the search at.
-                              If this is specified, the search will stop when this
-                              directory is reached. If not specified, the search will
-                              continue until the top-level directory is reached.
-
-    Returns:
-        str or None: The path to the parent directory containing the directory with
-                     the specified name, or None if the directory is not found.
-    """
-    while True:
-        # check if the current directory name contains the target directory name
-        if directory_name in os.path.basename(path):
-            return path
-
-        # get the parent directory
-        parent_dir = os.path.dirname(path)
-
-        # check if the parent directory is the same as the current directory
-        if parent_dir == path or os.path.basename(path) == stop_directory:
-            print(
-                f"Reached top-level directory without finding '{directory_name}':", path
-            )
-            return None
-
-        # update the path to the parent directory and continue the loop
-        path = parent_dir
-
-
-def extract_roi_id(path: str) -> str:
-    """extracts the ROI ID from the path
-
-    Args:
-        path (str): path containing ROI directory
-
-    Returns:
-        str: ID of the ROI within the path
-    """
-    pattern = r"ID_([A-Za-z0-9]+)"
-    match = re.search(pattern, path)
-    if match:
-        return match.group(1)
-    else:
-        return None
-
-
-def load_data_from_json(filepath: str) -> dict:
-    """
-    Reads data from a JSON file and returns it as a dictionary.
-
-    The function reads the data from the specified JSON file using the provided filepath.
-    It applies a custom object hook, `DecodeDateTime`, to decode the datetime and shoreline
-    data if they exist in the dictionary.
-
-    Args:
-        filepath (str): Path to the JSON file.
-
-    Returns:
-        dict: Data read from the JSON file as a dictionary.
-
-    """
-
-    def DecodeDateTime(readDict):
-        """
-        Helper function to decode datetime and shoreline data in the dictionary.
-
-        Args:
-            readDict (dict): Dictionary to decode.
-
-        Returns:
-            dict: Decoded dictionary.
-
-        """
-        if "dates" in readDict:
-            tmp = [
-                datetime.datetime.fromisoformat(dates) for dates in readDict["dates"]
-            ]
-            readDict["dates"] = tmp
-        if "shorelines" in readDict:
-            tmp = [
-                np.array(shoreline) if len(shoreline) > 0 else np.empty((0, 2))
-                for shoreline in readDict["shorelines"]
-            ]
-            readDict["shorelines"] = tmp
-        return readDict
-
-    with open(filepath, "r") as fp:
-        data = json.load(fp, object_hook=DecodeDateTime)
-    return data
 
 
 def mount_google_drive(name: str = "CoastSeg") -> None:
@@ -1095,23 +884,6 @@ def clear_row(row: HBox):
     row.children = []
 
 
-def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
-    """save_to_geojson_file Saves given geojson to a geojson file at outfile
-    Args:
-        out_file (str): The output file path
-        geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
-    """
-    # Save the geojson to a file
-    out_file = check_file_path(out_file)
-    ext = os.path.splitext(out_file)[1].lower()
-    if ext == ".geojson":
-        out_geojson = out_file
-    else:
-        out_geojson = os.path.splitext(out_file)[1] + ".geojson"
-    with open(out_geojson, "w") as f:
-        json.dump(geojson, f, **kwargs)
-
-
 def download_url(url: str, save_path: str, filename: str = None, chunk_size: int = 128):
     """Downloads the data from the given url to the save_path location.
     Args:
@@ -1154,37 +926,6 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                         pbar.update(len(chunk))
         else:
             logger.warning("Content length not found in response headers")
-
-
-def filter_files(files: List[str], avoid_patterns: List[str]) -> List[str]:
-    """
-    Filter a list of filepaths based on a list of avoid patterns.
-
-    Args:
-        files: A list of filepaths to filter.
-        avoid_patterns: A list of regular expression patterns to avoid.
-
-    Returns:
-        A list of filepaths whose filenames do not match any of the patterns in avoid_patterns.
-
-    Examples:
-        >>> files = ['/path/to/file1.txt', '/path/to/file2.txt', '/path/to/avoid_file.txt']
-        >>> avoid_patterns = ['.*avoid.*']
-        >>> filtered_files = filter_files(files, avoid_patterns)
-        >>> print(filtered_files)
-        ['/path/to/file1.txt', '/path/to/file2.txt']
-
-    """
-    filtered_files = []
-    for file in files:
-        # Check if the file's name matches any of the avoid patterns
-        for pattern in avoid_patterns:
-            if re.match(pattern, os.path.basename(file)):
-                break
-        else:
-            # If the file's name does not match any of the avoid patterns, add it to the filtered files list
-            filtered_files.append(file)
-    return filtered_files
 
 
 def get_center_rectangle(coords: list) -> tuple:
@@ -1326,46 +1067,6 @@ def extract_fields(data, key=None, fields_of_interest=None):
     return extracted_data
 
 
-def config_to_file(config: Union[dict, gpd.GeoDataFrame], file_path: str):
-    """Saves config to config.json or config_gdf.geojson
-    config's type is dict or geodataframe respectively
-
-    Args:
-        config (Union[dict, gpd.GeoDataFrame]): data to save to config file
-        file_path (str): full path to directory to save config file
-    """
-    if isinstance(config, dict):
-        filename = f"config.json"
-        save_path = os.path.abspath(os.path.join(file_path, filename))
-        write_to_json(save_path, config)
-        logger.info(f"Saved config json: {filename} \nSaved to {save_path}")
-    elif isinstance(config, gpd.GeoDataFrame):
-        filename = f"config_gdf.geojson"
-        save_path = os.path.abspath(os.path.join(file_path, filename))
-        logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
-        config.to_file(save_path, driver="GeoJSON")
-
-
-def create_directory(file_path: str, name: str) -> str:
-    """Creates a new directory with the given name at the specified file path.
-
-    Args:
-        file_path (str): The file path where the new directory will be created.
-        name (str): The name of the new directory to be created.
-
-    Returns:
-        str: The full path of the new directory created or existing directory if it already existed.
-
-    Raises:
-        OSError: If there was an error creating the new directory.
-    """
-    new_directory = os.path.join(file_path, name)
-    # If the directory named 'name' does not exist, create it
-    if not os.path.exists(new_directory):
-        os.makedirs(new_directory)
-    return new_directory
-
-
 def check_unique_ids(data: gpd.GeoDataFrame) -> bool:
     """
     Checks if all the ids in the 'id' column of a geodataframe are unique. If the 'id' column does not exist returns False
@@ -1385,6 +1086,7 @@ def preprocess_geodataframe(
     data: gpd.GeoDataFrame = gpd.GeoDataFrame(),
     columns_to_keep: List[str] = None,
     create_ids: bool = True,
+    output_crs: str = None,
 ) -> gpd.GeoDataFrame:
     """
     This function preprocesses a GeoDataFrame. It performs several transformations:
@@ -1423,93 +1125,10 @@ def preprocess_geodataframe(
         if columns_to_keep:
             columns_to_keep = set(col.lower() for col in columns_to_keep)
             data = data[[col for col in data.columns if col.lower() in columns_to_keep]]
+        if output_crs:
+            data = data.to_crs(output_crs)
 
     return data
-
-
-# def preprocess_geodataframe(data: gpd.GeoDataFrame = gpd.GeoDataFrame(), columns_to_keep: List[str] = None, overwrite_ids: bool = True) -> gpd.GeoDataFrame:
-#     """
-#     Preprocesses a GeoDataFrame by renaming column 'ID' to 'id' (if it exists),
-#     removing the z-axis from the data, adding a unique 'id' column if it doesn't exist,
-#     and keeping only specified columns.
-
-#     Parameters:
-#     data (gpd.GeoDataFrame, optional): Input GeoDataFrame to be preprocessed.
-#         If not provided, the function will return an empty GeoDataFrame.
-#     columns_to_keep (List[str], optional): List of column names to retain in the preprocessed DataFrame.
-#         If not provided, all columns in the DataFrame will be kept.
-#     overwrite_ids (bool, optional): If True, overwrite existing ids with row indices as ids. Defaults to True.
-
-#     Returns:
-#     gpd.GeoDataFrame: Preprocessed GeoDataFrame with specified transformations.
-#     """
-#     if not data.empty:
-#         # rename 'ID' to lowercase if it exists
-#         data.rename(columns={"ID": "id"}, inplace=True)
-
-#         # remove z-axis from data
-#         data = remove_z_coordinates(data)
-
-#         # check if 'id' column exists and is unique
-#         if "id" in data.columns.str.lower():
-#             if check_unique_ids(data):
-#                 if overwrite_ids:
-#                     data["id"] = data.index.astype(str).tolist()
-#             elif not overwrite_ids:
-#                 raise exceptions.Duplicate_ID_Exception('transects')
-
-#         # if an 'id' column does not exist, create one with row indices as ids
-#         if "id" not in data.columns.str.lower():
-#             data["id"] = data.index.astype(str).tolist()
-
-#         # if columns_to_keep is specified, keep only those columns
-#         if columns_to_keep:
-#             columns_to_keep = set(col.lower() for col in columns_to_keep)
-#             data = data[[col for col in data.columns if col.lower() in columns_to_keep]]
-
-#     return data
-
-# def merge_geodataframes(data: gpd.GeoDataFrame = gpd.GeoDataFrame(),old_data: gpd.GeoDataFrame = gpd.GeoDataFrame(), columns_to_keep: List[str] = None, overwrite_ids: bool = True) -> gpd.GeoDataFrame:
-#     """
-#     Preprocesses a GeoDataFrame by renaming column 'ID' to 'id' (if it exists),
-#     removing the z-axis from the data, adding a unique 'id' column if it doesn't exist,
-#     and keeping only specified columns.
-
-#     Parameters:
-#     data (gpd.GeoDataFrame, optional): Input GeoDataFrame to be preprocessed.
-#         If not provided, the function will return an empty GeoDataFrame.
-#     columns_to_keep (List[str], optional): List of column names to retain in the preprocessed DataFrame.
-#         If not provided, all columns in the DataFrame will be kept.
-#     overwrite_ids (bool, optional): If True, overwrite existing ids with row indices as ids. Defaults to True.
-
-#     Returns:
-#     gpd.GeoDataFrame: Preprocessed GeoDataFrame with specified transformations.
-#     """
-#     if not data.empty:
-#         # rename 'ID' to lowercase if it exists
-#         data.rename(columns={"ID": "id"}, inplace=True)
-
-#         # remove z-axis from data
-#         data = remove_z_coordinates(data)
-
-#         # check if 'id' column exists and is unique
-#         if "id" in data.columns.str.lower():
-#             if check_unique_ids(data):
-#                 if overwrite_ids:
-#                     data["id"] = data.index.astype(str).tolist()
-#             elif not overwrite_ids:
-#                 raise exceptions.Duplicate_ID_Exception('transects')
-
-#         # if an 'id' column does not exist, create one with row indices as ids
-#         if "id" not in data.columns.str.lower():
-#             data["id"] = data.index.astype(str).tolist()
-
-#         # if columns_to_keep is specified, keep only those columns
-#         if columns_to_keep:
-#             columns_to_keep = set(col.lower() for col in columns_to_keep)
-#             data = data[[col for col in data.columns if col.lower() in columns_to_keep]]
-
-#     return data
 
 
 def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
@@ -1542,31 +1161,6 @@ def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
     for item in list(features):
         new_dict = {**new_dict, **item}
     return new_dict
-
-
-def move_files(src_dir: str, dst_dir: str, delete_src: bool = False) -> None:
-    """
-    Moves every file in a source directory to a destination directory, and has the option to delete the source directory when finished.
-
-    The function uses the `shutil` library to move the files from the source directory to the destination directory. If the `delete_src` argument is set to `True`, the function will delete the source directory after all the files have been moved.
-
-    Args:
-    - src_dir (str): The path of the source directory.
-    - dst_dir (str): The path of the destination directory.
-    - delete_src (bool, optional): A flag indicating whether to delete the source directory after the files have been moved. Default is `False`.
-
-    Returns:
-    - None
-    """
-    logger.info(f"Moving files from {src_dir} to dst_dir. Delete Source:{delete_src}")
-    if not os.path.exists(dst_dir):
-        os.makedirs(dst_dir)
-    for filename in os.listdir(src_dir):
-        src_file = os.path.join(src_dir, filename)
-        dst_file = os.path.join(dst_dir, filename)
-        shutil.move(src_file, dst_file)
-    if delete_src:
-        os.rmdir(src_dir)
 
 
 def get_cross_distance_df(
@@ -1698,7 +1292,9 @@ def save_extracted_shoreline_figures(
     if os.path.exists(extracted_shoreline_figure_path):
         dst_path = os.path.join(save_path, "jpg_files", "detection")
         logger.info(f"dst_path : {dst_path }")
-        move_files(extracted_shoreline_figure_path, dst_path, delete_src=True)
+        file_utilities.move_files(
+            extracted_shoreline_figure_path, dst_path, delete_src=True
+        )
 
 
 def save_extracted_shorelines(
@@ -1715,10 +1311,21 @@ def save_extracted_shorelines(
     :param extracted_shorelines: An Extracted_Shoreline object containing the extracted shorelines, shoreline settings, and dictionary.
     :param save_path: The path where the output files will be saved.
     """
+    # create a geodataframe of the extracted_shorelines as linestrings
+    extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
+        extracted_shorelines.shoreline_settings["output_epsg"],
+        output_crs="EPSG:4326",
+        geomtype="lines",
+    )
 
     # Save extracted shorelines as a GeoJSON file
     extracted_shorelines.to_file(
-        save_path, "extracted_shorelines.geojson", extracted_shorelines.gdf
+        save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
+    )
+
+    # Save extracted shorelines as a GeoJSON file
+    extracted_shorelines.to_file(
+        save_path, "extracted_shorelines_points.geojson", extracted_shorelines.gdf
     )
 
     # Save shoreline settings as a JSON file
@@ -1798,81 +1405,15 @@ def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) ->
     config = {**inputs}
     config["roi_ids"] = roi_ids
     config["settings"] = settings
-    logger.info(f"config_json: {config} ")
+    logger.info(f"config_json: {config}")
     return config
 
 
-# def create_config_gdf(
-#     rois_gdf: gpd.GeoDataFrame,
-#     shorelines_gdf: gpd.GeoDataFrame = None,
-#     transects_gdf: gpd.GeoDataFrame = None,
-#     bbox_gdf: gpd.GeoDataFrame = None,
-# ) -> gpd.GeoDataFrame():
-#     if rois_gdf is None:
-#         rois_gdf = gpd.GeoDataFrame()
-#     if shorelines_gdf is None:
-#         shorelines_gdf = gpd.GeoDataFrame()
-#     if transects_gdf is None:
-#         transects_gdf = gpd.GeoDataFrame()
-#     if bbox_gdf is None:
-#         bbox_gdf = gpd.GeoDataFrame()
-#     # create new column 'type' to indicate object type
-#     rois_gdf["type"] = "roi"
-#     shorelines_gdf["type"] = "shoreline"
-#     transects_gdf["type"] = "transect"
-#     bbox_gdf["type"] = "bbox"
-#     new_gdf = gpd.GeoDataFrame(pd.concat([rois_gdf, shorelines_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
-#     return new_gdf
-
-# def create_config_gdf(
-#     rois_gdf: gpd.GeoDataFrame,
-#     shorelines_gdf: gpd.GeoDataFrame = None,
-#     transects_gdf: gpd.GeoDataFrame = None,
-#     bbox_gdf: gpd.GeoDataFrame = None,
-#     epsg_code: int = None,
-# ) -> gpd.GeoDataFrame:
-
-#     if epsg_code is None and rois_gdf is None:
-#         raise Exception("Cannot save to config without a crs provided or a valid ROI geodataframe")
-
-#     if epsg_code is None and rois_gdf.empty:
-#         raise Exception("Cannot save to config without a crs provided or an empty ROI geodataframe")
-
-#     if rois_gdf is None:
-#         rois_gdf = gpd.GeoDataFrame()
-#     if rois_gdf is not None:
-#         rois_gdf = rois_gdf.to_crs(epsg_code)
-
-#     if epsg_code is None:
-#         epsg_code = rois_gdf.crs
-
-#     print(f'epsg_code: {epsg_code}')
-
-#     if shorelines_gdf is None:
-#         shorelines_gdf = gpd.GeoDataFrame()
-#     elif shorelines_gdf is not None:
-#         shorelines_gdf = shorelines_gdf.to_crs(epsg_code)
-#     if transects_gdf is None:
-#         transects_gdf = gpd.GeoDataFrame()
-#     elif transects_gdf is not None:
-#         transects_gdf = transects_gdf.to_crs(epsg_code)
-#     if bbox_gdf is None:
-#         bbox_gdf = gpd.GeoDataFrame()
-#     elif bbox_gdf is not None:
-#         bbox_gdf = bbox_gdf.to_crs(epsg_code)
-
-#     rois_gdf["type"] = "roi"
-#     shorelines_gdf["type"] = "shoreline"
-#     transects_gdf["type"] = "transect"
-#     bbox_gdf["type"] = "bbox"
-
-#     new_gdf = gpd.GeoDataFrame(pd.concat([rois_gdf, shorelines_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, transects_gdf], ignore_index=True))
-#     new_gdf = gpd.GeoDataFrame(pd.concat([new_gdf, bbox_gdf], ignore_index=True))
-
-#     return new_gdf
+def set_crs_or_initialize_empty(gdf: gpd.GeoDataFrame, epsg_code: str):
+    """Set the CRS for the given GeoDataFrame or initialize an empty one."""
+    if gdf is not None and not gdf.empty:
+        return gdf.to_crs(epsg_code)
+    return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
 
 
 def create_config_gdf(
@@ -1882,104 +1423,54 @@ def create_config_gdf(
     bbox_gdf: gpd.GeoDataFrame = None,
     epsg_code: int = None,
 ) -> gpd.GeoDataFrame:
-    if epsg_code is None and rois_gdf is None:
+    """
+    Create a concatenated GeoDataFrame from provided GeoDataFrames with a consistent CRS.
+
+    Parameters:
+    - rois_gdf (gpd.GeoDataFrame): The GeoDataFrame containing Regions of Interest (ROIs).
+    - shorelines_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing shorelines. Defaults to None.
+    - transects_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing transects. Defaults to None.
+    - bbox_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing bounding boxes. Defaults to None.
+    - epsg_code (int, optional): The EPSG code for the desired CRS. If not provided and rois_gdf is non-empty,
+      the CRS of rois_gdf will be used. If not provided and rois_gdf is empty, an error will be raised.
+
+    Returns:
+    - gpd.GeoDataFrame: A concatenated GeoDataFrame with a consistent CRS, and a "type" column
+      indicating the type of each geometry (either "roi", "shoreline", "transect", or "bbox").
+
+    Raises:
+    - ValueError: If both epsg_code is None and rois_gdf is None or empty.
+
+    Notes:
+    - The function will convert each provided GeoDataFrame to the specified CRS.
+    - If any of the input GeoDataFrames is None or empty, it will be initialized as an empty GeoDataFrame
+      with the specified CRS.
+    """
+    # Determine CRS
+    if not epsg_code and (rois_gdf is None or rois_gdf.empty):
         raise ValueError(
-            "Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame"
+            "Either provide a valid epsg code or a non-empty rois_gdf to determine the CRS."
         )
-    # Check if CRS is provided or if the ROI GeoDataFrame is empty
-    if epsg_code is None and rois_gdf.empty:
-        raise ValueError(
-            "Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame"
-        )
-    if epsg_code is None:
+    if not epsg_code:
         epsg_code = rois_gdf.crs
 
-    # Set CRS for the non-empty GeoDataFrames
-    if rois_gdf is not None and not rois_gdf.empty:
-        rois_gdf = rois_gdf.to_crs(epsg_code)
-    else:
-        rois_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    if shorelines_gdf is not None and not shorelines_gdf.empty:
-        shorelines_gdf = shorelines_gdf.to_crs(epsg_code)
-    else:
-        shorelines_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    if transects_gdf is not None and not transects_gdf.empty:
-        transects_gdf = transects_gdf.to_crs(epsg_code)
-    else:
-        transects_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    if bbox_gdf is not None and not bbox_gdf.empty:
-        bbox_gdf = bbox_gdf.to_crs(epsg_code)
-    else:
-        bbox_gdf = gpd.GeoDataFrame(geometry=[], crs=epsg_code)
+    # Dictionary to map gdf variables to their types
+    gdfs = {
+        "roi": rois_gdf,
+        "shoreline": shorelines_gdf,
+        "transect": transects_gdf,
+        "bbox": bbox_gdf,
+    }
 
-    # Assign "type" column values
-    rois_gdf["type"] = "roi"
-    shorelines_gdf["type"] = "shoreline"
-    transects_gdf["type"] = "transect"
-    bbox_gdf["type"] = "bbox"
+    # Process each GeoDataFrame
+    for gdf_type, gdf in gdfs.items():
+        gdfs[gdf_type] = set_crs_or_initialize_empty(gdf, epsg_code)
+        gdfs[gdf_type]["type"] = gdf_type
 
     # Concatenate GeoDataFrames
-    config_gdf = pd.concat(
-        [rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True
-    )
+    config_gdf = pd.concat(gdfs.values(), ignore_index=True)
 
-    return gpd.GeoDataFrame(config_gdf)
-
-
-# def create_config_gdf(
-#     rois_gdf: gpd.GeoDataFrame,
-#     shorelines_gdf: gpd.GeoDataFrame = None,
-#     transects_gdf: gpd.GeoDataFrame = None,
-#     bbox_gdf: gpd.GeoDataFrame = None,
-#     epsg_code: int = None,
-# ) -> gpd.GeoDataFrame:
-#     # Check if CRS is provided or if the ROI GeoDataFrame is empty
-#     if epsg_code is None and rois_gdf.empty:
-#         raise ValueError("Cannot create config GeoDataFrame without a CRS or an empty ROI GeoDataFrame")
-#     if epsg_code is None:
-#         epsg_code = rois_gdf.crs
-
-#     # Set CRS for the GeoDataFrames
-#     rois_gdf = rois_gdf.to_crs(epsg_code) if rois_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-#     shorelines_gdf = shorelines_gdf.to_crs(epsg_code) if shorelines_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-#     transects_gdf = transects_gdf.to_crs(epsg_code) if transects_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-#     bbox_gdf = bbox_gdf.to_crs(epsg_code) if bbox_gdf is not None else gpd.GeoDataFrame(geometry=[],crs=epsg_code)
-
-#     # Assign "type" column values
-#     rois_gdf["type"] = "roi"
-#     shorelines_gdf["type"] = "shoreline"
-#     transects_gdf["type"] = "transect"
-#     bbox_gdf["type"] = "bbox"
-
-#     # Concatenate GeoDataFrames
-#     config_gdf = pd.concat([rois_gdf, shorelines_gdf, transects_gdf, bbox_gdf], ignore_index=True)
-
-#     return gpd.GeoDataFrame(config_gdf)
-
-
-def write_to_json(filepath: str, settings: dict):
-    """ "Write the  settings dictionary to json file"""
-    to_file(settings, filepath)
-    # with open(filepath, "w", encoding="utf-8") as output_file:
-    #     json.dump(settings, output_file)
-
-
-def read_geojson_file(geojson_file: str) -> dict:
-    """Returns the geojson of the selected ROIs from the file specified by geojson_file"""
-    with open(geojson_file) as f:
-        data = geojson.load(f)
-    return data
-
-
-def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
-    """
-    Returns geodataframe from geopandas geodataframe file
-    """
-    if os.path.exists(filename):
-        logger.info(f"Opening \n {filename}")
-        return gpd.read_file(filename)
-    else:
-        raise FileNotFoundError
+    return config_gdf
 
 
 def get_jpgs_from_data() -> str:
@@ -1993,7 +1484,7 @@ def get_jpgs_from_data() -> str:
         location = os.getcwd()
         name = "segmentation_data"
         # new folder "segmentation_data_datetime"
-        new_folder = mk_new_dir(name, location)
+        new_folder = file_utilities.mk_new_dir(name, location)
         # create subdirectories for each image type
         file_types = ["RGB", "SWIR", "NIR"]
         for file_type in file_types:
@@ -2009,7 +1500,7 @@ def get_jpgs_from_data() -> str:
                 + os.sep
                 + "*.jpg"
             )
-            copy_files_to_dst(src_path, new_path, glob_str)
+            file_utilities.copy_files_to_dst(src_path, new_path, glob_str)
             RGB_path = os.path.join(new_folder, "RGB")
         return RGB_path
     else:
@@ -2029,7 +1520,7 @@ def save_config_files(
 ):
     # save config files
     config_json = create_json_config(roi_settings, shoreline_settings, roi_ids=roi_ids)
-    config_to_file(config_json, save_location)
+    file_utilities.config_to_file(config_json, save_location)
     # save a config geodataframe with the rois, reference shoreline and transects
     if roi_gdf is not None:
         if not roi_gdf.empty:
@@ -2040,28 +1531,7 @@ def save_config_files(
         transects_gdf=transects_gdf,
         epsg_code=epsg_code,
     )
-    config_to_file(config_gdf, save_location)
-
-
-def load_json_data_from_file(search_location: str, filename: str) -> dict:
-    """
-    Load JSON data from a file by searching for the file in the specified location.
-
-    The function searches recursively in the provided search location for a file with
-    the specified filename. Once the file is found, it loads the JSON data from the file
-    and returns it as a dictionary.
-
-    Args:
-        search_location (str): Directory or path to search for the file.
-        filename (str): Name of the file to load.
-
-    Returns:
-        dict: Data read from the JSON file as a dictionary.
-
-    """
-    file_path = find_file_recursively(search_location, filename)
-    json_data = load_data_from_json(file_path)
-    return json_data
+    file_utilities.config_to_file(config_gdf, save_location)
 
 
 def rename_jpgs(src_path: str) -> None:
@@ -2242,98 +1712,6 @@ def create_roi_settings(
         }
         roi_settings[roi_id] = inputs_dict
     return roi_settings
-
-
-def generate_datestring() -> str:
-    """Returns a datetime string in the following format %m-%d-%y__%I_%M_%S
-    EX: "ID_0__01-31-22_12_19_45"""
-    date = datetime.datetime.now()
-    return date.strftime("%m-%d-%y__%I_%M_%S")
-
-
-def mk_new_dir(name: str, location: str):
-    """Create new folder with name_datetime stamp at location
-    Args:
-        name (str): name of folder to create
-        location (str): full path to location to create folder
-    """
-    if os.path.exists(location):
-        new_folder = location + os.sep + name + "_" + generate_datestring()
-        os.mkdir(new_folder)
-        return new_folder
-    else:
-        raise Exception("Location provided does not exist.")
-
-
-def find_directory_recurively(path: str = ".", name: str = "RGB") -> str:
-    """
-    Recursively search for a directory named "RGB" in the given path or its subdirectories.
-
-    Args:
-        path (str): The starting directory to search in. Defaults to current directory.
-
-    Returns:
-        str: The path of the first directory named "RGB" found, or None if not found.
-    """
-    dir_location = None
-    if os.path.basename(path) == name:
-        dir_location = path
-    else:
-        for dirpath, dirnames, filenames in os.walk(path):
-            if name in dirnames:
-                dir_location = os.path.join(dirpath, name)
-
-    if not os.listdir(dir_location):
-        raise Exception(f"{name} directory is empty.")
-
-    if not dir_location:
-        raise Exception(f"{name} directory could not be found")
-
-    return dir_location
-
-
-def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
-    """
-    Recursively search for a file named "RGB" in the given path or its subdirectories.
-
-    Args:
-        path (str): The starting directory to search in. Defaults to current directory.
-
-    Returns:
-        str: The path of the first directory named "RGB" found, or None if not found.
-    """
-    file_location = None
-    if os.path.basename(path) == name:
-        file_location = path
-    else:
-        for dirpath, dirnames, filenames in os.walk(path):
-            if name in filenames:
-                file_location = os.path.join(dirpath, name)
-                return file_location
-
-    if not os.listdir(file_location):
-        raise Exception(f"{name} directory is empty.")
-
-    if not file_location:
-        raise Exception(f"{name} directory could not be found")
-
-    return file_location
-
-
-def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
-    """Copies all files from src_path to dest_path
-    Args:
-        src_path (str): full path to the data directory in coastseg
-        dst_path (str): full path to the images directory in Sniffer
-    """
-    if not os.path.exists(dst_path):
-        raise FileNotFoundError(f"dst_path: {dst_path} doesn't exist.")
-    elif not os.path.exists(src_path):
-        raise FileNotFoundError(f"src_path: {src_path} doesn't exist.")
-    else:
-        for file in glob.glob(glob_str):
-            shutil.copy(file, dst_path)
-        logger.info(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
 
 
 def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:

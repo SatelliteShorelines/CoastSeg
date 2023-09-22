@@ -1,0 +1,38 @@
+# ✍️ Description:
+# This workflow will be triggered automatically when a tag is pushed to the repo.
+# It will create a new github release with the new app version and the release notes.
+# 🚨 GTHUB SECRETS REQUIRED: None
+name: New GitHub Release
+on:
+  push:
+    # only release a new pip package if the commit it tagged ex.v1.0.3 or v1.2.0dev1
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+dev[0-9]+"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: New GitHub Release
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: write
+    defaults:
+      run:
+        # Set the default shell to the bash login shell. Use a login shell to ensure a complete environment initialization, aligning with local development setups and loading necessary profiles and paths.
+        shell: bash -l {0}
+    steps:
+      - name: 📦 Checkout project repo
+        uses: actions/checkout@v3
+        with:
+          # Load the last 1 commits
+          fetch-depth: 0
+      - name: 🏃Create A Draft Github Release
+        uses: ncipollo/release-action@v1
+        with:
+          generateReleaseNotes: true
+          draft: false
+          makeLatest: false

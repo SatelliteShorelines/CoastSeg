@@ -12,6 +12,8 @@ from coastseg.common import (
     create_unique_ids,
 )
 
+from coastseg.common import validate_geometry_types
+
 # External dependencies imports
 import geopandas as gpd
 from pandas import concat
@@ -134,7 +136,13 @@ class Shoreline:
                 )
                 shorelines.set_crs("EPSG:4326", inplace=True)
             shorelines = self.preprocess_service(
-                shorelines, columns_to_keep, create_ids=True
+                shorelines, columns_to_keep, create_ids=True, output_crs="EPSG:4326"
+            )
+            validate_geometry_types(
+                shorelines,
+                set(["LineString", "MultiLineString"]),
+                feature_type="shoreline",
+                help_message=f"The uploaded shorelines need to be LineStrings.",
             )
             # make sure all the ids are unique with 3 random chars in front of id number
             shorelines = self.create_ids_service(shorelines, 3)
@@ -158,6 +166,9 @@ class Shoreline:
         """Read a shoreline file, preprocess it, and clip it to the bounding box."""
         shoreline = gpd.read_file(shoreline_file, mask=bbox)
         shoreline = self.preprocess_service(shoreline, columns_to_keep)
+        validate_geometry_types(
+            shoreline, set(["LineString", "MultiLineString"]), feature_type="shoreline"
+        )
         return gpd.clip(shoreline, bbox)
 
     def get_intersecting_shoreline_files(
@@ -234,6 +245,11 @@ class Shoreline:
         shorelines_gdf = concat(shorelines, ignore_index=True)
         # clean the shoreline geodataframe
         shorelines_gdf = self.preprocess_service(shorelines_gdf, columns_to_keep)
+        validate_geometry_types(
+            shorelines_gdf,
+            set(["LineString", "MultiLineString"]),
+            feature_type="shoreline",
+        )
         # make sure all the ids are unique
         shorelines_gdf = self.create_ids_service(shorelines_gdf, 3)
 

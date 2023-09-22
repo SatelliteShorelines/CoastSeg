@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import MagicMock
 import geopandas as gpd
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString
 from coastseg.shoreline import Shoreline, ShorelineServices
 
 from coastseg import exceptions
@@ -61,6 +61,26 @@ def test_shoreline_initialization():
     assert isinstance(shoreline.gdf, gpd.GeoDataFrame)
 
 
+# Test that when shoreline is not a linestring an error is thrown
+def test_shoreline_wrong_geometry():
+    polygon_gdf = gpd.GeoDataFrame(
+        geometry=[
+            Polygon(
+                [
+                    (-122.66944064253451, 36.96768728778939),
+                    (-122.66944064253451, 34.10377172691159),
+                    (-117.75040020737816, 34.10377172691159),
+                    (-117.75040020737816, 36.96768728778939),
+                    (-122.66944064253451, 36.96768728778939),
+                ]
+            )
+        ],
+        crs="epsg:4326",
+    )
+    with pytest.raises(exceptions.InvalidGeometryType):
+        Shoreline(shoreline=polygon_gdf)
+
+
 # 1. load shorelines from a shorelines geodataframe with a CRS 4326 with no id
 def test_initialize_shorelines_with_provided_shorelines(valid_shoreline_gdf):
     actual_shoreline = Shoreline(shoreline=valid_shoreline_gdf)
@@ -88,7 +108,7 @@ def test_initialize_shorelines_with_provided_shorelines(valid_shoreline_gdf):
 # 2. load shorelines from a shorelines geodataframe with a CRS 4327 with no id
 def test_initialize_shorelines_with_wrong_CRS(valid_shoreline_gdf):
     # change the crs of the geodataframe
-    shorelines_diff_crs = valid_shoreline_gdf.to_crs("EPSG:4326", inplace=False)
+    shorelines_diff_crs = valid_shoreline_gdf.to_crs("EPSG:4327", inplace=False)
     actual_shoreline = Shoreline(shoreline=shorelines_diff_crs)
     assert not actual_shoreline.gdf.empty
     assert "id" in actual_shoreline.gdf.columns

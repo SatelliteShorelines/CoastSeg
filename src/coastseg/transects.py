@@ -4,7 +4,11 @@ import os
 from typing import List, Optional
 
 # Internal dependencies imports
-from coastseg.common import preprocess_geodataframe, create_unique_ids
+from coastseg.common import (
+    preprocess_geodataframe,
+    create_unique_ids,
+    validate_geometry_types,
+)
 
 # External dependencies imports
 import geopandas as gpd
@@ -13,6 +17,7 @@ from ipyleaflet import GeoJSON
 
 
 logger = logging.getLogger(__name__)
+
 
 def load_intersecting_transects(
     rectangle: gpd.GeoDataFrame, transect_files: List[str], transect_dir: str
@@ -40,20 +45,29 @@ def load_intersecting_transects(
     for transect_file in transect_files:
         transects_name = os.path.splitext(transect_file)[0]
         transect_path = os.path.join(transect_dir, transect_file)
-        transects = gpd.read_file(transect_path,bbox=bbox)
+        transects = gpd.read_file(transect_path, bbox=bbox)
         if transects.empty:
             logger.info("Skipping %s", transects_name)
             continue
         elif not transects.empty:
             logger.info("Adding transects from %s", transects_name)
-            transects = preprocess_geodataframe(transects,columns_to_keep=['id','geometry','slope'],create_ids=False)
+            transects = preprocess_geodataframe(
+                transects, columns_to_keep=["id", "geometry", "slope"], create_ids=False
+            )
             # Append the selected transects to the output GeoDataFrame
             selected_transects = pd.concat(
                 [selected_transects, transects], ignore_index=True
             )
-    selected_transects = preprocess_geodataframe(selected_transects,columns_to_keep=['id','geometry','slope'],create_ids=True)
+    selected_transects = preprocess_geodataframe(
+        selected_transects, columns_to_keep=["id", "geometry", "slope"], create_ids=True
+    )
+    validate_geometry_types(
+        selected_transects,
+        set(["LineString", "MultiLineString"]),
+        feature_type="transects",
+    )
     # make sure all the ids in selected_transects are unique
-    selected_transects = create_unique_ids(selected_transects,prefix_length=3)
+    selected_transects = create_unique_ids(selected_transects, prefix_length=3)
     return selected_transects
 
 
@@ -69,13 +83,12 @@ class Transects:
         filename: str = None,
     ):
         """
-        Initialize a Transects object with either a bounding box GeoDataFrame, a transects GeoDataFrame, 
+        Initialize a Transects object with either a bounding box GeoDataFrame, a transects GeoDataFrame,
         or a filename string.
         """
         self.gdf = gpd.GeoDataFrame()
         self.filename = filename if filename else "transects.geojson"
         self.initialize_transects(bbox, transects)
-
 
     def __str__(self):
         return f"Transects: geodataframe {self.gdf}"
@@ -83,7 +96,11 @@ class Transects:
     def __repr__(self):
         return f"Transects: geodataframe {self.gdf}"
 
-    def initialize_transects(self, bbox: Optional[gpd.GeoDataFrame] = None, transects: Optional[gpd.GeoDataFrame] = None):
+    def initialize_transects(
+        self,
+        bbox: Optional[gpd.GeoDataFrame] = None,
+        transects: Optional[gpd.GeoDataFrame] = None,
+    ):
         if transects is not None:
             self.initialize_transects_with_transects(transects)
 
@@ -96,19 +113,30 @@ class Transects:
         """
         if not transects.empty:
             if not transects.crs:
-                logger.warning(f"transects did not have a crs converting to crs 4326 \n {transects}")
-                transects.set_crs('EPSG:4326', inplace=True)
-            transects = preprocess_geodataframe(transects,columns_to_keep=['id','geometry','slope'],create_ids=True)
-            transects.to_crs('EPSG:4326', inplace=True)
+                logger.warning(
+                    f"transects did not have a crs converting to crs 4326 \n {transects}"
+                )
+                transects.set_crs("EPSG:4326", inplace=True)
+            transects = preprocess_geodataframe(
+                transects,
+                columns_to_keep=["id", "geometry", "slope"],
+                create_ids=True,
+                output_crs="EPSG:4326",
+            )
+            validate_geometry_types(
+                transects,
+                set(["LineString", "MultiLineString"]),
+                feature_type="transects",
+                help_message=f"The uploaded transects need to be LineStrings.",
+            )
             # if not all the ids in transects are unique then create unique ids
-            transects = create_unique_ids(transects,prefix_length=3)
+            transects = create_unique_ids(transects, prefix_length=3)
             # @todo add the transects to the current dataframe
             # @todo make sure none of the ids already exist in the dataframe. this can be a flag to turn an exception on/off
             self.gdf = transects
 
-
     def initialize_transects_with_bbox(self, bbox: gpd.GeoDataFrame):
-        """ 
+        """
         Load transects within the bounding box. The transects will NOT be clipped to the bounding box.
         Args:
             bbox (gpd.GeoDataFrame): bounding box
@@ -141,15 +169,23 @@ class Transects:
         if transects_in_bbox.empty:
             logger.warning("No transects found here.")
         # remove z-axis from transects
-        transects_in_bbox = preprocess_geodataframe(transects_in_bbox, columns_to_keep=['id','geometry','slope'],create_ids=True)
+        transects_in_bbox = preprocess_geodataframe(
+            transects_in_bbox,
+            columns_to_keep=["id", "geometry", "slope"],
+            create_ids=True,
+        )
+        validate_geometry_types(
+            transects_in_bbox,
+            set(["LineString", "MultiLineString"]),
+            feature_type="transects",
+        )
         # make sure all the ids in transects_in_bbox are unique
-        transects_in_bbox = create_unique_ids(transects_in_bbox,prefix_length=3)
-        
+        transects_in_bbox = create_unique_ids(transects_in_bbox, prefix_length=3)
+
         if not transects_in_bbox.empty:
             transects_in_bbox.to_crs(crs, inplace=True)
 
         return transects_in_bbox
-
 
     def style_layer(self, geojson: dict, layer_name: str) -> dict:
         """Return styled GeoJson object with layer name

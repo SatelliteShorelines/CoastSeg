@@ -4,12 +4,12 @@ from typing import Optional, Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
-from coastseg.common import  preprocess_geodataframe
+from coastseg.common import preprocess_geodataframe, validate_geometry_types
+
 # External dependencies imports
 import geopandas as gpd
 from shapely.geometry import shape
 from ipyleaflet import GeoJSON
-
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class Bounding_Box:
     A Bounding Box drawn by user.
     """
 
-    MAX_AREA = 3000000000  # UNITS = Sq. Meters
+    MAX_AREA = 100000000000  # UNITS = Sq. Meters
     MIN_AREA = 1000  # UNITS = Sq. Meters
     LAYER_NAME = "Bbox"
 
@@ -37,7 +37,6 @@ class Bounding_Box:
             raise Exception(
                 "Invalid rectangle provided to BBox must be either a geodataframe or dict"
             )
-
 
     def __str__(self):
         return f"BBox: geodataframe {self.gdf}"
@@ -59,14 +58,21 @@ class Bounding_Box:
             None.
         """
         # clean the geodataframe
-        bbox_gdf = preprocess_geodataframe(bbox_gdf,columns_to_keep=['geometry'],create_ids=False)
-        bbox_gdf.to_crs("EPSG:4326")
+        bbox_gdf = preprocess_geodataframe(
+            bbox_gdf,
+            columns_to_keep=["geometry"],
+            create_ids=False,
+            output_crs="EPSG:4326",
+        )
+        validate_geometry_types(
+            bbox_gdf, set(["Polygon", "MultiPolygon"]), feature_type="Bounding Box"
+        )
         return bbox_gdf
 
     def create_geodataframe(
-        self, rectangle: dict,  crs: Optional[str] = "EPSG:4326"
+        self, rectangle: dict, crs: Optional[str] = "EPSG:4326"
     ) -> gpd.GeoDataFrame:
-        """Creates a geodataframe in crs "EPSG:4326" with the provided geometry in rectangle. The 
+        """Creates a geodataframe in crs "EPSG:4326" with the provided geometry in rectangle. The
         The geometry must in CRS epsg 4326 or the code will not work properly
         Args:
             rectangle (dict): geojson dictionary
@@ -79,8 +85,15 @@ class Bounding_Box:
         geojson_bbox = gpd.GeoDataFrame({"geometry": geom})
         geojson_bbox.set_crs(crs, inplace=True)
         # clean the geodataframe
-        geojson_bbox = preprocess_geodataframe(geojson_bbox,columns_to_keep=['geometry'],create_ids=False)
-        geojson_bbox.to_crs("EPSG:4326", inplace=True)
+        geojson_bbox = preprocess_geodataframe(
+            geojson_bbox,
+            columns_to_keep=["geometry"],
+            create_ids=False,
+            output_crs="EPSG:4326",
+        )
+        validate_geometry_types(
+            geojson_bbox, set(["Polygon", "MultiPolygon"]), feature_type="Bounding Box"
+        )
         return geojson_bbox
 
     def style_layer(self, geojson: dict, layer_name: str) -> "ipyleaflet.GeoJSON":

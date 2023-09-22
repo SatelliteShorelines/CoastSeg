@@ -14,6 +14,7 @@ from coastseg import downloads
 from coastseg import sessions
 from coastseg import extracted_shoreline
 from coastseg import geodata_processing
+from coastseg import file_utilities
 
 import geopandas as gpd
 import skimage
@@ -82,57 +83,6 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> li
     return valid_images
 
 
-def tidal_corrections(
-    roi_id,
-    beach_slope,
-    reference_elevation,
-    extract_shorelines_dict,
-    cross_distance: dict,
-    tide_data: pd.DataFrame,
-    save_path,
-):
-    # tides for each date in extracted shorelines
-    tides_for_dates = get_tides_level(extract_shorelines_dict["dates"], tide_data)
-    correction = (tides_for_dates - reference_elevation) / beach_slope
-
-    cross_distance_tidally_corrected = {}
-    for key in cross_distance.keys():
-        cross_distance_tidally_corrected[key] = cross_distance[key] + correction
-
-    common.create_csv_per_transect(
-        roi_id,
-        save_path,
-        cross_distance_tidally_corrected,
-        extract_shorelines_dict,
-        filename="_timeseries_tidally_corrected.csv",
-    )
-    common.save_transect_intersections(
-        save_path,
-        extract_shorelines_dict,
-        cross_distance_tidally_corrected,
-        filename="timeseries_tidally_corrected.csv",
-    )
-
-
-# tides for each date in extracted shorelines
-def get_tides_level(
-    extracted_shoreline_dates: np.array, tide_data: pd.DataFrame
-) -> np.array:
-    """Gets the tide level for each of the dates that a shoreline was extracted
-    Args:
-        extract_shorelines_dict (np.array): dates for each extracted shoreliens
-        tide_data (pd.DataFrame): dates and tide levels
-    Returns:
-        np.array: tide level for each of the dates that a shoreline was extracted
-    """
-    tide_dates = [pytz.utc.localize(_.to_pydatetime()) for _ in tide_data["dates"]]
-    tides = np.array(tide_data["tides"])
-    tides_for_dates = SDS_tools.get_closest_datapoint(
-        extracted_shoreline_dates, tide_dates, tides
-    )
-    return tides_for_dates
-
-
 def compute_tidal_corrections(
     roi_id: str,
     src_location: str,
@@ -165,7 +115,9 @@ def compute_tidal_corrections(
     extract_shorelines_location = os.path.join(
         src_location, "extracted_shorelines_dict.json"
     )
-    extract_shorelines_dict = common.load_data_from_json(extract_shorelines_location)
+    extract_shorelines_dict = file_utilities.load_data_from_json(
+        extract_shorelines_location
+    )
     # tidally correct transect shorelines intersections
     tidal_corrections(
         roi_id,
@@ -269,7 +221,7 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
         NDWI_path = RGB_to_infrared(RGB_path, NIR_path, output_path, "NDWI")
         SWIR_path = os.path.join(output_path, "SWIR")
         MNDWI_path = RGB_to_infrared(RGB_path, SWIR_path, output_path, "MNDWI")
-        five_band_path = common.create_directory(output_path, "five_band")
+        five_band_path = file_utilities.create_directory(output_path, "five_band")
         output_path = get_five_band_imagery(
             RGB_path, MNDWI_path, NDWI_path, five_band_path
         )
@@ -764,7 +716,7 @@ class Zoo_Model:
             dict: The updated model dictionary containing the paths to the processed data.
         """
         # if configs do not exist then raise an error and do not save the session
-        if not common.validate_config_files_exist(src_directory):
+        if not file_utilities.validate_config_files_exist(src_directory):
             logger.warning(
                 f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
             )
@@ -773,7 +725,7 @@ class Zoo_Model:
             )
         logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
-        RGB_path = common.find_directory_recurively(src_directory, name="RGB")
+        RGB_path = file_utilities.find_directory_recursively(src_directory, name="RGB")
         # convert RGB to MNDWI, NDWI,or 5 band
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         logger.info(f"model_dict: {model_dict}")
@@ -795,10 +747,12 @@ class Zoo_Model:
         extract_shoreline_settings = self.get_settings()
 
         # create session path to store extracted shorelines and transects
-        sessions_dir_path = common.create_directory(os.getcwd(), "sessions")
-        new_session_path = common.create_directory(sessions_dir_path, session_name)
+        sessions_dir_path = file_utilities.create_directory(os.getcwd(), "sessions")
+        new_session_path = file_utilities.create_directory(
+            sessions_dir_path, session_name
+        )
 
-        config_geojson_location = common.find_file_recursively(
+        config_geojson_location = file_utilities.find_file_recursively(
             session_path, "config_gdf.geojson"
         )
         logger.info(f"config_geojson_location: {config_geojson_location}")
@@ -808,11 +762,11 @@ class Zoo_Model:
             session_path, "model_settings.json"
         )
         source_directory = model_settings.get("sample_direc", "")
-        roi_id = common.extract_roi_id(source_directory)
+        roi_id = file_utilities.extract_roi_id(source_directory)
 
         # save model settings to session path
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
-        common.to_file(model_settings, model_settings_path)
+        file_utilities.to_file(model_settings, model_settings_path)
 
         # load the roi settings from the config file
         config = common.load_json_data_from_file(session_path, "config.json")
@@ -822,7 +776,7 @@ class Zoo_Model:
             raise ValueError(f"{roi_id} roi settings did not exist")
 
         # read ROI from config geojson file
-        config_gdf = common.read_gpd_file(config_geojson_location)
+        config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
         roi_gdf = config_gdf[config_gdf["id"] == roi_id]
         if roi_gdf.empty:
             raise ValueError(
@@ -863,7 +817,7 @@ class Zoo_Model:
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         extracted_shorelines = (
-            extracted_shorelines.create_extracted_shorlines_from_session(
+            extracted_shorelines.create_extracted_shorelines_from_session(
                 roi_id,
                 shoreline_gdf,
                 roi_settings,
@@ -926,7 +880,7 @@ class Zoo_Model:
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
         # if configs do not exist then raise an error and do not save the session
-        if not common.validate_config_files_exist(roi_directory):
+        if not file_utilities.validate_config_files_exist(roi_directory):
             logger.warning(
                 f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
             )
@@ -936,10 +890,10 @@ class Zoo_Model:
         # copy configs from data/roi_id location to session location
         common.copy_configs(roi_directory, session_path)
         model_settings_path = os.path.join(session_path, "model_settings.json")
-        common.write_to_json(model_settings_path, preprocessed_data)
+        file_utilities.write_to_json(model_settings_path, preprocessed_data)
 
         # copy files from out to session folder
-        common.move_files(outputs_path, session_path, delete_src=True)
+        file_utilities.move_files(outputs_path, session_path, delete_src=True)
         session.save(session.path)
 
     def prepare_model(self, model_implementation: str, model_id: str):
@@ -1010,8 +964,8 @@ class Zoo_Model:
 
         # create a session
         session = sessions.Session()
-        sessions_path = common.create_directory(os.getcwd(), "sessions")
-        session_path = common.create_directory(sessions_path, session_name)
+        sessions_path = file_utilities.create_directory(os.getcwd(), "sessions")
+        session_path = file_utilities.create_directory(sessions_path, session_name)
 
         session.path = session_path
         session.name = session_name
@@ -1025,7 +979,9 @@ class Zoo_Model:
             "percent_no_data": percent_no_data,
         }
         # get parent roi_directory from the selected imagery directory
-        roi_directory = common.find_parent_directory(src_directory, "ID_", "data")
+        roi_directory = file_utilities.find_parent_directory(
+            src_directory, "ID_", "data"
+        )
         print(f"Preprocessing the data at {roi_directory}")
         model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
         logger.info(f"model_dict: {model_dict}")
@@ -1037,7 +993,9 @@ class Zoo_Model:
     def get_model_directory(self, model_id: str):
         # Create a directory to hold the downloaded models
         downloaded_models_path = common.get_downloaded_models_dir()
-        model_directory = common.create_directory(downloaded_models_path, model_id)
+        model_directory = file_utilities.create_directory(
+            downloaded_models_path, model_id
+        )
         return model_directory
 
     def get_files_for_seg(
@@ -1065,7 +1023,9 @@ class Zoo_Model:
             sample_direc, file_extensions
         )
         # filter out files whose filenames match any of the avoid_patterns
-        model_ready_files = common.filter_files(model_ready_files, avoid_patterns)
+        model_ready_files = file_utilities.filter_files(
+            model_ready_files, avoid_patterns
+        )
         logger.info(f"Filtered files for {avoid_patterns}: {model_ready_files}\n")
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
         logger.info(

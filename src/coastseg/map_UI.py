@@ -6,11 +6,13 @@ import logging
 # Internal Python imports
 from coastseg import exception_handler
 from coastseg import common
+from coastseg import file_utilities
 from coastseg.watchable_slider import Extracted_Shoreline_widget
 
 
 # External Python imports
 import ipywidgets
+import traitlets
 from IPython.display import display
 from ipyfilechooser import FileChooser
 from google.auth import exceptions as google_auth_exceptions
@@ -26,6 +28,7 @@ from ipywidgets import Output
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
 from ipywidgets import FloatText
+from ipywidgets import Accordion
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +43,10 @@ BOX_LAYOUT = Layout(
     display="flex",
     flex_grow=1,  # Allows the box to grow based on content
 )
+
+
+def str_to_bool(var: str) -> bool:
+    return var == "True"
 
 
 def convert_date(date_str):
@@ -65,20 +72,11 @@ class UI:
 
         self.session_name = ""
         self.session_directory = ""
-        self.tides_file = ""
 
         # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
         self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
         # have the slider watch the extracted_shoreline_layer, number_extracted_shorelines,roi_selected_to_extract_shoreline
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.extracted_shoreline_layer
-        )
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.number_extracted_shorelines
-        )
-        self.extract_shorelines_widget.watch(
-            self.coastseg_map.roi_ids_with_extracted_shorelines
-        )
+
         self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(
             self.coastseg_map.load_extracted_shorelines_to_map
         )
@@ -255,11 +253,30 @@ class UI:
         # add instance of warning_box to self.error_row
         self.error_row.children = [warning_box]
 
-    def create_tidal_correction_widget(self):
+    def create_tidal_correction_widget(self, id_container: "traitlets.HasTraits"):
         load_style = dict(button_color="#69add1", description_width="initial")
+
+        correct_tides_html = HTML(
+            value="<h3><b>Apply Tide Correction</b></h3> \
+               Only apply after extracting shorelines",
+            layout=Layout(margin="0px 5px 0px 0px"),
+        )
 
         self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
         self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
+
+        self.scrollable_select = SelectMultiple(
+            description="Select ROIs",
+            options=id_container.ids,
+            layout=Layout(overflow_y="auto", height="100px"),
+        )
+
+        # Function to update widget options when the traitlet changes
+        def update_widget_options(change):
+            self.scrollable_select.options = change["new"]
+
+        # When the traitlet,id_container, trait 'ids' changes the update_widget_options will be updated
+        id_container.observe(update_widget_options, names="ids")
 
         self.select_tides_button = Button(
             description="Select Tides",
@@ -277,19 +294,22 @@ class UI:
 
         return VBox(
             [
+                correct_tides_html,
                 self.beach_slope_text,
                 self.reference_elevation_text,
-                self.select_tides_button,
+                self.scrollable_select,
                 self.tidally_correct_button,
             ]
         )
 
     @debug_view.capture(clear_output=True)
     def tidally_correct_button_clicked(self, button):
-        if self.tides_file == "":
+        # get the selected ROI IDs if none selected give an error message
+        selected_rois = self.scrollable_select.value
+        if not selected_rois:
             self.launch_error_box(
                 "Cannot correct tides",
-                "Must enter a select a tide file first",
+                "Must enter a select an ROI ID first",
             )
             return
 
@@ -297,7 +317,7 @@ class UI:
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
         self.coastseg_map.compute_tidal_corrections(
-            self.tides_file, beach_slope, reference_elevation
+            selected_rois, beach_slope, reference_elevation
         )
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
 
@@ -366,7 +386,9 @@ class UI:
                 print(f"Session {session_name} already exists and will be overwritten.")
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} was created.")
-                new_session_path = common.create_directory(session_path, session_name)
+                new_session_path = file_utilities.create_directory(
+                    session_path, session_name
+                )
             self.coastseg_map.set_session_name(session_name)
 
         enter_button.on_click(enter_clicked)
@@ -385,20 +407,16 @@ class UI:
             self.coastseg_map.get_settings()
         )
         view_settings_vbox = VBox([self.settings_html, update_settings_btn])
-        return view_settings_vbox
+        html_settings_accordion = Accordion(children=[view_settings_vbox])
+        html_settings_accordion.set_title(0, "View Settings")
+        return html_settings_accordion
 
-    def get_settings_section(self):
+    def get_advanced_settings_section(self):
         # declare settings widgets
         settings = {
-            "dates_picker": self.get_dates_picker(),
-            "satellite_radio": self.get_satellite_radio(),
             "sand_dropbox": self.get_sand_dropbox(),
             "cloud_mask_issue": self.get_cloud_issue_toggle(),
-            "min_length_sl_slider": self.get_min_length_sl_slider(),
-            "beach_area_slider": self.get_beach_area_slider(),
-            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
             "cloud_slider": self.get_cloud_slider(),
-            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
             "along_dist": self.get_alongshore_distance_slider(),
             "min_points": self.get_min_points_text(),
             "max_std": self.get_max_std_text(),
@@ -409,11 +427,57 @@ class UI:
         }
 
         # create settings vbox
-        settings_vbox = VBox(
-            [widget for widget_name, widget in settings.items()]
-            + [self.settings_btn_row]
-        )
+        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
         return settings_vbox
+
+    def get_basic_settings_section(self):
+        # declare settings widgets
+        settings = {
+            "dates_picker": self.get_dates_picker(),
+            "satellite_radio": self.get_satellite_radio(),
+            "min_length_sl_slider": self.get_min_length_sl_slider(),
+            "beach_area_slider": self.get_beach_area_slider(),
+            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
+            "apply_cloud_mask": self.get_apply_could_mask_toggle(),
+            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+        }
+
+        # create settings vbox
+        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
+        # settings_accordion = Accordion(children=[settings_vbox])
+        # settings_accordion.set_title(0, "Basic Settings")
+        # return settings_accordion
+        return settings_vbox
+
+    # def get_settings_section(self):
+    #     # declare settings widgets
+    #     settings = {
+    #         "dates_picker": self.get_dates_picker(),
+    #         "satellite_radio": self.get_satellite_radio(),
+    #         "sand_dropbox": self.get_sand_dropbox(),
+    #         "cloud_mask_issue": self.get_cloud_issue_toggle(),
+    #         "min_length_sl_slider": self.get_min_length_sl_slider(),
+    #         "beach_area_slider": self.get_beach_area_slider(),
+    #         "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
+    #         "cloud_slider": self.get_cloud_slider(),
+    #         "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+    #         "along_dist": self.get_alongshore_distance_slider(),
+    #         "min_points": self.get_min_points_text(),
+    #         "max_std": self.get_max_std_text(),
+    #         "max_range": self.get_max_range_text(),
+    #         "min_chainage": self.get_min_chainage_text(),
+    #         "multiple_inter": self.get_outliers_mode(),
+    #         "prc_multiple": self.get_prc_multiple_text(),
+    #     }
+
+    #     # create settings vbox
+    #     settings_vbox = VBox(
+    #         [widget for widget_name, widget in settings.items()]
+    #         + [self.settings_btn_row]
+    #     )
+    #     settings_accordion = Accordion(children=[settings_vbox])
+    #     settings_accordion.set_title(0, "Settings")
+    #     return settings_accordion
 
     def get_dates_picker(self):
         # Date Widgets
@@ -435,7 +499,7 @@ class UI:
     def get_cloud_threshold_slider(self):
         instr = HTML(
             value="<b>Cloud Threshold</b> \
-                     </br>- Maximum percetange of cloud pixels allowed"
+                     </br>- Maximum percentage of cloud pixels allowed"
         )
         self.cloud_threshold_slider = ipywidgets.FloatSlider(
             value=0.5,
@@ -468,6 +532,22 @@ class UI:
             ],
         )
         return VBox([instr, self.cloud_issue_toggle])
+
+    def get_apply_could_mask_toggle(self):
+        instr = HTML(
+            value="<b>Cloud Mask Toggle</b> \
+                     </br>- Defaults to True. Switch to False to turn off cloud masking."
+        )
+        self.apply_cloud_mask_toggle = ipywidgets.ToggleButtons(
+            options=["True", "False"],
+            description="Apply Cloud Masking",
+            disabled=False,
+            tooltips=[
+                "Cloud Masking On",
+                "Cloud Masking Off",
+            ],
+        )
+        return VBox([instr, self.apply_cloud_mask_toggle])
 
     def get_sand_dropbox(self):
         sand_color_instr = HTML(
@@ -513,7 +593,7 @@ class UI:
 
         self.cloud_slider = ipywidgets.IntSlider(
             value=300,
-            min=100,
+            min=0,
             max=1000,
             step=1,
             description="dist_clouds (m):",
@@ -534,7 +614,7 @@ class UI:
         )
 
         self.shoreline_buffer_slider = ipywidgets.IntSlider(
-            value=50,
+            value=100,
             min=5,
             max=1000,
             step=1,
@@ -556,8 +636,8 @@ class UI:
         )
 
         self.beach_area_slider = ipywidgets.IntSlider(
-            value=4500,
-            min=100,
+            value=1000,
+            min=10,
             max=10000,
             step=10,
             description="min_beach_area (sqm):",
@@ -836,9 +916,13 @@ class UI:
     ):
         if "dates" in settings:
             start_date_str, end_date_str = settings["dates"]
-            logger.info(f"start_date_str, end_date_str {start_date_str, end_date_str}")
             self.start_date.value = convert_date(start_date_str)
             self.end_date.value = convert_date(end_date_str)
+
+        if "apply_cloud_mask" in settings:
+            self.apply_cloud_mask_toggle.value = str(
+                settings.get("apply_cloud_mask", True)
+            )
 
         if "cloud_thresh" in settings:
             self.cloud_threshold_slider.value = settings.get("cloud_thresh", 0.5)
@@ -908,6 +992,7 @@ class UI:
         <p>save_figure: {settings.get("save_figure", "unknown")}</p>
         <p>min_beach_area: {settings.get("min_beach_area", "unknown")}</p>
         <p>min_length_sl: {settings.get("min_length_sl", "unknown")}</p>
+        <p>apply_cloud_mask: {settings.get("apply_cloud_mask", "unknown")}</p>
         <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
         <p>sand_color: {settings.get("sand_color", "unknown")}</p>
         <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
@@ -984,7 +1069,7 @@ class UI:
                 ipywidgets.Box(children=[UI.preview_view], layout=BOX_LAYOUT),
                 self.extract_shorelines_button,
                 self.get_session_selection(),
-                self.create_tidal_correction_widget(),
+                self.create_tidal_correction_widget(self.coastseg_map.id_container),
                 config_vbox,
             ]
         )
@@ -1002,10 +1087,26 @@ class UI:
             [self.instr_create_roi, ROI_btns_box, load_buttons],
             layout=Layout(margin="0px 5px 5px 0px"),
         )
+        # option 1
+        settings_accordion = Accordion(
+            children=[
+                self.get_basic_settings_section(),
+                self.get_advanced_settings_section(),
+            ]
+        )
+        # settings_accordion.set_title(0, "Settings")
+        settings_accordion.set_title(0, "Basic Settings")
+        settings_accordion.set_title(1, "Advanced Settings")
+        settings_accordion.selected_index = 0
 
         self.settings_row = HBox(
             [
-                self.get_settings_section(),
+                VBox(
+                    [
+                        settings_accordion,
+                        self.settings_btn_row,
+                    ]
+                ),
                 self.get_view_settings_vbox(),
             ]
         )
@@ -1090,11 +1191,12 @@ class UI:
         settings = {
             "sat_list": list(self.satellite_selection.value),
             "dates": [str(self.start_date.value), str(self.end_date.value)],
+            "apply_cloud_mask": str_to_bool(self.apply_cloud_mask_toggle.value),
             "max_dist_ref": self.shoreline_buffer_slider.value,
             "along_dist": self.alongshore_distance_slider.value,
             "dist_clouds": self.cloud_slider.value,
             "min_beach_area": self.beach_area_slider.value,
-            "cloud_mask_issue": bool(self.cloud_issue_toggle.value),
+            "cloud_mask_issue": str_to_bool(self.cloud_issue_toggle.value),
             "min_length_sl": self.min_length_sl_slider.value,
             "sand_color": str(self.sand_dropdown.value),
             "cloud_thresh": self.cloud_threshold_slider.value,
@@ -1227,12 +1329,10 @@ class UI:
                 if filechooser.selected:
                     self.coastseg_map.map.default_style = {"cursor": "wait"}
                     self.coastseg_map.load_fresh_session(filechooser.selected)
-                    logger.info(f"filechooser.selected: {filechooser.selected}")
-                    session_name = os.path.basename(
-                        os.path.abspath(filechooser.selected)
-                    )
-                    logger.info(f"session_name: {session_name}")
-                    self.session_name_text.value = session_name
+                    # self.session_name_text.value = os.path.basename(
+                    #     os.path.abspath(filechooser.selected)
+                    # )
+                    self.session_name_text.value = self.coastseg_map.get_session_name()
                     self.settings_html.value = self.get_settings_html(
                         self.coastseg_map.get_settings()
                     )

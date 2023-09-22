@@ -2,6 +2,8 @@ import os
 from datetime import datetime
 import logging
 
+# DESCRIPTION: Sets up a logging system that writes logs to a file named with the current timestamp in a "logs" directory.
+
 
 def prepare_logging():
     """create a directory named 'logs' in the current working directory if a 'logs' directory does not exist"""

@@ -25,7 +25,9 @@ ROIS_NOT_DOWNLOADED = (
 )
 BBOX_NOT_FOUND = "Bounding Box not found on map"
 SESSION_NAME_NOT_FOUND = "No session name found.Enter a session name."
-EMPTY_SELECTED_ROIS = "Must select at least one ROI on the map"
+EMPTY_SELECTED_ROIS = (
+    "Must select at least one ROI on the map to perform this operation"
+)
 SETTINGS_NOT_FOUND = "No settings found. Click save settings."
 ROI_NOT_FOUND = "No ROIs found. Click Generate ROIs."
 SHORELINE_NOT_FOUND = "No Shoreline found. Please load a shoreline on the map first."
