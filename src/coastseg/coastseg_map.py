@@ -15,6 +15,7 @@ from leafmap import Map
 from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
 import traitlets
+from shapely.geometry import Polygon
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -288,6 +289,8 @@ class CoastSeg_Map:
             config_loaded = self.load_config_files(dir_path, data_path)
             # create metadata files for each ROI loaded in using coastsat's get_metadata()
             if self.rois and getattr(self.rois, "roi_settings"):
+                # filter out partial imagery
+                common.filter_images_by_roi(self.rois.roi_settings)
                 self.load_metadata(ids=list(self.rois.roi_settings.keys()))
             else:
                 logger.warning(f"No ROIs were able to have their metadata loaded.")
@@ -709,6 +712,9 @@ class CoastSeg_Map:
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
             )
+
+        common.filter_images_by_roi(roi_settings)
+
         logger.info("Done downloading")
 
     def _extract_and_validate_roi_settings(
