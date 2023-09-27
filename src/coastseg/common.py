@@ -194,61 +194,8 @@ def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[s
         )
     # filter out files that were removed from RGB directory
     filtered_files = get_filtered_files_dict(RGB_directory, "jpg", sitename)
-    for satname in filtered_files:
-        if satname in metadata:
-            idx_keep = list(
-                np.where(
-                    np.isin(
-                        np.array(metadata[satname]["filenames"]),
-                        list(filtered_files[satname]),
-                    )
-                )[0]
-            )
-            metadata[satname]["filenames"] = [
-                metadata[satname]["filenames"][i] for i in idx_keep
-            ]
-            metadata[satname]["epsg"] = [metadata[satname]["epsg"][i] for i in idx_keep]
-            metadata[satname]["dates"] = [
-                metadata[satname]["dates"][i] for i in idx_keep
-            ]
-            metadata[satname]["acc_georef"] = [
-                metadata[satname]["acc_georef"][i] for i in idx_keep
-            ]
+    metadata = edit_metadata(metadata, filtered_files)
     return metadata
-
-
-# def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[str]:
-#     """
-#     This function filters metadata to include only those files that exist in the given directory.
-
-#     Parameters:
-#     -----------
-#     metadata : dict
-#         The metadata dictionary to be filtered.
-
-#     sitename : str
-#         The site name used for filtering.
-
-#     filepath_data : str
-#         The base filepath where the data is located.
-
-#     Returns:
-#     --------
-#     dict
-#         The filtered metadata dictionary.
-#     """
-#     # Get the RGB directory
-#     RGB_directory = os.path.join(
-#         filepath_data, sitename, "jpg_files", "preprocessed", "RGB"
-#     )
-#     if not os.path.exists(RGB_directory):
-#         raise FileNotFoundError(
-#             f"Cannot extract shorelines from imagery. RGB directory did not exist. {RGB_directory}"
-#         )
-#     # filter out files that were removed from RGB directory
-#     filtered_files = get_filtered_files_dict(RGB_directory, "jpg", sitename)
-#     metadata = edit_metadata(metadata, filtered_files)
-#     return metadata
 
 
 def edit_metadata(
