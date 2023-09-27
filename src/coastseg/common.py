@@ -8,6 +8,8 @@ import math
 import logging
 import random
 import string
+from datetime import datetime
+
 
 # Third-party imports
 import requests
@@ -22,7 +24,7 @@ from ipywidgets import ToggleButton, HBox, VBox, Layout, HTML
 from requests.exceptions import SSLError
 
 # Specific classes/functions from modules
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, Dict, Set
 
 # Internal dependencies imports
 from coastseg import exceptions
@@ -213,6 +215,157 @@ def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[s
                 metadata[satname]["acc_georef"][i] for i in idx_keep
             ]
     return metadata
+
+
+# def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[str]:
+#     """
+#     This function filters metadata to include only those files that exist in the given directory.
+
+#     Parameters:
+#     -----------
+#     metadata : dict
+#         The metadata dictionary to be filtered.
+
+#     sitename : str
+#         The site name used for filtering.
+
+#     filepath_data : str
+#         The base filepath where the data is located.
+
+#     Returns:
+#     --------
+#     dict
+#         The filtered metadata dictionary.
+#     """
+#     # Get the RGB directory
+#     RGB_directory = os.path.join(
+#         filepath_data, sitename, "jpg_files", "preprocessed", "RGB"
+#     )
+#     if not os.path.exists(RGB_directory):
+#         raise FileNotFoundError(
+#             f"Cannot extract shorelines from imagery. RGB directory did not exist. {RGB_directory}"
+#         )
+#     # filter out files that were removed from RGB directory
+#     filtered_files = get_filtered_files_dict(RGB_directory, "jpg", sitename)
+#     metadata = edit_metadata(metadata, filtered_files)
+#     return metadata
+
+
+def edit_metadata(
+    metadata: Dict[str, Dict[str, Union[str, List[Union[str, datetime, int, float]]]]],
+    filtered_files: Dict[str, Set[str]],
+) -> Dict[str, Dict[str, Union[str, List[Union[str, datetime, int, float]]]]]:
+    """Filters the metadata so that it contains the data for the filenames in filtered_files."""
+
+    # Iterate over satellite names in filtered_files
+    for sat_name, files in filtered_files.items():
+        # Check if sat_name is present in metadata
+        if sat_name in metadata:
+            satellite_metadata = metadata[sat_name]
+
+            # Find the indices to keep based on filenames in filtered_files
+            indices_to_keep = [
+                idx
+                for idx, filename in enumerate(satellite_metadata["filenames"])
+                if filename in files
+            ]
+
+            # Loop through each key in the satellite_metadata dictionary
+            for key, values in satellite_metadata.items():
+                # Check if values is a list
+                if isinstance(values, list):
+                    if indices_to_keep:
+                        # If indices_to_keep is not empty, filter the list based on it
+                        satellite_metadata[key] = [values[i] for i in indices_to_keep]
+                    else:
+                        # If indices_to_keep is empty, assign an empty list
+                        satellite_metadata[key] = []
+    return metadata
+
+
+# def edit_metadata(
+#     metadata: dict[str, Union[str, List[str]]], filtered_files: dict[str, set]
+# ) -> dict:
+#     """Filters the metadata so that it contains the data for the filenames in filered_files
+
+#     Args:
+#         metadata (dict): A dictionary containing the metadata for each satellite
+#         Each satellite has the following key fields "filenames","epsg","dates","acc_georef"
+#         Example:
+#         metadata = {
+#             'L8':{
+#                 "filenames": ["2019-02-16-18-22-17_L8_sitename_ms.tif","2012-02-16-18-22-17_L8_sitename_ms.tif"],
+#                 "epsg":[4326,4326],
+#                 "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>),datetime.datetime(2012, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+#                 "acc_georef":[9.185,9.125],
+#             }
+#             'L9':{
+#                 "filenames": ["2019-02-16-18-22-17_L9_sitename_ms.tif"],
+#                 "epsg":[4326],
+#                 "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+#                 "acc_georef":[9.185],
+#             }
+#         }
+#         filtered_files (dict): A dictionary containing a set of the tif filenames available for each satellite
+#         Example:
+#         filtered_files = {
+#             "L5": {},
+#             "L7": {},
+#             "L8": {"2019-02-16-18-22-17_L8_sitename_ms.tif"},
+#             "L9": {"2019-02-16-18-22-17_L9_sitename_ms.tif"},
+#             "S2": {},
+#         }
+
+#     Returns:
+#         dict: a filtered dictionary containing only the data for the filenames in filtered_files
+#         Example:
+#                 metadata = {
+#             'L8':{
+#                 "filenames": ["2019-02-16-18-22-17_L8_sitename_ms.tif"],
+#                 "epsg":[4326],
+#                 "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+#                 "acc_georef":[9.185],
+#             }
+#             'L9':{
+#                 "filenames": ["2019-02-16-18-22-17_L9_sitename_ms.tif"],
+#                 "epsg":[4326],
+#                 "dates":[datetime.datetime(2022, 1, 26, 15, 33, 50, tzinfo=<UTC>)],
+#                 "acc_georef":[9.185],
+#             }
+#         }
+#     """
+#     for satname in filtered_files:
+#         if satname in metadata:
+#             idx_keep = list(
+#                 np.where(
+#                     np.isin(
+#                         np.array(metadata[satname]["filenames"]),
+#                         list(filtered_files[satname]),
+#                     )
+#                 )[0]
+#             )
+#             metadata[satname]["filenames"] = [
+#                 metadata[satname]["filenames"][i] for i in idx_keep
+#             ]
+#             metadata[satname]["epsg"] = [metadata[satname]["epsg"][i] for i in idx_keep]
+#             metadata[satname]["dates"] = [
+#                 metadata[satname]["dates"][i] for i in idx_keep
+#             ]
+#             metadata[satname]["acc_georef"] = [
+#                 metadata[satname]["acc_georef"][i] for i in idx_keep
+#             ]
+#             # optionally read in the other metadata contents
+#             if metadata[satname].get("im_dimensions"):
+#                 metadata[satname]["im_dimensions"] = [
+#                     metadata[satname]["im_dimensions"][i] for i in idx_keep
+#                 ]
+#             # optionally read in the other metadata contents
+#             if metadata[satname].get("im_quality"):
+#                 metadata[satname]["im_quality"] = [
+#                     metadata[satname]["im_quality"][i] for i in idx_keep
+#                 ]
+
+#     return metadata
 
 
 def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> dict:
