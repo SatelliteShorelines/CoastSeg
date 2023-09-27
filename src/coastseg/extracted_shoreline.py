@@ -1579,7 +1579,9 @@ class Extracted_Shoreline:
 
         # filter out files that were removed from RGB directory
         try:
+            logger.info(f"metadata before filter : {metadata}")
             metadata = common.filter_metadata(metadata, sitename, filepath_data)
+            logger.info(f"metadata after filter : {metadata}")
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
             return {}
