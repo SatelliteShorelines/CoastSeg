@@ -758,7 +758,7 @@ class Zoo_Model:
         logger.info(f"config_geojson_location: {config_geojson_location}")
 
         # get roi_id from source directory path in model settings
-        model_settings = common.load_json_data_from_file(
+        model_settings = file_utilities.load_json_data_from_file(
             session_path, "model_settings.json"
         )
         source_directory = model_settings.get("sample_direc", "")
@@ -769,7 +769,7 @@ class Zoo_Model:
         file_utilities.to_file(model_settings, model_settings_path)
 
         # load the roi settings from the config file
-        config = common.load_json_data_from_file(session_path, "config.json")
+        config = file_utilities.load_json_data_from_file(session_path, "config.json")
         roi_settings = config.get(roi_id, {})
         logger.info(f"roi_settings: {roi_settings}")
         if roi_settings == {}:
@@ -803,7 +803,7 @@ class Zoo_Model:
         self.set_settings(output_epsg=new_espg)
 
         roi_gdf = roi_gdf.to_crs(output_epsg)
-        # save the config files to the new session locaton
+        # save the config files to the new session location
         common.save_config_files(
             new_session_path,
             roi_ids=[roi_id],

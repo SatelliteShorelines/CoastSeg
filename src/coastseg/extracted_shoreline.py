@@ -433,7 +433,7 @@ def process_satellite_image(
         settings["cloud_mask_issue"],
         settings["pan_off"],
         collection,
-        apply_cloud_mask=settings.get("apply_cloud_mask", True),
+        do_cloud_mask=settings.get("apply_cloud_mask", True),
     )
 
     logger.info(f"process_satellite_image_settings: {settings}")
