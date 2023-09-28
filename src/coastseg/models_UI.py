@@ -75,7 +75,6 @@ class UI_Models:
         self.session_name = ""
         self.shoreline_session_directory = ""
         self.model_session_directory = ""
-        self.tides_file = ""
         self.shoreline_session_name = ""
 
         # Declare widgets and on click callbacks
@@ -269,14 +268,7 @@ class UI_Models:
 
         self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
         self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
-
-        self.select_tides_button = Button(
-            description="Select Tides",
-            style=load_style,
-            icon="fa-file-image-o",
-        )
-        self.select_tides_button.on_click(self.select_tides_button_clicked)
-
+        
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
@@ -288,7 +280,6 @@ class UI_Models:
             [
                 self.beach_slope_text,
                 self.reference_elevation_text,
-                self.select_tides_button,
                 self.tidally_correct_button,
             ]
         )
@@ -301,13 +292,6 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot correct tides",
                 "Must click select session first",
-                position=3,
-            )
-            return
-        if self.tides_file == "":
-            self.launch_error_box(
-                "Cannot correct tides",
-                "Must enter a select a tide file first",
                 position=3,
             )
             return
@@ -331,29 +315,9 @@ class UI_Models:
             roi_id,
             session_directory,
             session_directory,
-            self.tides_file,
             beach_slope,
             reference_elevation,
         )
-
-    @tidal_correction_view.capture(clear_output=True)
-    def select_tides_button_clicked(self, button):
-        # Prompt the user to select a directory of images
-        file_chooser = common.create_file_chooser(
-            self.load_tide_callback,
-            title="Select csv file",
-            filter_pattern="*csv",
-            starting_directory="sessions",
-        )
-        # clear row and close all widgets in  self.tidal_correct_file_row before adding new file_chooser
-        common.clear_row(self.tidal_correct_file_row)
-        # add instance of file_chooser to  self.tidal_correct_file_row
-        self.tidal_correct_file_row.children = [file_chooser]
-
-    @tidal_correction_view.capture(clear_output=True)
-    def load_tide_callback(self, filechooser: FileChooser) -> None:
-        if filechooser.selected:
-            self.tides_file = os.path.abspath(filechooser.selected)
 
     def _create_widgets(self):
         self.model_implementation = RadioButtons(
