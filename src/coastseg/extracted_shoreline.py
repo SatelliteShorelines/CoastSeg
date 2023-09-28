@@ -455,7 +455,7 @@ def process_satellite_image(
         settings["cloud_mask_issue"],
         settings["pan_off"],
         collection,
-        apply_cloud_mask=settings.get("apply_cloud_mask", True),
+        do_cloud_mask=settings.get("apply_cloud_mask", True),
     )
 
     logger.info(f"process_satellite_image_settings: {settings}")
@@ -1616,7 +1616,9 @@ class Extracted_Shoreline:
 
         # filter out files that were removed from RGB directory
         try:
+            logger.info(f"metadata before filter : {metadata}")
             metadata = common.filter_metadata(metadata, sitename, filepath_data)
+            logger.info(f"metadata after filter : {metadata}")
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
             return {}

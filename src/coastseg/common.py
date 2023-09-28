@@ -8,6 +8,8 @@ import math
 import logging
 import random
 import string
+from datetime import datetime
+
 
 # Third-party imports
 import requests
@@ -24,7 +26,7 @@ from requests.exceptions import SSLError
 from shapely.geometry import Polygon
 
 # Specific classes/functions from modules
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, Dict, Set
 
 # Internal dependencies imports
 from coastseg import exceptions
@@ -412,8 +414,9 @@ def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[s
 
 
 def edit_metadata(
-    metadata: dict[str, Union[str, List[str]]], filtered_files: dict[str, set]
-) -> dict:
+    metadata: Dict[str, Dict[str, Union[str, List[Union[str, datetime, int, float]]]]],
+    filtered_files: Dict[str, Set[str]],
+) -> Dict[str, Dict[str, Union[str, List[Union[str, datetime, int, float]]]]]:
     """Filters the metadata so that it contains the data for the filenames in filered_files
 
     Args:
@@ -462,26 +465,29 @@ def edit_metadata(
             }
         }
     """
-    for satname in filtered_files:
-        if satname in metadata:
-            idx_keep = list(
-                np.where(
-                    np.isin(
-                        np.array(metadata[satname]["filenames"]),
-                        list(filtered_files[satname]),
-                    )
-                )[0]
-            )
-            metadata[satname]["filenames"] = [
-                metadata[satname]["filenames"][i] for i in idx_keep
+    # Iterate over satellite names in filtered_files
+    for sat_name, files in filtered_files.items():
+        # Check if sat_name is present in metadata
+        if sat_name in metadata:
+            satellite_metadata = metadata[sat_name]
+
+            # Find the indices to keep based on filenames in filtered_files
+            indices_to_keep = [
+                idx
+                for idx, filename in enumerate(satellite_metadata["filenames"])
+                if filename in files
             ]
-            metadata[satname]["epsg"] = [metadata[satname]["epsg"][i] for i in idx_keep]
-            metadata[satname]["dates"] = [
-                metadata[satname]["dates"][i] for i in idx_keep
-            ]
-            metadata[satname]["acc_georef"] = [
-                metadata[satname]["acc_georef"][i] for i in idx_keep
-            ]
+
+            # Loop through each key in the satellite_metadata dictionary
+            for key, values in satellite_metadata.items():
+                # Check if values is a list
+                if isinstance(values, list):
+                    if indices_to_keep:
+                        # If indices_to_keep is not empty, filter the list based on it
+                        satellite_metadata[key] = [values[i] for i in indices_to_keep]
+                    else:
+                        # If indices_to_keep is empty, assign an empty list
+                        satellite_metadata[key] = []
     return metadata
 
 
