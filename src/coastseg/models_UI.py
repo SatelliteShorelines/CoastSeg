@@ -8,6 +8,7 @@ from coastseg import zoo_model
 from coastseg import settings_UI
 from coastseg import common
 from coastseg import file_utilities
+from coastseg.tide_correction import compute_tidal_corrections
 from coastseg.upload_feature_widget import FileUploader
 
 # external python imports
@@ -268,7 +269,7 @@ class UI_Models:
 
         self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
         self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
-        
+
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
@@ -296,8 +297,8 @@ class UI_Models:
             )
             return
         # get session directory location
-        # print("Correcting tides... please wait")
         session_directory = self.shoreline_session_directory
+        session_name = os.path.basename(session_directory)
         logger.info(f"session_directory: {session_directory}")
         # get roi_id
         # @todo find a better way to load the roi id
@@ -311,12 +312,8 @@ class UI_Models:
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-        zoo_model.compute_tidal_corrections(
-            roi_id,
-            session_directory,
-            session_directory,
-            beach_slope,
-            reference_elevation,
+        compute_tidal_corrections(
+            session_name, [roi_id], beach_slope, reference_elevation
         )
 
     def _create_widgets(self):
@@ -432,8 +429,7 @@ class UI_Models:
             value="<h2>Tidally Correct</h2>\
             Ensure shorelines are extracted prior to tidal correction. Not all imagery will contain extractable shorelines, thus, tidal correction may not be possible.\
             <br><b>1. Select a Session </b> Choose a session from the 'sessions' directory containing extracted shorelines.\
-            <br><b>2. Select Tides Button</b> Pick a CSV file with tide levels and dates for the ROI.\
-            <br><b>3. Correct Tides Button</b> Click to save tidally corrected CSV files in the selected session directory.\
+            <br><b>2. Correct Tides Button</b> Click to save tidally corrected CSV files in the selected session directory.\
             ",
             layout=Layout(margin="0px 0px 0px 0px"),
         )
