@@ -29,6 +29,8 @@ from ipywidgets import Select
 from ipywidgets import BoundedIntText
 from ipywidgets import FloatText
 from ipywidgets import Accordion
+from ipywidgets import Checkbox
+
 
 logger = logging.getLogger(__name__)
 
@@ -414,44 +416,12 @@ class UI:
             "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
             "apply_cloud_mask": self.get_apply_could_mask_toggle(),
             "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+            "image_size_filter": self.get_image_size_filter(),
         }
 
         # create settings vbox
         settings_vbox = VBox([widget for widget_name, widget in settings.items()])
-        # settings_accordion = Accordion(children=[settings_vbox])
-        # settings_accordion.set_title(0, "Basic Settings")
-        # return settings_accordion
         return settings_vbox
-
-    # def get_settings_section(self):
-    #     # declare settings widgets
-    #     settings = {
-    #         "dates_picker": self.get_dates_picker(),
-    #         "satellite_radio": self.get_satellite_radio(),
-    #         "sand_dropbox": self.get_sand_dropbox(),
-    #         "cloud_mask_issue": self.get_cloud_issue_toggle(),
-    #         "min_length_sl_slider": self.get_min_length_sl_slider(),
-    #         "beach_area_slider": self.get_beach_area_slider(),
-    #         "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
-    #         "cloud_slider": self.get_cloud_slider(),
-    #         "cloud_threshold_slider": self.get_cloud_threshold_slider(),
-    #         "along_dist": self.get_alongshore_distance_slider(),
-    #         "min_points": self.get_min_points_text(),
-    #         "max_std": self.get_max_std_text(),
-    #         "max_range": self.get_max_range_text(),
-    #         "min_chainage": self.get_min_chainage_text(),
-    #         "multiple_inter": self.get_outliers_mode(),
-    #         "prc_multiple": self.get_prc_multiple_text(),
-    #     }
-
-    #     # create settings vbox
-    #     settings_vbox = VBox(
-    #         [widget for widget_name, widget in settings.items()]
-    #         + [self.settings_btn_row]
-    #     )
-    #     settings_accordion = Accordion(children=[settings_vbox])
-    #     settings_accordion.set_title(0, "Settings")
-    #     return settings_accordion
 
     def get_dates_picker(self):
         # Date Widgets
@@ -489,6 +459,21 @@ class UI:
             style={"description_width": "initial"},
         )
         return VBox([instr, self.cloud_threshold_slider])
+
+    def get_image_size_filter(self):
+        instr = HTML(
+            value='<div style="white-space: normal;">'
+            "<b>Image Size Filter Control:</b></br> Activate to filter out images that are smaller than 80% of the Region of Interest (ROI)."
+            "</div>"
+        )
+        # Create a checkbox with a clear and concise description
+        self.image_size_filter_checkbox = Checkbox(
+            value=True,  # Initially unchecked
+            description="Enable Image Size Filter",
+            disabled=False,  # Enable user interaction
+            indent=False,  # To align the description with the label
+        )
+        return VBox([instr, self.image_size_filter_checkbox])
 
     def get_cloud_issue_toggle(self):
         instr = HTML(
@@ -898,6 +883,11 @@ class UI:
                 settings.get("apply_cloud_mask", True)
             )
 
+        if "image_size_filter" in settings:
+            self.image_size_filter_checkbox.value = settings.get(
+                "image_size_filter", True
+            )
+
         if "cloud_thresh" in settings:
             self.cloud_threshold_slider.value = settings.get("cloud_thresh", 0.5)
 
@@ -967,6 +957,7 @@ class UI:
         <p>min_beach_area: {settings.get("min_beach_area", "unknown")}</p>
         <p>min_length_sl: {settings.get("min_length_sl", "unknown")}</p>
         <p>apply_cloud_mask: {settings.get("apply_cloud_mask", "unknown")}</p>
+        <p>image_size_filter: {settings.get("image_size_filter", "unknown")}</p>
         <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
         <p>sand_color: {settings.get("sand_color", "unknown")}</p>
         <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
@@ -1166,6 +1157,7 @@ class UI:
             "sat_list": list(self.satellite_selection.value),
             "dates": [str(self.start_date.value), str(self.end_date.value)],
             "apply_cloud_mask": str_to_bool(self.apply_cloud_mask_toggle.value),
+            "image_size_filter": bool(self.image_size_filter_checkbox.value),
             "max_dist_ref": self.shoreline_buffer_slider.value,
             "along_dist": self.alongshore_distance_slider.value,
             "dist_clouds": self.cloud_slider.value,

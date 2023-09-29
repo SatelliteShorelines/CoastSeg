@@ -100,6 +100,7 @@ def filter_images_by_roi(roi_settings: list[dict]):
             continue
         roi_gdf = gpd.GeoDataFrame(index=[0], geometry=[polygon], crs="EPSG:4326")
         bad_images = filter_partial_images(roi_gdf, ROI_jpg_location)
+        logger.info(f"Partial images filtered out: {bad_images}")
 
 
 def filter_partial_images(

@@ -290,8 +290,6 @@ class CoastSeg_Map:
             config_loaded = self.load_config_files(dir_path, data_path)
             # create metadata files for each ROI loaded in using coastsat's get_metadata()
             if self.rois and getattr(self.rois, "roi_settings"):
-                # filter out partial imagery
-                common.filter_images_by_roi(self.rois.roi_settings)
                 self.load_metadata(ids=list(self.rois.roi_settings.keys()))
             else:
                 logger.warning(f"No ROIs were able to have their metadata loaded.")
@@ -713,8 +711,8 @@ class CoastSeg_Map:
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
             )
-
-        common.filter_images_by_roi(roi_settings)
+        if settings.get("image_size_filter", True):
+            common.filter_images_by_roi(roi_settings)
 
         logger.info("Done downloading")
 
@@ -976,6 +974,7 @@ class CoastSeg_Map:
             "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
             "apply_cloud_mask": True,
+            "image_size_filter": True,  # True means images are filtered out by size
         }
         self.settings.update(kwargs)
         if "dates" in kwargs.keys():
