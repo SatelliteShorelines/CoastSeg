@@ -30,6 +30,83 @@ from shapely.ops import split
 
 logger = logging.getLogger(__name__)
 
+from typing import List, Union
+from datetime import datetime
+
+import ee
+
+
+def get_collection_by_tier(
+    polygon: List[List[float]],
+    start_date: Union[str, datetime],
+    end_date: Union[str, datetime],
+    satellite: str,
+    tier: int,
+    max_cloud_cover: float = 99,
+) -> Union[ee.ImageCollection, None]:
+    """
+    This function takes the required parameters and returns an ImageCollection from
+    the specified satellite and tier filtered by the given polygon, date range, and cloud cover.
+
+    Args:
+    polygon (List[List[float]]): The polygon to filter the ImageCollection by.
+    start_date (Union[str, datetime]): The start date to filter the ImageCollection by.
+    end_date (Union[str, datetime]): The end date to filter the ImageCollection by.
+    satellite (str): The satellite to select the ImageCollection from.
+    tier (int): The tier of the satellite data.
+    max_cloud_cover (float): The maximum cloud cover percentage to filter the ImageCollection by.
+
+    Returns:
+    ee.ImageCollection or None: The filtered ImageCollection or None if the inputs are invalid.
+    """
+
+    # Converting datetime objects to string if passed as datetime
+    if isinstance(start_date, datetime):
+        start_date = start_date.isoformat()
+    if isinstance(end_date, datetime):
+        end_date = end_date.isoformat()
+
+    # Define collection names
+    col_names = {
+        1: {
+            "L5": "LANDSAT/LT05/C02/T1_TOA",
+            "L7": "LANDSAT/LE07/C02/T1_TOA",
+            "L8": "LANDSAT/LC08/C02/T1_TOA",
+            "L9": "LANDSAT/LC09/C02/T1_TOA",
+            "S2": "COPERNICUS/S2",
+        },
+        2: {
+            "L5": "LANDSAT/LT05/C02/T2_TOA",
+            "L7": "LANDSAT/LE07/C02/T2_TOA",
+            "L8": "LANDSAT/LC08/C02/T2_TOA",
+        },
+    }
+
+    # Validate inputs and get collection name
+    if tier not in col_names:
+        print(f"Invalid tier ({tier})")
+        return None
+    # not all satellites are in tier 2 return None for any that are not
+    if satellite not in col_names[tier]:
+        return None
+
+    collection_name = col_names[tier][satellite]
+    collection = (
+        ee.ImageCollection(collection_name)
+        .filterBounds(ee.Geometry.Polygon(polygon))
+        .filterDate(ee.Date(start_date), ee.Date(end_date))
+    )
+
+    # Add cloud cover filter
+    cloud_property = (
+        "CLOUD_COVER"
+        if satellite in ["L5", "L7", "L8", "L9"]
+        else "CLOUDY_PIXEL_PERCENTAGE"
+    )
+    collection = collection.filter(ee.Filter.lt(cloud_property, max_cloud_cover))
+
+    return collection
+
 
 def count_images_in_ee_collection(
     polygon: list[list[float]],
@@ -75,43 +152,23 @@ def count_images_in_ee_collection(
     elif not isinstance(end_date, datetime):
         raise ValueError("end_date must be a string or datetime object")
 
-    # Check if EE was initialised or not
+    # Check if EE was initialized or not
     try:
         ee.ImageCollection("LANDSAT/LT05/C01/T1_TOA")
     except:
         ee.Initialize()
 
-    col_names_T1 = {
-        "L5": "LANDSAT/LT05/C02/T1_TOA",
-        "L7": "LANDSAT/LE07/C02/T1_TOA",
-        "L8": "LANDSAT/LC08/C02/T1_TOA",
-        "L9": "LANDSAT/LC09/C02/T1_TOA",  # only C02 for Landsat 9
-        "S2": "COPERNICUS/S2",
-    }
-
     image_counts = {}
-
+    images_in_tier_count = 0
     for satellite in satellites:
-        if satellite in col_names_T1:
-            collection_name = col_names_T1[satellite]
-            collection = ee.ImageCollection(collection_name)
-            collection = collection.filterDate(start_date, end_date)
-            collection = collection.filterBounds(ee.Geometry.Polygon(polygon))
-
-            # Add a cloud cover filter for collections that have a 'CLOUD_COVER' property
-            if satellite in ["L5", "L7", "L8", "L9"]:
-                collection = collection.filter(
-                    ee.Filter.lt("CLOUD_COVER", max_cloud_cover)
-                )
-
-            # Add a cloud cover filter for collections that have a 'CLOUDY_PIXEL_PERCENTAGE' property
-            if satellite == "S2":
-                collection = collection.filter(
-                    ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_cover)
-                )
-
-            count = collection.size().getInfo()
-            image_counts[satellite] = count
+        images_in_tier_count = 0
+        for tier in [1, 2]:
+            collection = get_collection_by_tier(
+                polygon, start_date, end_date, satellite, tier, max_cloud_cover
+            )
+            if collection:
+                images_in_tier_count += collection.size().getInfo()
+        image_counts[satellite] = images_in_tier_count
 
     return image_counts
 
