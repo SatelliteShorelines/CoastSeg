@@ -20,6 +20,47 @@ from shapely.geometry import Point
 import pytest
 
 
+def test_filter_images_existing_directory(setup_image_directory):
+    bad_images = common.filter_images(
+        0.8, 1.5, setup_image_directory, setup_image_directory.join("bad")
+    )
+    assert len(bad_images) == 2
+
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_S2_image.jpg") in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_L5_image.jpg") in bad_images
+    )
+
+
+def test_filter_images_non_existing_directory():
+    with pytest.raises(FileNotFoundError):
+        common.filter_images(0.8, 1.5, "non_existing_path", "some_output_path")
+
+
+def test_filter_images_no_jpg_files_found(tmpdir):
+    bad_files = common.filter_images(0.8, 1.5, tmpdir, tmpdir.join("bad"))
+    assert len(bad_files) == 0
+
+
+def test_filter_images_no_output_directory_provided(setup_image_directory):
+    bad_images = common.filter_images(0.8, 1.5, setup_image_directory)
+    assert len(bad_images) == 2
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_S2_image.jpg") in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_L5_image.jpg") in bad_images
+    )
+    assert os.path.exists(
+        os.path.join(setup_image_directory, "bad", "dummy_prefix_S2_image.jpg")
+    )
+    assert os.path.exists(
+        os.path.join(setup_image_directory, "bad", "dummy_prefix_L5_image.jpg")
+    )
+
+
 def test_valid_input():
     rois = gpd.GeoDataFrame({"geometry": [Point(1, 1)]}, crs="EPSG:4326")
 
@@ -645,10 +686,10 @@ def test_convert_wgs_to_utm():
     assert actual_espg.startswith("327")
 
 
-def test_get_center_rectangle():
+def test_get_center_point():
     """test correct center of rectangle is returned"""
     expected_coords = [(4.0, 5.0), (4.0, 6.0), (8.0, 6.0), (8.0, 5.0), (4.0, 5.0)]
-    center_x, center_y = common.get_center_rectangle(expected_coords)
+    center_x, center_y = common.get_center_point(expected_coords)
     assert center_x == 6
     assert center_y == 5.5
 

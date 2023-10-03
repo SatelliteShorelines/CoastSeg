@@ -3,6 +3,8 @@
 import os
 import json
 import pytest
+from PIL import Image
+from shutil import rmtree
 import geopandas as gpd
 from shapely.geometry import shape
 from coastseg import roi
@@ -10,6 +12,35 @@ from coastseg import coastseg_map
 from ipyleaflet import GeoJSON
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+@pytest.fixture
+def setup_image_directory(tmpdir):
+    os.makedirs(tmpdir, exist_ok=True)
+
+    # Create dummy images for different satellites based on the new naming scheme
+    sizes = {
+        "S2": (10, 50),
+        "L7": (66, 66),
+        "L8": (66, 66),
+        "L9": (66, 66),
+        "L5": (10, 33),
+    }
+    for sat, size in sizes.items():
+        img = Image.new("RGB", size, "white")
+        img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))
+
+    return tmpdir
+
+
+@pytest.fixture(autouse=True)
+def cleanup(request):
+    """Clean up after tests."""
+    yield
+    try:
+        rmtree(setup_image_directory)
+    except:
+        pass  # Directory already removed
 
 
 @pytest.fixture
