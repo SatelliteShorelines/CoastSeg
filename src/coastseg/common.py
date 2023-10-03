@@ -106,22 +106,26 @@ def filter_images_by_roi(roi_settings: list[dict]):
 def filter_partial_images(
     roi_gdf: gpd.geodataframe,
     directory: str,
-    lower_bound_offset: float = 1,
-    upper_bound_offset: float = 1,
+    min_area_percentage: float = 0.60,
+    max_area_percentage: float = 1.5,
 ):
     """
-    Filters images in the given directory based on the area of the Region of Interest (ROI).
+    Filters images in a directory based on their area with respect to the area of the Region of Interest (ROI).
 
-    The function calculates the area of the ROI and filters out images whose areas are not within the specified range around the ROI area. The range is defined by subtracting and adding the low_range and high_range values to the ROI area, respectively.
+    This function uses the specified area percentages of the ROI to create a permissible area range. It then checks
+    each image in the directory against this permissible range, and filters out any images whose areas are outside
+    this range.
 
     Args:
         roi_gdf (GeoDataFrame): A GeoDataFrame containing the geometry of the ROI.
-        directory (str): The directory containing the images to be filtered.
-        lower_bound_offset (float, optional): The lower bound of the acceptable area range in km^2 around the ROI area. Defaults to 1km^2.
-        upper_bound_offset (float, optional): The upper bound of the acceptable area range in km^2 around the ROI area. Defaults to 1km^2.
+        directory (str): Directory path containing the images to be filtered.
+        min_area_percentage (float, optional): Specifies the minimum area percentage of the ROI. For instance,
+            0.60 indicates that the minimum permissible area is 60% of the ROI area. Defaults to 0.60.
+        max_area_percentage (float, optional): Specifies the maximum area percentage of the ROI. For instance,
+            1.5 indicates that the maximum permissible area is 150% of the ROI area. Defaults to 1.5.
 
     Returns:
-        None: This function doesn't return anything; it filters out the images not within the specified area range.
+        None: This function doesn't return any value but instead acts on the image files in the directory.
 
     Raises:
         FileNotFoundError: If the specified directory does not exist or doesn't contain any image files.
@@ -133,7 +137,7 @@ def filter_partial_images(
     # low and high range are in km
     roi_area = get_roi_area(roi_gdf)
     filter_images(
-        roi_area - lower_bound_offset, roi_area + upper_bound_offset, directory
+        roi_area * min_area_percentage, roi_area * max_area_percentage, directory
     )
 
 
@@ -158,6 +162,8 @@ def get_roi_area(gdf: gpd.geodataframe) -> float:
         >>> get_roi_area(gdf)
         12.34  # example output in km^2
     """
+    # before  getting the most accurate epsg code convert it to CRS epsg 4326
+    gdf = gdf.to_crs("epsg:4326")
     epsg_code = get_epsg_from_geometry(gdf.geometry.iloc[0])
     # re-project to the UTM zone
     projected_gdf = gdf.to_crs(epsg_code)
@@ -249,7 +255,6 @@ def filter_images(
     bad_files = list(map(lambda s: os.path.join(directory, s), bad_files))
     # move the bad files to the bad folder
     file_utilities.move_files(bad_files, output_directory)
-    # filter metadata ??? this would involve overwriting the old metadata
     return bad_files  # Optionally return the list of bad files
 
 

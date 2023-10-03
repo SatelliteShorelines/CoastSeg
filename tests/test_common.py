@@ -9,15 +9,75 @@ from coastseg import exceptions
 from coastseg import common
 from coastseg import file_utilities
 
-from shapely.geometry import LineString, MultiLineString, Point
+from shapely.geometry import LineString, MultiLineString, Point, Polygon
 import geopandas as gpd
 import numpy as np
 from shapely import geometry
-
-import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Point
 import pytest
+from unittest.mock import patch
+
+
+def test_filter_partial_images():
+    # Mock rectangle with known size 1 degree by 1 degree at the equator.
+    # This is approximately 111 km by 111 km.
+    coords = [(0, 0), (1, 0), (1, 1), (0, 1)]
+    polygon = Polygon(coords)
+    roi_gdf = gpd.GeoDataFrame({"geometry": [polygon]}, crs="EPSG:4326")
+
+    directory = "/path/to/directory"
+
+    with patch("coastseg.common.filter_images") as mock_filter:
+        common.filter_partial_images(roi_gdf, directory)
+
+        # area calculations don't exactly match because the geometry is converted to the most accurate UTM zone to get the least distorted area
+        expected_min_area = 7393.52
+        expected_max_area = 18483.80
+        actual_min_area, actual_max_area, actual_directory = mock_filter.call_args[0]
+        # Assert directory is the same
+        assert actual_directory == directory
+
+        # Assert areas are almost equal within a tolerance
+        np.testing.assert_almost_equal(actual_min_area, expected_min_area, decimal=2)
+        np.testing.assert_almost_equal(actual_max_area, expected_max_area, decimal=2)
+
+
+def test_non_existent_directory():
+    coords = [(0, 0), (1, 0), (1, 1), (0, 1)]
+    polygon = Polygon(coords)
+    roi_gdf = gpd.GeoDataFrame({"geometry": [polygon]}, crs="EPSG:4326")
+
+    directory = "/non/existent/directory"
+
+    with pytest.raises(FileNotFoundError):
+        common.filter_partial_images(roi_gdf, directory)
+
+
+def test_get_roi_area():
+    # Mock rectangle with known size 1 degree by 1 degree at the equator.
+    # This is approximately 111 km by 111 km (for simplicity, we're treating it as a square).
+    coords = [(0, 0), (1, 0), (1, 1), (0, 1)]
+    polygon = Polygon(coords)
+    gdf = gpd.GeoDataFrame({"geometry": [polygon]}, crs="EPSG:4326")
+
+    # The expected area is approximately 111 * 111 = 12321 km^2.
+    # We'll use `pytest.approx` to handle floating-point precision issues.
+    assert common.get_roi_area(gdf) == pytest.approx(12321, 1e-3)
+
+
+def test_empty_geodataframe():
+    gdf = gpd.GeoDataFrame(columns=["geometry"], crs="EPSG:4326")
+    with pytest.raises(IndexError):
+        common.get_roi_area(gdf)
+
+
+def test_invalid_projection():
+    # Mock rectangle, but with a crs that won't be transformed by our get_epsg_from_geometry function
+    coords = [(0, 0), (1, 0), (1, 1), (0, 1)]
+    polygon = Polygon(coords)
+    gdf = gpd.GeoDataFrame({"geometry": [polygon]}, crs="EPSG:3857")
+
+    assert common.get_roi_area(gdf) == pytest.approx(9.95e-7, 1e-3)
 
 
 def test_filter_images_existing_directory(setup_image_directory):
@@ -673,6 +733,30 @@ def test_create_config_gdf(valid_rois_gdf, valid_shoreline_gdf, valid_transects_
     assert actual_gdf[actual_gdf["type"] == "roi"].empty == False
 
 
+def test_get_epsg_from_geometry_northern_hemisphere():
+    # Rectangle around New York City (North)
+    coords = [
+        (-74.2591, 40.4774),
+        (-74.2591, 40.9176),
+        (-73.7004, 40.9176),
+        (-73.7004, 40.4774),
+    ]
+    polygon = Polygon(coords)
+    assert common.get_epsg_from_geometry(polygon) == 32618
+
+
+def test_get_epsg_from_geometry_southern_hemisphere():
+    # Rectangle around Buenos Aires (South)
+    coords = [
+        (-58.5034, -34.7054),
+        (-58.5034, -34.5265),
+        (-58.3399, -34.5265),
+        (-58.3399, -34.7054),
+    ]
+    polygon = Polygon(coords)
+    assert common.get_epsg_from_geometry(polygon) == 32721
+
+
 def test_convert_wgs_to_utm():
     # tests if valid espg code is returned by lon lat coordinates
     lon = 150
@@ -684,6 +768,63 @@ def test_convert_wgs_to_utm():
     actual_espg = common.convert_wgs_to_utm(lon, lat)
     assert isinstance(actual_espg, str)
     assert actual_espg.startswith("327")
+
+
+def test_convert_wgs_to_utm_northern_hemisphere():
+    # New York City (North)
+    lon, lat = -74.006, 40.7128
+    assert common.convert_wgs_to_utm(lon, lat) == "32618"
+
+
+def test_convert_wgs_to_utm_southern_hemisphere():
+    # Buenos Aires (South)
+    lon, lat = -58.3816, -34.6037
+    assert common.convert_wgs_to_utm(lon, lat) == "32721"
+
+
+def test_convert_wgs_to_utm_boundary():
+    # On Prime Meridian, in Ghana (North)
+    lon, lat = 0, 7.9465
+    assert common.convert_wgs_to_utm(lon, lat) == "32631"
+
+
+def test_get_most_accurate_epsg_from_int():
+    # Mock bbox around New York City (North, EPSG:4326 -> EPSG:32618)
+    coords = [
+        (-74.2591, 40.4774),
+        (-74.2591, 40.9176),
+        (-73.7004, 40.9176),
+        (-73.7004, 40.4774),
+    ]
+    polygon = Polygon(coords)
+    bbox = gpd.GeoDataFrame({"geometry": [polygon]})
+    assert common.get_most_accurate_epsg(4326, bbox) == 32618
+
+
+def test_get_most_accurate_epsg_from_str():
+    # Mock bbox around Buenos Aires (South, EPSG:4326 -> EPSG:32721)
+    coords = [
+        (-58.5034, -34.7054),
+        (-58.5034, -34.5265),
+        (-58.3399, -34.5265),
+        (-58.3399, -34.7054),
+    ]
+    polygon = Polygon(coords)
+    bbox = gpd.GeoDataFrame({"geometry": [polygon]})
+    assert common.get_most_accurate_epsg("epsg:4326", bbox) == 32721
+
+
+def test_get_most_accurate_epsg_unchanged():
+    # Mock bbox around New York City
+    coords = [
+        (-74.2591, 40.4774),
+        (-74.2591, 40.9176),
+        (-73.7004, 40.9176),
+        (-73.7004, 40.4774),
+    ]
+    polygon = Polygon(coords)
+    bbox = gpd.GeoDataFrame({"geometry": [polygon]})
+    assert common.get_most_accurate_epsg(3857, bbox) == 3857
 
 
 def test_get_center_point():
