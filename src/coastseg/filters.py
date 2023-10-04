@@ -24,6 +24,15 @@ def copy_files(files: list, dest_folder: str) -> None:
 
 
 def load_data(f: str) -> np.array:
+    """
+    Load the data from the specified .npz file and extract the 'grey_label' array.
+
+    Args:
+        f (str): Path to the .npz file.
+
+    Returns:
+        np.array: The 'grey_label' array from the .npz file.
+    """
     with np.load(f) as data:
         grey = data["grey_label"].astype("uint8")
     return grey
@@ -73,6 +82,17 @@ def get_image_shapes(files: list) -> list:
 
 
 def measure_rmse(da: xr.DataArray, times: list, timeav: xr.DataArray) -> tuple:
+    """
+    Measure the Root Mean Square Error (RMSE) between data arrays and their average.
+
+    Args:
+        da (xr.DataArray): Data array containing time series data.
+        times (list): List of time values.
+        timeav (xr.DataArray): Time-averaged data array.
+
+    Returns:
+        tuple: List of RMSE values and their reshaped version.
+    """
     rmse = [
         float(np.sqrt(np.mean((da.sel(time=t) - timeav) ** 2)).to_numpy())
         for t in times
@@ -82,6 +102,16 @@ def measure_rmse(da: xr.DataArray, times: list, timeav: xr.DataArray) -> tuple:
 
 
 def get_kmeans_clusters(input_rmse: np.array, rmse: list) -> tuple:
+    """
+    Perform KMeans clustering on RMSE values.
+
+    Args:
+        input_rmse (np.array): Array of RMSE values.
+        rmse (list): List of RMSE values.
+
+    Returns:
+        tuple: Labels assigned by KMeans and mean score for each cluster.
+    """
     kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(input_rmse)
     labels = kmeans.labels_
     scores = [
@@ -92,6 +122,15 @@ def get_kmeans_clusters(input_rmse: np.array, rmse: list) -> tuple:
 
 
 def load_xarray_data(f: str) -> xr.DataArray:
+    """
+    Load data from a specified .npz file and convert it to an xarray DataArray.
+
+    Args:
+        f (str): Path to the .npz file.
+
+    Returns:
+        xr.DataArray: Data loaded from file as an xarray DataArray.
+    """
     with np.load(f) as data:
         grey = data["grey_label"].astype("uint8")
     ny, nx = grey.shape
@@ -103,7 +142,15 @@ def load_xarray_data(f: str) -> xr.DataArray:
 def handle_files_and_directories(
     files_bad: list, files_good: list, dest_folder_bad: str, dest_folder_good: str
 ) -> None:
-    """Copy the files into the good an bad directories"""
+    """
+    Organize files into 'good' and 'bad' directories by copying them to respective folders.
+
+    Args:
+        files_bad (list): List of file paths categorized as 'bad'.
+        files_good (list): List of file paths categorized as 'good'.
+        dest_folder_bad (str): Destination folder for 'bad' files.
+        dest_folder_good (str): Destination folder for 'good' files.
+    """
     os.makedirs(dest_folder_bad, exist_ok=True)
     os.makedirs(dest_folder_good, exist_ok=True)
 
@@ -112,6 +159,15 @@ def handle_files_and_directories(
 
 
 def return_valid_files(files: list) -> list:
+    """
+    Return files whose image shapes match the most common shape among the given files.
+
+    Args:
+        files (list): List of file paths.
+
+    Returns:
+        list: File paths whose image shape matches the mode of all file shapes.
+    """
     # print(get_image_shapes(files))
     modal_shape = mode(get_image_shapes(files))
     return [f for f in files if load_data(f).shape == modal_shape]
@@ -120,6 +176,15 @@ def return_valid_files(files: list) -> list:
 def filter_model_outputs(
     label: str, files: list, dest_folder_good: str, dest_folder_bad: str
 ) -> None:
+    """
+    Filter model outputs based on KMeans clustering of RMSE values and organize into 'good' and 'bad'.
+
+    Args:
+        label (str): Label used for categorizing.
+        files (list): List of file paths.
+        dest_folder_good (str): Destination folder for 'good' files.
+        dest_folder_bad (str): Destination folder for 'bad' files.
+    """
     valid_files = return_valid_files(files)
     times, time_var = get_time_vectors(valid_files)
     da = xr.concat([load_xarray_data(f) for f in valid_files], dim=time_var)
@@ -132,6 +197,3 @@ def filter_model_outputs(
     handle_files_and_directories(
         files_bad, files_good, dest_folder_bad, dest_folder_good
     )
-
-    print(f"{len(files_good)} good {label} labels")
-    print(f"{len(files_bad)} bad {label} labels")
