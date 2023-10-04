@@ -8,6 +8,7 @@ from typing import Union
 from coastseg import shoreline
 from coastseg import transects
 import geopandas as gpd
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +184,16 @@ def extract_feature_from_geodataframe(
             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
         )
 
-    # select only the features that are of the correct type and have the correct columns
-    feature_gdf = gdf[gdf[type_column] == feature_type]
+    # Check if feature_type ends with 's' and define alternative feature_type
+    if feature_type.endswith("s"):
+        alt_feature_type = feature_type[:-1]
+    else:
+        alt_feature_type = feature_type + "s"
 
-    return feature_gdf
+    # Filter using both feature_types
+    main_feature_gdf = gdf[gdf[type_column] == feature_type]
+    alt_feature_gdf = gdf[gdf[type_column] == alt_feature_type]
+
+    # Combine both GeoDataFrames
+    combined_gdf = pd.concat([main_feature_gdf, alt_feature_gdf])
+    return combined_gdf

@@ -171,7 +171,8 @@ def get_roi_area(gdf: gpd.geodataframe) -> float:
     return projected_gdf.area.iloc[0] / 1e6
 
 
-def get_satellite_name(filename):
+def get_satellite_name(filename:str):
+    """Returns the satellite name in the jpg name. Does not work tiffs"""
     try:
         return filename.split("_")[2].split(".")[0]
     except IndexError:
