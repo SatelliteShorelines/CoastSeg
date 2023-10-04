@@ -8,6 +8,7 @@ from coastseg import zoo_model
 from coastseg import settings_UI
 from coastseg import common
 from coastseg import file_utilities
+from coastseg.tide_correction import compute_tidal_corrections
 from coastseg.upload_feature_widget import FileUploader
 
 # external python imports
@@ -75,7 +76,6 @@ class UI_Models:
         self.session_name = ""
         self.shoreline_session_directory = ""
         self.model_session_directory = ""
-        self.tides_file = ""
         self.shoreline_session_name = ""
 
         # Declare widgets and on click callbacks
@@ -270,13 +270,6 @@ class UI_Models:
         self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
         self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
 
-        self.select_tides_button = Button(
-            description="Select Tides",
-            style=load_style,
-            icon="fa-file-image-o",
-        )
-        self.select_tides_button.on_click(self.select_tides_button_clicked)
-
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
@@ -288,7 +281,6 @@ class UI_Models:
             [
                 self.beach_slope_text,
                 self.reference_elevation_text,
-                self.select_tides_button,
                 self.tidally_correct_button,
             ]
         )
@@ -304,16 +296,9 @@ class UI_Models:
                 position=3,
             )
             return
-        if self.tides_file == "":
-            self.launch_error_box(
-                "Cannot correct tides",
-                "Must enter a select a tide file first",
-                position=3,
-            )
-            return
         # get session directory location
-        # print("Correcting tides... please wait")
         session_directory = self.shoreline_session_directory
+        session_name = os.path.basename(session_directory)
         logger.info(f"session_directory: {session_directory}")
         # get roi_id
         # @todo find a better way to load the roi id
@@ -327,33 +312,9 @@ class UI_Models:
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-        zoo_model.compute_tidal_corrections(
-            roi_id,
-            session_directory,
-            session_directory,
-            self.tides_file,
-            beach_slope,
-            reference_elevation,
+        compute_tidal_corrections(
+            session_name, [roi_id], beach_slope, reference_elevation
         )
-
-    @tidal_correction_view.capture(clear_output=True)
-    def select_tides_button_clicked(self, button):
-        # Prompt the user to select a directory of images
-        file_chooser = common.create_file_chooser(
-            self.load_tide_callback,
-            title="Select csv file",
-            filter_pattern="*csv",
-            starting_directory="sessions",
-        )
-        # clear row and close all widgets in  self.tidal_correct_file_row before adding new file_chooser
-        common.clear_row(self.tidal_correct_file_row)
-        # add instance of file_chooser to  self.tidal_correct_file_row
-        self.tidal_correct_file_row.children = [file_chooser]
-
-    @tidal_correction_view.capture(clear_output=True)
-    def load_tide_callback(self, filechooser: FileChooser) -> None:
-        if filechooser.selected:
-            self.tides_file = os.path.abspath(filechooser.selected)
 
     def _create_widgets(self):
         self.model_implementation = RadioButtons(
@@ -468,8 +429,7 @@ class UI_Models:
             value="<h2>Tidally Correct</h2>\
             Ensure shorelines are extracted prior to tidal correction. Not all imagery will contain extractable shorelines, thus, tidal correction may not be possible.\
             <br><b>1. Select a Session </b> Choose a session from the 'sessions' directory containing extracted shorelines.\
-            <br><b>2. Select Tides Button</b> Pick a CSV file with tide levels and dates for the ROI.\
-            <br><b>3. Correct Tides Button</b> Click to save tidally corrected CSV files in the selected session directory.\
+            <br><b>2. Correct Tides Button</b> Click to save tidally corrected CSV files in the selected session directory.\
             ",
             layout=Layout(margin="0px 0px 0px 0px"),
         )

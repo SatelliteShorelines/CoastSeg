@@ -6,6 +6,7 @@ import glob
 from datetime import datetime
 from collections import defaultdict
 from typing import Collection, Dict, List, Optional, Tuple, Union
+import traceback
 
 # Third-party imports
 import pandas as pd
@@ -1239,17 +1240,19 @@ class CoastSeg_Map:
             logger.info(f"extracted_shoreline_dict[{roi_id}]: {extracted_shorelines}")
             return extracted_shorelines
         except exceptions.Id_Not_Found as id_error:
-            logger.warning(f"exceptions.Id_Not_Found {id_error}")
+            logger.warning(
+                f"exceptions.Id_Not_Found {id_error} {traceback.format_exc()}"
+            )
             print(f"ROI with id {roi_id} was not found. \n Skipping to next ROI")
         except exceptions.No_Extracted_Shoreline as no_shoreline:
-            logger.warning(f"{roi_id}: {no_shoreline}")
+            logger.warning(f"{roi_id}: {no_shoreline} {traceback.format_exc()}")
             print(f"{roi_id}: {no_shoreline}")
         except Exception as e:
             logger.warning(
-                f"Exception occurred while extracting shoreline for ROI {roi_id}: {e}"
+                f"An error occurred while extracting shoreline for ROI {roi_id}: {e} \n {traceback.format_exc()}"
             )
             print(
-                f"An error occurred while extracting shoreline for ROI {roi_id}. \n Skipping to next ROI"
+                f"An error occurred while extracting shoreline for ROI {roi_id}. \n Skipping to next ROI \n {e} \n {traceback.format_exc()}"
             )
         return None
 

@@ -83,54 +83,6 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> li
     return valid_images
 
 
-def compute_tidal_corrections(
-    roi_id: str,
-    src_location: str,
-    save_path: str,
-    tides_location: str,
-    beach_slope: float,
-    reference_elevation: float,
-) -> None:
-    """Tidaly corrects the intersections between the transects and the extracted shorelines
-    Args:
-        roi_id (str): id of the roi
-        src_location (str): directory containing extracted shorelines and transects
-        save_path (str): directory to save tideally corrected data to
-        tides_location (str): path to csv file containing tides
-        beach_slope (float): beach slope at the ROI's location
-        reference_elevation (float): reference_elevation at the ROI's location
-    """
-    print("Correcting tides... please wait")
-    tide_data = pd.read_csv(tides_location, parse_dates=["dates"])
-    if "tides" not in tide_data.columns or "dates" not in tide_data.columns:
-        logger.error(
-            f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
-        )
-        raise Exception(
-            f"Invalid tides csv file {tides_location} provided must include columns : 'tides'and 'dates'"
-        )
-    # load transect cross distances from file
-    cross_distance = common.load_cross_distances_from_file(src_location)
-    # load extract shorelines from file
-    extract_shorelines_location = os.path.join(
-        src_location, "extracted_shorelines_dict.json"
-    )
-    extract_shorelines_dict = file_utilities.load_data_from_json(
-        extract_shorelines_location
-    )
-    # tidally correct transect shorelines intersections
-    tidal_corrections(
-        roi_id,
-        beach_slope,
-        reference_elevation,
-        extract_shorelines_dict,
-        cross_distance,
-        tide_data,
-        save_path,
-    )
-    print(f"\nFinished tidal corrections.\nResults are located at {save_path}")
-
-
 def get_files_to_download(
     available_files: List[dict], filenames: List[str], model_id: str, model_path: str
 ) -> dict:
@@ -803,7 +755,7 @@ class Zoo_Model:
         self.set_settings(output_epsg=new_espg)
 
         roi_gdf = roi_gdf.to_crs(output_epsg)
-        # save the config files to the new session locaton
+        # save the config files to the new session location
         common.save_config_files(
             new_session_path,
             roi_ids=[roi_id],

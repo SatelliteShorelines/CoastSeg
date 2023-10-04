@@ -7,6 +7,7 @@ from typing import Collection, Dict, Tuple, Union
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
+from coastseg import exception_handler
 
 # Third-party imports
 import geopandas as gpd
@@ -24,6 +25,25 @@ from shapely.geometry import Point
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def compute_tidal_corrections(
+    session_name, roi_ids: Collection, beach_slope: float, reference_elevation: float
+):
+    logger.info(
+        f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
+    )
+    try:
+        correct_all_tides(
+            roi_ids,
+            session_name,
+            reference_elevation,
+            beach_slope,
+        )
+    except Exception as e:
+        print(f"Tide Model Not Found Error \n {e}")
+    else:
+        print("\ntidal corrections completed")
 
 
 def save_csv_per_id(

@@ -278,13 +278,6 @@ class UI:
         # When the traitlet,id_container, trait 'ids' changes the update_widget_options will be updated
         id_container.observe(update_widget_options, names="ids")
 
-        self.select_tides_button = Button(
-            description="Select Tides",
-            style=load_style,
-            icon="file-image-o",
-        )
-        self.select_tides_button.on_click(self.select_tides_button_clicked)
-
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
@@ -320,25 +313,6 @@ class UI:
             selected_rois, beach_slope, reference_elevation
         )
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-
-    @debug_view.capture(clear_output=True)
-    def select_tides_button_clicked(self, button):
-        # Prompt the user to select a directory of images
-        file_chooser = common.create_file_chooser(
-            self.load_tide_callback,
-            title="Select csv file",
-            filter_pattern="*csv",
-            starting_directory="sessions",
-        )
-        # clear row and close all widgets in self.file_chooser_row before adding new file_chooser
-        common.clear_row(self.file_chooser_row)
-        # add instance of file_chooser to self.file_chooser_row
-        self.file_chooser_row.children = [file_chooser]
-
-    @debug_view.capture(clear_output=True)
-    def load_tide_callback(self, filechooser: FileChooser) -> None:
-        if filechooser.selected:
-            self.tides_file = os.path.abspath(filechooser.selected)
 
     def set_session_name(self, name: str):
         self.session_name = str(name).strip()
