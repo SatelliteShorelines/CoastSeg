@@ -19,9 +19,11 @@ import pandas as pd
 import shapely
 from area import area
 from tqdm.auto import tqdm
+from PIL import Image
 from ipyfilechooser import FileChooser
 from ipywidgets import ToggleButton, HBox, VBox, Layout, HTML
 from requests.exceptions import SSLError
+from shapely.geometry import Polygon
 
 # Specific classes/functions from modules
 from typing import Callable, List, Optional, Union, Dict, Set
@@ -36,6 +38,225 @@ from coastseg.exceptions import InvalidGeometryType
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def filter_images_by_roi(roi_settings: list[dict]):
+    """
+    Filters images in specified locations based on their Regions of Interest (ROI).
+
+    This function iterates over the given list of ROI settings dictionaries. For each ROI,
+    it constructs a GeoDataFrame and filters images located in a predefined directory based
+    on the constructed ROI. The function logs a warning and skips to the next ROI
+    if the specified directory for an ROI does not exist.
+
+    Args:
+        roi_settings (list[dict]): A list of dictionaries, each containing the settings
+                                   for a Region of Interest (ROI). Each dictionary must
+                                   have the following structure:
+                                   {
+                                     'roi_id': <int>,
+                                     'sitename': <str>,
+                                     'filepath': <str>,  # Base filepath for the ROI
+                                     'polygon': <list>,  # List of coordinates representing the ROI polygon
+                                   }
+
+    Returns:
+        None: This function doesn't return anything.
+
+    Raises:
+        KeyError: If a required key ('sitename', 'filepath', 'polygon') is missing
+                  in any of the dictionaries in roi_settings.
+
+    Logs:
+        A warning if the location specified by 'filepath' and 'sitename', or the 'ROI_jpg_location'
+        does not exist, specifying the nonexistent location.
+
+    Example:
+        >>> roi_settings = [
+        ...     {
+        ...         'roi_id': 1,
+        ...         'sitename': 'site1',
+        ...         'filepath': '/path/to/site1',
+        ...         'polygon': [[[x1, y1], [x2, y2], [x3, y3], [x4, y4]]],
+        ...     },
+        ...     # More dictionaries for other ROIs
+        ... ]
+        >>> filter_images_by_roi(roi_settings)
+    """
+    # loop through each roi's settings by id
+    for roi_id in roi_settings.keys():
+        sitename = roi_settings[roi_id]["sitename"]
+        filepath = roi_settings[roi_id]["filepath"]
+        polygon = Polygon(roi_settings[roi_id]["polygon"][0])
+        roi_location = os.path.join(filepath, sitename)
+        if not os.path.exists(roi_location):
+            logger.warning(f"Could not filter {roi_location} did not exist")
+            continue
+        ROI_jpg_location = os.path.join(
+            roi_location, "jpg_files", "preprocessed", "RGB"
+        )
+        if not os.path.exists(ROI_jpg_location):
+            logger.warning(f"Could not filter {ROI_jpg_location} did not exist")
+            continue
+        roi_gdf = gpd.GeoDataFrame(index=[0], geometry=[polygon], crs="EPSG:4326")
+        bad_images = filter_partial_images(roi_gdf, ROI_jpg_location)
+        logger.info(f"Partial images filtered out: {bad_images}")
+
+
+def filter_partial_images(
+    roi_gdf: gpd.geodataframe,
+    directory: str,
+    min_area_percentage: float = 0.60,
+    max_area_percentage: float = 1.5,
+):
+    """
+    Filters images in a directory based on their area with respect to the area of the Region of Interest (ROI).
+
+    This function uses the specified area percentages of the ROI to create a permissible area range. It then checks
+    each image in the directory against this permissible range, and filters out any images whose areas are outside
+    this range.
+
+    Args:
+        roi_gdf (GeoDataFrame): A GeoDataFrame containing the geometry of the ROI.
+        directory (str): Directory path containing the images to be filtered.
+        min_area_percentage (float, optional): Specifies the minimum area percentage of the ROI. For instance,
+            0.60 indicates that the minimum permissible area is 60% of the ROI area. Defaults to 0.60.
+        max_area_percentage (float, optional): Specifies the maximum area percentage of the ROI. For instance,
+            1.5 indicates that the maximum permissible area is 150% of the ROI area. Defaults to 1.5.
+
+    Returns:
+        None: This function doesn't return any value but instead acts on the image files in the directory.
+
+    Raises:
+        FileNotFoundError: If the specified directory does not exist or doesn't contain any image files.
+
+    Example:
+        >>> roi_gdf = geopandas.read_file('path_to_roi_file')
+        >>> filter_partial_images(roi_gdf, 'path_to_image_directory')
+    """
+    # low and high range are in km
+    roi_area = get_roi_area(roi_gdf)
+    filter_images(
+        roi_area * min_area_percentage, roi_area * max_area_percentage, directory
+    )
+
+
+def get_roi_area(gdf: gpd.geodataframe) -> float:
+    """
+    Calculates the area of the Region of Interest (ROI) from the given GeoDataFrame.
+
+    The function re-projects the GeoDataFrame to the appropriate UTM zone before calculating the area to ensure accurate area measurements.
+
+    Args:
+        gdf (GeoDataFrame): A GeoDataFrame containing the geometry of the ROI. Assumes that the GeoDataFrame has at least one geometry.
+
+    Returns:
+        float: The area of the ROI in square kilometers.
+
+    Raises:
+        IndexError: If the GeoDataFrame is empty.
+        ValueError: If the re-projection to the UTM zone fails.
+
+    Example:
+        >>> gdf = geopandas.read_file('path_to_file')
+        >>> get_roi_area(gdf)
+        12.34  # example output in km^2
+    """
+    # before  getting the most accurate epsg code convert it to CRS epsg 4326
+    gdf = gdf.to_crs("epsg:4326")
+    epsg_code = get_epsg_from_geometry(gdf.geometry.iloc[0])
+    # re-project to the UTM zone
+    projected_gdf = gdf.to_crs(epsg_code)
+    # calculate the area in km^2
+    return projected_gdf.area.iloc[0] / 1e6
+
+
+def get_satellite_name(filename:str):
+    """Returns the satellite name in the jpg name. Does not work tiffs"""
+    try:
+        return filename.split("_")[2].split(".")[0]
+    except IndexError:
+        # logger.error(f"Unable to extract satellite name from filename: {filename}")
+        return None
+
+
+def filter_images(
+    min_area: float, max_area: float, directory: str, output_directory: str = ""
+) -> list:
+    """
+    Filters images in a given directory based on a range of acceptable areas and moves the filtered out
+    images to a specified output directory.
+
+    The function calculates the area of each image in the specified directory. If the area is outside of
+    the specified minimum and maximum area range, it's considered a bad image. The bad images are then
+    moved to the output directory.
+
+    Args:
+        min_area (float): The minimum acceptable area in square kilometers.
+        max_area (float): The maximum acceptable area in square kilometers.
+        directory (str): The path to the directory containing the images to be filtered.
+        output_directory (str, optional): The path to the directory where the bad images will be moved.
+                                         If not provided, a new directory named 'bad' will be created
+                                         inside the given directory.
+
+    Returns:
+        None: This function doesn't return anything; it moves the filtered out images to the specified
+              output directory.
+
+    Raises:
+        FileNotFoundError: If the specified directory doesn't exist or doesn't contain any .jpg files.
+        KeyError: If the satellite name extracted from a filename is not present in the predefined
+                  pixel_size_per_satellite dictionary.
+
+    Example:
+        >>> filter_images(1, 10, 'path/to/images', 'path/to/bad_images')
+    """
+    if not os.path.exists(directory):
+        raise FileNotFoundError(f"The specified directory does not exist: {directory}")
+
+    if not output_directory:
+        output_directory = os.path.join(directory, "bad")
+    os.makedirs(output_directory, exist_ok=True)
+
+    pixel_size_per_satellite = {
+        "S2": 10,
+        "L7": 15,
+        "L8": 15,
+        "L9": 15,
+        "L5": 30,
+    }
+    bad_files = []
+    jpg_files = [
+        entry.name
+        for entry in os.scandir(directory)
+        if entry.is_file() and entry.name.lower().endswith(".jpg")
+    ]
+
+    for file in jpg_files:
+        # Open the image and get dimensions
+        satname = get_satellite_name(os.path.basename(file))
+        if satname not in pixel_size_per_satellite:
+            logger.error(
+                f"Unknown satellite name {satname} extracted from filename: {file}"
+            )
+            continue
+
+        filepath = os.path.join(directory, file)
+        with Image.open(filepath) as img:
+            width, height = img.size
+            img_area = (
+                width
+                * pixel_size_per_satellite[satname]
+                * height
+                * pixel_size_per_satellite[satname]
+            )
+            img_area /= 1e6  # convert to square kilometers
+            if img_area > max_area or img_area < min_area:
+                bad_files.append(file)
+    bad_files = list(map(lambda s: os.path.join(directory, s), bad_files))
+    # move the bad files to the bad folder
+    file_utilities.move_files(bad_files, output_directory)
+    return bad_files  # Optionally return the list of bad files
 
 
 def validate_geometry_types(
@@ -279,8 +500,19 @@ def edit_metadata(
 
 def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> dict:
     """
-    This function generates a dictionary of new filenames for files in the given directory.
-    The keys of the dictionary are satellite names, and the values are sets of new filenames.
+    Scans the directory for files of a given type and groups them by satellite names into a dictionary.
+    Each entry in the dictionary contains a set of multispectral tif filenames associated with the original filenames and site name.
+
+    Example :
+    file_type = "tif"
+    sitename = "ID_onn15_datetime06-07-23__01_02_19"
+    {
+        "L5":{2014-12-19-18-22-40_L5_ID_onn15_datetime06-07-23__01_02_19_ms.tif,},
+        "L7":{},
+        "L8":{2014-12-19-18-22-40_L8_ID_onn15_datetime06-07-23__01_02_19_ms.tif,},
+        "L9":{},
+        "S2":{},
+    }
 
     Parameters:
     -----------
@@ -297,7 +529,7 @@ def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> di
     Returns:
     --------
     dict
-        A dictionary with satellite names as keys and sets of new filenames as values.
+        a dictionary where each key is a satellite name and each value is a set of the tif filenames.
     """
     filepaths = glob.iglob(os.path.join(directory, f"*.{file_type}"))
 
@@ -934,7 +1166,7 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
             logger.warning("Content length not found in response headers")
 
 
-def get_center_rectangle(coords: list) -> tuple:
+def get_center_point(coords: list) -> tuple:
     """returns the center point of rectangle specified by points coords
     Args:
         coords list[tuple(float,float)]: lat,lon coordinates
@@ -959,7 +1191,7 @@ def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
         int: most accurate epsg code based on lat lon coordinates of given geometry
     """
     rect_coords = geometry.exterior.coords
-    center_x, center_y = get_center_rectangle(rect_coords)
+    center_x, center_y = get_center_point(rect_coords)
     utm_code = convert_wgs_to_utm(center_x, center_y)
     return int(utm_code)
 

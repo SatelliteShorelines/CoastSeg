@@ -16,6 +16,7 @@ from leafmap import Map
 from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
 import traitlets
+from shapely.geometry import Polygon
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -710,6 +711,9 @@ class CoastSeg_Map:
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
             )
+        if settings.get("image_size_filter", True):
+            common.filter_images_by_roi(roi_settings)
+
         logger.info("Done downloading")
 
     def _extract_and_validate_roi_settings(
@@ -970,6 +974,7 @@ class CoastSeg_Map:
             "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
             "apply_cloud_mask": True,
+            "image_size_filter": True,  # True means images are filtered out by size
         }
         self.settings.update(kwargs)
         if "dates" in kwargs.keys():
@@ -2082,22 +2087,23 @@ class CoastSeg_Map:
             file (str, optional): geojson file containing feature. Defaults to "".
             gdf (gpd.GeoDataFrame, optional): geodataframe containing feature geometry. Defaults to None.
         """
-        # if file is passed read gdf from file
+        # Load GeoDataFrame if file is provided
         if file:
             gdf = geodata_processing.load_geodataframe_from_file(
                 file, feature_type=feature_name
             )
-        # ensure the file gdf is not empty
-        if gdf is not None:
-            if gdf.empty:
-                logger.info(f"No {feature_name} was loaded on map")
-                return
+        # Ensure the gdf is not empty
+        if gdf is not None and gdf.empty:
+            logger.info(f"No {feature_name} was loaded on map")
+            return
 
         # create the feature
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         if new_feature is None:
             return
+
         logger.info(f"new_feature: {new_feature} \ngdf: {gdf}")
+
         # load the features onto the map
         self.add_feature_on_map(
             new_feature,

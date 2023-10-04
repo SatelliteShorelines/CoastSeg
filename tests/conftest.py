@@ -3,13 +3,131 @@
 import os
 import json
 import pytest
+from PIL import Image
+from shutil import rmtree
 import geopandas as gpd
 from shapely.geometry import shape
+from shapely.geometry import Point
 from coastseg import roi
 from coastseg import coastseg_map
 from ipyleaflet import GeoJSON
+from tempfile import TemporaryDirectory
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+@pytest.fixture(scope="session")
+def geojson_directory():
+    """
+    Create a temporary directory for geojson files and yield its path.
+    Cleanup after tests are done.
+    """
+    with TemporaryDirectory() as tmpdirname:
+        yield tmpdirname
+
+
+@pytest.fixture(scope="session")
+def valid_geojson_path(geojson_directory):
+    """Create a valid geojson file and return its path."""
+    data = {
+        "type": [
+            "roi",
+            "rois",
+            "shoreline",
+            "shorelines",
+            "transect",
+            "transects",
+            "bbox",
+            "other",
+        ],
+        "geometry": [
+            Point(1, 1),
+            Point(2, 2),
+            Point(3, 3),
+            Point(4, 4),
+            Point(5, 5),
+            Point(6, 6),
+            Point(7, 7),
+            Point(8, 8),
+        ],
+    }
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
+    file_path = os.path.join(geojson_directory, "valid.geojson")
+    gdf.to_file(file_path, driver="GeoJSON")
+    return file_path
+
+@pytest.fixture(scope="session")
+def config_gdf_missing_rois_path(geojson_directory):
+    """Create a valid geojson file and return its path."""
+    data = {
+        "type": [
+            "shoreline",
+            "shorelines",
+            "transect",
+            "transects",
+            "bbox",
+            "other",
+        ],
+        "geometry": [
+            Point(3, 3),
+            Point(4, 4),
+            Point(5, 5),
+            Point(6, 6),
+            Point(7, 7),
+            Point(8, 8),
+        ],
+    }
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
+    file_path = os.path.join(geojson_directory, "valid.geojson")
+    gdf.to_file(file_path, driver="GeoJSON")
+    return file_path
+
+@pytest.fixture(scope="session")
+def empty_geojson_path(geojson_directory):
+    """Create an empty geojson file and return its path."""
+    gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+    file_path = os.path.join(geojson_directory, "empty.geojson")
+    gdf.to_file(file_path, driver="GeoJSON")
+    return file_path
+
+
+@pytest.fixture(scope="session")
+def non_config_geojson_path(geojson_directory):
+    """Create a valid geojson file without the 'type' column and return its path."""
+    data = {"geometry": [Point(1, 1), Point(2, 2), Point(3, 3), Point(4, 4)]}
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
+    file_path = os.path.join(geojson_directory, "non_config.geojson")
+    gdf.to_file(file_path, driver="GeoJSON")
+    return file_path
+
+
+@pytest.fixture
+def setup_image_directory(tmpdir):
+    os.makedirs(tmpdir, exist_ok=True)
+
+    # Create dummy images for different satellites based on the new naming scheme
+    sizes = {
+        "S2": (10, 50),
+        "L7": (66, 66),
+        "L8": (66, 66),
+        "L9": (66, 66),
+        "L5": (10, 33),
+    }
+    for sat, size in sizes.items():
+        img = Image.new("RGB", size, "white")
+        img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))
+
+    return tmpdir
+
+
+@pytest.fixture(autouse=True)
+def cleanup(request):
+    """Clean up after tests."""
+    yield
+    try:
+        rmtree(setup_image_directory)
+    except:
+        pass  # Directory already removed
 
 
 @pytest.fixture

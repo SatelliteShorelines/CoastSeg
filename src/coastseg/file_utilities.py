@@ -5,6 +5,7 @@ import shutil
 import json
 import logging
 import datetime
+from typing import Union, Collection
 
 # Specific classes/functions from modules
 from typing import List, Union
@@ -205,29 +206,75 @@ def validate_config_files_exist(src: str) -> bool:
     return False
 
 
-def move_files(src_dir: str, dst_dir: str, delete_src: bool = False) -> None:
+def move_files(
+    src: Union[str, Collection[str]], dst_dir: str, delete_src: bool = False
+) -> None:
     """
-    Moves every file in a source directory to a destination directory, and has the option to delete the source directory when finished.
-
-    The function uses the `shutil` library to move the files from the source directory to the destination directory. If the `delete_src` argument is set to `True`, the function will delete the source directory after all the files have been moved.
+    Moves every file from either a source directory or a list of source files
+    to a destination directory and optionally deletes the source when finished.
 
     Args:
-    - src_dir (str): The path of the source directory.
-    - dst_dir (str): The path of the destination directory.
-    - delete_src (bool, optional): A flag indicating whether to delete the source directory after the files have been moved. Default is `False`.
+    - src (str or list): The source directory path or a list of source file paths.
+    - dst_dir (str): The destination directory path.
+    - delete_src (bool): Whether to delete the source directory or files after moving. Defaults to False.
 
     Returns:
     - None
     """
-    logger.info(f"Moving files from {src_dir} to dst_dir. Delete Source:{delete_src}")
+
+    # Validate src: it must be a directory path or a list of file paths.
+    if isinstance(src, str):
+        if os.path.isdir(src):
+            src_files = [os.path.join(src, filename) for filename in os.listdir(src)]
+            logger.info(
+                f"Moving all files from directory {src} to {dst_dir}. Delete Source: {delete_src}"
+            )
+        else:
+            logger.error(
+                f"Provided src is a string but not a valid directory path: {src}"
+            )
+            return
+    elif isinstance(src, list):
+        src_files = src
+        logger.info(f"Moving listed files to {dst_dir}. Delete Source: {delete_src}")
+    else:
+        logger.error(
+            "The src parameter must be a directory path (str) or a list of file paths (list)."
+        )
+        return
+
+    # Ensure the destination directory exists.
     if not os.path.exists(dst_dir):
         os.makedirs(dst_dir)
-    for filename in os.listdir(src_dir):
-        src_file = os.path.join(src_dir, filename)
-        dst_file = os.path.join(dst_dir, filename)
-        shutil.move(src_file, dst_file)
+
+    # Check whether the destination directory is the same as any source directory to avoid data loss.
+    for src_file in src_files:
+        src_dir = os.path.dirname(src_file)
+        if os.path.abspath(src_dir) == os.path.abspath(dst_dir):
+            logger.error(
+                f"Cannot move files; the source directory {src_dir} is the same as the destination directory {dst_dir}."
+            )
+            return
+
+    # Move the files from src to dst_dir.
+    for src_file in src_files:
+        if os.path.isfile(src_file):
+            dst_file = os.path.join(dst_dir, os.path.basename(src_file))
+            shutil.move(src_file, dst_file)
+        else:
+            logger.warning(f"{src_file} is not a valid file path. Skipping...")
+
+    # Optionally, delete the source directory or source directories of moved files.
     if delete_src:
-        os.rmdir(src_dir)
+        if isinstance(src, str) and os.path.exists(src):
+            shutil.rmtree(src)
+            logger.info(f"Deleted source directory {src}")
+        elif isinstance(src, list):
+            for src_file in src_files:
+                src_dir = os.path.dirname(src_file)
+                if os.path.exists(src_dir) and not os.listdir(src_dir):
+                    os.rmdir(src_dir)
+                    logger.info(f"Deleted source directory {src_dir}")
 
 
 def get_all_subdirectories(directory: str) -> List[str]:
