@@ -2087,22 +2087,23 @@ class CoastSeg_Map:
             file (str, optional): geojson file containing feature. Defaults to "".
             gdf (gpd.GeoDataFrame, optional): geodataframe containing feature geometry. Defaults to None.
         """
-        # if file is passed read gdf from file
+        # Load GeoDataFrame if file is provided
         if file:
             gdf = geodata_processing.load_geodataframe_from_file(
                 file, feature_type=feature_name
             )
-        # ensure the file gdf is not empty
-        if gdf is not None:
-            if gdf.empty:
-                logger.info(f"No {feature_name} was loaded on map")
-                return
+        # Ensure the gdf is not empty
+        if gdf is not None and gdf.empty:
+            logger.info(f"No {feature_name} was loaded on map")
+            return
 
         # create the feature
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         if new_feature is None:
             return
+
         logger.info(f"new_feature: {new_feature} \ngdf: {gdf}")
+
         # load the features onto the map
         self.add_feature_on_map(
             new_feature,
