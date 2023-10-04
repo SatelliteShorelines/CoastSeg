@@ -7,6 +7,7 @@ import os, shutil
 from sklearn.cluster import KMeans
 from statistics import mode
 
+
 def copy_files(files: list, dest_folder: str) -> None:
     """
     Copy files to a specified destination folder.
@@ -20,11 +21,13 @@ def copy_files(files: list, dest_folder: str) -> None:
     """
     for f in files:
         shutil.copy(f, dest_folder)
-        
+
+
 def load_data(f: str) -> np.array:
     with np.load(f) as data:
         grey = data["grey_label"].astype("uint8")
     return grey
+
 
 def get_good_bad_files(files: list, labels: np.array, scores: list) -> tuple:
     """
@@ -44,6 +47,7 @@ def get_good_bad_files(files: list, labels: np.array, scores: list) -> tuple:
     files_good = np.array(files)[labels == np.argmin(scores)]
     return files_bad, files_good
 
+
 def get_time_vectors(files: list) -> tuple:
     """
     Extract time information from a list of file paths and create an xarray variable.
@@ -59,11 +63,14 @@ def get_time_vectors(files: list) -> tuple:
     times = [f.split(os.sep)[-1].split("_")[0] for f in files]
     return times, xr.Variable("time", times)
 
-def get_image_shapes(files: list) -> list:
-    return [load_data(f).shape for f in files]
 
 def get_image_shapes(files: list) -> list:
     return [load_data(f).shape for f in files]
+
+
+def get_image_shapes(files: list) -> list:
+    return [load_data(f).shape for f in files]
+
 
 def measure_rmse(da: xr.DataArray, times: list, timeav: xr.DataArray) -> tuple:
     rmse = [
@@ -72,6 +79,7 @@ def measure_rmse(da: xr.DataArray, times: list, timeav: xr.DataArray) -> tuple:
     ]
     input_rmse = np.array(rmse).reshape(-1, 1)
     return rmse, input_rmse
+
 
 def get_kmeans_clusters(input_rmse: np.array, rmse: list) -> tuple:
     kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(input_rmse)
@@ -82,6 +90,7 @@ def get_kmeans_clusters(input_rmse: np.array, rmse: list) -> tuple:
     ]
     return labels, scores
 
+
 def load_xarray_data(f: str) -> xr.DataArray:
     with np.load(f) as data:
         grey = data["grey_label"].astype("uint8")
@@ -90,19 +99,23 @@ def load_xarray_data(f: str) -> xr.DataArray:
     x = np.arange(nx)
     return xr.DataArray(grey, coords={"y": y, "x": x}, dims=["y", "x"])
 
+
 def handle_files_and_directories(
     files_bad: list, files_good: list, dest_folder_bad: str, dest_folder_good: str
 ) -> None:
+    """Copy the files into the good an bad directories"""
     os.makedirs(dest_folder_bad, exist_ok=True)
     os.makedirs(dest_folder_good, exist_ok=True)
 
     copy_files(files_bad, dest_folder_bad)
     copy_files(files_good, dest_folder_good)
-      
+
+
 def return_valid_files(files: list) -> list:
     # print(get_image_shapes(files))
     modal_shape = mode(get_image_shapes(files))
     return [f for f in files if load_data(f).shape == modal_shape]
+
 
 def filter_model_outputs(
     label: str, files: list, dest_folder_good: str, dest_folder_bad: str
@@ -122,6 +135,3 @@ def filter_model_outputs(
 
     print(f"{len(files_good)} good {label} labels")
     print(f"{len(files_bad)} bad {label} labels")
-
-
-

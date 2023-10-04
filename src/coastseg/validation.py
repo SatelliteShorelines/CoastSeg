@@ -9,6 +9,7 @@ class Satellite(Enum):
     L9 = 'L9'
     S2 = 'S2'
     
+    
 def is_valid_satellite(satellite_name: str) -> bool:
     return satellite_name.upper() in (sat.value.upper() for sat in Satellite)
 

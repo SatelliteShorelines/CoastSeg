@@ -660,27 +660,6 @@ def load_json_data_from_file(search_location: str, filename: str) -> dict:
     return json_data
 
 
-def load_json_data_from_file(search_location: str, filename: str) -> dict:
-    """
-    Load JSON data from a file by searching for the file in the specified location.
-
-    The function searches recursively in the provided search location for a file with
-    the specified filename. Once the file is found, it loads the JSON data from the file
-    and returns it as a dictionary.
-
-    Args:
-        search_location (str): Directory or path to search for the file.
-        filename (str): Name of the file to load.
-
-    Returns:
-        dict: Data read from the JSON file as a dictionary.
-
-    """
-    file_path = find_file_recursively(search_location, filename)
-    json_data = load_data_from_json(file_path)
-    return json_data
-
-
 def load_data_from_json(filepath: str) -> dict:
     """
     Reads data from a JSON file and returns it as a dictionary.

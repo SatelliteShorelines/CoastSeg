@@ -455,7 +455,7 @@ def process_satellite_image(
         settings["cloud_mask_issue"],
         settings["pan_off"],
         collection,
-        apply_cloud_mask=settings.get("apply_cloud_mask", True),
+        do_cloud_mask=settings.get("apply_cloud_mask", True),
     )
 
     logger.info(f"process_satellite_image_settings: {settings}")
@@ -1167,7 +1167,9 @@ def extract_shorelines_with_dask(
         if len(files) != 0:
             filter_model_outputs(satname, files, good_folder, bad_folder)
 
+    # for each satellite get the list of files that were sorted as 'good'
     filtered_files = get_filtered_files_dict(good_folder, "npz", sitename)
+    # keep only the metadata for the files that were sorted as 'good'
     metadata = edit_metadata(metadata, filtered_files)
 
     result_dict = {}
