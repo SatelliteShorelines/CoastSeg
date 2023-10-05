@@ -86,6 +86,34 @@ def time_func(func):
     return wrapper
 
 
+def is_data_coverage_acceptable(cloud_mask, im_nodata, percent_no_data_allowed=None):
+    """
+    Check if the percentage of no data in an image exceeds a given threshold.
+
+    Args:
+        cloud_mask (np.array): A binary cloud mask of the image.
+        im_nodata (np.array): A binary mask indicating no data areas of the image.
+        percent_no_data_allowed (float, optional): The maximum percentage of no data allowed in the image.
+            If provided, this value should be between 0 and 100. Default is None.
+
+    Returns:
+        bool: False if the percentage of no data exceeds the threshold, otherwise True.
+    """
+    if percent_no_data_allowed is None:
+        return True
+
+    num_total_pixels = cloud_mask.shape[0] * cloud_mask.shape[1]
+    percentage_no_data = np.sum(im_nodata) / num_total_pixels
+    logger.info(f"percentage_no_data: {percentage_no_data}")
+    logger.info(f"percent_no_data_allowed: {percent_no_data_allowed}")
+    if percentage_no_data > percent_no_data_allowed:
+        logger.info(
+            f"percent_no_data_allowed exceeded {percentage_no_data} > {percent_no_data_allowed}"
+        )
+        return False
+    return True
+
+
 def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
@@ -293,14 +321,15 @@ def process_satellite(
         return output
 
     collection = settings["inputs"]["landsat_collection"]
-    default_min_length_sl = settings["min_length_sl"]
     # deep copy settings
     settings = copy.deepcopy(settings)
     filepath = get_filepath(settings["inputs"], satname)
     pixel_size = get_pixel_size_for_satellite(satname)
 
     # get the minimum beach area in number of pixels depending on the satellite
-    settings["min_length_sl"] = get_min_shoreline_length(satname, default_min_length_sl)
+    settings["min_length_sl"] = get_min_shoreline_length(
+        satname, settings["min_length_sl"]
+    )
 
     # loop through the images
     espg_list = []
@@ -462,17 +491,11 @@ def process_satellite_image(
     # if percentage of no data pixels are greater than allowed, skip
     percent_no_data_allowed = settings.get("percent_no_data", None)
     logger.info(f"percent_no_data_allowed: {percent_no_data_allowed}")
-    if percent_no_data_allowed is not None:
-        percent_no_data_allowed = percent_no_data_allowed / 100
-        num_total_pixels = cloud_mask.shape[0] * cloud_mask.shape[1]
-        percentage_no_data = np.sum(im_nodata) / num_total_pixels
-        logger.info(f"percentage_no_data: {percentage_no_data}")
-        logger.info(f"percent_no_data_allowed: {percent_no_data_allowed}")
-        if percentage_no_data > percent_no_data_allowed:
-            logger.info(
-                f"percent_no_data_allowed exceeded {percentage_no_data} > {percent_no_data_allowed}"
-            )
-            return None
+    # if the percent no data exceeds percent_no_data_allowed then return None
+    if not is_data_coverage_acceptable(
+        cloud_mask, im_nodata, percent_no_data_allowed / 100
+    ):
+        return None
 
     # compute cloud_cover percentage (with no data pixels)
     cloud_cover_combined = get_cloud_cover_combined(cloud_mask)
@@ -1091,6 +1114,13 @@ def simplified_find_contours(
     """
     # Apply the cloud mask by setting masked pixels to a special value (e.g., -1)
     im_labels_masked = im_labels.copy()
+    # new idea maybe we should increase the referemxe shoreline buffer
+    # thie is what SDS_shoreline does find_wl_contours1
+    # use im_ref_buffer and dilate it by 5 pixels
+    # se = morphology.disk(5)
+    # im_ref_buffer_extra = morphology.binary_dilation(im_ref_buffer, se)
+    # vec_buffer = im_ref_buffer_extra.reshape(nrows * ncols)
+
     # im_labels_masked[cloud_mask] = -1
     # # Apply the reference shoreline buffer mask by setting masked pixels to a special value (e.g., -1)
     # im_labels_masked[~reference_shoreline_buffer] = -1
