@@ -44,13 +44,11 @@ def load_intersecting_transects(
     # Get the bounding box of the rectangle
     bbox = rectangle.bounds.iloc[0].tolist()
 
-    print(f"transect_files: {transect_files}")
     # Iterate over each transect file and select the transects that intersect with the rectangle
     for transect_file in transect_files:
         transects_name = os.path.splitext(transect_file)[0]
         transect_path = os.path.join(transect_dir, transect_file)
         transects = gpd.read_file(transect_path, bbox=bbox)
-        print(f"transects: {transects}")
         if transects.empty:
             logger.info("Skipping %s", transects_name)
             continue
@@ -73,7 +71,6 @@ def load_intersecting_transects(
     )
     # make sure all the ids in selected_transects are unique
     selected_transects = create_unique_ids(selected_transects, prefix_length=3)
-    print(f"selected_transects: {selected_transects}")
     return selected_transects
 
 
