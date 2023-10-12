@@ -1,5 +1,6 @@
 # Standard library imports
 import os
+import math
 import json
 import logging
 import glob
@@ -1032,12 +1033,42 @@ class CoastSeg_Map:
         feature_y = properties.get("feature_y", "unknown")
         nearest_x = properties.get("nearest_x", "unknown")
         nearest_y = properties.get("nearest_y", "unknown")
+        variables = [distance, feature_x, feature_y, nearest_x, nearest_y]
+
+        def is_unknown_or_None_or_nan(value):
+            if isinstance(value, str):
+                return True
+            if not value:
+                return True
+            elif math.isnan(value):
+                return True
+
         # Conditional rounding or keep as 'unknown'
-        distance = round(float(distance), 3) if distance != "unknown" else distance
-        feature_x = round(float(feature_x), 6) if feature_x != "unknown" else feature_x
-        feature_y = round(float(feature_y), 6) if feature_y != "unknown" else feature_y
-        nearest_x = round(float(nearest_x), 6) if nearest_x != "unknown" else nearest_x
-        nearest_y = round(float(nearest_y), 6) if nearest_y != "unknown" else nearest_y
+        distance = (
+            round(float(distance), 3)
+            if not is_unknown_or_None_or_nan(distance)
+            else "unknown"
+        )
+        feature_x = (
+            round(float(feature_x), 6)
+            if not is_unknown_or_None_or_nan(feature_x)
+            else "unknown"
+        )
+        feature_y = (
+            round(float(feature_y), 6)
+            if not is_unknown_or_None_or_nan(feature_y)
+            else "unknown"
+        )
+        nearest_x = (
+            round(float(nearest_x), 6)
+            if not is_unknown_or_None_or_nan(nearest_x)
+            else "unknown"
+        )
+        nearest_y = (
+            round(float(nearest_y), 6)
+            if not is_unknown_or_None_or_nan(nearest_y)
+            else "unknown"
+        )
 
         self.feature_html.value = (
             "<div style='max-width: 230px; max-height: 200px; overflow-x: auto; overflow-y: auto'>"
