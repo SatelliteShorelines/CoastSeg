@@ -171,7 +171,7 @@ def get_roi_area(gdf: gpd.geodataframe) -> float:
     return projected_gdf.area.iloc[0] / 1e6
 
 
-def get_satellite_name(filename:str):
+def get_satellite_name(filename: str):
     """Returns the satellite name in the jpg name. Does not work tiffs"""
     try:
         return filename.split("_")[2].split(".")[0]
@@ -1700,12 +1700,12 @@ def create_config_gdf(
         "bbox": bbox_gdf,
     }
 
-    # Process each GeoDataFrame
+    # initialize each gdf
     for gdf_type, gdf in gdfs.items():
         gdfs[gdf_type] = set_crs_or_initialize_empty(gdf, epsg_code)
         gdfs[gdf_type]["type"] = gdf_type
 
-    # Concatenate GeoDataFrames
+    # Concatenate GeoDataFrames into a single config gdf
     config_gdf = pd.concat(gdfs.values(), ignore_index=True)
 
     return config_gdf
