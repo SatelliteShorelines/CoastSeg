@@ -44,11 +44,16 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
     """
 
     # Define the button layout
-    button_layout = ipywidgets.Layout(width="21%", height="25%", margin="10px")
+    button_layout = ipywidgets.Layout(
+        width="auto",
+        height="25%",
+        margin="5px",
+        padding="0px",
+    )
 
     # Define the compact layout for the VBoxes
     compact_layout = ipywidgets.Layout(
-        width="50%", overflow="auto", height="auto", padding="0px", margin="10px"
+        width="70%", overflow="auto", height="auto", padding="0px", margin="0px"
     )
 
     def __init__(self, extracted_shoreline_traitlet):
@@ -69,12 +74,17 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
 
         # List widgets
         self.load_list_widget = ipywidgets.SelectMultiple(
-            description="load_list",
+            description="",
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
         )
         self.trash_list_widget = ipywidgets.SelectMultiple(
-            description="trash_list",
+            description="",
+            options=[],
+            layout=ipywidgets.Layout(padding="0px", margin="0px"),
+        )
+        self.ROI_list_widget = ipywidgets.SelectMultiple(
+            description="Available ROIs",
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
         )
@@ -84,7 +94,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             description="",
             icon="trash",
             button_style="danger",
-            layout=ipywidgets.Layout(width="8%", height="21%", margin="10px"),
+            layout=ipywidgets.Layout(width="8%", height="30%", margin="10px"),
             tooltip="Trash",
         )
         self.empty_trash_button = ipywidgets.Button(
@@ -135,10 +145,12 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
                 self.trash_list_widget,
                 ipywidgets.VBox(
                     [self.undo_button, self.empty_trash_button],
-                    layout=ipywidgets.Layout(width="65%"),
+                    layout=ipywidgets.Layout(width="30%"),
                 ),
             ],
-            layout=ipywidgets.Layout(width="100%"),
+            layout=ipywidgets.Layout(
+                width="90%", overflow="visible", background_color="#f2f2f2"
+            ),
         )
         load_instruction_box = ipywidgets.VBox(
             [load_instruction], layout=Extracted_Shoreline_widget.compact_layout
@@ -156,11 +168,22 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
                 trash_list_vbox,
             ],
             layout=ipywidgets.Layout(
-                width="100%", overflow="auto", height="auto", padding="0px"
+                width="100%", overflow="visible", height="auto", padding="0px"
             ),
         )
 
         super().__init__([total_VBOX])
+
+    # def add_ROI_callback(self, callback: Callable[[List[str]], None]):
+    #     """
+    #     Add a callback function to be called when a shoreline is selected.
+
+    #     Parameters
+    #     ----------
+    #     callback : function
+    #         The function to be called when a shoreline is selected.
+    #     """
+    #     self.load_callback = callback
 
     def add_load_callback(self, callback: Callable[[List[str]], None]):
         """
