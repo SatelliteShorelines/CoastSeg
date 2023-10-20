@@ -83,7 +83,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
         )
-        self.ROI_list_widget = ipywidgets.SelectMultiple(
+        self.ROI_list_widget = ipywidgets.dropdown(
             description="Available ROIs",
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
@@ -176,14 +176,14 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
 
     # def add_ROI_callback(self, callback: Callable[[List[str]], None]):
     #     """
-    #     Add a callback function to be called when a shoreline is selected.
+    #     Add a callback function to be called when a ROI ID is selected.
 
     #     Parameters
     #     ----------
     #     callback : function
-    #         The function to be called when a shoreline is selected.
+    #         The function to be called when a ROI ID is selected.
     #     """
-    #     self.load_callback = callback
+    #     self.roi_selected_callback = callback
 
     def add_load_callback(self, callback: Callable[[List[str]], None]):
         """
@@ -217,6 +217,11 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             The function to be called  when shorelines need to be removed.
         """
         self.remove_callback = callback
+
+    # def on_roi_selected(self, change: dict):
+    #     """Callback function for when an ROI ID is selected"""
+    #     # when the content sof the load list changes update the layer
+    #     # self.roi_selected_callback(change["new"])
 
     def on_load_selected(self, change: dict):
         """Callback function for when a load shoreline item is selected"""

@@ -1816,7 +1816,6 @@ def get_reference_shoreline(
     """
     # project shorelines's espg from map's espg to output espg given in settings
     reprojected_shorlines = shoreline_gdf.to_crs(output_crs)
-    logger.info(f"reprojected_shorlines.crs: {reprojected_shorlines.crs}")
     logger.info(f"reprojected_shorlines: {reprojected_shorlines}")
     # convert shoreline_in_roi gdf to coastsat compatible format np.array([[lat,lon,0],[lat,lon,0]...])
     shorelines = make_coastsat_compatible(reprojected_shorlines)
