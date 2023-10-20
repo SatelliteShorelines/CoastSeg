@@ -102,7 +102,7 @@ def get_files_to_download(
         filenames = [filenames]
     url_dict = {}
     for filename in filenames:
-        response = next((f for f in available_files if f["key"] == filename), None)
+        response = next((f for f in available_files if f["filename"] == filename), None)
         if response is None:
             raise ValueError(f"Cannot find {filename} at {model_id}")
         link = response["links"]["self"]
@@ -1280,7 +1280,7 @@ class Zoo_Model:
         download_dict = {}
         # download best_model.txt and read the name of the best model
         best_model_json = next(
-            (f for f in available_files if f["key"] == "BEST_MODEL.txt"), None
+            (f for f in available_files if f["filename"] == "BEST_MODEL.txt"), None
         )
         if best_model_json is None:
             raise ValueError(f"Cannot find BEST_MODEL.txt in {model_id}")
@@ -1344,8 +1344,10 @@ class Zoo_Model:
         """
         download_dict = {}
         # get json and models
-        all_models_reponses = [f for f in available_files if f["key"].endswith(".h5")]
-        all_model_names = [f["key"] for f in all_models_reponses]
+        all_models_reponses = [
+            f for f in available_files if f["filename"].endswith(".h5")
+        ]
+        all_model_names = [f["filename"] for f in all_models_reponses]
         json_file_names = [
             model_name.replace("_fullmodel.h5", ".json")
             for model_name in all_model_names
