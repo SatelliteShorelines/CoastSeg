@@ -6,6 +6,11 @@ from ipywidgets import HTML
 from ipywidgets import BoundedFloatText
 from ipywidgets import Select
 from ipywidgets import BoundedIntText
+from ipywidgets import Accordion
+
+
+def str_to_bool(var: str) -> bool:
+    return var == "True"
 
 
 class Settings_UI:
@@ -23,6 +28,7 @@ class Settings_UI:
 
     def get_settings(self) -> dict:
         settings = {
+            "apply_cloud_mask": str_to_bool(self.apply_cloud_mask_toggle.value),
             "max_dist_ref": self.shoreline_buffer_slider.value,
             "along_dist": self.alongshore_distance_slider.value,
             "dist_clouds": self.cloud_slider.value,
@@ -243,7 +249,7 @@ class Settings_UI:
     def get_cloud_threshold_slider(self):
         instr = HTML(
             value="<b>Cloud Threshold</b> \
-                     </br>- Maximum percetange of cloud pixels allowed"
+                     </br>- Maximum percentage of cloud pixels allowed"
         )
         self.cloud_threshold_slider = ipywidgets.FloatSlider(
             value=0.5,
@@ -300,23 +306,65 @@ class Settings_UI:
         )
         return VBox([label, self.min_chainage_text])
 
+    def get_apply_could_mask_toggle(self):
+        instr = HTML(
+            value="<b>Cloud Mask Toggle</b> \
+                     </br>- Defaults to True. Switch to False to turn off cloud masking."
+        )
+        self.apply_cloud_mask_toggle = ipywidgets.ToggleButtons(
+            options=["True", "False"],
+            description="Apply Cloud Masking",
+            disabled=False,
+            tooltips=[
+                "Cloud Masking On",
+                "Cloud Masking Off",
+            ],
+        )
+        return VBox([instr, self.apply_cloud_mask_toggle])
+
     def render(self):
-        # return a vbox of all the settings
+        # create settings accordion widget
+        settings_accordion = Accordion(
+            children=[
+                self.get_basic_settings_section(),
+                self.get_advanced_settings_section(),
+            ]
+        )
+        # settings_accordion.set_title(0, "Settings")
+        settings_accordion.set_title(0, "Basic Settings")
+        settings_accordion.set_title(1, "Advanced Settings")
+        settings_accordion.selected_index = 0
+
+        return settings_accordion
+
+    def get_advanced_settings_section(self):
+        # declare settings widgets
         settings = {
-            "min_length_sl_slider": self.get_min_length_sl_slider(),
-            "beach_area_slider": self.get_beach_area_slider(),
-            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
-            "cloud_slider": self.get_cloud_slider(),
-            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
             "along_dist": self.get_alongshore_distance_slider(),
+            
             "min_points": self.get_min_points_text(),
             "max_std": self.get_max_std_text(),
             "max_range": self.get_max_range_text(),
             "min_chainage": self.get_min_chainage_text(),
             "multiple_inter": self.get_outliers_mode(),
             "prc_multiple": self.get_prc_multiple_text(),
-            "percent_no_data": self.get_no_data_slider(),
         }
+
+        # create settings vbox
+        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
+        return settings_vbox
+
+    def get_basic_settings_section(self):
+        # declare settings widgets
+        settings = {
+            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
+            "min_length_sl_slider": self.get_min_length_sl_slider(),
+            "beach_area_slider": self.get_beach_area_slider(),
+            "cloud_slider": self.get_cloud_slider(),
+            "apply_cloud_mask": self.get_apply_could_mask_toggle(),
+            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+        }
+
         # create settings vbox
         settings_vbox = VBox([widget for widget_name, widget in settings.items()])
         return settings_vbox
