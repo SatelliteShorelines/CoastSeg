@@ -7,6 +7,7 @@ import asyncio
 import platform
 import json
 import logging
+import shutil
 from typing import List, Set, Tuple
 
 from coastsat import SDS_tools
@@ -855,8 +856,19 @@ class Zoo_Model:
             raise FileNotFoundError(
                 f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
             )
-        # copy configs from data/roi_id location to session location
-        common.copy_configs(roi_directory, session_path)
+        # modify the config.json to only have the ROI ID that was used and save to session directory
+        roi_id = file_utilities.extract_roi_id(roi_directory)
+        common.save_new_config(
+            os.path.join(roi_directory, "config.json"),
+            roi_id,
+            os.path.join(session_path, "config.json"),
+        )
+        # Copy over the config_gdf.geojson file
+        config_gdf_path = os.path.join(roi_directory, "config_gdf.geojson")
+        if os.path.exists(config_gdf_path):
+            shutil.copy(
+                config_gdf_path, os.path.join(session_path, "config_gdf.geojson")
+            )
         model_settings_path = os.path.join(session_path, "model_settings.json")
         file_utilities.write_to_json(model_settings_path, preprocessed_data)
 
@@ -950,12 +962,14 @@ class Zoo_Model:
         roi_directory = file_utilities.find_parent_directory(
             src_directory, "ID_", "data"
         )
+
         print(f"Preprocessing the data at {roi_directory}")
         model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
         logger.info(f"model_dict: {model_dict}")
 
         self.compute_segmentation(model_dict, percent_no_data)
         self.postprocess_data(model_dict, session, roi_directory)
+        session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
         print(f"\n Model results saved to {session.path}")
 
     def get_model_directory(self, model_id: str):

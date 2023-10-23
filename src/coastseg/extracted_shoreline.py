@@ -5,6 +5,7 @@ import fnmatch
 import json
 import json
 import logging
+import re
 import os
 from glob import glob
 from time import perf_counter
@@ -245,7 +246,7 @@ def compute_transects_from_roi(
     return cross_distance
 
 
-def combine_satellite_data(satellite_data: dict):
+def combine_satellite_data(satellite_data: dict) -> dict:
     """
     Function to merge the satellite_data dictionary, which has one key per satellite mission
     into a dictionnary containing all the shorelines and dates ordered chronologically.
@@ -263,7 +264,14 @@ def combine_satellite_data(satellite_data: dict):
 
     """
     # Initialize merged_satellite_data dict
-    merged_satellite_data = {}
+    merged_satellite_data = {
+        "dates": [],
+        "geoaccuracy": [],
+        "shorelines": [],
+        "idx": [],
+        "satname": [],
+    }
+
     # Iterate through satellite_data keys (satellite names)
     for satname in satellite_data:
         # Iterate through each key in the nested dictionary
@@ -287,14 +295,17 @@ def combine_satellite_data(satellite_data: dict):
         # Add satellite name entries for each date
         if "dates" in sat_data.keys():
             merged_satellite_data["satname"] += [satname] * len(sat_data["dates"])
-    # Sort chronologically
-    idx_sorted = sorted(
-        range(len(merged_satellite_data["dates"])),
-        key=lambda i: merged_satellite_data["dates"][i],
-    )
+    # Sort dates chronologically
+    if "dates" in merged_satellite_data.keys():
+        idx_sorted = sorted(
+            range(len(merged_satellite_data["dates"])),
+            key=lambda i: merged_satellite_data["dates"][i],
+        )
 
-    for key in merged_satellite_data.keys():
-        merged_satellite_data[key] = [merged_satellite_data[key][i] for i in idx_sorted]
+        for key in merged_satellite_data.keys():
+            merged_satellite_data[key] = [
+                merged_satellite_data[key][i] for i in idx_sorted
+            ]
 
     return merged_satellite_data
 
@@ -1254,23 +1265,14 @@ def extract_shorelines_with_dask(
         filepath_jpg = os.path.join(filepath_data, sitename, "jpg_files", "detection")
         os.makedirs(filepath_jpg, exist_ok=True)
 
-    # for each satellite, sort the model outputs into good & bad
-    good_folder = os.path.join(session_path, "good")
-    bad_folder = os.path.join(session_path, "bad")
-    satellites = get_satellites_in_directory(session_path)
-    for satname in satellites:
-        # get all the model_outputs that have the satellite in the filename
-        # files = glob(f"{session_path}{os.sep}*{satname}*.npz")
-        files = file_utilities.find_files_recursively(
-            session_path, f"*{satname}*.npz", raise_error=False
-        )
-        if len(files) != 0:
-            filter_model_outputs(satname, files, good_folder, bad_folder)
+    # get the directory containing the good model outputs
+    good_folder = get_sorted_model_outputs_directory(session_path)
 
     # get the list of files that were sorted as 'good'
     filtered_files = get_filtered_files_dict(good_folder, "npz", sitename)
     # keep only the metadata for the files that were sorted as 'good'
     metadata = edit_metadata(metadata, filtered_files)
+    logger.info(f"edit_metadata metadata: {metadata}")
 
     result_dict = {}
     for satname in metadata:
@@ -1287,10 +1289,46 @@ def extract_shorelines_with_dask(
         )
         result_dict.update(satellite_dict)
 
-    # combine the extracted shorelines for each satellite
+        # combine the extracted shorelines for each satellite
+    logger.info(f"Combining extracted shorelines for each satellite : {result_dict}")
     extracted_shorelines_data = combine_satellite_data(result_dict)
 
     return extracted_shorelines_data
+
+
+def get_sorted_model_outputs_directory(
+    session_path: str,
+) -> str:
+    """
+    Sort model output files into "good" and "bad" folders based on the satellite name in the filename.
+
+    Args:
+        session_path (str): The path to the session directory containing the model output files.
+
+    Returns:
+        str: The path to the "good" folder containing the sorted model output files.
+    """
+    # for each satellite, sort the model outputs into good & bad
+    good_folder = os.path.join(session_path, "good")
+    bad_folder = os.path.join(session_path, "bad")
+    satellites = get_satellites_in_directory(session_path)
+    for satname in satellites:
+        if os.path.exists(good_folder) and os.listdir(good_folder)!= []:
+            return good_folder
+        else:
+            # get all the model_outputs that have the satellite in the filename
+            try:
+                # get all the model_outputs that have the satellite in the filename
+                files = file_utilities.find_files_recursively(
+                    session_path, f".*{re.escape(satname)}.*\\.npz$", raise_error=False
+                )
+            except Exception as e:
+                logger.error(f"Error finding files for satellite {satname}: {e}")
+                continue
+            logger.info(f"{session_path} contained {satname} files: {files} ")
+            if len(files) != 0:
+                filter_model_outputs(satname, files, good_folder, bad_folder)
+    return good_folder
 
 
 def get_min_shoreline_length(satname: str, default_min_length_sl: float) -> int:
@@ -1611,6 +1649,7 @@ class Extracted_Shoreline:
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
             self.dictionary = {}
+            return self
         else:
             logger.info(f"metadata: {metadata}")
 

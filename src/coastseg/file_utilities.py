@@ -627,28 +627,29 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
 
 
 def find_files_recursively(
-    path: str = ".", name: str = "*RGB*", raise_error: bool = False
+    path: str = ".", search_pattern: str = "*RGB*", raise_error: bool = False
 ) -> List[str]:
     """
-    Recursively search for files with the given name in the given path or its subdirectories.
+    Recursively search for files with the given search pattern in the given path or its subdirectories.
 
     Args:
         path (str): The starting directory to search in. Defaults to current directory.
-        name (str): The name of the files to search for. Defaults to "RGB".
+        search_pattern (str): The search pattern to match against file names. Defaults to "*RGB*".
         raise_error (bool): Whether to raise an error if no files are found. Defaults to False.
 
     Returns:
-        list: A list of paths to all files that match the given name.
+        list: A list of paths to all files that match the given search pattern.
     """
     file_locations = []
+    regex = re.compile(search_pattern, re.IGNORECASE)
     for dirpath, dirnames, filenames in os.walk(path):
         for filename in filenames:
-            if filename == name:
+            if regex.match(filename):
                 file_location = os.path.join(dirpath, filename)
                 file_locations.append(file_location)
 
     if not file_locations and raise_error:
-        raise Exception(f"No files matching {name} could be found at {path}")
+        raise Exception(f"No files matching {search_pattern} could be found at {path}")
 
     return file_locations
 

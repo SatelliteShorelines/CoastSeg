@@ -1,11 +1,13 @@
-import datetime
+import logging
 from statistics import mode
 import numpy as np
 import xarray as xr
-from glob import glob
 import os, shutil
 from sklearn.cluster import KMeans
 from statistics import mode
+
+# Logger setup
+logger = logging.getLogger(__name__)
 
 
 def copy_files(files: list, dest_folder: str) -> None:
@@ -153,7 +155,8 @@ def handle_files_and_directories(
     """
     os.makedirs(dest_folder_bad, exist_ok=True)
     os.makedirs(dest_folder_good, exist_ok=True)
-
+    logger.info(f"Copying {len(files_bad)} files to {dest_folder_bad}")
+    logger.info(f"Copying {len(files_good)} files to {dest_folder_good}")
     copy_files(files_bad, dest_folder_bad)
     copy_files(files_good, dest_folder_good)
 

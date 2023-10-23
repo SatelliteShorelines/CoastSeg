@@ -39,6 +39,62 @@ from coastseg.exceptions import InvalidGeometryType
 # Logger setup
 logger = logging.getLogger(__name__)
 
+def create_new_config(roi_ids:list,settings:dict,roi_settings:dict)->dict:
+    """
+    Creates a new configuration dictionary by combining the given settings and ROI settings.
+
+    Arguments:
+    -----------
+    roi_ids: list
+        A list of ROI IDs to include in the new configuration.
+    settings: dict
+        A dictionary containing general settings for the configuration.
+    roi_settings: dict
+        A dictionary containing ROI-specific settings for the configuration.
+        example:
+        {'example_roi_id': {'dates':[]}
+
+    Returns:
+    -----------
+    new_config: dict
+        A dictionary containing the combined settings and ROI settings, as well as the ROI IDs.
+    """
+    new_config = {
+        'settings': {},
+        'roi_ids': [],
+        
+    }
+    if isinstance(roi_ids, str):
+        roi_ids = [roi_ids]
+    if not all(roi_id in roi_settings.keys() for roi_id in roi_ids):
+        raise ValueError(f'roi_ids {roi_ids} not in roi_settings {roi_settings.keys()}')
+    new_config = {**new_config, **roi_settings}
+    new_config['roi_ids'].extend(roi_ids)
+    new_config['settings'] =settings
+    return new_config
+
+def save_new_config(path:str,roi_ids:list, destination:str)->dict:
+    """Save a new config file to a path.
+
+    Args:
+        path (str): the path to read the original config file from
+        roi_ids (list): a list of roi_ids to include in the new config file
+        destination (str):the path to save the new config file to
+    """
+    with open(path) as f:
+        config = json.load(f)
+        
+    if isinstance(roi_ids, str):
+        roi_ids = [roi_ids]
+    
+    roi_settings = {}
+    for roi_id in roi_ids:
+        if roi_id in config.keys():
+            roi_settings[roi_id] = config[roi_id]
+    
+    new_config=create_new_config(roi_ids,config['settings'],roi_settings)
+    with open(destination, "w") as f:
+        json.dump(new_config, f)
 
 def filter_images_by_roi(roi_settings: list[dict]):
     """
