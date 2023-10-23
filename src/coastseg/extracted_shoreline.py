@@ -332,7 +332,7 @@ def process_satellite(
             batch * batch_size, min((batch + 1) * batch_size, len(filenames))
         ):
             image_epsg = metadata[satname]["epsg"][index]
-            espg_list.append(metadata[satname]["epsg"][index])
+            espg_list.append(image_epsg)
             geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
             timestamps.append(metadata[satname]["dates"][index])
 
@@ -1089,19 +1089,19 @@ def simplified_find_contours(
     processed_contours: list of arrays
         processed image contours (only the ones that do not contains NaNs)
     """
-    # Apply the cloud mask by setting masked pixels to a special value (e.g., -1)
-    im_labels_masked = im_labels.copy()
-    # im_labels_masked[cloud_mask] = -1
-    # # Apply the reference shoreline buffer mask by setting masked pixels to a special value (e.g., -1)
-    # im_labels_masked[~reference_shoreline_buffer] = -1
+    # make a copy of the im_labels array as a float (this allows find contours to work))
+    im_labels_masked = im_labels.copy().astype(float)
+    # Apply the cloud mask by setting masked pixels to NaN
     im_labels_masked[cloud_mask] = np.NaN
-    # Apply the reference shoreline buffer mask by setting masked pixels to a special value (e.g., -1)
-    im_labels_masked[~reference_shoreline_buffer] = np.NaN
+    # dilate the reference shoreline buffer by 5 pixels to mask out anything outside the reference shoreline buffer
+    se = morphology.disk(5)
+    im_ref_buffer_extra = morphology.binary_dilation(reference_shoreline_buffer, se)
+    im_labels_masked[~im_ref_buffer_extra] = np.NaN
 
     # 0 or 1 labels means 0.5 is the threshold
     contours = measure.find_contours(im_labels_masked, 0.5)
 
-    # remove contour points that are NaNs (around clouds)
+    # remove contour points that are NaNs (around clouds and nodata intersections)
     processed_contours = SDS_shoreline.process_contours(contours)
 
     return processed_contours
@@ -1122,6 +1122,7 @@ def find_shoreline(
         contours = simplified_find_contours(
             im_labels, cloud_mask, reference_shoreline_buffer
         )
+
     except Exception as e:
         logger.error(f"{e}\nCould not map shoreline for this image: {fn}")
         return None
