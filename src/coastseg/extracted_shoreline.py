@@ -86,6 +86,32 @@ def time_func(func):
     return wrapper
 
 
+def check_percent_no_data_allowed(
+    percent_no_data_allowed: float, cloud_mask: np.ndarray, im_nodata: np.ndarray
+) -> bool:
+    """
+    Checks if the percentage of no data pixels in the image exceeds the allowed percentage.
+
+    Args:
+        settings (dict): A dictionary containing settings for the shoreline extraction.
+        cloud_mask (numpy.ndarray): A binary mask indicating cloud cover in the image.
+        im_nodata (numpy.ndarray): A binary mask indicating no data pixels in the image.
+
+    Returns:
+        bool: True if the percentage of no data pixels is less than or equal to the allowed percentage, False otherwise.
+    """
+    if percent_no_data_allowed is not None:
+        percent_no_data_allowed = percent_no_data_allowed / 100
+        num_total_pixels = cloud_mask.shape[0] * cloud_mask.shape[1]
+        percentage_no_data = np.sum(im_nodata) / num_total_pixels
+        if percentage_no_data > percent_no_data_allowed:
+            logger.info(
+                f"percent_no_data_allowed exceeded {percentage_no_data} > {percent_no_data_allowed}"
+            )
+            return False
+    return True
+
+
 def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
@@ -278,13 +304,49 @@ def process_satellite(
     settings: dict,
     metadata: dict,
     session_path: str,
-    class_indices: list,
-    class_mapping: dict,
-    save_location: str,
+    class_indices: List[int] = None,
+    class_mapping: Dict[int, str] = None,
+    save_location: str = "",
+    batch_size: int = 10,
+    **kwargs: dict,
 ):
-    # set batch size
-    batch_size = 10
-    logger.info(f"metadata: {metadata}")
+    """
+    Processes a satellite's imagery to extract shorelines.
+
+    Args:
+        satname (str): The name of the satellite.
+        settings (dict): A dictionary containing settings for the shoreline extraction.
+            Settings needed to extract shorelines
+            Must contain the following keys
+            'min_length_sl': int
+                minimum length of shoreline to be considered
+            'min_beach_area': int
+                minimum area of beach to be considered
+            'cloud_thresh': float
+                maximum cloud cover allowed
+            'cloud_mask_issue': bool
+                whether to apply the cloud mask or not
+            'along_dist': int
+                alongshore distance considered calculate the intersection
+        metadata (dict): A dictionary containing metadata for the satellite imagery.
+            Metadata is the output of the get_metadata function in SDS_download.py.
+            The metadata dictionary should have the following structure:
+            ex.
+            metadata = {
+                "l8": {
+                    "dates": ["2019-01-01", "2019-01-02"],
+                    "filenames": ["2019-01-01_123456789.tif", "2019-01-02_123456789.tif", "2019-01-03_123456789.tif"],
+                    "epsg": [32601, 32601, 32601],
+                    "acc_georef": [True, True, True]
+                },
+        session_path (str): The path to the session directory.
+        class_indices (list, optional): A list of class indices to extract. Defaults to None.
+        class_mapping (dict, optional): A dictionary mapping class indices to class names. Defaults to None.
+        save_location (str, optional): The path to save the extracted shorelines. Defaults to "".
+        batch_size (int, optional): The number of images to process in each batch. Defaults to 10.
+    Returns:
+        dict: A dictionary containing the extracted shorelines for the satellite.
+    """
     # filenames of tifs (ms) for this satellite
     filenames = metadata[satname]["filenames"]
     output = {}
@@ -335,7 +397,7 @@ def process_satellite(
             espg_list.append(image_epsg)
             geoaccuracy_list.append(metadata[satname]["acc_georef"][index])
             timestamps.append(metadata[satname]["dates"][index])
-
+            logger.info(f"settings[apply_cloud_mask]: {settings['apply_cloud_mask']}")
             tasks.append(
                 dask.delayed(process_satellite_image)(
                     filenames[index],
@@ -349,6 +411,7 @@ def process_satellite(
                     class_indices,
                     class_mapping,
                     save_location,
+                    settings.get("apply_cloud_mask", True),
                 )
             )
 
@@ -425,23 +488,43 @@ def get_cloud_cover(cloud_mask: np.ndarray, im_nodata: np.ndarray) -> float:
 
 def process_satellite_image(
     filename: str,
-    filepath,
-    settings,
-    satname,
-    collection,
-    image_epsg,
-    pixel_size,
-    session_path,
-    class_indices,
-    class_mapping,
-    save_location: str,
-):
+    filepath: str,
+    settings: Dict[str, Dict[str, Union[str, int, float]]],
+    satname: str,
+    collection: str,
+    image_epsg: int,
+    pixel_size: float,
+    session_path: str,
+    class_indices: List[int] = None,
+    class_mapping: Dict[int, str] = None,
+    save_location: str = "",
+    apply_cloud_mask: bool = True,
+) -> Dict[str, Union[np.ndarray, float]]:
+    """
+    Processes a single satellite image to extract the shoreline.
+
+    Args:
+        filename (str): The filename of the image.
+        filepath (str): The path to the directory containing the image.
+        settings (dict): A dictionary containing settings for the shoreline extraction.
+        satname (str): The name of the satellite.
+        collection (str): The name of the Landsat collection.
+        image_epsg (int): The EPSG code of the image.
+        pixel_size (float): The pixel size of the image.
+        session_path (str): The path to the session directory.
+        class_indices (list, optional): A list of class indices to extract. Defaults to None.
+        class_mapping (dict, optional): A dictionary mapping class indices to class names. Defaults to None.
+        save_location (str, optional): The path to save the extracted shorelines. Defaults to "".
+        apply_cloud_mask (bool, optional): Whether to apply the cloud mask. Defaults to True.
+
+    Returns:
+        dict: A dictionary containing the extracted shoreline and cloud cover percentage.
+    """
     # get image date
     date = filename[:19]
-    # get image filename
+    # get the filenames for each of the tif files (ms, pan, qa)
     fn = get_filenames(filename, filepath, satname)
     # preprocess image (cloud mask + pansharpening/downsampling)
-    # could apply dask delayed here
     (
         im_ms,
         georef,
@@ -452,35 +535,27 @@ def process_satellite_image(
     ) = SDS_preprocess.preprocess_single(
         fn,
         satname,
-        settings["cloud_mask_issue"],
-        settings["pan_off"],
+        settings.get("cloud_mask_issue", False),
+        False,
         collection,
-        do_cloud_mask=settings.get("apply_cloud_mask", True),
+        do_cloud_mask=apply_cloud_mask,
     )
 
     logger.info(f"process_satellite_image_settings: {settings}")
+
     # if percentage of no data pixels are greater than allowed, skip
     percent_no_data_allowed = settings.get("percent_no_data", None)
-    logger.info(f"percent_no_data_allowed: {percent_no_data_allowed}")
-    if percent_no_data_allowed is not None:
-        percent_no_data_allowed = percent_no_data_allowed / 100
-        num_total_pixels = cloud_mask.shape[0] * cloud_mask.shape[1]
-        percentage_no_data = np.sum(im_nodata) / num_total_pixels
-        logger.info(f"percentage_no_data: {percentage_no_data}")
-        logger.info(f"percent_no_data_allowed: {percent_no_data_allowed}")
-        if percentage_no_data > percent_no_data_allowed:
-            logger.info(
-                f"percent_no_data_allowed exceeded {percentage_no_data} > {percent_no_data_allowed}"
-            )
-            return None
+    if not check_percent_no_data_allowed(
+        percent_no_data_allowed, cloud_mask, im_nodata
+    ):
+        return None
 
     # compute cloud_cover percentage (with no data pixels)
     cloud_cover_combined = get_cloud_cover_combined(cloud_mask)
     if cloud_cover_combined > 0.99:  # if 99% of cloudy pixels in image skip
         logger.info("cloud_cover_combined > 0.99")
         return None
-    # Remove no data pixels from the cloud mask
-    cloud_mask_adv = np.logical_xor(cloud_mask, im_nodata)
+
     # compute cloud cover percentage (without no data pixels)
     cloud_cover = get_cloud_cover(cloud_mask, im_nodata)
     # skip image if cloud cover is above user-defined threshold
@@ -501,42 +576,38 @@ def process_satellite_image(
         return None
 
     # get the labels for water and land
-    merged_labels = load_merged_image_labels(npz_file, class_indices=class_indices)
+    land_mask = load_merged_image_labels(npz_file, class_indices=class_indices)
     all_labels = load_image_labels(npz_file)
 
     min_beach_area = settings["min_beach_area"]
-    # bad idea to use remove_small_objects_and_binarize on all_labels, safe to use on merged_labels (water/land boundary)
-    # all_labels = morphology.remove_small_objects(all_labels, min_size=min_beach_area, connectivity=2)
-    merged_labels = remove_small_objects_and_binarize(merged_labels, min_beach_area)
+    land_mask = remove_small_objects_and_binarize(land_mask, min_beach_area)
 
-    logger.info(f"merged_labels: {merged_labels}\n")
-    if sum(merged_labels[ref_shoreline_buffer]) < 50:
+    if sum(land_mask[ref_shoreline_buffer]) < 50:
         logger.warning(
             f"{fn} Not enough sand pixels within the beach buffer to detect shoreline"
         )
         return None
+
     # get the shoreline from the image
     shoreline = find_shoreline(
         fn,
         image_epsg,
         settings,
-        cloud_mask_adv,
+        np.logical_xor(cloud_mask, im_nodata),
         cloud_mask,
         im_nodata,
         georef,
-        merged_labels,
+        land_mask,
         ref_shoreline_buffer,
     )
     if shoreline is None:
         logger.warning(f"\nShoreline not found for {fn}")
         return None
     # plot the results
-    if not settings["check_detection"]:
-        plt.ioff()
     shoreline_detection_figures(
         im_ms,
         cloud_mask,
-        merged_labels,
+        land_mask,
         all_labels,
         shoreline,
         image_epsg,
@@ -547,7 +618,7 @@ def process_satellite_image(
         class_mapping,
         save_location,
     )
-    # create dictionnary of output
+    # create dictionary of output
     output = {
         "shorelines": shoreline,
         "cloud_cover": cloud_cover,
@@ -1108,23 +1179,39 @@ def simplified_find_contours(
 
 
 def find_shoreline(
-    fn,
-    image_epsg,
-    settings,
-    cloud_mask_adv,
-    cloud_mask,
-    im_nodata,
-    georef,
-    im_labels,
-    reference_shoreline_buffer,
+    filename: str,
+    image_epsg: int,
+    settings: dict,
+    cloud_mask_adv: np.ndarray,
+    cloud_mask: np.ndarray,
+    im_nodata: np.ndarray,
+    georef: float,
+    im_labels: np.ndarray,
+    reference_shoreline_buffer: np.ndarray,
 ) -> np.array:
+    """
+    Finds the shoreline in an image.
+
+    Args:
+        fn (str): The filename of the image.
+        image_epsg (int): The EPSG code of the image.
+        settings (dict): A dictionary containing settings for the shoreline extraction.
+        cloud_mask_adv (numpy.ndarray): A binary mask indicating advanced cloud cover in the image.
+        cloud_mask (numpy.ndarray): A binary mask indicating cloud cover in the image.
+        im_nodata (numpy.ndarray): A binary mask indicating no data pixels in the image.
+        georef (flat): A the georeference code for the image.
+        im_labels (numpy.ndarray): A labeled array indicating the water and land pixels in the image.
+        reference_shoreline_buffer (numpy.ndarray,): A buffer around the reference shoreline.
+
+    Returns:
+        numpy.ndarray or None: The shoreline as a numpy array, or None if the shoreline could not be found.
+    """
     try:
         contours = simplified_find_contours(
             im_labels, cloud_mask, reference_shoreline_buffer
         )
-
     except Exception as e:
-        logger.error(f"{e}\nCould not map shoreline for this image: {fn}")
+        logger.error(f"{e}\nCould not map shoreline for this image: {filename}")
         return None
     # print(f"Settings used by process_shoreline: {settings}")
     # process the water contours into a shoreline
@@ -1142,33 +1229,45 @@ def extract_shorelines_with_dask(
     class_indices: list = None,
     class_mapping: dict = None,
     save_location: str = "",
+    **kwargs: dict,
 ) -> dict:
+    """
+    Extracts shorelines from satellite imagery using a Dask-based implementation.
+
+    Args:
+        session_path (str): The path to the session directory.
+        metadata (dict): A dictionary containing metadata for the satellite imagery.
+        settings (dict): A dictionary containing settings for the shoreline extraction.
+        class_indices (list, optional): A list of class indices to extract. Defaults to None.
+        class_mapping (dict, optional): A dictionary mapping class indices to class names. Defaults to None.
+        save_location (str, optional): The path to save the extracted shorelines. Defaults to "".
+        **kwargs (dict): Additional keyword arguments.
+
+    Returns:
+        dict: A dictionary containing the extracted shorelines for each satellite.
+    """
     sitename = settings["inputs"]["sitename"]
     filepath_data = settings["inputs"]["filepath"]
-    # initialise output structure
-    extracted_shorelines_data = {}
+
+    # create a subfolder to store the .jpg images showing the detection
     if not save_location:
-        # create a subfolder to store the .jpg images showing the detection
         filepath_jpg = os.path.join(filepath_data, sitename, "jpg_files", "detection")
         os.makedirs(filepath_jpg, exist_ok=True)
 
-    # loop through satellite list
-    # filenames = metadata[satname]["filenames"]
-    # output = {}
-    # if len(filenames) == 0:
-    #     logger.warning(f"Satellite {satname} had no imagery")
-    #     return output
+    # for each satellite, sort the model outputs into good & bad
     good_folder = os.path.join(session_path, "good")
     bad_folder = os.path.join(session_path, "bad")
     satellites = get_satellites_in_directory(session_path)
-    # for each satellite sort the model outputs into good & bad
     for satname in satellites:
         # get all the model_outputs that have the satellite in the filename
-        files = glob(f"{session_path}{os.sep}*{satname}*.npz")
+        # files = glob(f"{session_path}{os.sep}*{satname}*.npz")
+        files = file_utilities.find_files_recursively(
+            session_path, f"*{satname}*.npz", raise_error=False
+        )
         if len(files) != 0:
             filter_model_outputs(satname, files, good_folder, bad_folder)
 
-    # for each satellite get the list of files that were sorted as 'good'
+    # get the list of files that were sorted as 'good'
     filtered_files = get_filtered_files_dict(good_folder, "npz", sitename)
     # keep only the metadata for the files that were sorted as 'good'
     metadata = edit_metadata(metadata, filtered_files)
@@ -1183,10 +1282,14 @@ def extract_shorelines_with_dask(
             class_indices,
             class_mapping,
             save_location,
+            batch_size=10,
+            **kwargs,
         )
         result_dict.update(satellite_dict)
+
+    # combine the extracted shorelines for each satellite
     extracted_shorelines_data = combine_satellite_data(result_dict)
-    logger.info(f"extracted_shorelines_data: {extracted_shorelines_data}")
+
     return extracted_shorelines_data
 
 
@@ -1440,6 +1543,7 @@ class Extracted_Shoreline:
         settings: dict = None,
         session_path: str = None,
         new_session_path: str = None,
+        **kwargs: dict,
     ) -> "Extracted_Shoreline":
         """
         Extracts shorelines for a specified region of interest (ROI) from a saved session and returns an Extracted_Shoreline class instance.
@@ -1510,15 +1614,6 @@ class Extracted_Shoreline:
         else:
             logger.info(f"metadata: {metadata}")
 
-            # self.dictionary = self.extract_shorelines(
-            #     shoreline,
-            #     roi_settings,
-            #     settings,
-            #     session_path=session_path,
-            #     class_indices=water_classes_indices,
-            #     class_mapping=class_mapping,
-            # )
-
             extracted_shorelines_dict = extract_shorelines_with_dask(
                 session_path,
                 metadata,
@@ -1547,10 +1642,9 @@ class Extracted_Shoreline:
                 logger.warning(f"No extracted shorelines for ROI {roi_id}")
                 raise exceptions.No_Extracted_Shoreline(roi_id)
 
-            map_crs = "EPSG:4326"
             # extracted shorelines have map crs so they can be displayed on the map
             self.gdf = self.create_geodataframe(
-                self.shoreline_settings["output_epsg"], output_crs=map_crs
+                self.shoreline_settings["output_epsg"], output_crs="EPSG:4326"
             )
         return self
 

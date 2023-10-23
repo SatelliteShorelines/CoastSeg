@@ -341,7 +341,6 @@ class Settings_UI:
         # declare settings widgets
         settings = {
             "along_dist": self.get_alongshore_distance_slider(),
-            
             "min_points": self.get_min_points_text(),
             "max_std": self.get_max_std_text(),
             "max_range": self.get_max_range_text(),
@@ -363,6 +362,7 @@ class Settings_UI:
             "cloud_slider": self.get_cloud_slider(),
             "apply_cloud_mask": self.get_apply_could_mask_toggle(),
             "cloud_threshold_slider": self.get_cloud_threshold_slider(),
+            "no_data_slider": self.get_no_data_slider(),
         }
 
         # create settings vbox

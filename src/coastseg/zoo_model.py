@@ -1,5 +1,6 @@
 import copy
 import os
+from pathlib import Path
 import re
 import glob
 import asyncio
@@ -632,6 +633,7 @@ class Zoo_Model:
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
             "percent_no_data": 50.0,  # percentage of no data pixels allowed in an image (doesn't work for npz)
             "model_session_path": "",  # path to model session file
+            "apply_cloud_mask": True,  # whether to apply cloud mask to images or not
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
@@ -685,61 +687,75 @@ class Zoo_Model:
 
     def extract_shorelines_with_unet(
         self,
-        extract_shoreline_settings: dict,
+        settings: dict,
         session_path: str,
         session_name: str,
         shoreline_path: str = "",
         transects_path: str = "",
+        **kwargs: dict,
     ) -> None:
-        logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
+        logger.info(f"extract_shoreline_settings: {settings}")
 
         # save the selected model session
-        extract_shoreline_settings["model_session_path"] = session_path
-        self.set_settings(**extract_shoreline_settings)
-        extract_shoreline_settings = self.get_settings()
+        settings["model_session_path"] = session_path
+        self.set_settings(**settings)
+        settings = self.get_settings()
 
         # create session path to store extracted shorelines and transects
-        sessions_dir_path = file_utilities.create_directory(os.getcwd(), "sessions")
-        new_session_path = file_utilities.create_directory(
-            sessions_dir_path, session_name
-        )
+        new_session_path = Path(os.getcwd()) / "sessions" / session_name
+        new_session_path.mkdir(parents=True, exist_ok=True)
 
+        # load the ROI settings from the config file
+        try:
+            config = file_utilities.load_json_data_from_file(
+                session_path, "config.json"
+            )
+            # get the roi_id either from the recent model segmentation or the config file
+            if settings.get("sample_direc"):
+                roi_id = file_utilities.extract_roi_id(settings.get("sample_direc", ""))
+            elif config.get("roi_ids"):
+                roi_id = config["roi_ids"][0]
+            roi_settings = config[roi_id]
+        except (KeyError, ValueError) as e:
+            logger.error(f"{roi_id} ROI settings did not exist: {e}")
+            if roi_id is None:
+                logger.error(f"roi_id was None config: {config}")
+                raise Exception(
+                    f"This session is likely not a model sessuin because its config file did not contain an ROI ID \n config: {config}"
+                )
+            else:
+                logger.error(
+                    f"roi_id {roi_id} existed but not found in config: {config}"
+                )
+                raise Exception(
+                    f"The roi ID {roi_id} did not exist is the config.json \n config.json: {config}"
+                )
+        logger.info(f"roi_settings: {roi_settings}")
+
+        # read ROI from config geojson file
         config_geojson_location = file_utilities.find_file_recursively(
             session_path, "config_gdf.geojson"
         )
         logger.info(f"config_geojson_location: {config_geojson_location}")
+        config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
+        roi_gdf = config_gdf[config_gdf["id"] == roi_id]
+        if roi_gdf.empty:
+            logger.error(
+                f"{roi_id} ROI ID did not exist in geodataframe: {config_geojson_location}"
+            )
+            raise ValueError
 
         # get roi_id from source directory path in model settings
         model_settings = file_utilities.load_json_data_from_file(
             session_path, "model_settings.json"
         )
-        source_directory = model_settings.get("sample_direc", "")
-        roi_id = file_utilities.extract_roi_id(source_directory)
 
         # save model settings to session path
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
         file_utilities.to_file(model_settings, model_settings_path)
 
-        # load the roi settings from the config file
-        config = file_utilities.load_json_data_from_file(session_path, "config.json")
-        roi_settings = config.get(roi_id, {})
-        logger.info(f"roi_settings: {roi_settings}")
-        if roi_settings == {}:
-            raise ValueError(f"{roi_id} roi settings did not exist")
-
-        # read ROI from config geojson file
-        config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
-        roi_gdf = config_gdf[config_gdf["id"] == roi_id]
-        if roi_gdf.empty:
-            raise ValueError(
-                f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}"
-            )
-
-        # get the epsg code for this region before we change it
-        output_epsg = extract_shoreline_settings["output_epsg"]
-        logger.info(f"output_epsg: {output_epsg}")
-
         # load transects and shorelines
+        output_epsg = settings["output_epsg"]
         transects_gdf = geodata_processing.create_geofeature_geodataframe(
             transects_path, roi_gdf, output_epsg, "transect"
         )
@@ -747,20 +763,19 @@ class Zoo_Model:
             shoreline_path, roi_gdf, output_epsg, "shoreline"
         )
 
-        # extract shorelines with most accurate crs
-        new_espg = common.get_most_accurate_epsg(
-            extract_shoreline_settings.get("output_epsg", 4326), roi_gdf
-        )
-        extract_shoreline_settings["output_epsg"] = new_espg
+        # Update the CRS to the most accurate crs for the ROI this makes extracted shoreline more accurate
+        new_espg = common.get_most_accurate_epsg(output_epsg, roi_gdf)
+        settings["output_epsg"] = new_espg
         self.set_settings(output_epsg=new_espg)
-
+        # convert the ROI to the new CRS
         roi_gdf = roi_gdf.to_crs(output_epsg)
+
         # save the config files to the new session location
         common.save_config_files(
             new_session_path,
             roi_ids=[roi_id],
             roi_settings=roi_settings,
-            shoreline_settings=extract_shoreline_settings,
+            shoreline_settings=settings,
             transects_gdf=transects_gdf,
             shorelines_gdf=shoreline_gdf,
             roi_gdf=roi_gdf,
@@ -773,9 +788,10 @@ class Zoo_Model:
                 roi_id,
                 shoreline_gdf,
                 roi_settings,
-                extract_shoreline_settings,
+                settings,
                 session_path,
                 new_session_path,
+                **kwargs,
             )
         )
 
@@ -790,7 +806,7 @@ class Zoo_Model:
 
         # compute intersection between extracted shorelines and transects
         cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
-            extracted_shorelines.dictionary, transects_gdf, extract_shoreline_settings
+            extracted_shorelines.dictionary, transects_gdf, settings
         )
         logger.info(f"cross_distance_transects: {cross_distance_transects}")
 

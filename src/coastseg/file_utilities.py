@@ -621,9 +621,36 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
         raise Exception(f"{name} directory is empty.")
 
     if not dir_location:
-        raise Exception(f"{name} directory could not be found")
+        raise Exception(f"No directroy matching {name} could be found at {path}")
 
     return dir_location
+
+
+def find_files_recursively(
+    path: str = ".", name: str = "*RGB*", raise_error: bool = False
+) -> List[str]:
+    """
+    Recursively search for files with the given name in the given path or its subdirectories.
+
+    Args:
+        path (str): The starting directory to search in. Defaults to current directory.
+        name (str): The name of the files to search for. Defaults to "RGB".
+        raise_error (bool): Whether to raise an error if no files are found. Defaults to False.
+
+    Returns:
+        list: A list of paths to all files that match the given name.
+    """
+    file_locations = []
+    for dirpath, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            if filename == name:
+                file_location = os.path.join(dirpath, filename)
+                file_locations.append(file_location)
+
+    if not file_locations and raise_error:
+        raise Exception(f"No files matching {name} could be found at {path}")
+
+    return file_locations
 
 
 def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
@@ -646,10 +673,10 @@ def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
                 return file_location
 
     if not os.listdir(file_location):
-        raise Exception(f"{name} directory is empty.")
+        raise Exception(f"{file_location} is empty.")
 
     if not file_location:
-        raise Exception(f"{name} directory could not be found")
+        raise Exception(f" No file matching {name} could be found at {path}")
 
     return file_location
 
