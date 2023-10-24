@@ -5,9 +5,10 @@ include *.md
 
 # Include src, tests,docs and scripts directories in package
 graft src
-graft tests
-graft docs
-graft scripts
+# no longer include scripts, docs and tests because it makes the package too large
+# graft tests
+# graft docs
+# graft scripts
 
 # Include bounding boxes for shorelines and transects
 recursive-include src/coastseg/bounding_boxes *.csv
