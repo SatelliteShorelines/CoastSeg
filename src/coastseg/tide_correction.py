@@ -49,7 +49,7 @@ def compute_tidal_corrections(
 def save_csv_per_id(
     df: pd.DataFrame,
     save_location: str,
-    filename: str = "timeseries_tidally_corrected",
+    filename: str = "timeseries_tidally_corrected.csv",
     id_column_name: str = "transect_id",
 ):
     new_df = pd.DataFrame()
@@ -220,7 +220,7 @@ def correct_tides(
         save_csv_per_id(
             tide_corrected_timeseries_df,
             session_path,
-            filename="timeseries_tidally_corrected",
+            filename="timeseries_tidally_corrected.csv",
         )
         update(f"{roi_id} was tidally corrected")
     return tide_corrected_timeseries_df

@@ -107,7 +107,7 @@ def get_files_to_download(
         response = next((f for f in available_files if f["filename"] == filename), None)
         if response is None:
             raise ValueError(f"Cannot find {filename} at {model_id}")
-        link = response["links"]["self"]
+        link = response["links"]["download"]
         file_path = os.path.join(model_path, filename)
         url_dict[file_path] = link
     return url_dict
@@ -798,6 +798,7 @@ class Zoo_Model:
 
         # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
+
         # common.save_extracted_shoreline_figures(extracted_shorelines, new_session_path)
         print(f"Saved extracted shorelines to {new_session_path}")
 
@@ -1320,7 +1321,7 @@ class Zoo_Model:
         # if best BEST_MODEL.txt file not exist then download it
         if not os.path.isfile(BEST_MODEL_txt_path):
             common.download_url(
-                best_model_json["links"]["self"],
+                best_model_json["links"]["download"],
                 BEST_MODEL_txt_path,
                 "Downloading best_model.txt",
             )
@@ -1405,7 +1406,7 @@ class Zoo_Model:
         logger.info(f"all_json_reponses : {all_json_reponses }")
         for response in all_models_reponses + all_json_reponses:
             # get the link of the best model
-            link = response["links"]["self"]
+            link = response["links"]["download"]
             filename = response["key"]
             filepath = os.path.join(model_path, filename)
             download_dict[filepath] = link
