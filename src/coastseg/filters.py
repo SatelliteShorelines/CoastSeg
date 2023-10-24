@@ -21,7 +21,11 @@ def copy_files(files: list, dest_folder: str) -> None:
     Returns:
         None
     """
+    os.makedirs(dest_folder, exist_ok=True)
     for f in files:
+        dest_path = os.path.join(dest_folder, os.path.basename(f))
+        if os.path.exists(os.path.abspath(dest_path)):
+            continue
         shutil.copy(f, dest_folder)
 
 
@@ -155,8 +159,10 @@ def handle_files_and_directories(
     """
     os.makedirs(dest_folder_bad, exist_ok=True)
     os.makedirs(dest_folder_good, exist_ok=True)
-    logger.info(f"Copying {len(files_bad)} files to {dest_folder_bad}")
-    logger.info(f"Copying {len(files_good)} files to {dest_folder_good}")
+    logger.info(f"Copying {len(files_bad)} files to {dest_folder_bad} \n {files_bad}")
+    logger.info(
+        f"Copying {len(files_good)} files to {dest_folder_good} \n {files_good}"
+    )
     copy_files(files_bad, dest_folder_bad)
     copy_files(files_good, dest_folder_good)
 

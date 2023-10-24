@@ -292,16 +292,16 @@ def combine_satellite_data(satellite_data: dict) -> dict:
                 merged_satellite_data[key] += [value]
             else:
                 merged_satellite_data[key] += value
-        # Add satellite name entries for each date
-        if "dates" in sat_data.keys():
-            merged_satellite_data["satname"] += [satname] * len(sat_data["dates"])
+            # Add the satellite name to the satellite name list
+        merged_satellite_data["satname"] += [
+            _ for _ in np.tile(satname, len(satellite_data[satname]["dates"]))
+        ]
     # Sort dates chronologically
     if "dates" in merged_satellite_data.keys():
         idx_sorted = sorted(
             range(len(merged_satellite_data["dates"])),
             key=lambda i: merged_satellite_data["dates"][i],
         )
-
         for key in merged_satellite_data.keys():
             merged_satellite_data[key] = [
                 merged_satellite_data[key][i] for i in idx_sorted
@@ -1275,7 +1275,7 @@ def extract_shorelines_with_dask(
     logger.info(f"edit_metadata metadata: {metadata}")
 
     result_dict = {}
-    for satname in metadata:
+    for satname in metadata.keys():
         satellite_dict = process_satellite(
             satname,
             settings,
@@ -1287,7 +1287,12 @@ def extract_shorelines_with_dask(
             batch_size=10,
             **kwargs,
         )
-        result_dict.update(satellite_dict)
+
+        logger.info(f"satellite_dict : {satellite_dict}")
+        logger.info(f"before result_dict : {result_dict}")
+        result_dict[satname] = satellite_dict[satname]
+        logger.info(f"result_dict.keys() : {result_dict.keys()}")
+        logger.info(f" after result_dict : {result_dict}")
 
         # combine the extracted shorelines for each satellite
     logger.info(f"Combining extracted shorelines for each satellite : {result_dict}")
@@ -1313,21 +1318,19 @@ def get_sorted_model_outputs_directory(
     bad_folder = os.path.join(session_path, "bad")
     satellites = get_satellites_in_directory(session_path)
     for satname in satellites:
-        if os.path.exists(good_folder) and os.listdir(good_folder)!= []:
-            return good_folder
-        else:
+        # get all the model_outputs that have the satellite in the filename
+        try:
             # get all the model_outputs that have the satellite in the filename
-            try:
-                # get all the model_outputs that have the satellite in the filename
-                files = file_utilities.find_files_recursively(
-                    session_path, f".*{re.escape(satname)}.*\\.npz$", raise_error=False
-                )
-            except Exception as e:
-                logger.error(f"Error finding files for satellite {satname}: {e}")
-                continue
-            logger.info(f"{session_path} contained {satname} files: {files} ")
-            if len(files) != 0:
-                filter_model_outputs(satname, files, good_folder, bad_folder)
+            files = file_utilities.find_files_recursively(
+                session_path, f".*{re.escape(satname)}.*\\.npz$", raise_error=False
+            )
+            logger.info(f"fetched files {files} for satellite {satname}")
+        except Exception as e:
+            logger.error(f"Error finding files for satellite {satname}: {e}")
+            continue
+        logger.info(f"{session_path} contained {satname} files: {files} ")
+        if len(files) != 0:
+            filter_model_outputs(satname, files, good_folder, bad_folder)
     return good_folder
 
 
