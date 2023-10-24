@@ -285,6 +285,12 @@ def combine_satellite_data(satellite_data: dict) -> dict:
 
     # Fill the satellite_data dict
     for satname, sat_data in satellite_data.items():
+        satellite_data[satname].setdefault("dates", [])
+        satellite_data[satname].setdefault("geoaccuracy", [])
+        satellite_data[satname].setdefault("shorelines", [])
+        satellite_data[satname].setdefault("cloud_cover", [])
+        satellite_data[satname].setdefault("filename", [])
+        satellite_data[satname].setdefault("idx", [])
         # For each key in the nested dictionary
         for key, value in sat_data.items():
             # Wrap non-list values in a list and concatenate to merged_satellite_data
@@ -293,9 +299,10 @@ def combine_satellite_data(satellite_data: dict) -> dict:
             else:
                 merged_satellite_data[key] += value
             # Add the satellite name to the satellite name list
-        merged_satellite_data["satname"] += [
-            _ for _ in np.tile(satname, len(satellite_data[satname]["dates"]))
-        ]
+        if "dates" in satellite_data[satname].keys():
+            merged_satellite_data["satname"] += [
+                _ for _ in np.tile(satname, len(satellite_data[satname]["dates"]))
+            ]
     # Sort dates chronologically
     if "dates" in merged_satellite_data.keys():
         idx_sorted = sorted(
@@ -361,6 +368,14 @@ def process_satellite(
     # filenames of tifs (ms) for this satellite
     filenames = metadata[satname]["filenames"]
     output = {}
+    output.setdefault(satname, {})
+    output[satname].setdefault("dates", [])
+    output[satname].setdefault("geoaccuracy", [])
+    output[satname].setdefault("shorelines", [])
+    output[satname].setdefault("cloud_cover", [])
+    output[satname].setdefault("filename", [])
+    output[satname].setdefault("idx", [])
+
     if len(filenames) == 0:
         logger.warning(f"Satellite {satname} had no imagery")
         return output
@@ -1290,7 +1305,12 @@ def extract_shorelines_with_dask(
 
         logger.info(f"satellite_dict : {satellite_dict}")
         logger.info(f"before result_dict : {result_dict}")
-        result_dict[satname] = satellite_dict[satname]
+        if not satellite_dict:
+            result_dict[satname] = {}
+        elif not satname in satellite_dict.keys():
+            result_dict[satname] = {}
+        else:
+            result_dict[satname] = satellite_dict[satname]
         logger.info(f"result_dict.keys() : {result_dict.keys()}")
         logger.info(f" after result_dict : {result_dict}")
 
