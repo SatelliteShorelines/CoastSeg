@@ -85,6 +85,74 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
             traitlets.dlink((self, "roi_ids_list"), (widget, "options"))
 
 
+def find_shorelines_directory(path, roi_id):
+    # List the contents of the specified path
+    contents = os.listdir(path)
+    print("Contents of the path:", contents)
+
+    # Check for extracted shorelines geojson file in the specified path
+    extracted_shorelines_file = [
+        file
+        for file in contents
+        if "extracted_shorelines" in file and file.endswith(".geojson")
+    ]
+    if extracted_shorelines_file:
+        return path
+
+    # If the file is not found, check for a directory with the ROI ID
+    roi_directory = [
+        directory
+        for directory in contents
+        if os.path.isdir(os.path.join(path, directory)) and roi_id in directory
+    ]
+    if roi_directory:
+        roi_path = os.path.join(path, roi_directory[0])
+        roi_contents = os.listdir(roi_path)
+        extracted_shorelines_file = [
+            file
+            for file in roi_contents
+            if "extracted_shorelines" in file and file.endswith(".geojson")
+        ]
+        if extracted_shorelines_file:
+            return roi_path
+
+    return None
+
+
+def delete_extracted_shorelines_files(session_path, selected_items):
+    # delete the extracted shorelines from both geojson files
+    geodata_processing.edit_geojson_files(
+        session_path,
+        [
+            "extracted_shorelines_lines.geojson",
+            "extracted_shorelines_points.geojson",
+        ],
+        selected_items,
+        common.remove_rows,
+    )
+    # delete the extracted shorelines from the extracted_shorelines_dict.json file
+    filename = "extracted_shorelines_dict.json"
+    json_file = os.path.join(session_path, filename)
+    data = file_utilities.load_data_from_json(json_file)
+    new_dict = common.update_selected_shorelines_dict(data, selected_items)
+    file_utilities.to_file(new_dict, json_file)
+    # delete the extracted shorelines from the transect_time_series.csv files
+    filenames = [
+        "transect_time_series.csv",
+        "transect_time_series_tidally_corrected.csv",
+    ]
+    filepaths = [os.path.join(session_path, filename) for filename in filenames]
+    dates_list, sat_list = common.extract_dates_and_sats(selected_items)
+    common.update_transect_time_series(filepaths, dates_list)
+    # delete the selected shorelines from all the individual csv files
+    file_patterns = ["_timeseries_tidally_corrected", "_timeseries_raw.csv"]
+    for file_pattern in file_patterns:
+        common.drop_rows_from_csv(file_pattern, session_path, dates_list)
+    # delete the extracted shorelines from the jpg deterction files
+    jpg_path = os.path.join(session_path, "jpg_files", "detection")
+    common.delete_jpg_files(dates_list, sat_list, jpg_path)
+
+
 class CoastSeg_Map:
     def __init__(self, **kwargs):
         # Basic settings and configurations
@@ -166,7 +234,7 @@ class CoastSeg_Map:
         min_date = projected_gdf["date"].min()
         max_date = projected_gdf["date"].max()
         if min_date == max_date:
-            # If there's only one date, set delta to 0.25 
+            # If there's only one date, set delta to 0.25
             delta = np.array([0.25])
         else:
             delta = (projected_gdf["date"] - min_date) / (max_date - min_date)
@@ -219,7 +287,16 @@ class CoastSeg_Map:
         self, layer_name: str, selected_id: str, selected_shorelines: List = None
     ) -> None:
         if selected_shorelines and selected_id:
-            pass
+            session_name = self.get_session_name()
+            session_path = file_utilities.get_session_location(
+                session_name=session_name, raise_error=True
+            )
+            # get the path to the session directory that contains the extracted shoreline files
+            session_path = find_shorelines_directory(session_path, selected_id)
+            if os.path.exists(session_path) and os.path.isdir(session_path):
+                delete_extracted_shorelines_files(
+                    session_path, list(selected_shorelines)
+                )
             # this will remove the selected shorelines from the files
             # do some fancy logic to remove the selected shorelines from the files
         print(f"Deleting {selected_shorelines} ")

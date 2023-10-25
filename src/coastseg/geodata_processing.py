@@ -13,6 +13,19 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def edit_geojson_files(location, filenames, selected_items, filter_function):
+    for filename in filenames:
+        filepath = os.path.join(location, filename)
+        if os.path.exists(filepath):
+            edit_gdf_file(filepath, selected_items, filter_function)
+
+
+def edit_gdf_file(filepath, selected_items, filter_function):
+    gdf = read_gpd_file(filepath)
+    new_gdf = filter_function(selected_items, gdf)
+    new_gdf.to_file(filepath, driver="GeoJSON")
+
+
 def create_geofeature_geodataframe(
     geofeature_path: str, roi_gdf: gpd.GeoDataFrame, epsg_code: str, feature_type: str
 ) -> gpd.GeoDataFrame:

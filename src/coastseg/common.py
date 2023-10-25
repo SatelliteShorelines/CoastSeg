@@ -8,8 +8,7 @@ import math
 import logging
 import random
 import string
-from datetime import datetime
-
+from datetime import datetime, timezone
 
 # Third-party imports
 import requests
@@ -27,7 +26,7 @@ from shapely.geometry import Polygon
 from shapely.geometry import MultiPoint, LineString
 
 # Specific classes/functions from modules
-from typing import Callable, List, Optional, Union, Dict, Set
+from typing import Callable, List, Optional, Union, Dict, Set, Any, Tuple
 
 # Internal dependencies imports
 from coastseg import exceptions
@@ -39,6 +38,171 @@ from coastseg.exceptions import InvalidGeometryType
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def remove_rows(selected_items, gdf):
+    if "dates" not in gdf.columns and "satname" not in gdf.columns:
+        return gdf
+    # Loop through each dictionary in dates_tuple
+    for criteria in list(selected_items):
+        satname, dates = criteria.split("_")
+        # Convert the dates string to a Timestamp object
+        # dates_obj = Timestamp(datetime.strptime(dates, "%Y-%m-%d-%H-%M-%S"))
+        dates_obj = datetime.strptime(dates, "%Y-%m-%d %H:%M:%S")
+        # Use boolean indexing to select the rows that match the criteria
+        mask = (gdf["date"] == dates_obj) & (gdf["satname"] == satname)
+        # Drop the rows that match the criteria
+        gdf = gdf.drop(gdf[mask].index)
+    # Return the new GeoDataFrame
+    gdf["date"] = gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    return gdf
+
+
+def get_selected_indexes(
+    data_dict: Dict[str, Union[List[Any], pd.Series]],
+    dates_list: List[Union[str, pd.Timestamp]],
+    sat_list: List[str],
+) -> List[int]:
+    """
+    Retrieve indexes of rows in a dictionary that match specified dates and satellite names.
+
+    This function accepts a dictionary containing at least two keys: 'dates' and 'satname'.
+    It then returns a list of indexes where the dates and satellite names match those provided in
+    the dates_list and sat_list respectively.
+
+    Parameters:
+    - data_dict (Dict[str, Union[List[Any], pd.Series]]): The dictionary containing data arrays.
+                                                          Expected keys are 'dates' and 'satname'.
+                                                          If the keys are absent, they will be set with empty lists.
+    - dates_list (List[Union[str, pd.Timestamp]]): A list containing dates to match against.
+    - sat_list (List[str]): A list containing satellite names to match against.
+
+    Returns:
+    - List[int]: A list of integer indexes where the 'dates' and 'satname' in the data_dict
+                 match the provided lists. Returns an empty list if no matches are found or if the data_dict is empty.
+
+    Examples:
+    >>> data = {'dates': ['2021-01-01', '2021-01-02'], 'satname': ['sat1', 'sat2']}
+    >>> get_selected_indexes(data, ['2021-01-01'], ['sat1'])
+    [0]
+    """
+    if not data_dict:
+        return []
+    data_dict.setdefault("dates", [])
+    data_dict.setdefault("satname", [])
+    # Convert dictionary to DataFrame
+    df = pd.DataFrame(data_dict)
+
+    # Initialize an empty list to store selected indexes
+    selected_indexes = []
+
+    # Iterate over dates and satellite names, and get the index of the first matching row
+    for date, sat in zip(dates_list, sat_list):
+        match = df[(df["dates"] == date) & (df["satname"] == sat)]
+        if not match.empty:
+            selected_indexes.append(match.index[0])
+
+    return selected_indexes
+
+def update_transect_time_series(filepaths: str, dates_list) -> None:
+    for filepath in filepaths:
+        # Read the CSV file into a DataFrame
+        df = pd.read_csv(filepath)
+        
+        # Format the dates to match the format in the CSV file
+        formatted_dates = [date.strftime('%Y-%m-%d %H:%M:%S+00:00') for date in dates_list]
+        # Keep only the rows where the 'dates' column isn't in the list of formatted dates
+        df = df[~df['dates'].isin(formatted_dates)]
+        # Write the updated DataFrame to the same CSV file
+        df.to_csv(filepath, index=False)
+
+def extract_dates_and_sats(
+    selected_items: List[str],
+) -> Tuple[List[datetime], List[str]]:
+    """
+    Extract the dates and satellite names from a list of selected items.
+
+    Args:
+        selected_items: A list of strings, where each string is in the format "satname_dates".
+
+    Returns:
+        A tuple of two lists: the first list contains datetime objects corresponding to the dates in the selected items,
+        and the second list contains the satellite names in the selected items.
+    """
+    dates_list = []
+    sat_list = []
+    for criteria in selected_items:
+        satname, dates = criteria.split("_")
+        sat_list.append(satname)
+        dates_list.append(
+            datetime.strptime(dates, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        )
+    return dates_list, sat_list
+
+
+def transform_data_to_nested_arrays(
+    data_dict: Dict[str, Union[List[Union[int, float, np.ndarray]], np.ndarray]]
+) -> Dict[str, np.ndarray]:
+    """
+    Convert a dictionary of data to a new dictionary with nested NumPy arrays.
+
+    Args:
+        data_dict: A dictionary of data, where each value is either a list of integers, floats, or NumPy arrays, or a NumPy array.
+
+    Returns:
+        A new dictionary with the same keys as `data_dict`, where each value is a NumPy array or a nested NumPy array.
+
+    Raises:
+        TypeError: If `data_dict` is not a dictionary, or if any value in `data_dict` is not a list or NumPy array.
+    """
+    transformed_dict = {}
+    for key, items in data_dict.items():
+        if any(isinstance(element, np.ndarray) for element in items):
+            nested_array = np.empty(len(items), dtype=object)
+            for index, array_element in enumerate(items):
+                nested_array[index] = array_element
+            transformed_dict[key] = nested_array
+        else:
+            transformed_dict[key] = np.array(items)
+    return transformed_dict
+
+
+def update_selected_shorelines_dict(
+    data_input: Union[Dict[str, Any], str],
+    selected_items: List[Tuple[str, str]],
+    session_path: str = "",
+    filename: str = "",
+) -> None:
+    # Determine if data_input is a dictionary or a file path
+    if isinstance(data_input, dict):
+        data = data_input
+    elif isinstance(data_input, str):
+        if not session_path or not filename:
+            raise ValueError(
+                "If data_input is a file path, session_path and filename must be provided."
+            )
+        # Define the full path to the JSON file
+        json_file = os.path.join(session_path, filename)
+        # Load data from the JSON file
+        data = file_utilities.load_data_from_json(json_file)
+    else:
+        raise TypeError("data_input must be either a dictionary or a string file path.")
+
+    # Transform data to nested arrays
+    new_dict = transform_data_to_nested_arrays(data)
+
+    # Extract dates and satellite names from the selected items
+    dates_list, sat_list = extract_dates_and_sats(selected_items)
+
+    # Get the indexes of the selected items in the new_dict
+    selected_indexes = get_selected_indexes(new_dict, dates_list, sat_list)
+
+    # Delete the selected indexes from the new_dict
+    if selected_indexes:
+        for key in new_dict.keys():
+            new_dict[key] = np.delete(new_dict[key], selected_indexes)
+
+    return new_dict
 
 
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
@@ -160,6 +324,58 @@ def filter_images_by_roi(roi_settings: list[dict]):
         roi_gdf = gpd.GeoDataFrame(index=[0], geometry=[polygon], crs="EPSG:4326")
         bad_images = filter_partial_images(roi_gdf, ROI_jpg_location)
         logger.info(f"Partial images filtered out: {bad_images}")
+
+
+def drop_rows_from_csv(file_pattern, session_path, dates_list):
+    """
+    Drop rows containing formatted dates from CSV files that match a specified pattern in a directory.
+
+    Args:
+        file_pattern: A string representing the file pattern to match, e.g. '*_timeseries_raw.csv'.
+        session_path: A string representing the directory path where the CSV files are located.
+        formatted_dates: A list of formatted dates to drop, e.g. ['2018-12-01 19:03:46+00:00', '2018-12-02 20:04:47+00:00'].
+    """
+    # Get a list of files that match the file pattern in the directory
+    # Compile the regex pattern
+    # Filter files based on the regex pattern
+    matched_files = glob.glob(session_path + f"/*{file_pattern}*")
+    formatted_dates = [date.strftime("%Y-%m-%d %H:%M:%S+00:00") for date in dates_list]
+    # Loop through each file in the matched files list
+    for file in matched_files:
+        # Read the CSV file into a DataFrame
+        df = pd.read_csv(file)
+
+        # Convert the 'dates' column to datetime objects
+        df["dates"] = pd.to_datetime(df["dates"])
+
+        # Drop rows where the 'dates' column is in the list of formatted dates
+        df = df[~df["dates"].isin(formatted_dates)]
+
+        # Write the updated DataFrame to the same CSV file
+        df.to_csv(file, index=False)
+
+
+def delete_jpg_files(dates_list, sat_list, jpg_path):
+    # Format the dates in dates_list as strings
+    formatted_dates = [date.strftime("%Y-%m-%d-%H-%M-%S") for date in dates_list]
+
+    # Get a list of all JPEG files in jpg_path
+    jpg_files = set(os.listdir(jpg_path))
+
+    # Create a list of filenames to delete
+    delete_list = [
+        date + "_" + sat + ".jpg"
+        for date, sat in zip(formatted_dates, sat_list)
+        if (date + "_" + sat + ".jpg") in jpg_files
+    ]
+
+    # Loop through each filename in the delete list
+    for filename in delete_list:
+        # Construct the full file path by joining the directory path with the filename
+        file_path = os.path.join(jpg_path, filename)
+        if os.path.exists(file_path):
+            # Use the os.remove function to delete the file
+            os.remove(file_path)
 
 
 def filter_partial_images(
