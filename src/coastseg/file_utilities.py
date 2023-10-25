@@ -575,9 +575,15 @@ def to_file(data: dict, filepath: str) -> None:
         def default(self, obj):
             if isinstance(obj, (datetime.date, datetime.datetime)):
                 return obj.isoformat()
-            if isinstance(obj, (np.ndarray)):
-                new_obj = [array.tolist() for array in obj]
-                return new_obj
+            # Check for numpy arrays
+            if isinstance(obj, np.ndarray):
+                # Check if the dtype is 'object', which indicates it might have mixed types including datetimes
+                if obj.dtype == "object":
+                    # Convert each element of the array
+                    return [self.default(item) for item in obj]
+                else:
+                    # If it's not an object dtype, simply return the array as a list
+                    return obj.tolist()
 
     with open(filepath, "w") as fp:
         json.dump(data, fp, cls=DateTimeEncoder)
