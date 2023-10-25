@@ -85,6 +85,9 @@ class UI:
         self.extract_shorelines_widget.add_load_callback(
             coastseg_map.load_selected_shorelines_on_map
         )
+        self.extract_shorelines_widget.add_ROI_callback(
+            coastseg_map.load_selected_shorelines_on_map
+        )
         self.extract_shorelines_widget.add_remove_all_callback(
             coastseg_map.delete_selected_shorelines
         )
@@ -97,6 +100,9 @@ class UI:
         )
         coastseg_map.extract_shorelines_container.link_trash_list(
             self.extract_shorelines_widget.trash_list_widget
+        )
+        coastseg_map.extract_shorelines_container.link_roi_list(
+            self.extract_shorelines_widget.roi_list_widget
         )
 
         # create button styles

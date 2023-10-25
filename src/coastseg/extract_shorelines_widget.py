@@ -83,10 +83,10 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
         )
-        self.ROI_list_widget = ipywidgets.dropdown(
+        self.ROI_list_widget = ipywidgets.Dropdown(
             description="Available ROIs",
             options=[],
-            layout=ipywidgets.Layout(padding="0px", margin="0px"),
+            layout=ipywidgets.Layout(width="90%", padding="0px", margin="0px"),
         )
 
         # Buttons
@@ -128,6 +128,8 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         self.undo_button.on_click(self.undo_button_clicked)
         self.empty_trash_button.on_click(self.delete_all_button_clicked)
 
+        # callback function for when a roi is selected
+        self.ROI_list_widget.observe(self.on_roi_selected, names="value")
         # callback function for when a load shoreline item is selected
         self.load_list_widget.observe(self.on_load_selected, names="value")
         # callback function for when a trash item is selected
@@ -162,6 +164,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         total_VBOX = ipywidgets.VBox(
             [
                 title_html,
+                self.ROI_list_widget,
                 load_instruction_box,
                 load_list_vbox,
                 trash_instruction_box,
@@ -174,16 +177,16 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
 
         super().__init__([total_VBOX])
 
-    # def add_ROI_callback(self, callback: Callable[[List[str]], None]):
-    #     """
-    #     Add a callback function to be called when a ROI ID is selected.
+    def add_ROI_callback(self, callback: Callable[[List[str]], None]):
+        """
+        Add a callback function to be called when a ROI ID is selected.
 
-    #     Parameters
-    #     ----------
-    #     callback : function
-    #         The function to be called when a ROI ID is selected.
-    #     """
-    #     self.roi_selected_callback = callback
+        Parameters
+        ----------
+        callback : function
+            The function to be called when a ROI ID is selected.
+        """
+        self.roi_selected_callback = callback
 
     def add_load_callback(self, callback: Callable[[List[str]], None]):
         """
@@ -218,10 +221,15 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         """
         self.remove_callback = callback
 
-    # def on_roi_selected(self, change: dict):
-    #     """Callback function for when an ROI ID is selected"""
-    #     # when the content sof the load list changes update the layer
-    #     # self.roi_selected_callback(change["new"])
+    def on_roi_selected(self, change: dict):
+        """Callback function for when an ROI ID is selected"""
+        # when the content sof the load list changes update the layer
+        # clear the load and trash lists
+        self.load_list_widget.options = []
+        self.trash_list_widget.options = []
+        print(change["new"])
+        # call the callback function
+        self.roi_selected_callback(change["new"])
 
     def on_load_selected(self, change: dict):
         """Callback function for when a load shoreline item is selected"""
