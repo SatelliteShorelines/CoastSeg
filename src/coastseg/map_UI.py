@@ -85,9 +85,8 @@ class UI:
         self.extract_shorelines_widget.add_load_callback(
             coastseg_map.load_selected_shorelines_on_map
         )
-        self.extract_shorelines_widget.add_ROI_callback(
-            coastseg_map.load_selected_shorelines_on_map
-        )
+        self.extract_shorelines_widget.add_ROI_callback(coastseg_map.on_roi_change)
+
         self.extract_shorelines_widget.add_remove_all_callback(
             coastseg_map.delete_selected_shorelines
         )

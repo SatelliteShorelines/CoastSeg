@@ -83,11 +83,18 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
         )
-        self.ROI_list_widget = ipywidgets.Dropdown(
-            description="Available ROIs",
+        self.roi_list_widget = ipywidgets.Dropdown(
+            description="ROI Ids",
             options=[],
-            layout=ipywidgets.Layout(width="90%", padding="0px", margin="0px"),
+            layout=ipywidgets.Layout(width="60%", padding="0px", margin="0px"),
         )
+        # Define a lambda function that selects the first option in the options list
+        select_first_option = lambda change: self.roi_list_widget.set_trait(
+            "value", self.roi_list_widget.options[0]
+        )
+
+        # Register the callback function with the observe method
+        self.roi_list_widget.observe(select_first_option, names="options")
 
         # Buttons
         self.load_trash_button = ipywidgets.Button(
@@ -129,7 +136,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         self.empty_trash_button.on_click(self.delete_all_button_clicked)
 
         # callback function for when a roi is selected
-        self.ROI_list_widget.observe(self.on_roi_selected, names="value")
+        self.roi_list_widget.observe(self.on_roi_selected, names="value")
         # callback function for when a load shoreline item is selected
         self.load_list_widget.observe(self.on_load_selected, names="value")
         # callback function for when a trash item is selected
@@ -164,7 +171,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         total_VBOX = ipywidgets.VBox(
             [
                 title_html,
-                self.ROI_list_widget,
+                self.roi_list_widget,
                 load_instruction_box,
                 load_list_vbox,
                 trash_instruction_box,
@@ -243,9 +250,14 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             "radius": 1,
         }
         layer_name = "extracted shoreline"
+        # get the selected shorelines
         selected_items = self.load_list_widget.value
+        # get the selected ROI ID
+        selected_id = self.roi_list_widget.value
         if selected_items and self.load_callback:
-            self.load_callback(selected_items, layer_name, style)
+            self.load_callback(
+                selected_id, selected_items, layer_name, colormap="viridis"
+            )
         else:
             # if no items are selected remove the shorelines from the map
             if self.remove_callback:
@@ -262,10 +274,13 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             "fillOpacity": 0.8,  # Fill opacity.
             "radius": 1,
         }
+        # get the selected shorelines
         selected_items = self.trash_list_widget.value
         layer_name = "delete"
+        # get the selected ROI ID
+        selected_id = self.roi_list_widget.value
         if selected_items and self.load_callback:
-            self.load_callback(selected_items, layer_name, style)
+            self.load_callback(selected_id, selected_items, layer_name, colormap="Reds")
         else:
             # if no items are selected remove the shorelines from the map
             if self.remove_callback:
@@ -305,6 +320,9 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         self.extracted_shoreline_traitlet.load_list = list(
             set(self.load_list_widget.options) - set(selected_items)
         )
+        # get the selected ROI ID
+        selected_id = self.roi_list_widget.value
+
         if self.remove_all_callback:
             layer_name = "delete"
-            self.remove_all_callback(layer_name, selected_items)
+            self.remove_all_callback(layer_name, selected_id, selected_items)

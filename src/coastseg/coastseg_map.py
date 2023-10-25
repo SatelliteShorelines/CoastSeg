@@ -60,7 +60,9 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
     # list of roi ids that have extracted shorelines
     roi_ids_list = traitlets.List(trait=traitlets.Unicode())
 
-    def __init__(self, load_list_widget=None, trash_list_widget=None,roi_list_widget=None):
+    def __init__(
+        self, load_list_widget=None, trash_list_widget=None, roi_list_widget=None
+    ):
         super().__init__()
         if load_list_widget:
             self.link_load_list(load_list_widget)
@@ -80,7 +82,7 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
 
     def link_roi_list(self, widget):
         if hasattr(widget, "options"):
-            traitlets.dlink((self, "ROI_ids"), (widget, "options"))
+            traitlets.dlink((self, "roi_ids_list"), (widget, "options"))
 
 
 class CoastSeg_Map:
@@ -147,23 +149,76 @@ class CoastSeg_Map:
     def set_session_name(self, name: str):
         self.session_name = name
 
-    def load_extracted_shoreline_layer(self, gdf, layer_name, style):
+    def load_extracted_shoreline_layer(self, gdf, layer_name, colormap):
         map_crs = "epsg:4326"
         # create a layer with the extracted shorelines selected
         points_gdf = extracted_shoreline.convert_linestrings_to_multipoints(gdf)
         projected_gdf = points_gdf.to_crs(map_crs)
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        # convert date column to datetime
+        projected_gdf["date"] = pd.to_datetime(projected_gdf["date"])
+        # Sort the GeoDataFrame based on the 'date' column
+        projected_gdf = projected_gdf.sort_values(by="date")
+        # normalize the dates to 0-1 scale
+        min_date = projected_gdf["date"].min()
+        max_date = projected_gdf["date"].max()
+        if min_date == max_date:
+            # If there's only one date, set delta to 0.25 
+            delta = np.array([0.25])
+        else:
+            delta = (projected_gdf["date"] - min_date) / (max_date - min_date)
+        # get the colors from the colormap
+        colors = plt.cm.get_cmap(colormap)(delta)
+
+        # convert RGBA colors to Hex
+        colors_hex = [
+            "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
+            for r, g, b, a in colors
+        ]
+
+        # add the colors to the GeoDataFrame
+        projected_gdf["color"] = colors_hex
+
         projected_gdf = common.stringify_datetime_columns(projected_gdf)
+        # Convert GeoDataFrame to GeoJSON
         features_json = json.loads(projected_gdf.to_json())
+
+        # Add 'id' field to features in GeoJSON
+        for feature, index in zip(
+            features_json["features"], range(len(features_json["features"]))
+        ):
+            feature["id"] = str(index)
+
+        # define a style callback function that takes a feature and returns a style dictionary
+        def style_callback(feature):
+            # find the color for the current feature based on its id
+            color = projected_gdf.iloc[int(feature["id"])]["color"]
+            return {"color": color, "weight": 5, "fillColor": color, "fillOpacity": 0.5}
+
         # create an ipyleaflet GeoJSON layer with the extracted shorelines selected
         new_layer = GeoJSON(
-            data=features_json, name=layer_name, style=style, point_style=style
+            data=features_json,
+            name=layer_name,
+            style_callback=style_callback,
+            point_style={
+                "radius": 1,
+                "opacity": 1,
+            },
         )
+        # features_json = json.loads(projected_gdf.to_json())
+        # # create an ipyleaflet GeoJSON layer with the extracted shorelines selected
+        # new_layer = GeoJSON(
+        #     data=features_json, name=layer_name, style=style, point_style=style
+        # )
         self.replace_layer_by_name(layer_name, new_layer, on_hover=None, on_click=None)
 
     def delete_selected_shorelines(
-        self, layer_name: str, selected_shorelines: List = None
+        self, layer_name: str, selected_id: str, selected_shorelines: List = None
     ) -> None:
-        if selected_shorelines:
+        if selected_shorelines and selected_id:
             pass
             # this will remove the selected shorelines from the files
             # do some fancy logic to remove the selected shorelines from the files
@@ -171,7 +226,11 @@ class CoastSeg_Map:
         self.remove_layer_by_name(layer_name)
 
     def load_selected_shorelines_on_map(
-        self, selected_shorelines: List, layer_name: str, style: dict
+        self,
+        selected_id: str,
+        selected_shorelines: List,
+        layer_name: str,
+        colormap: str,
     ) -> None:
         def get_selected_shorelines(gdf, selected_items) -> gpd.GeoDataFrame:
             # Filtering criteria
@@ -193,38 +252,27 @@ class CoastSeg_Map:
                 filtered_gdf = pd.concat(frames)
             return filtered_gdf
 
-        # @todo pass in the ROI ID that the extracted shorelines are from
-        # @todo this code is temporary
-        # Get the list of the ROI IDs that have extracted shorelines
-        ids_with_extracted_shorelines = self.get_roi_ids(has_extracted_shorelines=True)
-        if ids_with_extracted_shorelines == []:
-            logger.warning("No ROIs with extracted shorelines found")
-            return
-        # select the first ROI ID with extracted shorelines
-        selected_id = ids_with_extracted_shorelines[0]
-        # -------------------------------------------
         # load the extracted shorelines for the selected ROI ID
         extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
 
         # get the geodataframe for the extracted shorelines
-        selected_gdf = get_selected_shorelines(
-            extracted_shorelines.gdf, selected_shorelines
-        )
-        if not selected_gdf.empty:
-            self.load_extracted_shoreline_layer(selected_gdf, layer_name, style)
+        if hasattr(extracted_shorelines, "gdf"):
+            selected_gdf = get_selected_shorelines(
+                extracted_shorelines.gdf, selected_shorelines
+            )
+            if not selected_gdf.empty:
+                self.load_extracted_shoreline_layer(selected_gdf, layer_name, colormap)
 
-    def on_ROI_change(
+    def on_roi_change(
         self,
-        new_roi_id: str,
+        selected_id: str,
     ) -> None:
-        # @todo pass in the ROI ID that the extracted shorelines are from
-        # @todo this code is temporary
-        # remove the old layer
-        self.remove_extracted_shorelines()
-
-        # -------------------------------------------
-        # load first the extracted shorelines for the selected ROI ID
-        extracted_shorelines = self.rois.get_extracted_shoreline(new_roi_id)
+        # remove the old layers
+        self.remove_extracted_shoreline_layers()
+        # # update the load_list and trash_list
+        extracted_shorelines = self.update_loadable_shorelines(selected_id)
+        self.extract_shorelines_container.trash_list = []
+        # load the new extracted shorelines onto the map
         self.load_extracted_shorelines_on_map(extracted_shorelines, 1)
 
     def create_map(self):
@@ -1504,6 +1552,9 @@ class CoastSeg_Map:
         # Get ROI ids that are selected on map and have had their shorelines extracted
         roi_ids = self.get_roi_ids_with_extracted_shorelines(is_selected=True)
         self.compute_transects(self.transects.gdf, self.get_settings(), roi_ids)
+
+        # Get the list of the ROI IDs that have extracted shorelines
+        ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
         # load extracted shorelines to map
         self.load_extracted_shorelines_to_map()
 
@@ -2114,19 +2165,39 @@ class CoastSeg_Map:
         return matching_ids
 
     def update_roi_ids_with_shorelines(self):
-         # Get the list of the ROI IDs that have extracted shorelines
+        # Get the list of the ROI IDs that have extracted shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(has_extracted_shorelines=True)
 
         # if no ROIs have extracted shorelines, return otherwise load extracted shorelines for the first ROI ID with extracted shorelines
         if not ids_with_extracted_shorelines:
             self.id_container.ids = []
+            self.extract_shorelines_container.roi_ids_list = []
             self.extract_shorelines_container.load_list = []
             logger.warning("No ROIs found with extracted shorelines.")
             return []
-        
+
         self.id_container.ids = list(ids_with_extracted_shorelines)
-        self.extract_shorelines_container.load_list =  list(ids_with_extracted_shorelines)
+        self.extract_shorelines_container.roi_ids_list = list(
+            ids_with_extracted_shorelines
+        )
         return ids_with_extracted_shorelines
+
+    def update_loadable_shorelines(self, selected_id: str):
+        extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
+        logger.info(f"ROI ID {selected_id} extracted shorelines {extracted_shorelines}")
+        # if extracted shorelines exist, load them onto map, if none exist nothing loads
+        if hasattr(extracted_shorelines, "gdf"):
+            if not extracted_shorelines.gdf.empty:
+                self.extract_shorelines_container.load_list = (
+                    extracted_shorelines.gdf["satname"]
+                    + "_"
+                    + extracted_shorelines.gdf["date"].apply(
+                        lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
+                    )
+                ).tolist()
+        else:
+            return None
+        return extracted_shorelines
 
     def load_extracted_shorelines_to_map(self, row_number: int = 0) -> None:
         """Loads stylized extracted shorelines onto the map for a single selected region of interest (ROI).
@@ -2151,22 +2222,12 @@ class CoastSeg_Map:
         # Load extracted shorelines for the first ROI ID with extracted shorelines
         # select the first ROI ID with extracted shorelines
         selected_id = ids_with_extracted_shorelines[0]
-        # load the extracted shorelines for the selected ROI ID
-        extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
-        logger.info(f"ROI ID {selected_id} extracted shorelines {extracted_shorelines}")
-        # if extracted shorelines exist, load them onto map, if none exist nothing loads
-        if hasattr(extracted_shorelines, "gdf"):
-            if not extracted_shorelines.gdf.empty:
-                self.extract_shorelines_container.load_list = (
-                    extracted_shorelines.gdf["satname"]
-                    + "_"
-                    + extracted_shorelines.gdf["date"].apply(
-                        lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
-                    )
-                ).tolist()
 
+        # load the extracted shorelines for the selected ROI ID
+        extracted_shorelines = self.update_loadable_shorelines(selected_id)
         self.extract_shorelines_container.trash_list = []
-        self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
+        if extracted_shorelines:
+            self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
 
     def load_extracted_shorelines_on_map(
         self,
@@ -2182,18 +2243,10 @@ class CoastSeg_Map:
         """
         if extracted_shorelines is None:
             return
-        style = {
-            "color": "#001aff",  # Outline color
-            "opacity": 1,  # opacity 1 means no transparency
-            "weight": 3,  # Width
-            "fillColor": "#001aff",  # Fill color
-            "fillOpacity": 0.8,  # Fill opacity.
-            "radius": 1,
-        }
         # create the extracted shoreline layer and add it to the map
         layer_name = "extracted shoreline"
         self.load_extracted_shoreline_layer(
-            extracted_shorelines.gdf.iloc[[row_number]], layer_name, style
+            extracted_shorelines.gdf.iloc[[row_number]], layer_name, colormap="viridis"
         )
 
     def load_feature_on_map(
