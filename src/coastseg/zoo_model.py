@@ -711,10 +711,8 @@ class Zoo_Model:
             config = file_utilities.load_json_data_from_file(
                 session_path, "config.json"
             )
-            # get the roi_id either from the recent model segmentation or the config file
-            if settings.get("sample_direc"):
-                roi_id = file_utilities.extract_roi_id(settings.get("sample_direc", ""))
-            elif config.get("roi_ids"):
+            # get the roi_id from the config file
+            if config.get("roi_ids"):
                 roi_id = config["roi_ids"][0]
             roi_settings = config[roi_id]
         except (KeyError, ValueError) as e:
