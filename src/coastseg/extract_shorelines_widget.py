@@ -83,7 +83,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
         )
-        self.ROI_list_widget = ipywidgets.dropdown(
+        self.ROI_list_widget = ipywidgets.Dropdown(
             description="Available ROIs",
             options=[],
             layout=ipywidgets.Layout(padding="0px", margin="0px"),
