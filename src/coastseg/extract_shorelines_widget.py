@@ -69,6 +69,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         self.extracted_shoreline_traitlet = extracted_shoreline_traitlet
         self.remove_callback = None
         self.load_callback = None
+        self.handle_exception = ipywidgets.CallbackDispatcher()
 
         # 2. Widget Creation
 
@@ -230,99 +231,119 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
 
     def on_roi_selected(self, change: dict):
         """Callback function for when an ROI ID is selected"""
-        # when the content sof the load list changes update the layer
-        # clear the load and trash lists
-        self.load_list_widget.options = []
-        self.trash_list_widget.options = []
-        print(change["new"])
-        # call the callback function
-        self.roi_selected_callback(change["new"])
+        try:
+            # when the content sof the load list changes update the layer
+            # clear the load and trash lists
+            self.load_list_widget.options = []
+            self.trash_list_widget.options = []
+            print(change["new"])
+            # call the callback function
+            self.roi_selected_callback(change["new"])
+        except Exception as e:
+            self.handle_exception(e)
 
     def on_load_selected(self, change: dict):
         """Callback function for when a load shoreline item is selected"""
-        # when the content sof the load list changes update the layer
-        style = {
-            "color": "#001aff",  # Outline color
-            "opacity": 1,  # opacity 1 means no transparency
-            "weight": 3,  # Width
-            "fillColor": "#001aff",  # Fill color
-            "fillOpacity": 0.8,  # Fill opacity.
-            "radius": 1,
-        }
-        layer_name = "extracted shoreline"
-        # get the selected shorelines
-        selected_items = self.load_list_widget.value
-        # get the selected ROI ID
-        selected_id = self.roi_list_widget.value
-        if selected_items and self.load_callback:
-            self.load_callback(
-                selected_id, selected_items, layer_name, colormap="viridis"
-            )
-        else:
-            # if no items are selected remove the shorelines from the map
-            if self.remove_callback:
-                self.remove_callback(layer_name)
+        try:
+            # when the content sof the load list changes update the layer
+            style = {
+                "color": "#001aff",  # Outline color
+                "opacity": 1,  # opacity 1 means no transparency
+                "weight": 3,  # Width
+                "fillColor": "#001aff",  # Fill color
+                "fillOpacity": 0.8,  # Fill opacity.
+                "radius": 1,
+            }
+            layer_name = "extracted shoreline"
+            # get the selected shorelines
+            selected_items = self.load_list_widget.value
+            # get the selected ROI ID
+            selected_id = self.roi_list_widget.value
+            if selected_items and self.load_callback:
+                self.load_callback(
+                    selected_id, selected_items, layer_name, colormap="viridis"
+                )
+            else:
+                # if no items are selected remove the shorelines from the map
+                if self.remove_callback:
+                    self.remove_callback(layer_name)
+        except Exception as e:
+            self.handle_exception(e)
 
     def on_trash_selected(self, change: dict):
         """Callback function for when a trash item is selected"""
-        # this creates new a layer on the map that's styled red
-        style = {
-            "color": "#e82009",  # Outline color
-            "opacity": 1,  # opacity 1 means no transparency
-            "weight": 3,  # Width
-            "fillColor": "#e82009",  # Fill color
-            "fillOpacity": 0.8,  # Fill opacity.
-            "radius": 1,
-        }
-        # get the selected shorelines
-        selected_items = self.trash_list_widget.value
-        layer_name = "delete"
-        # get the selected ROI ID
-        selected_id = self.roi_list_widget.value
-        if selected_items and self.load_callback:
-            self.load_callback(selected_id, selected_items, layer_name, colormap="Reds")
-        else:
-            # if no items are selected remove the shorelines from the map
-            if self.remove_callback:
-                self.remove_callback(layer_name)
+        try:
+            # this creates new a layer on the map that's styled red
+            style = {
+                "color": "#e82009",  # Outline color
+                "opacity": 1,  # opacity 1 means no transparency
+                "weight": 3,  # Width
+                "fillColor": "#e82009",  # Fill color
+                "fillOpacity": 0.8,  # Fill opacity.
+                "radius": 1,
+            }
+            # get the selected shorelines
+            selected_items = self.trash_list_widget.value
+            layer_name = "delete"
+            # get the selected ROI ID
+            selected_id = self.roi_list_widget.value
+            if selected_items and self.load_callback:
+                self.load_callback(
+                    selected_id, selected_items, layer_name, colormap="Reds"
+                )
+            else:
+                # if no items are selected remove the shorelines from the map
+                if self.remove_callback:
+                    self.remove_callback(layer_name)
+        except Exception as e:
+            self.handle_exception(e)
 
     def trash_button_clicked(self, btn):
         """Callback function for when the trash button is clicked"""
         # get selected shorelines out of all the available shorelines
-        selected_items = self.load_list_widget.value
-        print(selected_items)
-        # add
-        self.extracted_shoreline_traitlet.trash_list = (
-            self.extracted_shoreline_traitlet.trash_list + list(selected_items)
-        )
-        # remove the items from the load_list
-        self.extracted_shoreline_traitlet.load_list = list(
-            set(self.extracted_shoreline_traitlet.load_list) - set(selected_items)
-        )
+        try:
+            selected_items = self.load_list_widget.value
+            print(selected_items)
+            # add
+            self.extracted_shoreline_traitlet.trash_list = (
+                self.extracted_shoreline_traitlet.trash_list + list(selected_items)
+            )
+            # remove the items from the load_list
+            self.extracted_shoreline_traitlet.load_list = list(
+                set(self.extracted_shoreline_traitlet.load_list) - set(selected_items)
+            )
+        except Exception as e:
+            self.handle_exception(e)
 
     def undo_button_clicked(self, btn):
         """Callback function for when the undo button is clicked"""
-        selected_items = self.trash_list_widget.value
-        self.extracted_shoreline_traitlet.trash_list = list(
-            set(self.extracted_shoreline_traitlet.trash_list) - set(selected_items)
-        )
-        # add the items back to the load_list
-        self.extracted_shoreline_traitlet.load_list = list(
-            self.extracted_shoreline_traitlet.load_list + list(selected_items)
-        )
+        try:
+            selected_items = self.trash_list_widget.value
+            self.extracted_shoreline_traitlet.trash_list = list(
+                set(self.extracted_shoreline_traitlet.trash_list) - set(selected_items)
+            )
+            # add the items back to the load_list
+            self.extracted_shoreline_traitlet.load_list = list(
+                self.extracted_shoreline_traitlet.load_list + list(selected_items)
+            )
+        except Exception as e:
+            self.handle_exception(e)
 
     def delete_all_button_clicked(self, btn):
         """Callback function for when the delete all button is clicked"""
-        selected_items = self.trash_list_widget.value
-        self.extracted_shoreline_traitlet.trash_list = list(
-            set(self.trash_list_widget.options) - set(selected_items)
-        )
-        self.extracted_shoreline_traitlet.load_list = list(
-            set(self.load_list_widget.options) - set(selected_items)
-        )
-        # get the selected ROI ID
-        selected_id = self.roi_list_widget.value
+        try:
+            selected_items = self.trash_list_widget.value
+            self.extracted_shoreline_traitlet.trash_list = list(
+                set(self.trash_list_widget.options) - set(selected_items)
+            )
+            self.extracted_shoreline_traitlet.load_list = list(
+                set(self.load_list_widget.options) - set(selected_items)
+            )
+            # get the selected ROI ID
+            selected_id = self.roi_list_widget.value
 
-        if self.remove_all_callback:
-            layer_name = "delete"
-            self.remove_all_callback(layer_name, selected_id, selected_items)
+            if self.remove_all_callback:
+                layer_name = "delete"
+                self.remove_all_callback(layer_name, selected_id, selected_items)
+        except Exception as e:
+            self.handle_exception(e)

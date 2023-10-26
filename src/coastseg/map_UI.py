@@ -73,13 +73,18 @@ class UI:
 
         self.session_name = ""
         self.session_directory = ""
-        # extracted_shoreline_traitlet = kwargs.get("extracted_shoreline_traitlet",None)
-        # if extracted_shoreline_traitlet:
-        #     self.extract_shorelines_widget = Extracted_Shoreline_widget()
+
+        # create an exception handler for extracted shorelines widget
+        def my_exception_handler(error):
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
         # create the extract shorelines widget that controls shorelines on the map
         self.extract_shorelines_widget = Extracted_Shoreline_widget(
             coastseg_map.extract_shorelines_container
+        )
+        # register the exception handler with the extract shorelines widget
+        self.extract_shorelines_widget.handle_exception.register_callback(
+            my_exception_handler
         )
         # add callbacks to the extract shorelines widget
         self.extract_shorelines_widget.add_load_callback(
