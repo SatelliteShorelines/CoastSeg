@@ -9,18 +9,52 @@ from coastseg import shoreline
 from coastseg import transects
 import geopandas as gpd
 import pandas as pd
+from typing import List, Callable, Any
+
 
 logger = logging.getLogger(__name__)
 
 
-def edit_geojson_files(location, filenames, selected_items, filter_function):
+def edit_geojson_files(
+    location: str,
+    filenames: List[str],
+    selected_items: List[Any],
+    filter_function: Callable[[List[Any], gpd.GeoDataFrame], gpd.GeoDataFrame],
+) -> None:
+    """
+    Applies a filter function to GeoDataFrame objects loaded from GeoJSON files,
+    and writes the results back to the files.
+
+    :param location: A string representing the directory containing the GeoJSON files.
+    :param filenames: A list of strings representing the names of the GeoJSON files to be edited.
+    :param selected_items: A list of items to be used in the filter function.
+    :param filter_function: A function that takes a list of selected items and a GeoDataFrame,
+                            applies some filtering or editing based on the selected items,
+                            and returns the modified GeoDataFrame.
+    :return: None
+    """
     for filename in filenames:
         filepath = os.path.join(location, filename)
         if os.path.exists(filepath):
             edit_gdf_file(filepath, selected_items, filter_function)
 
 
-def edit_gdf_file(filepath, selected_items, filter_function):
+def edit_gdf_file(
+    filepath: str,
+    selected_items: List[Any],
+    filter_function: Callable[[List[Any], gpd.GeoDataFrame], gpd.GeoDataFrame],
+) -> None:
+    """
+    Applies a filter function to a GeoDataFrame object loaded from a GeoJSON file,
+    and writes the result back to the file.
+
+    :param filepath: A string representing the path to the GeoJSON file.
+    :param selected_items: A list of items to be used in the filter function.
+    :param filter_function: A function that takes a list of selected items and a GeoDataFrame,
+                            applies some filtering or editing based on the selected items,
+                            and returns the modified GeoDataFrame.
+    :return: None
+    """
     gdf = read_gpd_file(filepath)
     new_gdf = filter_function(selected_items, gdf)
     new_gdf.to_file(filepath, driver="GeoJSON")

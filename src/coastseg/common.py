@@ -104,17 +104,30 @@ def get_selected_indexes(
 
     return selected_indexes
 
-def update_transect_time_series(filepaths: str, dates_list) -> None:
+
+def update_transect_time_series(
+    filepaths: List[str], dates_list: List[datetime]
+) -> None:
+    """
+    Updates a series of CSV files by removing rows based on certain dates.
+
+    :param filepaths: A list of file paths to the CSV files.
+    :param dates_list: A list of datetime objects representing the dates to be filtered out.
+    :return: None
+    """
     for filepath in filepaths:
         # Read the CSV file into a DataFrame
         df = pd.read_csv(filepath)
-        
+
         # Format the dates to match the format in the CSV file
-        formatted_dates = [date.strftime('%Y-%m-%d %H:%M:%S+00:00') for date in dates_list]
+        formatted_dates = [
+            date.strftime("%Y-%m-%d %H:%M:%S+00:00") for date in dates_list
+        ]
         # Keep only the rows where the 'dates' column isn't in the list of formatted dates
-        df = df[~df['dates'].isin(formatted_dates)]
+        df = df[~df["dates"].isin(formatted_dates)]
         # Write the updated DataFrame to the same CSV file
         df.to_csv(filepath, index=False)
+
 
 def extract_dates_and_sats(
     selected_items: List[str],
@@ -167,42 +180,145 @@ def transform_data_to_nested_arrays(
     return transformed_dict
 
 
-def update_selected_shorelines_dict(
-    data_input: Union[Dict[str, Any], str],
-    selected_items: List[Tuple[str, str]],
-    session_path: str = "",
-    filename: str = "",
-) -> None:
-    # Determine if data_input is a dictionary or a file path
-    if isinstance(data_input, dict):
-        data = data_input
-    elif isinstance(data_input, str):
-        if not session_path or not filename:
-            raise ValueError(
-                "If data_input is a file path, session_path and filename must be provided."
-            )
-        # Define the full path to the JSON file
-        json_file = os.path.join(session_path, filename)
+def process_data_input(data):
+    """
+    Process the data input and transform it to nested arrays.
+
+    Parameters:
+    data (dict or str): The data input to process. If data is a string, it is assumed to be the full path to the JSON file.
+
+    Returns:
+    dict: The processed data as nested arrays.
+    """
+    # Determine if data is a dictionary or a file path
+    if isinstance(data, dict):
+        data_dict = data
+    elif isinstance(data, str):
         # Load data from the JSON file
-        data = file_utilities.load_data_from_json(json_file)
+        if os.path.exists(data):
+            data_dict = file_utilities.load_data_from_json(data)
+        else:
+            return None
     else:
-        raise TypeError("data_input must be either a dictionary or a string file path.")
+        raise TypeError("data must be either a dictionary or a string file path.")
 
     # Transform data to nested arrays
-    new_dict = transform_data_to_nested_arrays(data)
-
-    # Extract dates and satellite names from the selected items
-    dates_list, sat_list = extract_dates_and_sats(selected_items)
-
-    # Get the indexes of the selected items in the new_dict
-    selected_indexes = get_selected_indexes(new_dict, dates_list, sat_list)
-
-    # Delete the selected indexes from the new_dict
-    if selected_indexes:
-        for key in new_dict.keys():
-            new_dict[key] = np.delete(new_dict[key], selected_indexes)
-
+    new_dict = transform_data_to_nested_arrays(data_dict)
     return new_dict
+
+
+def update_extracted_shorelines_dict_transects_dict(
+    session_path, filename, dates_list, sat_list
+):
+    json_file = os.path.join(session_path, filename)
+    if os.path.exists(json_file) and os.path.isfile(json_file):
+        data = file_utilities.load_data_from_json(json_file)
+        extracted_shorelines_dict = process_data_input(data)
+        if extracted_shorelines_dict is not None:
+            # Get the indexes of the selected items in the extracted_shorelines_dict
+            selected_indexes = get_selected_indexes(
+                extracted_shorelines_dict, dates_list, sat_list
+            )
+            print("selected_indexes", selected_indexes)
+            # attempt to delete the selected indexes from the "transect_cross_distances.json"
+            transect_cross_distances_path = os.path.join(
+                session_path, "transects_cross_distances.json"
+            )
+            if os.path.exists(transect_cross_distances_path) and os.path.isfile(
+                transect_cross_distances_path
+            ):
+                transects_dict = process_data_input(transect_cross_distances_path)
+                if transects_dict is not None:
+                    # Delete the selected indexes from the transects_dict
+                    transects_dict = delete_selected_indexes(
+                        transects_dict, selected_indexes
+                    )
+                    file_utilities.to_file(
+                        transects_dict, transect_cross_distances_path
+                    )
+
+            # Delete the selected indexes from the extracted_shorelines_dict
+            extracted_shorelines_dict = delete_selected_indexes(
+                extracted_shorelines_dict, selected_indexes
+            )
+            file_utilities.to_file(extracted_shorelines_dict, json_file)
+
+
+# def update_selected_shorelines_dict(
+#     data_input: Union[Dict[str, Any], str],
+#     selected_items: List[Tuple[str, str]],
+# ) -> None:
+#     new_dict = process_data_input(data_input)
+
+#     # Extract dates and satellite names from the selected items
+#     dates_list, sat_list = extract_dates_and_sats(selected_items)
+
+#     # Get the indexes of the selected items in the new_dict
+#     selected_indexes = get_selected_indexes(new_dict, dates_list, sat_list)
+
+#     # Delete the selected indexes from the new_dict
+#     if selected_indexes:
+#         for key in new_dict.keys():
+#             new_dict[key] = np.delete(new_dict[key], selected_indexes)
+
+#     return new_dict
+
+
+def delete_selected_indexes(input_dict, selected_indexes):
+    """
+    Delete the selected indexes from the transects_dict.
+
+    Parameters:
+    input_dict (dict): The transects dictionary to modify.
+    selected_indexes (list): The indexes to delete.
+
+    Returns:
+    dict: The modified transects dictionary.
+    """
+    for key in input_dict.keys():
+        input_dict[key] = np.delete(input_dict[key], selected_indexes)
+    return input_dict
+
+
+# def update_selected_shorelines_dict(
+#     data_input: Union[Dict[str, Any], str],
+#     selected_items: List[Tuple[str, str]],
+#     session_path: str = "",
+#     filename: str = "",
+# ) -> None:
+#     # Determine if data_input is a dictionary or a file path
+#     if isinstance(data_input, dict):
+#         data = data_input
+#     elif isinstance(data_input, str):
+#         if not session_path or not filename:
+#             raise ValueError(
+#                 "If data_input is a file path, session_path and filename must be provided."
+#             )
+#         # Define the full path to the JSON file
+#         json_file = os.path.join(session_path, filename)
+#         # Load data from the JSON file
+#         if os.path.exists(json_file):
+#             data = file_utilities.load_data_from_json(json_file)
+#         else:
+#             return None
+#     else:
+#         raise TypeError("data_input must be either a dictionary or a string file path.")
+
+#     # Transform data to nested arrays
+#     new_dict = transform_data_to_nested_arrays(data)
+
+#     # Extract dates and satellite names from the selected items
+#     dates_list, sat_list = extract_dates_and_sats(selected_items)
+
+#     # Get the indexes of the selected items in the new_dict
+#     selected_indexes = get_selected_indexes(new_dict, dates_list, sat_list)
+
+#     # Delete the selected indexes from the new_dict
+#     if selected_indexes:
+#         for key in new_dict.keys():
+#             new_dict[key] = np.delete(new_dict[key], selected_indexes)
+
+#     return new_dict
 
 
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:

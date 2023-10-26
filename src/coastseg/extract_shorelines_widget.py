@@ -236,7 +236,6 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             # clear the load and trash lists
             self.load_list_widget.options = []
             self.trash_list_widget.options = []
-            print(change["new"])
             # call the callback function
             self.roi_selected_callback(change["new"])
         except Exception as e:
@@ -303,8 +302,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         # get selected shorelines out of all the available shorelines
         try:
             selected_items = self.load_list_widget.value
-            print(selected_items)
-            # add
+            # add the items to the trash list
             self.extracted_shoreline_traitlet.trash_list = (
                 self.extracted_shoreline_traitlet.trash_list + list(selected_items)
             )
@@ -332,10 +330,9 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
     def delete_all_button_clicked(self, btn):
         """Callback function for when the delete all button is clicked"""
         try:
-            selected_items = self.trash_list_widget.value
-            self.extracted_shoreline_traitlet.trash_list = list(
-                set(self.trash_list_widget.options) - set(selected_items)
-            )
+            selected_items = self.trash_list_widget.options
+            self.extracted_shoreline_traitlet.trash_list = []
+            # remove the deleted items from the load list
             self.extracted_shoreline_traitlet.load_list = list(
                 set(self.load_list_widget.options) - set(selected_items)
             )

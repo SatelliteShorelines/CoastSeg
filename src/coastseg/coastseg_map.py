@@ -88,7 +88,6 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
 def find_shorelines_directory(path, roi_id):
     # List the contents of the specified path
     contents = os.listdir(path)
-    print("Contents of the path:", contents)
 
     # Check for extracted shorelines geojson file in the specified path
     extracted_shorelines_file = [
@@ -120,6 +119,17 @@ def find_shorelines_directory(path, roi_id):
 
 
 def delete_extracted_shorelines_files(session_path, selected_items):
+    """Delete the extracted shorelines from the session directory for all the relevant files
+    Removes the extracted shorelines from the following files:
+    - extracted_shorelines_lines.geojson
+    - extracted_shorelines_points.geojson
+    - extracted_shorelines_dict.json
+    - transect_time_series.csv
+    - transect_time_series_tidally_corrected.csv
+    As well as all the csv files matching the following patterns
+    - _timeseries_raw.csv
+    - _timeseries_tidally_corrected.csv
+    """
     # delete the extracted shorelines from both geojson files
     geodata_processing.edit_geojson_files(
         session_path,
@@ -132,16 +142,22 @@ def delete_extracted_shorelines_files(session_path, selected_items):
     )
     # delete the extracted shorelines from the extracted_shorelines_dict.json file
     filename = "extracted_shorelines_dict.json"
-    json_file = os.path.join(session_path, filename)
-    data = file_utilities.load_data_from_json(json_file)
-    new_dict = common.update_selected_shorelines_dict(data, selected_items)
-    file_utilities.to_file(new_dict, json_file)
+    # Extract dates and satellite names from the selected items
+    dates_list, sat_list = common.extract_dates_and_sats(selected_items)
+    # update extracted_shorelines_dict.json and transects_cross_distances.json
+    common.update_extracted_shorelines_dict_transects_dict(
+        session_path, filename, dates_list, sat_list
+    )
     # delete the extracted shorelines from the transect_time_series.csv files
     filenames = [
         "transect_time_series.csv",
         "transect_time_series_tidally_corrected.csv",
     ]
-    filepaths = [os.path.join(session_path, filename) for filename in filenames]
+    filepaths = [
+        os.path.join(session_path, filename)
+        for filename in filenames
+        if os.path.isfile(os.path.join(session_path, filename))
+    ]
     dates_list, sat_list = common.extract_dates_and_sats(selected_items)
     common.update_transect_time_series(filepaths, dates_list)
     # delete the selected shorelines from all the individual csv files
@@ -150,7 +166,8 @@ def delete_extracted_shorelines_files(session_path, selected_items):
         common.drop_rows_from_csv(file_pattern, session_path, dates_list)
     # delete the extracted shorelines from the jpg deterction files
     jpg_path = os.path.join(session_path, "jpg_files", "detection")
-    common.delete_jpg_files(dates_list, sat_list, jpg_path)
+    if os.path.exists(jpg_path) and os.path.isdir(jpg_path):
+        common.delete_jpg_files(dates_list, sat_list, jpg_path)
 
 
 class CoastSeg_Map:
@@ -298,8 +315,6 @@ class CoastSeg_Map:
                     session_path, list(selected_shorelines)
                 )
             # this will remove the selected shorelines from the files
-            # do some fancy logic to remove the selected shorelines from the files
-        print(f"Deleting {selected_shorelines} ")
         self.remove_layer_by_name(layer_name)
 
     def load_selected_shorelines_on_map(
