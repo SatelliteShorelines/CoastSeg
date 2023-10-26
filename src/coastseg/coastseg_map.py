@@ -2280,13 +2280,26 @@ class CoastSeg_Map:
         # if extracted shorelines exist, load them onto map, if none exist nothing loads
         if hasattr(extracted_shorelines, "gdf"):
             if not extracted_shorelines.gdf.empty:
-                self.extract_shorelines_container.load_list = (
-                    extracted_shorelines.gdf["satname"]
-                    + "_"
-                    + extracted_shorelines.gdf["date"].apply(
+                if extracted_shorelines.gdf["date"].dtype == "object":
+                    # If the "date" column is already of string type, concatenate directly
+                    formatted_dates = extracted_shorelines.gdf["date"]
+                else:
+                    # If the "date" column is not of string type, convert to string with the required format
+                    formatted_dates = extracted_shorelines.gdf["date"].apply(
                         lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
                     )
+
+                self.extract_shorelines_container.load_list = (
+                    extracted_shorelines.gdf["satname"] + "_" + formatted_dates
                 ).tolist()
+            # if not extracted_shorelines.gdf.empty:
+            #     self.extract_shorelines_container.load_list = (
+            #         extracted_shorelines.gdf["satname"]
+            #         + "_"
+            #         + extracted_shorelines.gdf["date"].apply(
+            #             lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
+            #         )
+            #     ).tolist()
         else:
             return None
         return extracted_shorelines

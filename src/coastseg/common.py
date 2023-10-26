@@ -219,7 +219,6 @@ def update_extracted_shorelines_dict_transects_dict(
             selected_indexes = get_selected_indexes(
                 extracted_shorelines_dict, dates_list, sat_list
             )
-            print("selected_indexes", selected_indexes)
             # attempt to delete the selected indexes from the "transect_cross_distances.json"
             transect_cross_distances_path = os.path.join(
                 session_path, "transects_cross_distances.json"
