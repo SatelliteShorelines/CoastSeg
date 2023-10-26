@@ -77,6 +77,9 @@ class UI:
         # create an exception handler for extracted shorelines widget
         def my_exception_handler(error):
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+        
+        def clear_map_styles(error):
+            self.coastseg_map.map.default_style = {"cursor": "default"}
 
         # create the extract shorelines widget that controls shorelines on the map
         self.extract_shorelines_widget = Extracted_Shoreline_widget(
@@ -86,6 +89,10 @@ class UI:
         self.extract_shorelines_widget.handle_exception.register_callback(
             my_exception_handler
         )
+        self.extract_shorelines_widget.handle_exception.register_callback(
+            clear_map_styles
+        )
+        
         # add callbacks to the extract shorelines widget
         self.extract_shorelines_widget.add_load_callback(
             coastseg_map.load_selected_shorelines_on_map
