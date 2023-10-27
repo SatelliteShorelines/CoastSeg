@@ -104,10 +104,10 @@ def get_files_to_download(
         filenames = [filenames]
     url_dict = {}
     for filename in filenames:
-        response = next((f for f in available_files if f["filename"] == filename), None)
+        response = next((f for f in available_files if f["key"] == filename), None)
         if response is None:
             raise ValueError(f"Cannot find {filename} at {model_id}")
-        link = response["links"]["download"]
+        link = response["links"]["self"]
         file_path = os.path.join(model_path, filename)
         url_dict[file_path] = link
     return url_dict
@@ -867,8 +867,15 @@ class Zoo_Model:
         # Copy over the config_gdf.geojson file
         config_gdf_path = os.path.join(roi_directory, "config_gdf.geojson")
         if os.path.exists(config_gdf_path):
-            shutil.copy(
-                config_gdf_path, os.path.join(session_path, "config_gdf.geojson")
+            # Read in the GeoJSON file using geopandas
+            gdf = gpd.read_file(config_gdf_path)
+
+            # Project the GeoDataFrame to EPSG:4326
+            gdf_4326 = gdf.to_crs("EPSG:4326")
+
+            # Save the projected GeoDataFrame to a new GeoJSON file
+            gdf_4326.to_file(
+                os.path.join(session_path, "config_gdf.geojson"), driver="GeoJSON"
             )
         model_settings_path = os.path.join(session_path, "model_settings.json")
         file_utilities.write_to_json(model_settings_path, preprocessed_data)
@@ -1311,7 +1318,7 @@ class Zoo_Model:
         download_dict = {}
         # download best_model.txt and read the name of the best model
         best_model_json = next(
-            (f for f in available_files if f["filename"] == "BEST_MODEL.txt"), None
+            (f for f in available_files if f["key"] == "BEST_MODEL.txt"), None
         )
         if best_model_json is None:
             raise ValueError(f"Cannot find BEST_MODEL.txt in {model_id}")
@@ -1321,7 +1328,7 @@ class Zoo_Model:
         # if best BEST_MODEL.txt file not exist then download it
         if not os.path.isfile(BEST_MODEL_txt_path):
             common.download_url(
-                best_model_json["links"]["download"],
+                best_model_json["links"]["self"],
                 BEST_MODEL_txt_path,
                 "Downloading best_model.txt",
             )
@@ -1375,10 +1382,8 @@ class Zoo_Model:
         """
         download_dict = {}
         # get json and models
-        all_models_reponses = [
-            f for f in available_files if f["filename"].endswith(".h5")
-        ]
-        all_model_names = [f["filename"] for f in all_models_reponses]
+        all_models_reponses = [f for f in available_files if f["key"].endswith(".h5")]
+        all_model_names = [f["key"] for f in all_models_reponses]
         json_file_names = [
             model_name.replace("_fullmodel.h5", ".json")
             for model_name in all_model_names
@@ -1406,7 +1411,7 @@ class Zoo_Model:
         logger.info(f"all_json_reponses : {all_json_reponses }")
         for response in all_models_reponses + all_json_reponses:
             # get the link of the best model
-            link = response["links"]["download"]
+            link = response["links"]["self"]
             filename = response["key"]
             filepath = os.path.join(model_path, filename)
             download_dict[filepath] = link
