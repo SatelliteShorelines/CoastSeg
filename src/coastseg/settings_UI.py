@@ -208,14 +208,15 @@ class Settings_UI:
             )
         elif setting_name == "max_dist_ref":
             widget = ipywidgets.IntSlider(
-                description="Max Distance Reference",
-                min=0,
-                max=100,
-                value=10,
+                description="Reference Shoreline Buffer",
+                value=100,
+                min=5,
+                max=1000,
+                step=1,
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Max Distance Reference</b><br>Maximum distance from the shoreline to search for reference points."
+                value="<b>Reference Shoreline Buffer</b><br>Max size of the buffer around reference shorelines in which shorelines can be extracted"
             )
         elif setting_name == "along_dist":
             widget = ipywidgets.IntSlider(
@@ -232,14 +233,14 @@ class Settings_UI:
         elif setting_name == "dist_clouds":
             widget = ipywidgets.IntSlider(
                 description="Distance to Clouds",
-                min=0,
-                step=1,
-                max=1000,
                 value=300,
+                min=0,
+                max=1000,
+                step=1,
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Distance to Clouds</b><br>Maximum distance from the shoreline to search for clouds."
+                value="<b>Allowed Distance from Clouds</b><br>Any shorelines within this distance of a cloud will be removed."
             )
         elif setting_name == "min_beach_area":
             widget = ipywidgets.IntSlider(
@@ -250,7 +251,7 @@ class Settings_UI:
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Minimum Beach Area</b><br>Minimum area of beach required to be considered a valid reference point."
+                value="<b>Minimum Beach Area</b><br>Minimum area (sqm) for object to be labeled as beach"
             )
         elif setting_name == "min_length_sl":
             widget = ipywidgets.IntSlider(
@@ -262,7 +263,7 @@ class Settings_UI:
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Minimum Shoreline Length</b><br>Minimum length of shoreline required to be considered a valid reference point."
+                value="<b>Minimum Shoreline Length</b><br>Minimum length of shoreline in meters."
             )
         elif setting_name == "cloud_thresh":
             widget = ipywidgets.FloatSlider(
@@ -348,7 +349,7 @@ class Settings_UI:
             )
         elif setting_name == "percent_no_data":
             widget = ipywidgets.FloatSlider(
-                description="Percentage of Bad Pixels Allowed",
+                description="% Bad Pixels",
                 value=50.0,
                 min=0.0,
                 max=100.0,
@@ -371,6 +372,10 @@ class Settings_UI:
     def get_settings(self) -> dict:
         for setting_name, widget in self.settings_widgets.items():
             self.settings[setting_name] = widget.value
+
+        if "sat_list" in self.settings:
+            sat_tuple = self.settings["sat_list"]
+            self.settings["sat_list"] = list(sat_tuple)
 
         return self.settings.copy()
 
