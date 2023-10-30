@@ -1,370 +1,482 @@
 # standard python imports
 # external python imports
 import ipywidgets
-from ipywidgets import VBox
-from ipywidgets import HTML
-from ipywidgets import BoundedFloatText
-from ipywidgets import Select
-from ipywidgets import BoundedIntText
-from ipywidgets import Accordion
+import datetime
+from typing import List, Union, Optional, Tuple
+
+
+class ButtonColors:
+    REMOVE = "red"
+    LOAD = "#69add1"
+    ACTION = "#ae3cf0"
+    SAVE = "#50bf8f"
+    CLEAR = "#a3adac"
 
 
 def str_to_bool(var: str) -> bool:
     return var == "True"
 
 
-class Settings_UI:
-    def __init__(self) -> None:
-        self.settings = {}
-        # button styles
-        self.remove_style = dict(button_color="red")
-        self.load_style = dict(button_color="#69add1", description_width="initial")
-        self.action_style = dict(button_color="#ae3cf0")
-        self.save_style = dict(button_color="#50bf8f")
-        self.clear_stlye = dict(button_color="#a3adac")
+def convert_date(date_str):
+    try:
+        return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError as e:
+        raise ValueError(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
 
-    def set_settings(self, **kwargs):
-        self.settings.update({key: value for key, value in kwargs.items()})
+
+class Settings_UI:
+    def __init__(
+        self,
+        basic_settings: Optional[List[str]] = None,
+        advanced_settings: Optional[List[str]] = None,
+    ) -> None:
+        # if no basic settings are provided, use the default settings
+        if basic_settings is None:
+            basic_settings = [
+                "max_dist_ref",
+                "min_length_sl",
+                "min_beach_area",
+                "dist_clouds",
+                "apply_cloud_mask",
+                "cloud_thresh",
+                "percent_no_data",
+            ]
+        if advanced_settings is None:
+            advanced_settings = [
+                "min_points",
+                "max_std",
+                "along_dist",
+                "max_range",
+                "min_chainage",
+                "multiple_inter",
+                "prc_multiple",
+            ]
+
+        self.settings = {}
+        self.basic_settings = basic_settings
+        self.advanced_settings = advanced_settings
+        self.settings_widgets = {}
+
+        # button styles
+        self.remove_style = dict(button_color=ButtonColors.REMOVE)
+        self.load_style = dict(
+            button_color=ButtonColors.LOAD, description_width="initial"
+        )
+        self.action_style = dict(button_color=ButtonColors.ACTION)
+        self.save_style = dict(button_color=ButtonColors.SAVE)
+        self.clear_stlye = dict(button_color=ButtonColors.CLEAR)
+
+        # Create the basic settings tab
+        self.basic_settings_tab = self.create_settings_tab(self.basic_settings)
+
+        # Create the advanced settings tab
+        self.advanced_settings_tab = self.create_settings_tab(self.advanced_settings)
+
+    def create_settings_tab(self, settings: List[str]) -> ipywidgets.VBox:
+        # Create the settings tab
+        tab_contents = []
+        for setting_name in settings:
+            # Create the widget for the setting
+            widget, instructions = self.create_setting_widget(setting_name)
+
+            # Add the widget and instructions to the tab contents
+            tab_contents.append(ipywidgets.VBox([instructions, widget]))
+
+            # Add the widget to the settings_widgets dictionary
+            self.settings_widgets[setting_name] = widget
+
+        # Create the settings tab
+        tab = ipywidgets.VBox(children=tab_contents)
+
+        return tab
+
+    def add_custom_widget(
+        self,
+        widget: Union[
+            ipywidgets.ToggleButton, ipywidgets.FloatSlider, ipywidgets.IntText
+        ],
+        setting_name: str,
+        title: str,
+        instructions: str,
+        advanced: bool = False,
+        index: Optional[int] = None,
+    ):
+        """
+        Adds a custom widget to the basic or advanced settings tab at the specified index.
+
+        Args:
+            widget: The widget to add.
+            setting_name: The name of the setting.
+            title: The title of the setting.
+            instructions: Optional instructions for the widget.
+            advanced: Whether to add the widget to the advanced settings tab. If False, adds to the basic settings tab.
+            index: The index at which to insert the widget. If None, the widget is added to the end of the settings list.
+        """
+        # Check for missing title, setting_name, or instructions
+        if not title:
+            raise ValueError("Title cannot be empty.")
+        if not setting_name:
+            raise ValueError("Setting name cannot be empty.")
+        if not instructions:
+            instructions = ""
+        # Add the widget to the settings tab
+        if advanced:
+            if index is None:
+                index = len(self.advanced_settings)
+            self.advanced_settings.insert(index, setting_name)
+            self.settings_widgets[setting_name] = widget
+            self.advanced_settings_tab.children = (
+                self.advanced_settings_tab.children[:index]
+                + (ipywidgets.HTML(value=f"<b>{title}</b><br>{instructions}."),)
+                + (self.settings_widgets[setting_name],)
+                + self.advanced_settings_tab.children[index:]
+            )
+        else:
+            if index is None:
+                index = len(self.basic_settings)
+            self.basic_settings.insert(index, setting_name)
+            self.settings_widgets[setting_name] = widget
+            self.basic_settings_tab.children = (
+                self.basic_settings_tab.children[:index]
+                + (ipywidgets.HTML(value=f"<b>{title}</b><br>{instructions}."),)
+                + (self.settings_widgets[setting_name],)
+                + self.basic_settings_tab.children[index:]
+            )
+
+    def create_setting_widget(
+        self, setting_name: str
+    ) -> Tuple[
+        Union[ipywidgets.ToggleButton, ipywidgets.FloatSlider, ipywidgets.IntText],
+        ipywidgets.HTML,
+    ]:
+        # Create the widget for the setting
+        if setting_name == "apply_cloud_mask":
+            widget = ipywidgets.ToggleButtons(
+                options=["True", "False"],
+                description="Apply Cloud Mask",
+                tooltips=[
+                    "Cloud Masking On",
+                    "Cloud Masking Off",
+                ],
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Apply Cloud Mask</b><br>Enable/disable cloud masking."
+            )
+        elif setting_name == "max_dist_ref":
+            widget = ipywidgets.IntSlider(
+                description="Max Distance Reference",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Max Distance Reference</b><br>Maximum distance from the shoreline to search for reference points."
+            )
+        elif setting_name == "along_dist":
+            widget = ipywidgets.IntSlider(
+                description="Alongshore Distance",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Alongshore Distance</b><br>Distance along the shoreline to search for reference points."
+            )
+        elif setting_name == "dist_clouds":
+            widget = ipywidgets.IntSlider(
+                description="Distance to Clouds",
+                min=0,
+                step=1,
+                max=1000,
+                value=300,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Distance to Clouds</b><br>Maximum distance from the shoreline to search for clouds."
+            )
+        elif setting_name == "min_beach_area":
+            widget = ipywidgets.IntSlider(
+                description="Minimum Beach Area",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Minimum Beach Area</b><br>Minimum area of beach required to be considered a valid reference point."
+            )
+        elif setting_name == "min_length_sl":
+            widget = ipywidgets.IntSlider(
+                description="Minimum Shoreline Length",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Minimum Shoreline Length</b><br>Minimum length of shoreline required to be considered a valid reference point."
+            )
+        elif setting_name == "cloud_thresh":
+            widget = ipywidgets.IntSlider(
+                description="Cloud Threshold",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Cloud Threshold</b><br>Threshold for cloud detection."
+            )
+        elif setting_name == "min_points":
+            widget = ipywidgets.IntText(
+                description="Minimum Points",
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Minimum Points</b><br>Minimum number of reference points required to calculate shoreline."
+            )
+        elif setting_name == "max_std":
+            widget = ipywidgets.IntSlider(
+                description="Maximum Standard Deviation",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Maximum Standard Deviation</b><br>Maximum standard deviation allowed for reference points."
+            )
+        elif setting_name == "max_range":
+            widget = ipywidgets.IntSlider(
+                description="Maximum Range",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Maximum Range</b><br>Maximum range allowed for reference points."
+            )
+        elif setting_name == "min_chainage":
+            widget = ipywidgets.IntSlider(
+                description="Minimum Chainage",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Minimum Chainage</b><br>Minimum chainage required to be considered a valid reference point."
+            )
+        elif setting_name == "multiple_inter":
+            widget = ipywidgets.ToggleButton(
+                description="Multiple Intersections",
+                value=True,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Multiple Intersections</b><br>Enable/disable multiple intersection detection."
+            )
+        elif setting_name == "prc_multiple":
+            widget = ipywidgets.FloatSlider(
+                description="Percentage Multiple Intersections",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Percentage Multiple Intersections</b><br>Percentage of multiple intersections allowed."
+            )
+        elif setting_name == "percent_no_data":
+            widget = ipywidgets.FloatSlider(
+                description="Percentage of Bad Pixels Allowed",
+                min=0,
+                max=100,
+                value=10,
+                style={"description_width": "initial"},
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Percentage Bad Pixels</b><br>Percentage of bad pixels allowed."
+            )
+        else:
+            raise ValueError(f"Invalid setting name: {setting_name}")
+
+        return widget, instructions
 
     def get_settings(self) -> dict:
-        settings = {
-            "apply_cloud_mask": str_to_bool(self.apply_cloud_mask_toggle.value),
-            "max_dist_ref": self.shoreline_buffer_slider.value,
-            "along_dist": self.alongshore_distance_slider.value,
-            "dist_clouds": self.cloud_slider.value,
-            "min_beach_area": self.beach_area_slider.value,
-            "min_length_sl": self.min_length_sl_slider.value,
-            "cloud_thresh": self.cloud_threshold_slider.value,
-            "min_points": self.min_points_text.value,
-            "max_std": self.max_std_text.value,
-            "max_range": self.max_range_text.value,
-            "min_chainage": self.min_chainage_text.value,
-            "multiple_inter": self.outliers_mode.value,
-            "prc_multiple": self.prc_multiple_text.value,
-            "percent_no_data": self.no_data_slider.value,
-        }
-        self.set_settings(**settings)
+        for setting_name, widget in self.settings_widgets.items():
+            self.settings[setting_name] = widget.value
 
-        return self.settings
+        return self.settings.copy()
 
-    def get_no_data_slider(self):
-        # returns slider to control no data slider
-        instructions = HTML(
-            value="<b>Percentage Bad Pixels</b> \
-                            </br>Percentage of Bad Pixels Allowed"
+    def render(self) -> None:
+        # Display the settings UI
+        # Create the settings UI
+        self.settings_ui = ipywidgets.Tab(
+            children=[self.basic_settings_tab, self.advanced_settings_tab]
         )
+        # self.settings_ui = ipywidgets.Accordion(
+        #     children=[self.basic_settings_tab, self.advanced_settings_tab]
+        # )
+        self.settings_ui.set_title(0, "Basic Settings")
+        self.settings_ui.set_title(1, "Advanced Settings")
+        return self.settings_ui
 
-        self.no_data_slider = ipywidgets.FloatSlider(
-            value=50.0,
-            min=0.0,
-            max=100.0,
-            step=1.0,
-            description="percent_no_data :",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
-            style={"description_width": "initial"},
-        )
-        return VBox([instructions, self.no_data_slider])
+    # def create_setting_widget(
+    #     self, setting_name: str
+    # ) -> Tuple[
+    #     Union[ipywidgets.ToggleButton, ipywidgets.FloatSlider, ipywidgets.IntText],
+    #     ipywidgets.HTML,
+    # ]:
+    #     # Create the widget for the setting
+    #     if setting_name == "apply_cloud_mask":
+    #         widget = ipywidgets.ToggleButton(
+    #             description="Apply Cloud Mask", value=True, **self.action_style
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Apply Cloud Mask</b><br>Enable/disable cloud masking."
+    #         )
+    #     elif setting_name == "max_dist_ref":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Max Distance Reference",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Max Distance Reference</b><br>Maximum distance from the shoreline to search for reference points."
+    #         )
+    #     elif setting_name == "along_dist":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Alongshore Distance",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Alongshore Distance</b><br>Distance along the shoreline to search for reference points."
+    #         )
+    #     elif setting_name == "dist_clouds":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Distance to Clouds",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Distance to Clouds</b><br>Maximum distance from the shoreline to search for clouds."
+    #         )
+    #     elif setting_name == "min_beach_area":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Minimum Beach Area",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Minimum Beach Area</b><br>Minimum area of beach required to be considered a valid reference point."
+    #         )
+    #     elif setting_name == "min_length_sl":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Minimum Shoreline Length",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Minimum Shoreline Length</b><br>Minimum length of shoreline required to be considered a valid reference point."
+    #         )
+    #     elif setting_name == "cloud_thresh":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Cloud Threshold",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Cloud Threshold</b><br>Threshold for cloud detection."
+    #         )
+    #     elif setting_name == "min_points":
+    #         widget = ipywidgets.IntText(
+    #             description="Minimum Points", value=10, **self.action_style
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Minimum Points</b><br>Minimum number of reference points required to calculate shoreline."
+    #         )
+    #     elif setting_name == "max_std":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Maximum Standard Deviation",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Maximum Standard Deviation</b><br>Maximum standard deviation allowed for reference points."
+    #         )
+    #     elif setting_name == "max_range":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Maximum Range",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Maximum Range</b><br>Maximum range allowed for reference points."
+    #         )
+    #     elif setting_name == "min_chainage":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Minimum Chainage",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Minimum Chainage</b><br>Minimum chainage required to be considered a valid reference point."
+    #         )
+    #     elif setting_name == "multiple_inter":
+    #         widget = ipywidgets.ToggleButton(
+    #             description="Multiple Intersections", value=True, **self.action_style
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Multiple Intersections</b><br>Enable/disable multiple intersection detection."
+    #         )
+    #     elif setting_name == "prc_multiple":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Percentage Multiple Intersections",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Percentage Multiple Intersections</b><br>Percentage of multiple intersections allowed."
+    #         )
+    #     elif setting_name == "percent_no_data":
+    #         widget = ipywidgets.FloatSlider(
+    #             description="Percentage Bad Pixels",
+    #             min=0,
+    #             max=100,
+    #             value=10,
+    #             **self.action_style,
+    #         )
+    #         instructions = ipywidgets.HTML(
+    #             value="<b>Percentage Bad Pixels</b><br>Percentage of bad pixels allowed."
+    #         )
+    #     else:
+    #         raise ValueError(f"Invalid setting name: {setting_name}")
 
-    def get_min_points_text(self) -> VBox:
-        # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Minimum Number Shoreline of Points</b> \
-            </br>- Minimum number of shoreline points to calculate an intersection"
-        )
-
-        # min_points: minimum number of shoreline points to calculate an intersection.
-        self.min_points_text = BoundedIntText(
-            value=3,
-            min=1,
-            max=100,
-            step=1,
-            description="min_points :",
-            style={"description_width": "initial"},
-            disabled=False,
-        )
-        return VBox([label, self.min_points_text])
-
-    def get_min_length_sl_slider(self):
-        # returns slider to control beach area slider
-        min_length_sl_instr = HTML(value="<b>Minimum shoreline length</b>")
-
-        self.min_length_sl_slider = ipywidgets.IntSlider(
-            value=500,
-            min=10,
-            max=1000,
-            step=1,
-            description="min_length_sl (m):",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
-            style={"description_width": "initial"},
-        )
-        return VBox([min_length_sl_instr, self.min_length_sl_slider])
-
-    def get_max_range_text(self) -> VBox:
-        # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Max Range</b> \
-            </br>- Max range for shoreline points within the alongshore range, if range is above this value a NaN is returned for this intersection"
-        )
-        # max_range: (in metres) maximum RANGE for the shoreline points within the alongshore range, if RANGE is above this value a NaN is returned for this intersection.
-        self.max_range_text = BoundedFloatText(
-            value=30.0,
-            min=1.0,
-            max=100.0,
-            step=1.0,
-            description="max_range (m)",
-            style={"description_width": "initial"},
-            disabled=False,
-        )
-        return VBox([label, self.max_range_text])
-
-    def get_outliers_mode(self) -> VBox:
-        # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Outliers Mode</b>\
-                     </br>-How to deal with multiple shoreline intersections."
-        )
-        # controls multiple_inter: ('auto','nan','max') defines how to deal with multiple shoreline intersections
-        self.outliers_mode = Select(
-            options=["auto", "nan", "max"],
-            value="auto",
-            description="multiple_inter :",
-            style={"description_width": "initial"},
-        )
-        return VBox([label, self.outliers_mode])
-
-    def get_max_std_text(self) -> VBox:
-        # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Maximum STD</b> \
-            </br>- Maximum STD for the shoreline points within the alongshore range"
-        )
-
-        # max_std: (in metres) maximum STD for the shoreline points within the alongshore range, if STD is above this value a NaN is returned for this intersection.
-        self.max_std_text = BoundedFloatText(
-            value=15.0,
-            min=1.0,
-            max=100.0,
-            step=1.0,
-            description="max_std (m):",
-            style={"description_width": "initial"},
-            disabled=False,
-        )
-        return VBox([label, self.max_std_text])
-
-    def get_beach_area_slider(self):
-        # returns slider to control beach area slider
-        beach_area_instr = HTML(
-            value="<b>Minimum Beach Area</b> \
-            </br>- Minimum area (sqm) for object to be labelled as beach"
-        )
-
-        self.beach_area_slider = ipywidgets.IntSlider(
-            value=4500,
-            min=100,
-            max=10000,
-            step=10,
-            description="min_beach_area (sqm):",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
-            style={"description_width": "initial"},
-        )
-        return VBox([beach_area_instr, self.beach_area_slider])
-
-    def get_shoreline_buffer_slider(self):
-        # returns slider to control beach area slider
-        shoreline_buffer_instr = HTML(
-            value="<b>Reference Shoreline Buffer (m):</b>\
-            </br>- Buffer around reference shorelines in which shorelines can be extracted"
-        )
-
-        self.shoreline_buffer_slider = ipywidgets.IntSlider(
-            value=50,
-            min=5,
-            max=1000,
-            step=1,
-            description="max_dist_ref (m):",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
-            style={"description_width": "initial"},
-        )
-        return VBox([shoreline_buffer_instr, self.shoreline_buffer_slider])
-
-    def get_prc_multiple_text(self) -> VBox:
-        # returns slider to control beach area slider
-        label = HTML(
-            value="<b>Percentage of points std > max_std</b>\
-            </br>- Percentage of points whose std > max_std that will be set to 'max'.Only in 'auto' mode."
-        )
-        # percentage of points whose std > max_std that will be set to 'max'
-        # percentage of data points where the std is larger than the user-defined max
-        # 'prc_multiple': percentage to use in 'auto' mode to switch from 'nan' to 'max'
-        self.prc_multiple_text = BoundedFloatText(
-            value=0.1,
-            min=0.0,
-            max=1.0,
-            step=0.01,
-            description="prc_multiple :",
-            style={"description_width": "initial"},
-            disabled=False,
-        )
-        return VBox([label, self.prc_multiple_text])
-
-    def get_cloud_slider(self):
-        # returns slider to control beach area slider
-        cloud_instr = HTML(
-            value="<b> Cloud Distance</b>\
-            </br>- Allowed distance from extracted shoreline to detected clouds\
-        </br>- Any extracted shorelines within this distance to any clouds will be dropped"
-        )
-
-        self.cloud_slider = ipywidgets.IntSlider(
-            value=300,
-            min=100,
-            max=1000,
-            step=1,
-            description="dist_clouds (m):",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
-            style={"description_width": "initial"},
-        )
-        return VBox([cloud_instr, self.cloud_slider])
-
-    def get_cloud_threshold_slider(self):
-        instr = HTML(
-            value="<b>Cloud Threshold</b> \
-                     </br>- Maximum percentage of cloud pixels allowed"
-        )
-        self.cloud_threshold_slider = ipywidgets.FloatSlider(
-            value=0.5,
-            min=0,
-            max=1,
-            step=0.01,
-            description="cloud_thres :",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format=".2f",
-            style={"description_width": "initial"},
-        )
-        return VBox([instr, self.cloud_threshold_slider])
-
-    def get_alongshore_distance_slider(self):
-        # returns slider to control beach area slider
-        instr = HTML(
-            value="<b>Alongshore Distance:</b>\
-            </br>- Along-shore distance over which to consider shoreline points to compute median intersection with transects"
-        )
-        self.alongshore_distance_slider = ipywidgets.IntSlider(
-            value=25,
-            min=10,
-            max=100,
-            step=1,
-            description="along_dist (m):",
-            disabled=False,
-            continuous_update=False,
-            orientation="horizontal",
-            readout=True,
-            readout_format="d",
-            style={"description_width": "initial"},
-        )
-        return VBox([instr, self.alongshore_distance_slider])
-
-    def get_min_chainage_text(self) -> VBox:
-        # returns slider to control beach area slider
-        label = HTML(
-            value="<b> Max Landward Distance </b>\
-            </br>- Max distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned."
-        )
-
-        # min_chainage: (in metres) furthest distance landward of the transect origin that an intersection is accepted, beyond this point a NaN is returned.
-        self.min_chainage_text = BoundedFloatText(
-            value=-100.0,
-            min=-500.0,
-            max=-1.0,
-            step=-1.0,
-            description="min_chainage (m)",
-            style={"description_width": "initial"},
-            disabled=False,
-        )
-        return VBox([label, self.min_chainage_text])
-
-    def get_apply_could_mask_toggle(self):
-        instr = HTML(
-            value="<b>Cloud Mask Toggle</b> \
-                     </br>- Defaults to True. Switch to False to turn off cloud masking."
-        )
-        self.apply_cloud_mask_toggle = ipywidgets.ToggleButtons(
-            options=["True", "False"],
-            description="Apply Cloud Masking",
-            disabled=False,
-            tooltips=[
-                "Cloud Masking On",
-                "Cloud Masking Off",
-            ],
-        )
-        return VBox([instr, self.apply_cloud_mask_toggle])
-
-    def render(self):
-        # create settings accordion widget
-        settings_accordion = Accordion(
-            children=[
-                self.get_basic_settings_section(),
-                self.get_advanced_settings_section(),
-            ]
-        )
-        # settings_accordion.set_title(0, "Settings")
-        settings_accordion.set_title(0, "Basic Settings")
-        settings_accordion.set_title(1, "Advanced Settings")
-        settings_accordion.selected_index = 0
-
-        return settings_accordion
-
-    def get_advanced_settings_section(self):
-        # declare settings widgets
-        settings = {
-            "along_dist": self.get_alongshore_distance_slider(),
-            "min_points": self.get_min_points_text(),
-            "max_std": self.get_max_std_text(),
-            "max_range": self.get_max_range_text(),
-            "min_chainage": self.get_min_chainage_text(),
-            "multiple_inter": self.get_outliers_mode(),
-            "prc_multiple": self.get_prc_multiple_text(),
-        }
-
-        # create settings vbox
-        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
-        return settings_vbox
-
-    def get_basic_settings_section(self):
-        # declare settings widgets
-        settings = {
-            "shoreline_buffer_slider": self.get_shoreline_buffer_slider(),
-            "min_length_sl_slider": self.get_min_length_sl_slider(),
-            "beach_area_slider": self.get_beach_area_slider(),
-            "cloud_slider": self.get_cloud_slider(),
-            "apply_cloud_mask": self.get_apply_could_mask_toggle(),
-            "cloud_threshold_slider": self.get_cloud_threshold_slider(),
-            "no_data_slider": self.get_no_data_slider(),
-        }
-
-        # create settings vbox
-        settings_vbox = VBox([widget for widget_name, widget in settings.items()])
-        return settings_vbox
+    #     return widget, instructions
