@@ -86,9 +86,9 @@ class Settings_UI:
             ]
         if advanced_settings is None:
             advanced_settings = [
+                "along_dist",
                 "min_points",
                 "max_std",
-                "along_dist",
                 "max_range",
                 "min_chainage",
                 "multiple_inter",
@@ -234,7 +234,7 @@ class Settings_UI:
             widget = ipywidgets.IntSlider(
                 description="Distance to Clouds",
                 value=300,
-                min=0,
+                min=1,
                 max=1000,
                 step=1,
                 style={"description_width": "initial"},
@@ -245,7 +245,7 @@ class Settings_UI:
         elif setting_name == "min_beach_area":
             widget = ipywidgets.IntSlider(
                 description="Minimum Beach Area",
-                min=0,
+                min=10,
                 max=100,
                 value=10,
                 style={"description_width": "initial"},
@@ -333,7 +333,7 @@ class Settings_UI:
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Multiple Intersections</b><br>Enable/disable multiple intersection detection."
+                value="<b>Outliers Mode</b><br>Enable/disable multiple intersection detection."
             )
         elif setting_name == "prc_multiple":
             widget = ipywidgets.BoundedFloatText(
@@ -376,6 +376,14 @@ class Settings_UI:
         if "sat_list" in self.settings:
             sat_tuple = self.settings["sat_list"]
             self.settings["sat_list"] = list(sat_tuple)
+
+        if "apply_cloud_mask" in self.settings:
+            apply_cloud_mask = self.settings["apply_cloud_mask"]
+            self.settings["apply_cloud_mask"] = str_to_bool(apply_cloud_mask)
+
+        if "cloud_mask_issue" in self.settings:
+            cloud_mask_issue = self.settings["cloud_mask_issue"]
+            self.settings["cloud_mask_issue"] = str_to_bool(cloud_mask_issue)
 
         return self.settings.copy()
 
