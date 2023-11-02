@@ -1,39 +1,32 @@
-import os
-import json
-import math
-from typing import List, Optional, Tuple
-import platform
-import logging
-import shutil
-from glob import glob
+import asyncio
 import concurrent.futures
-import zipfile
-import requests
 from datetime import datetime
+import glob
+import json
+import logging
+import math
+import os
+import platform
+import shutil
+import zipfile
+
+import aiohttp
+import area
+import ee
+import geopandas as gpd
+import nest_asyncio
+import tqdm
+import tqdm.asyncio
+import tqdm.auto
+from shapely.geometry import LineString, MultiPolygon, Polygon
+from shapely.ops import split
+from typing import Collection, List, Optional, Tuple, Union
 
 from coastseg import common
 from coastseg import file_utilities
 
-import asyncio
-import nest_asyncio
-import aiohttp
-import tqdm
-import tqdm.auto
-import tqdm.asyncio
-from typing import Union
-from typing import Collection
-import ee
-from area import area
-import geopandas as gpd
-from shapely.geometry import LineString, MultiPolygon, Polygon
-from shapely.ops import split
-
 logger = logging.getLogger(__name__)
 
-from typing import List, Union
-from datetime import datetime
-
-import ee
 
 
 def get_collection_by_tier(

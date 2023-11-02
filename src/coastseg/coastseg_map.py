@@ -18,6 +18,7 @@ from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
 import traitlets
 from shapely.geometry import Polygon
+from pandas import to_datetime
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -2127,13 +2128,22 @@ class CoastSeg_Map:
         # if extracted shorelines exist, load them onto map, if none exist nothing loads
         if hasattr(extracted_shorelines, "gdf"):
             if not extracted_shorelines.gdf.empty:
-                self.extract_shorelines_container.load_list = (
-                    extracted_shorelines.gdf["satname"]
-                    + "_"
-                    + extracted_shorelines.gdf["date"].apply(
-                        lambda x: x.strftime("%Y-%m-%d-%H-%M-%S")
-                    )
-                ).tolist()
+                if extracted_shorelines.gdf["date"].dtype == "datetime64[ns]":
+                    self.extract_shorelines_container.load_list = (
+                        extracted_shorelines.gdf["satname"]
+                        + "_"
+                        + extracted_shorelines.gdf["date"].apply(
+                            lambda x: x.strftime("%Y-%m-%d-%H-%M-%S")
+                        )
+                    ).tolist()
+                else:
+                    self.extract_shorelines_container.load_list = (
+                        extracted_shorelines.gdf["satname"]
+                        + "_"
+                        + to_datetime(extracted_shorelines.gdf["date"]).apply(
+                            lambda x: x.strftime("%Y-%m-%d-%H-%M-%S")
+                        )
+                    ).tolist()
 
         self.extract_shorelines_container.trash_list = []
         self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
