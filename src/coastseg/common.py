@@ -1208,24 +1208,21 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
         content_length = r.headers.get("Content-Length")
         if content_length:
             total_length = int(content_length)
+            with open(save_path, "wb") as fd:
+                with tqdm(
+                    total=total_length,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Downloading {filename}",
+                    initial=0,
+                    ascii=True,
+                ) as pbar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
         else:
-            print(
-                "Content length not found in response headers. Downloading without progress bar."
-            )
-            total_length = None
-        with open(save_path, "wb") as fd:
-            with tqdm(
-                total=total_length,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=f"Downloading {filename}",
-                initial=0,
-                ascii=True,
-            ) as pbar:
-                for chunk in r.iter_content(chunk_size=chunk_size):
-                    fd.write(chunk)
-                    pbar.update(len(chunk))
+            logger.warning("Content length not found in response headers")
 
 
 def get_center_point(coords: list) -> tuple:
@@ -1239,6 +1236,31 @@ def get_center_point(coords: list) -> tuple:
     x2, y2 = coords[2][0], coords[2][1]
     center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
     return center_x, center_y
+
+
+def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
+    Args:
+    - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+    Returns:
+    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
+                        already contains MultiPoints, the original GeoDataFrame is returned.
+    """
+
+    # Check if the gdf already contains MultiPoints
+    if any(gdf.geometry.type == "MultiPoint"):
+        return gdf
+
+    def linestring_to_multipoint(linestring):
+        if isinstance(linestring, LineString):
+            return MultiPoint(linestring.coords)
+        return linestring
+
+    # Convert each LineString to a MultiPoint
+    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
+
+    return gdf
 
 
 def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
@@ -1645,7 +1667,7 @@ def save_extracted_shorelines(
         geomtype="lines",
     )
 
-    # Save extracted shorelines as a GeoJSON file
+    # Save extracted shorelines to GeoJSON files
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
     )

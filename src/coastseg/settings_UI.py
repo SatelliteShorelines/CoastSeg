@@ -168,7 +168,7 @@ class Settings_UI:
 
         self.beach_area_slider = ipywidgets.IntSlider(
             value=4500,
-            min=100,
+            min=5,
             max=10000,
             step=10,
             description="min_beach_area (sqm):",
@@ -233,7 +233,7 @@ class Settings_UI:
 
         self.cloud_slider = ipywidgets.IntSlider(
             value=300,
-            min=100,
+            min=0,
             max=1000,
             step=1,
             description="dist_clouds (m):",
