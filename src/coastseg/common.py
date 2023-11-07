@@ -1466,6 +1466,24 @@ def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
 def get_cross_distance_df(
     extracted_shorelines: dict, cross_distance_transects: dict
 ) -> pd.DataFrame:
+    """
+    Creates a DataFrame from extracted shorelines and cross distance transects by
+    getting the dates from extracted shorelines and saving it to the as the intersection time for each extracted shoreline
+    for each transect
+
+    Parameters:
+    extracted_shorelines : dict
+        A dictionary containing the extracted shorelines. It must have a "dates" key with a list of dates.
+    cross_distance_transects : dict
+        A dictionary containing the transects and the cross distance where the extracted shorelines intersected it. The keys are transect names and the values are lists of cross distances.
+        eg.
+        {  'tranect 1': [1,2,3],
+            'tranect 2': [4,5,6],
+        }
+    Returns:
+    DataFrame
+        A DataFrame where each column is a transect from cross_distance_transects and the "dates" column from extracted_shorelines. Each row corresponds to a date and contains the cross distances for each transect on that date.
+    """
     transects_csv = {}
     # copy dates from extracted shoreline
     transects_csv["dates"] = extracted_shorelines["dates"]
@@ -1609,8 +1627,8 @@ def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFram
                         already contains MultiPoints, the original GeoDataFrame is returned.
     """
 
-    # Check if the gdf already contains MultiPoints
-    if any(gdf.geometry.type == "MultiPoint"):
+    # Check if all geometries in the gdf are MultiPoints
+    if all(gdf.geometry.type == "MultiPoint"):
         return gdf
 
     def linestring_to_multipoint(linestring):

@@ -239,9 +239,7 @@ class CoastSeg_Map:
         logger.info(
             f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
         )
-        # session_path = file_utilities.get_session_location(
-        #     session_name=session_name, raise_error=True
-        # )
+
         session_name = self.get_session_name()
         try:
             tide_correction.correct_all_tides(
