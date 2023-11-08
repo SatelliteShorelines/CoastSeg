@@ -56,6 +56,7 @@ def valid_geojson_path(geojson_directory):
     gdf.to_file(file_path, driver="GeoJSON")
     return file_path
 
+
 @pytest.fixture(scope="session")
 def config_gdf_missing_rois_path(geojson_directory):
     """Create a valid geojson file and return its path."""
@@ -82,6 +83,7 @@ def config_gdf_missing_rois_path(geojson_directory):
     gdf.to_file(file_path, driver="GeoJSON")
     return file_path
 
+
 @pytest.fixture(scope="session")
 def empty_geojson_path(geojson_directory):
     """Create an empty geojson file and return its path."""
@@ -107,12 +109,32 @@ def setup_image_directory(tmpdir):
 
     # Create dummy images for different satellites based on the new naming scheme
     sizes = {
-        "S2": (10, 50),
-        "L7": (66, 66),
-        "L8": (66, 66),
-        "L9": (66, 66),
-        "L5": (10, 33),
+        "S2": (200, 200),  # make this image too small 4.0`km^2
+        "L7": (320, 348),
+        "L8": (320, 348),
+        "L9": (320, 348),
+        "L5": (100, 100),  # make this image too small 2.5`km^2
     }
+    for sat, size in sizes.items():
+        img = Image.new("RGB", size, "white")
+        img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))
+
+    return tmpdir
+
+
+@pytest.fixture
+def setup_good_image_directory(tmpdir):
+    os.makedirs(tmpdir, exist_ok=True)
+
+    # Create dummy images for different satellites that are all equivalent to 25 km^2
+    sizes = {
+        "S2": (500, 500),
+        "L7": (320, 348),
+        "L8": (320, 348),
+        "L9": (320, 348),
+        "L5": (320, 348),
+    }
+    # the area for all these images is 25 km^2
     for sat, size in sizes.items():
         img = Image.new("RGB", size, "white")
         img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))

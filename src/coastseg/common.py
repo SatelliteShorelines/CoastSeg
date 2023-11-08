@@ -301,21 +301,32 @@ def filter_images(
             continue
 
         filepath = os.path.join(directory, file)
-        with Image.open(filepath) as img:
-            width, height = img.size
-            img_area = (
-                width
-                * pixel_size_per_satellite[satname]
-                * height
-                * pixel_size_per_satellite[satname]
-            )
-            img_area /= 1e6  # convert to square kilometers
-            if img_area > max_area or img_area < min_area:
-                bad_files.append(file)
+        img_area = calculate_image_area(filepath, pixel_size_per_satellite[satname])
+        if img_area < min_area or (max_area is not None and img_area > max_area):
+            bad_files.append(file)
+
     bad_files = list(map(lambda s: os.path.join(directory, s), bad_files))
     # move the bad files to the bad folder
     file_utilities.move_files(bad_files, output_directory)
     return bad_files  # Optionally return the list of bad files
+
+
+def calculate_image_area(filepath: str, pixel_size: int) -> float:
+    """
+    Calculate the area of an image in square kilometers.
+
+    Args:
+        filepath (str): The path to the image file.
+        pixel_size (int): The size of a pixel in the image in meters.
+
+    Returns:
+        float: The area of the image in square kilometers.
+    """
+    with Image.open(filepath) as img:
+        width, height = img.size
+        img_area = width * pixel_size * height * pixel_size
+        img_area /= 1e6  # convert to square kilometers
+    return img_area
 
 
 def validate_geometry_types(

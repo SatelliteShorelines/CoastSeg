@@ -81,8 +81,9 @@ def test_invalid_projection():
 
 
 def test_filter_images_existing_directory(setup_image_directory):
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
     bad_images = common.filter_images(
-        0.8, 1.5, setup_image_directory, setup_image_directory.join("bad")
+        15, 30, setup_image_directory, setup_image_directory.join("bad")
     )
     assert len(bad_images) == 2
 
@@ -92,6 +93,14 @@ def test_filter_images_existing_directory(setup_image_directory):
     assert (
         os.path.join(setup_image_directory, "dummy_prefix_L5_image.jpg") in bad_images
     )
+
+
+def test_filter_images_all_good_images(setup_good_image_directory):
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
+    bad_images = common.filter_images(
+        15, 30, setup_good_image_directory, setup_good_image_directory.join("bad")
+    )
+    assert len(bad_images) == 0
 
 
 def test_filter_images_non_existing_directory():
@@ -104,8 +113,27 @@ def test_filter_images_no_jpg_files_found(tmpdir):
     assert len(bad_files) == 0
 
 
+def test_filter_images_no_output_directory_provided_no_max_area(setup_image_directory):
+    # min area is 60% of area 25km^2 and max area is None
+    bad_images = common.filter_images(15, None, setup_image_directory)
+    assert len(bad_images) == 2
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_S2_image.jpg") in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_L5_image.jpg") in bad_images
+    )
+    assert os.path.exists(
+        os.path.join(setup_image_directory, "bad", "dummy_prefix_S2_image.jpg")
+    )
+    assert os.path.exists(
+        os.path.join(setup_image_directory, "bad", "dummy_prefix_L5_image.jpg")
+    )
+
+
 def test_filter_images_no_output_directory_provided(setup_image_directory):
-    bad_images = common.filter_images(0.8, 1.5, setup_image_directory)
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
+    bad_images = common.filter_images(15, 30, setup_image_directory)
     assert len(bad_images) == 2
     assert (
         os.path.join(setup_image_directory, "dummy_prefix_S2_image.jpg") in bad_images
