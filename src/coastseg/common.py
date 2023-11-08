@@ -282,7 +282,7 @@ def filter_images(
         "L7": 15,
         "L8": 15,
         "L9": 15,
-        "L5": 30,
+        "L5": 15,  # coastsat modifies the per pixel resolution from 30m to 15m for L5
     }
     bad_files = []
     jpg_files = [
