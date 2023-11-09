@@ -95,6 +95,38 @@ def test_filter_images_existing_directory(setup_image_directory):
     )
 
 
+def test_filter_images_existing_directory_bad_images(setup_image_directory_bad_images):
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
+    bad_images = common.filter_images(
+        15,
+        30,
+        setup_image_directory_bad_images,
+        setup_image_directory_bad_images.join("bad"),
+    )
+    assert len(bad_images) == 5
+
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_S2_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L5_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L7_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L8_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L9_image.jpg")
+        in bad_images
+    )
+
+
 def test_filter_images_all_good_images(setup_good_image_directory):
     # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
     bad_images = common.filter_images(

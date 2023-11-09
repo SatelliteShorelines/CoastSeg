@@ -123,6 +123,25 @@ def setup_image_directory(tmpdir):
 
 
 @pytest.fixture
+def setup_image_directory_bad_images(tmpdir):
+    os.makedirs(tmpdir, exist_ok=True)
+
+    # Create dummy images for different satellites based on the new naming scheme
+    sizes = {
+        "S2": (380, 390),  # make this image too small 14.82`km^2
+        "L7": (200, 320),  #  make this image too small 14.4
+        "L8": (320, 100),  # make this image too small 7.2
+        "L9": (320, 150),  # make this image too small 10.8
+        "L5": (200, 320),  # make this image too small 14.4`km^2
+    }
+    for sat, size in sizes.items():
+        img = Image.new("RGB", size, "white")
+        img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))
+
+    return tmpdir
+
+
+@pytest.fixture
 def setup_good_image_directory(tmpdir):
     os.makedirs(tmpdir, exist_ok=True)
 
