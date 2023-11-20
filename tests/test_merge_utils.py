@@ -20,7 +20,20 @@ from coastseg.merge_utils import (
 
 @pytest.fixture
 def gdf_empty():
-    return gpd.gpd.GeoDataFrame()
+    data = {
+        "date": [],
+        "geometry": [],
+        "geoaccuracy": [],
+        "satname": [],
+        "cloud_cover": [],
+    }
+    empty_gdf = gpd.GeoDataFrame(data, crs="epsg:4326")
+    return empty_gdf
+
+
+# @pytest.fixture
+# def gdf_empty():
+#     return gpd.gpd.GeoDataFrame()
 
 
 @pytest.fixture
@@ -139,18 +152,18 @@ def extracted_gdf3():
     return gpd.gpd.GeoDataFrame(data, crs="epsg:4326")
 
 
-def test_empty_gdf(gdf_empty):
+def test_calculate_overlap_empty_gdf(gdf_empty):
     result = calculate_overlap(gdf_empty)
     assert result.empty
 
 
-def test_empty_gdf_with_crs(gdf_with_crs):
+def test_calculate_overlap_empty_gdf_with_crs(gdf_with_crs):
     result = calculate_overlap(gdf_with_crs)
     assert result.empty
     assert result.crs == gdf_with_crs.crs
 
 
-def test_overlap(gdf_overlap):
+def test_calculate_overlap(gdf_overlap):
     result = calculate_overlap(gdf_overlap)
     assert not result.empty
     assert result.crs == gdf_overlap.crs
@@ -158,7 +171,7 @@ def test_overlap(gdf_overlap):
     assert result.iloc[0].geometry.equals(Polygon([(1, 1), (2, 1), (2, 2), (1, 2)]))
 
 
-def test_no_overlap(gdf_no_overlap):
+def test_calculate_overlap_no_overlap(gdf_no_overlap):
     result = calculate_overlap(gdf_no_overlap)
     assert result.empty
 
@@ -465,6 +478,161 @@ def test_merge_and_average(extracted_gdf1, extracted_gdf2, extracted_gdf3):
     assert (
         result[["date", "satname"]].duplicated().sum() == 0
     ), "The combination of 'date' and 'satname' is not unique."
-    # assert np.all(result['cloud_cover'] == [0.0, 0.115, 0.263967, 0.0, 0.0, 0.1])
+    # Concatenate the 'geoaccuracy' values from all GeoDataFrames
+    expected_geoaccuracy = pd.concat([gdf["geoaccuracy"] for gdf in gdfs])
 
-    result
+    # Check if the values in expected_geoaccuracy are present in the 'geoaccuracy' column of the result DataFrame
+    assert expected_geoaccuracy.isin(result["geoaccuracy"]).all()
+
+
+def test_merge_and_average_empty_gdf_and_non_empty(
+    gdf_empty,
+    extracted_gdf2,
+):
+    # List of GeoDataFrames
+    gdfs = [gdf_empty, extracted_gdf2]
+
+    # Perform a full outer join and average the numeric columns across all GeoDataFrames
+    result = reduce(merge_utils.merge_and_average, gdfs)
+    # this merge should not have any common dates and should contain 1+2+3 = 6 rows
+    result.sort_values(by="date", inplace=True)
+    result.reset_index(drop=True, inplace=True)
+
+    assert len(result) == len(extracted_gdf2)
+    assert result["date"].equals(extracted_gdf2["date"])
+    assert result["satname"].equals(extracted_gdf2["satname"])
+    assert result["cloud_cover"].equals(extracted_gdf2["cloud_cover"])
+    assert result["geoaccuracy"].equals(extracted_gdf2["geoaccuracy"])
+    # convert the result geometry to multipoint
+    new_result = convert_lines_to_multipoints(result)
+    assert new_result["geometry"].equals(extracted_gdf2["geometry"])
+
+
+def test_merge_and_average_different_sized_gdfs(extracted_gdf1, extracted_gdf3):
+    # make the geodataframes different sizes
+    # Create a new GeoDataFrame with just the top row
+    extracted_gdf1_1_row = extracted_gdf1.head(1)
+
+    # this is the gdf shares pd.Timestamp('2018-12-30 18:22:25') and  pd.Timestamp('2020-5-23 19:24:27') with extracted_gdf1
+    data = {
+        "date": [
+            pd.Timestamp("2015-12-30 18:22:25"),
+            pd.Timestamp("2020-1-28 05:12:28"),
+        ],
+        "geometry": [
+            MultiPoint([(-117.44480, 33.26540)]),
+            MultiPoint([(-117.45899, 33.28226)]),
+        ],
+        "geoaccuracy": [
+            5.088,
+            6.02,
+        ],
+        "satname": [
+            "L8",
+            "L8",
+        ],
+        "cloud_cover": [0.0, 0.263967],
+    }
+    extracted_gdf2_2_row = gpd.GeoDataFrame(data, crs="epsg:4326")
+
+    # List of GeoDataFrames
+    gdfs = [extracted_gdf1_1_row, extracted_gdf2_2_row, extracted_gdf3]
+
+    # Perform a full outer join and average the numeric columns across all GeoDataFrames
+    result = reduce(merge_utils.merge_and_average, gdfs)
+    # this merge should not have any common dates and should contain 1+2+3 = 6 rows
+    result.sort_values(by="date", inplace=True)
+    result.reset_index(drop=True, inplace=True)
+
+    # Concatenate the 'geoaccuracy' values from all GeoDataFrames
+    concated_gdf = pd.concat([gdf for gdf in gdfs])
+
+    # Check if the values in expected_geoaccuracy are present in the 'geoaccuracy' column of the result DataFrame
+    assert concated_gdf["geoaccuracy"].isin(result["geoaccuracy"]).all()
+
+    assert len(result) == 6
+    # Check if the values in expected_geoaccuracy are present in the 'geoaccuracy' column of the result DataFrame
+    assert concated_gdf["geoaccuracy"].isin(result["geoaccuracy"]).all()
+    assert concated_gdf["cloud_cover"].isin(result["cloud_cover"]).all()
+    assert concated_gdf["date"].isin(result["date"]).all()
+    assert concated_gdf["satname"].isin(result["satname"]).all()
+    # this test should not have merged any geometries because they were all on different dates
+    assert concated_gdf["date"].isin(result["date"]).all()
+
+
+def test_merge_and_average_2_overlapping_gdfs(extracted_gdf1, extracted_gdf2):
+    # List of GeoDataFrames
+    # these gdfs have 2 dates with the same satellite in common
+    gdfs = [extracted_gdf1, extracted_gdf2]
+
+    # Perform a full outer join and average the numeric columns across all GeoDataFrames
+    result = reduce(merge_utils.merge_and_average, gdfs)
+    # this merge should not have any common dates and should contain 1+2+3 = 6 rows
+    result.sort_values(by="date", inplace=True)
+    result.reset_index(drop=True, inplace=True)
+
+    # Concatenate the 'geoaccuracy' values from all GeoDataFrames
+    concated_gdf = pd.concat([gdf for gdf in gdfs])
+
+    # Check if the values in expected_geoaccuracy are present in the 'geoaccuracy' column of the result DataFrame
+    assert concated_gdf["geoaccuracy"].isin(result["geoaccuracy"]).all()
+
+    # from the original 6 rows with 2 overlapping dates, the result should have 4 rows
+    assert len(result) == 4
+    assert (
+        result[["date", "satname"]].duplicated().sum() == 0
+    ), "The combination of 'date' and 'satname' is not unique."
+    # Concatenate the 'geoaccuracy' values from all GeoDataFrames
+    expected_geoaccuracy = pd.concat([gdf["geoaccuracy"] for gdf in gdfs])
+
+    # Check if the values in expected_geoaccuracy are present in the 'geoaccuracy' column of the result DataFrame
+    assert expected_geoaccuracy.isin(result["geoaccuracy"]).all()
+    assert isinstance(
+        result[result["date"] == pd.Timestamp("2018-12-30 18:22:25")]["geometry"].iloc[
+            0
+        ],
+        MultiPoint,
+    )
+    assert (
+        len(
+            result[result["date"] == pd.Timestamp("2018-12-30 18:22:25")]["geometry"]
+            .iloc[0]
+            .geoms
+        )
+        == 3
+    )
+    assert np.isin(["L8"], result["satname"]).all()
+
+
+def test_merge_and_average_1_gdf(extracted_gdf1):
+    # List of GeoDataFrames
+    # these gdfs have 2 dates with the same satellite in common
+    gdfs = [
+        extracted_gdf1,
+    ]
+
+    # Perform a full outer join and average the numeric columns across all GeoDataFrames
+    result = reduce(merge_utils.merge_and_average, gdfs)
+
+    result.sort_values(by="date", inplace=True)
+    result.reset_index(drop=True, inplace=True)
+
+    assert len(result) == 3
+    assert (
+        result[["date", "satname"]].duplicated().sum() == 0
+    ), "The combination of 'date' and 'satname' is not unique."
+    assert isinstance(
+        result[result["date"] == pd.Timestamp("2018-12-30 18:22:25")]["geometry"].iloc[
+            0
+        ],
+        MultiPoint,
+    )
+    assert extracted_gdf1["geoaccuracy"].isin(result["geoaccuracy"]).all()
+    assert result["date"].equals(extracted_gdf1["date"])
+    assert result["satname"].equals(extracted_gdf1["satname"])
+    assert result["cloud_cover"].equals(extracted_gdf1["cloud_cover"])
+    # convert the result geometry to multipoint
+    from coastseg.merge_utils import convert_lines_to_multipoints
+
+    new_result = convert_lines_to_multipoints(result)
+    assert new_result["geometry"].equals(extracted_gdf1["geometry"])
