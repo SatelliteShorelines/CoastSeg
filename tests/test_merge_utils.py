@@ -636,3 +636,155 @@ def test_merge_and_average_1_gdf(extracted_gdf1):
 
     new_result = convert_lines_to_multipoints(result)
     assert new_result["geometry"].equals(extracted_gdf1["geometry"])
+
+
+def test_aggregate_gdf():
+    # Create a sample GeoDataFrame
+    data = {
+        "field1": [1, 1, 2, 2, 3],
+        "field2": ["A", "A", "B", "B", "C"],
+        "field3": [10, 20, 30, 40, 50],
+    }
+    gdf = gpd.GeoDataFrame(data)
+
+    # Define the group fields
+    group_fields = ["field1", "field2"]
+
+    # Call the aggregate_gdf function
+    result = merge_utils.aggregate_gdf(gdf, group_fields)
+
+    # Define the expected result
+    expected_data = {
+        "field1": [1, 2, 3],
+        "field2": ["A", "B", "C"],
+        "field3": ["10, 20", "30, 40", "50"],
+    }
+    expected_result = gpd.GeoDataFrame(expected_data)
+
+    # Check if the resulting GeoDataFrame is equal to the expected GeoDataFrame
+    assert result.equals(expected_result)
+
+
+@pytest.fixture
+def merged_config_no_nulls_no_index_right():
+    data = {
+        "type": ["bbox", "bbox", "roi", "roi", "shoreline", "shoreline"],
+        "id": ["1", "1", "B", "B", "D", "C"],
+        "geometry": [
+            Point(0, 0),
+            Point(0, 0),
+            Polygon([(0, 0), (1, 1), (2, 2), (0, 0)]),
+            Polygon([(0, 0), (1, 1), (2, 2), (0, 0)]),
+            LineString([(0, 0), (1, 1), (2, 2)]),
+            LineString([(0, 0), (1, 1), (2, 2)]),
+        ],
+    }
+    return gpd.GeoDataFrame(data)
+
+
+@pytest.fixture
+def merged_config_nulls():
+    data = {
+        "type": ["bbox", "bbox", "roi", "roi", "shoreline", "shoreline"],
+        "id": [None, np.NaN, "B", "B", "D", "C"],
+        "geometry": [
+            Point(0, 0),
+            Point(0, 0),
+            Polygon([(0, 0), (1, 1), (2, 2), (0, 0)]),
+            Polygon([(0, 0), (1, 1), (2, 2), (0, 0)]),
+            LineString([(0, 0), (1, 1), (2, 2)]),
+            LineString([(0, 0), (1, 1), (2, 2)]),
+        ],
+        "index_right": [0, 1, 2, 3, 4, 5],
+    }
+    return gpd.GeoDataFrame(data)
+
+
+@pytest.fixture
+def merged_config_nulls_all_unique():
+    data = {
+        "type": ["bbox", "bbox", "roi", "roi", "shoreline", "shoreline"],
+        "id": [None, np.NaN, "Z", "B", "D", "C"],
+        "geometry": [
+            Point(0, 0),
+            Point(1, 1),
+            Polygon([(0, 0), (1, 1), (2, 2), (0, 0)]),
+            Polygon([(2, 2), (3, 4), (6, 5), (7, 8)]),
+            LineString([(0, 0), (1, 1), (2, 2)]),
+            LineString([(8, 8), (8, 5), (9, 4)]),
+        ],
+        "index_right": [0, 1, 2, 3, 4, 5],
+    }
+    return gpd.GeoDataFrame(data)
+
+
+def test_aggregate_gdf_merged_config_with_nulls(merged_config_nulls):
+    group_fields = ["type", "geometry"]
+    result = merge_utils.aggregate_gdf(merged_config_nulls, group_fields)
+
+    # Check if null values are filtered out
+    assert result["id"].isnull().sum() == 0
+    assert len(result) == 3
+    # very the ids got combined for rows with the same type and geometry
+    assert result[result["type"] == "shoreline"]["id"].values[0] == "D, C"
+    assert result[result["type"] == "roi"]["id"].values[0] == "B"
+    assert result[result["type"] == "bbox"]["id"].values[0] == ""
+
+
+def test_aggregate_gdf_merged_config_no_nulls(merged_config_no_nulls_no_index_right):
+    group_fields = ["type", "geometry"]
+    result = merge_utils.aggregate_gdf(
+        merged_config_no_nulls_no_index_right, group_fields
+    )
+
+    # Check if null values are filtered out
+    assert result["id"].isnull().sum() == 0
+    assert len(result) == 3
+    # very the ids got combined for rows with the same type and geometry
+    assert result[result["type"] == "shoreline"]["id"].values[0] == "D, C"
+    assert result[result["type"] == "roi"]["id"].values[0] == "B"
+    assert result[result["type"] == "bbox"]["id"].values[0] == "1"
+
+
+def test_aggregate_gdf_merged_config_all_unique(merged_config_nulls_all_unique):
+    group_fields = ["type", "geometry"]
+    result = merge_utils.aggregate_gdf(merged_config_nulls_all_unique, group_fields)
+
+    # Check if null values are filtered out
+    assert result["id"].isnull().sum() == 0
+    assert len(result) == 6
+    # very the ids got combined for rows with the same type and geometry
+    assert len(result[result["type"] == "shoreline"]) == 2
+    assert len(result[result["type"] == "roi"]) == 2
+    assert len(result[result["type"] == "bbox"]) == 2
+    assert result[result["type"] == "shoreline"]["id"].isin(["D", "C"]).all()
+    assert result[result["type"] == "roi"]["id"].isin(["B", "Z"]).all()
+
+
+def test_filter_and_join_gdfs():
+    # Create a sample GeoDataFrame
+    data = {
+        "type": ["roi", "poi", "roi", "poi"],
+        "geometry": [Point(0, 0), Point(1, 1), Point(2, 2), Point(3, 3)],
+    }
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
+
+    # Define the feature type to filter by
+    feature_type = "roi"
+
+    # Call the function with the sample data
+    result = merge_utils.filter_and_join_gdfs(gdf, feature_type)
+
+    # # Check that the result is a GeoDataFrame
+    assert isinstance(result, gpd.GeoDataFrame), "The result should be a GeoDataFrame"
+
+    # # Check that the result only contains 'roi' type features
+    assert (
+        result["type"].eq(feature_type).all()
+    ), "The result should only contain 'roi' type features"
+
+    # # Check that the spatial join keeps only the intersecting geometries
+    # # For this, we'll need to make sure the original 'roi' points intersect with themselves
+    assert (
+        len(result) == 2
+    ), "The result should only contain intersecting 'roi' geometries"

@@ -306,6 +306,8 @@ def concatenate_gdfs(gdfs):
 
 def filter_and_join_gdfs(gdf, feature_type, predicate="intersects"):
     """Filter GeoDataFrame by feature type, ensure spatial index, and perform a spatial join."""
+    if "type" not in gdf.columns:
+        raise ValueError("The GeoDataFrame must contain a column named 'type'")
     filtered_gdf = gdf[gdf["type"] == feature_type].copy()[["geometry"]]
     filtered_gdf["geometry"] = filtered_gdf["geometry"].simplify(
         tolerance=0.001
@@ -314,8 +316,17 @@ def filter_and_join_gdfs(gdf, feature_type, predicate="intersects"):
     return gpd.sjoin(gdf, filtered_gdf[["geometry"]], how="inner", predicate=predicate)
 
 
-def aggregate_gdf(gdf, group_fields):
-    """Aggregate a GeoDataFrame by specified fields using a custom combination function."""
+def aggregate_gdf(gdf: gpd.GeoDataFrame, group_fields: list) -> gpd.GeoDataFrame:
+    """
+    Aggregate a GeoDataFrame by specified fields using a custom combination function.
+
+    Parameters:
+        gdf (GeoDataFrame): The input GeoDataFrame to be aggregated.
+        group_fields (list): The fields to group the GeoDataFrame by.
+
+    Returns:
+        GeoDataFrame: The aggregated GeoDataFrame.
+    """
 
     def combine_non_nulls(series):
         unique_values = series.dropna().unique()
@@ -325,9 +336,11 @@ def aggregate_gdf(gdf, group_fields):
             else ", ".join(map(str, unique_values))
         )
 
+    if "index_right" in gdf.columns:
+        gdf = gdf.drop(columns=["index_right"])
+
     return (
-        gdf.drop(columns=["index_right"])
-        .drop_duplicates()
+        gdf.drop_duplicates()
         .groupby(group_fields, as_index=False)
         .agg(combine_non_nulls)
     )
@@ -352,29 +365,6 @@ def merge_geojson_files(session_locations, merged_session_location):
     merged_config.to_file(output_path, driver="GeoJSON")
 
     return merged_config
-
-
-# def merge_geojson_files(
-#     *file_paths: str,
-# ) -> gpd.GeoDataFrame:
-#     """
-#     Merges any number of GeoJSON files into a single GeoDataFrame, removing any duplicate rows.
-
-#     Parameters:
-#     - *file_paths (str): Paths to the GeoJSON files.
-
-#     Returns:
-#     - GeoDataFrame: A GeoDataFrame containing the merged data from all input files, with duplicates removed.
-#     """
-#     merged_gdf = gpd.GeoDataFrame()
-#     for filepath in file_paths:
-#         gdf = geodata_processing.read_gpd_file(filepath)
-#         # Merging the two dataframes
-#         merged_gdf = gpd.GeoDataFrame(pd.concat([merged_gdf, gdf], ignore_index=True))
-
-#     # Dropping any duplicated rows based on all columns
-#     merged_gdf_cleaned = merged_gdf.drop_duplicates()
-#     return merged_gdf_cleaned
 
 
 def create_csv_per_transect(
