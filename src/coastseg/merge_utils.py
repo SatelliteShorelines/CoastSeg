@@ -294,27 +294,87 @@ def merge_geometries(merged_gdf, columns=None, operation=unary_union):
     return merged_gdf
 
 
-def merge_geojson_files(
-    *file_paths: str,
-) -> gpd.GeoDataFrame:
-    """
-    Merges any number of GeoJSON files into a single GeoDataFrame, removing any duplicate rows.
+def read_geojson_files(filepaths):
+    """Read GeoJSON files into GeoDataFrames and return a list."""
+    return [gpd.read_file(path) for path in filepaths]
 
-    Parameters:
-    - *file_paths (str): Paths to the GeoJSON files.
 
-    Returns:
-    - GeoDataFrame: A GeoDataFrame containing the merged data from all input files, with duplicates removed.
-    """
-    merged_gdf = gpd.GeoDataFrame()
-    for filepath in file_paths:
-        gdf = geodata_processing.read_gpd_file(filepath)
-        # Merging the two dataframes
-        merged_gdf = gpd.GeoDataFrame(pd.concat([merged_gdf, gdf], ignore_index=True))
+def concatenate_gdfs(gdfs):
+    """Concatenate a list of GeoDataFrames into a single GeoDataFrame."""
+    return pd.concat(gdfs, ignore_index=True)
 
-    # Dropping any duplicated rows based on all columns
-    merged_gdf_cleaned = merged_gdf.drop_duplicates()
-    return merged_gdf_cleaned
+
+def filter_and_join_gdfs(gdf, feature_type, predicate="intersects"):
+    """Filter GeoDataFrame by feature type, ensure spatial index, and perform a spatial join."""
+    filtered_gdf = gdf[gdf["type"] == feature_type].copy()[["geometry"]]
+    filtered_gdf["geometry"] = filtered_gdf["geometry"].simplify(
+        tolerance=0.001
+    )  # Simplify geometry if possible to improve performance
+    filtered_gdf.sindex  # Ensure spatial index
+    return gpd.sjoin(gdf, filtered_gdf[["geometry"]], how="inner", predicate=predicate)
+
+
+def aggregate_gdf(gdf, group_fields):
+    """Aggregate a GeoDataFrame by specified fields using a custom combination function."""
+
+    def combine_non_nulls(series):
+        unique_values = series.dropna().unique()
+        return (
+            unique_values[0]
+            if len(unique_values) == 1
+            else ", ".join(map(str, unique_values))
+        )
+
+    return (
+        gdf.drop(columns=["index_right"])
+        .drop_duplicates()
+        .groupby(group_fields, as_index=False)
+        .agg(combine_non_nulls)
+    )
+
+
+def merge_geojson_files(session_locations, merged_session_location):
+    """Main function to merge GeoJSON files from different session locations."""
+    filepaths = [
+        os.path.join(location, "config_gdf.geojson") for location in session_locations
+    ]
+    gdfs = read_geojson_files(filepaths)
+    merged_gdf = gpd.GeoDataFrame(concatenate_gdfs(gdfs), geometry="geometry")
+
+    # Filter the geodataframe to only elements that intersect with the rois (dramatically drops the size of the geodataframe)
+    merged_config = filter_and_join_gdfs(merged_gdf, "roi", predicate="intersects")
+    # apply a group by operation to combine the rows with the same type and geometry into a single row
+    merged_config = aggregate_gdf(merged_config, ["type", "geometry"])
+    # applying the group by function in aggregate_gdf() turns the geodataframe into a dataframe
+    merged_config = gpd.GeoDataFrame(merged_config, geometry="geometry")
+
+    output_path = os.path.join(merged_session_location, "merged_config.geojson")
+    merged_config.to_file(output_path, driver="GeoJSON")
+
+    return merged_config
+
+
+# def merge_geojson_files(
+#     *file_paths: str,
+# ) -> gpd.GeoDataFrame:
+#     """
+#     Merges any number of GeoJSON files into a single GeoDataFrame, removing any duplicate rows.
+
+#     Parameters:
+#     - *file_paths (str): Paths to the GeoJSON files.
+
+#     Returns:
+#     - GeoDataFrame: A GeoDataFrame containing the merged data from all input files, with duplicates removed.
+#     """
+#     merged_gdf = gpd.GeoDataFrame()
+#     for filepath in file_paths:
+#         gdf = geodata_processing.read_gpd_file(filepath)
+#         # Merging the two dataframes
+#         merged_gdf = gpd.GeoDataFrame(pd.concat([merged_gdf, gdf], ignore_index=True))
+
+#     # Dropping any duplicated rows based on all columns
+#     merged_gdf_cleaned = merged_gdf.drop_duplicates()
+#     return merged_gdf_cleaned
 
 
 def create_csv_per_transect(
