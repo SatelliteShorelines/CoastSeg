@@ -14,7 +14,7 @@ class ButtonColors:
 
 
 def str_to_bool(var: str) -> bool:
-    return var == "True"
+    return var.lower().strip() == "true"
 
 
 def convert_date(date_str):
@@ -46,6 +46,21 @@ class DateBox(ipywidgets.HBox):
     @property
     def value(self):
         return [str(self.start_date.value), str(self.end_date.value)]
+
+    @value.setter
+    def value(self, values):
+        if len(values) != 2:
+            raise ValueError("You must provide a list of two dates.")
+
+        start_date, end_date = values
+
+        if isinstance(start_date, str):
+            start_date = datetime.date.fromisoformat(start_date)
+        if isinstance(end_date, str):
+            end_date = datetime.date.fromisoformat(end_date)
+
+        self.start_date.value = start_date
+        self.end_date.value = end_date
 
     @property
     def options(self):
@@ -368,6 +383,30 @@ class Settings_UI:
             raise ValueError(f"Invalid setting name: {setting_name}")
 
         return widget, instructions
+
+    def set_settings(self, settings: dict) -> None:
+        """
+        Set the settings of the UI widgets based on the provided dictionary.
+
+        Args:
+            settings (dict): A dictionary containing the settings to be applied.
+
+        Returns:
+            None
+        """
+        for setting_name, widget in self.settings_widgets.items():
+            if setting_name in settings:
+                if isinstance(widget, DateBox):
+                    widget.value = list(map(convert_date, settings[setting_name]))
+                elif isinstance(widget.value, str):
+                    widget.value = str(settings[setting_name])
+                elif isinstance(widget.value, bool):
+                    if isinstance(settings[setting_name], str):
+                        widget.value = str_to_bool(settings[setting_name])
+                    else:
+                        widget.value = bool(settings[setting_name])
+                else:
+                    widget.value = settings[setting_name]
 
     def get_settings(self) -> dict:
         for setting_name, widget in self.settings_widgets.items():
