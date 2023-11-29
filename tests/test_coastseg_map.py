@@ -155,31 +155,6 @@ def test_load_json_config_without_rois(valid_coastseg_map_with_settings, tmp_dat
         actual_coastsegmap.load_json_config("", tmp_data_path)
 
 
-def test_load_settings(
-    downloaded_config_json_filepath, valid_coastseg_map_with_settings
-):
-    # create instance of Coastseg_Map
-    actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_settings(downloaded_config_json_filepath)
-
-    actual_coastsegmap.settings["sat_list"] = ["L8"]
-    actual_coastsegmap.settings["landsat_collection"] = "C02"
-    actual_coastsegmap.settings["dates"] = ["2018-12-01", "2019-03-01"]
-    actual_coastsegmap.settings["cloud_thresh"] = 0.5
-    actual_coastsegmap.settings["dist_clouds"] = 300
-    actual_coastsegmap.settings["output_epsg"] = 3857
-    actual_coastsegmap.settings["check_detection"] = False
-    actual_coastsegmap.settings["adjust_detection"] = False
-    actual_coastsegmap.settings["save_figure"] = True
-    actual_coastsegmap.settings["min_beach_area"] = 4500
-    actual_coastsegmap.settings["min_length_sl"] = 100
-    actual_coastsegmap.settings["cloud_mask_issue"] = False
-    actual_coastsegmap.settings["sand_color"] = "default"
-    actual_coastsegmap.settings["pan_off"] = "False"
-    actual_coastsegmap.settings["max_dist_ref"] = 25
-    actual_coastsegmap.settings["along_dist"] = 25
-
-
 # def test_load_json_config_downloaded(
 #     valid_coastseg_map_with_settings,
 #     valid_rois_filepath,

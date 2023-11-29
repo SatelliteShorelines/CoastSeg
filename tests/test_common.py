@@ -16,6 +16,8 @@ from shapely import geometry
 import pandas as pd
 import pytest
 from unittest.mock import patch
+import pytest
+from coastseg import common
 
 
 def test_filter_partial_images():
@@ -877,3 +879,133 @@ def test_extract_roi_by_id(valid_rois_gdf):
     expected_roi = valid_rois_gdf[valid_rois_gdf["id"].astype(int) == roi_id]
     assert actual_roi["geometry"][0] == expected_roi["geometry"][0]
     assert actual_roi["id"][0] == expected_roi["id"][0]
+
+
+def test_load_settings_empty_filepath():
+    # Test loading all settings from an empty filepath
+    settings = common.load_settings()
+    assert isinstance(settings, dict)
+    assert len(settings) == 0
+
+
+def test_load_settings_with_invalid_filepath():
+    # Test loading settings from an invalid filepath
+    filepath = "/path/to/invalid.json"
+    keys = {
+        "sat_list",
+        "dates",
+        "cloud_thresh",
+        "min_beach_area",
+        "output_epsg",
+        "max_dist_ref",
+    }
+    settings = common.load_settings(filepath, keys)
+    assert isinstance(settings, dict)
+    assert len(settings) == 0
+
+
+def test_load_settings_with_nested_settings(config_json):
+    # Test loading specific settings from a JSON file with nested settings
+    keys = {
+        "model_session_path",
+        "apply_cloud_mask",
+        "image_size_filter",
+        "pan_off",
+        "save_figure",
+        "adjust_detection",
+        "check_detection",
+        "landsat_collection",
+        "sat_list",
+        "dates",
+        "sand_color",
+        "cloud_thresh",
+        "cloud_mask_issue",
+        "min_beach_area",
+        "min_length_sl",
+        "output_epsg",
+        "sand_color",
+        "pan_off",
+        "max_dist_ref",
+        "dist_clouds",
+        "percent_no_data",
+        "max_std",
+        "min_points",
+        "along_dist",
+        "max_range",
+        "min_chainage",
+        "multiple_inter",
+        "prc_multiple",
+    }
+    settings = common.load_settings(config_json, keys)
+    assert isinstance(settings, dict)
+    assert settings["landsat_collection"] == "C02"
+    assert settings["dates"] == ["2018-12-01", "2019-03-01"]
+    assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
+    assert settings["cloud_thresh"] == 0.8
+    assert settings["dist_clouds"] == 350
+    assert settings["output_epsg"] == 32610
+    assert settings["check_detection"] is False
+    assert settings["adjust_detection"] is False
+    assert settings["save_figure"] is True
+    assert settings["min_beach_area"] == 1050
+    assert settings["min_length_sl"] == 600
+    assert settings["cloud_mask_issue"] is True
+    assert settings["sand_color"] == "default"
+    assert settings["pan_off"] == "False"
+    assert settings["max_dist_ref"] == 200
+    assert settings["along_dist"] == 28
+    assert settings["min_points"] == 4
+    assert settings["max_std"] == 16.0
+    assert settings["max_range"] == 38.0
+    assert settings["min_chainage"] == -105.0
+    assert settings["multiple_inter"] == "auto"
+    assert settings["prc_multiple"] == 0.2
+    assert settings["apply_cloud_mask"] is False
+    assert settings["image_size_filter"] is False
+
+
+def test_load_settings_with_empty_keys(config_json):
+    # Test loading all settings from a JSON file
+    settings = common.load_settings(config_json, set())
+    assert isinstance(settings, dict)
+    assert len(settings) > 0
+
+
+def test_load_settings_with_set_keys(config_json):
+    # Test loading specific settings from a JSON file using a set of keys
+    keys = {
+        "sat_list",
+        "dates",
+        "cloud_thresh",
+        "min_beach_area",
+        "output_epsg",
+        "max_dist_ref",
+    }
+    settings = common.load_settings(config_json, keys)
+    assert isinstance(settings, dict)
+    assert settings["dates"] == ["2018-12-01", "2019-03-01"]
+    assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
+    assert settings["min_beach_area"] == 1050
+    assert settings["max_dist_ref"] == 200
+    assert len(settings) == len(keys)
+    assert all(key in settings for key in keys)
+
+
+def test_load_settings_with_list_keys(config_json):
+    # Test loading specific settings from a JSON file using a list of keys
+    keys = [
+        "sat_list",
+        "dates",
+        "cloud_thresh",
+        "min_beach_area",
+        "output_epsg",
+        "max_dist_ref",
+    ]
+    settings = common.load_settings(config_json, keys)
+    assert settings["dates"] == ["2018-12-01", "2019-03-01"]
+    assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
+    assert settings["min_beach_area"] == 1050
+    assert settings["max_dist_ref"] == 200
+    assert isinstance(settings, dict)
+    assert len(settings) == len(keys)
+    assert all(key in settings for key in keys)
