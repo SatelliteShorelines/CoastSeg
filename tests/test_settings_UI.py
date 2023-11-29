@@ -346,7 +346,7 @@ def test_get_settings_custom_widgets(settings_dashboard):
         "dates": ["2022-01-01", "2022-01-02"],
         "max_dist_ref": 30,
         "min_length_sl": 500,
-        "min_beach_area": 10,
+        "min_beach_area": 1000,
         "dist_clouds": 300,
         "apply_cloud_mask": True,
         "cloud_thresh": 0.8,
