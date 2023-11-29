@@ -249,7 +249,7 @@ class Settings_UI:
             widget = ipywidgets.IntSlider(
                 description="Distance to Clouds",
                 value=300,
-                min=1,
+                min=0,
                 max=1000,
                 step=1,
                 style={"description_width": "initial"},
@@ -261,8 +261,8 @@ class Settings_UI:
             widget = ipywidgets.IntSlider(
                 description="Minimum Beach Area",
                 min=10,
-                max=100,
-                value=10,
+                max=10000,
+                value=1000,
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
