@@ -41,6 +41,87 @@ from coastseg.exceptions import InvalidGeometryType
 logger = logging.getLogger(__name__)
 
 
+def load_settings(
+    filepath: str = "",
+    keys: set = (
+        "model_session_path",
+        "apply_cloud_mask",
+        "image_size_filter",
+        "pan_off",
+        "save_figure",
+        "adjust_detection",
+        "check_detection",
+        "landsat_collection",
+        "sat_list",
+        "dates",
+        "sand_color",
+        "cloud_thresh",
+        "cloud_mask_issue",
+        "min_beach_area",
+        "min_length_sl",
+        "output_epsg",
+        "sand_color",
+        "pan_off",
+        "max_dist_ref",
+        "dist_clouds",
+        "percent_no_data",
+        "max_std",
+        "min_points",
+        "along_dist",
+        "max_range",
+        "min_chainage",
+        "multiple_inter",
+        "prc_multiple",
+    ),
+):
+    """
+    Loads settings from a JSON file and applies them to the object.
+    Args:
+        filepath (str, optional): The filepath to the JSON file containing the settings. Defaults to an empty string.
+        keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
+        "sat_list",
+                                                    "dates",
+                                                    "cloud_thresh",
+                                                    "cloud_mask_issue",
+                                                    "min_beach_area",
+                                                    "min_length_sl",
+                                                    "output_epsg",
+                                                    "sand_color",
+                                                    "pan_off",
+                                                    "max_dist_ref",
+                                                    "dist_clouds",
+                                                    "percent_no_data",
+                                                    "max_std",
+                                                    "min_points",
+                                                    "along_dist",
+                                                    "max_range",
+                                                    "min_chainage",
+                                                    "multiple_inter",
+                                                    "prc_multiple".
+    Returns:
+        None
+    """
+    # Convert keys to a list if a set is passed
+    if isinstance(keys, set):
+        keys = list(keys)
+    new_settings = file_utilities.read_json_file(filepath, raise_error=False)
+    logger.info(f"all of new settings read from file : {filepath} \n {new_settings}")
+    # if no keys are passed then use all of the keys in the settings file
+    if not keys:
+        keys = new_settings.keys()
+    # filter the settings to keep only the keys passed
+    filtered_settings = {k: new_settings[k] for k in keys if k in new_settings}
+    # read the nested settings located in the sub dictionary "settings" and keep only the keys passed
+    nested_settings = new_settings.get("settings", {})
+    nested_settings = {k: nested_settings[k] for k in keys if k in nested_settings}
+    logger.info(
+        f"all of new nested settings read from file : {filepath} \n {nested_settings }"
+    )
+    # combine the settings into one dictionary WARNING this could overwrite items in both settings
+    filtered_settings.update(**nested_settings)
+    return filtered_settings
+
+
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
     """
     Creates a new configuration dictionary by combining the given settings and ROI settings.
@@ -1330,7 +1411,7 @@ def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = []
     return roi_data
 
 
-def extract_fields(data, key=None, fields_of_interest=None):
+def extract_fields(data: dict, key=None, fields_of_interest=None):
     """
     Extracts specified fields from a given dictionary.
 
@@ -1354,12 +1435,12 @@ def extract_fields(data, key=None, fields_of_interest=None):
         "landsat_collection",
         "filepath",
     }
-
+    # extract the data from a sub dictionary with a specified key if it exists
     if key and key in data:
         for field in fields_of_interest:
             if field in data[key]:
                 extracted_data[field] = data[key][field]
-    else:
+    else:  # extract all the fields of interest from the data
         for field in fields_of_interest:
             if field in data:
                 extracted_data[field] = data[field]

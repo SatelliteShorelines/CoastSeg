@@ -76,6 +76,64 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
             traitlets.dlink((self, "trash_list"), (widget, "options"))
 
 
+def filter_settings(**kwargs):
+    # Check if any of the keys are missing
+    # if any keys are missing set the default value
+    default_settings = {
+        "landsat_collection": "C02",
+        "dates": ["2017-12-01", "2018-01-01"],
+        "sat_list": ["L8"],
+        "cloud_thresh": 0.5,
+        "dist_clouds": 300,
+        "output_epsg": 4326,
+        "check_detection": False,
+        "adjust_detection": False,
+        "save_figure": True,
+        "min_beach_area": 4500,
+        "min_length_sl": 100,
+        "cloud_mask_issue": False,
+        "sand_color": "default",
+        "pan_off": "False",
+        "max_dist_ref": 25,
+        "along_dist": 25,
+        "min_points": 3,
+        "max_std": 15,
+        "max_range": 30,
+        "min_chainage": -100,
+        "multiple_inter": "auto",
+        "prc_multiple": 0.1,
+        "apply_cloud_mask": True,
+        "image_size_filter": True,
+    }
+
+    # Function to parse dates with flexibility for different formats
+    def parse_date(date_str):
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        raise ValueError(f"Date format for {date_str} not recognized.")
+
+    settings = {}
+
+    # Filter kwargs to keep only keys that are in default_settings
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k in default_settings}
+
+    # Update settings with filtered kwargs
+    settings.update(filtered_kwargs)
+
+    # Special handling for 'dates'
+    if "dates" in filtered_kwargs:
+        settings["dates"] = [parse_date(d) for d in filtered_kwargs["dates"]]
+
+    # Set default values for missing keys
+    for key, value in default_settings.items():
+        settings.setdefault(key, value)
+
+    return settings
+
+
 class CoastSeg_Map:
     def __init__(self, **kwargs):
         # Basic settings and configurations
@@ -343,7 +401,7 @@ class CoastSeg_Map:
                 self.load_metadata(ids=list(self.rois.roi_settings.keys()))
             else:
                 logger.warning(f"No ROIs were able to have their metadata loaded.")
-            # load in settings files
+            # load in setting from shoreline_settings.json and transects_settings.json
             for file_name in os.listdir(dir_path):
                 file_path = os.path.join(dir_path, file_name)
                 if not os.path.isfile(file_path):
@@ -361,7 +419,8 @@ class CoastSeg_Map:
                         "dist_clouds",
                         "percent_no_data",
                     ]
-                    self.load_settings(file_path, keys)
+                    settings = common.load_settings(file_path, keys)
+                    self.set_settings(**settings)
                 elif file_name == "transects_settings.json":
                     keys = [
                         "max_std",
@@ -372,7 +431,8 @@ class CoastSeg_Map:
                         "multiple_inter",
                         "prc_multiple",
                     ]
-                    self.load_settings(file_path, keys)
+                    settings = common.load_settings(file_path, keys)
+                    self.set_settings(**settings)
             if not config_loaded:
                 logger.info(f"Not all config files not found at {dir_path}")
 
@@ -414,6 +474,15 @@ class CoastSeg_Map:
         self.load_extracted_shorelines_to_map(1)
 
     def load_fresh_session(self, session_path: str) -> None:
+        """
+        Load a fresh session by removing all the old features from the map and loading a new session.
+
+        Args:
+            session_path (str): The path to the session directory
+
+        Returns:
+            None
+        """
         # remove all the old features from the map
         self.remove_all()
         self.load_session(session_path)
@@ -455,7 +524,6 @@ class CoastSeg_Map:
 
         session_name = get_parent_session_name(session_path)
         logger.info(f"session_name: {session_name} session_path: {session_path}")
-        # session_name = os.path.basename(session_path)
         self.set_session_name(session_name)
         logger.info(f"Loading session from session directory: {session_path}")
 
@@ -481,97 +549,6 @@ class CoastSeg_Map:
             self.id_container.ids = list(ids_with_extracted_shorelines)
         else:
             self.id_container.ids = ids_with_extracted_shorelines
-
-    def load_settings(
-        self,
-        filepath: str = "",
-        keys: set = (
-            "sat_list",
-            "dates",
-            "sand_color",
-            "cloud_thresh",
-            "cloud_mask_issue",
-            "min_beach_area",
-            "min_length_sl",
-            "output_epsg",
-            "sand_color",
-            "pan_off",
-            "max_dist_ref",
-            "dist_clouds",
-            "percent_no_data",
-            "max_std",
-            "min_points",
-            "along_dist",
-            "max_range",
-            "min_chainage",
-            "multiple_inter",
-            "prc_multiple",
-        ),
-        load_nested_settings: bool = True,
-    ):
-        """
-        Loads settings from a JSON file and applies them to the object.
-
-        Args:
-            filepath (str, optional): The filepath to the JSON file containing the settings. Defaults to an empty string.
-            load_nested_setting (bool, optional): Load settings from a nest subdictionary 'settings' or not.
-            keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
-            "sat_list",
-                                                        "dates",
-                                                        "cloud_thresh",
-                                                        "cloud_mask_issue",
-                                                        "min_beach_area",
-                                                        "min_length_sl",
-                                                        "output_epsg",
-                                                        "sand_color",
-                                                        "pan_off",
-                                                        "max_dist_ref",
-                                                        "dist_clouds",
-                                                        "percent_no_data",
-                                                        "max_std",
-                                                        "min_points",
-                                                        "along_dist",
-                                                        "max_range",
-                                                        "min_chainage",
-                                                        "multiple_inter",
-                                                        "prc_multiple".
-
-        Returns:
-            None
-
-        """
-        # Convert keys to a list if a set is passed
-        if isinstance(keys, set):
-            keys = list(keys)
-
-        new_settings = file_utilities.read_json_file(filepath, raise_error=False)
-        logger.info(
-            f"all of new settings read from file : {filepath} \n {new_settings}"
-        )
-
-        nested_settings = new_settings.get("settings", {})
-        logger.info(
-            f"all of new nested settings read from file : {filepath} \n {nested_settings }"
-        )
-
-        if new_settings is None:
-            new_settings = {}
-
-        # Load only settings with provided keys
-        if keys:
-            new_settings = {k: new_settings[k] for k in keys if k in new_settings}
-            if nested_settings:
-                nested_settings = {
-                    k: nested_settings[k] for k in keys if k in nested_settings
-                }
-
-        if new_settings != {}:
-            self.set_settings(**new_settings)
-        if nested_settings != {} and load_nested_settings:
-            self.set_settings(**nested_settings)
-            logger.info(
-                f"Loaded new_settings from {filepath}:\n new self.settings {self.settings}"
-            )
 
     def load_gdf_config(self, filepath: str) -> None:
         """Load features from geodataframe located in geojson file at filepath onto map.
@@ -848,14 +825,17 @@ class CoastSeg_Map:
             MissingDirectoriesError: If one or more directories specified in the config file are missing
 
         """
-        logger.info(f"filepath: {filepath}")
+        logger.info(f"Loading json config from filepath: {filepath}")
         exception_handler.check_if_None(self.rois)
 
         json_data = file_utilities.read_json_file(filepath, raise_error=True)
         json_data = json_data or {}
 
         # Replace coastseg_map.settings with settings from config file
-        self.set_settings(**json_data.get("settings", {}))
+        settings = common.load_settings(
+            filepath,
+        )
+        self.set_settings(**settings)
 
         # creates a dictionary mapping ROI IDs to their extracted settings from json_data
         roi_settings = self._extract_and_validate_roi_settings(json_data, data_path)
@@ -999,46 +979,44 @@ class CoastSeg_Map:
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
             "sat_list": ["L8"],
-            "cloud_thresh": 0.5,  # threshold on maximum cloud cover
-            "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
-            "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
-            # quality control:
-            # if True, shows each shoreline detection to the user for validation
+            "cloud_thresh": 0.5,
+            "dist_clouds": 300,
+            "output_epsg": 4326,
             "check_detection": False,
-            # if True, allows user to adjust the position of each shoreline by changing the threshold
             "adjust_detection": False,
-            "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
-            # minimum area (in metres^2) for an object to be labelled as a beach
+            "save_figure": True,
             "min_beach_area": 4500,
-            # minimum length (in metres) of shoreline perimeter to be valid
             "min_length_sl": 100,
-            # switch this parameter to True if sand pixels are masked (in black) on many images
             "cloud_mask_issue": False,
-            # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
             "sand_color": "default",
-            "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+            "pan_off": "False",
             "max_dist_ref": 25,
-            "along_dist": 25,  # along-shore distance to use for computing the intersection
-            "min_points": 3,  # minimum number of shoreline points to calculate an intersection
-            "max_std": 15,  # max std for points around transect
-            "max_range": 30,  # max range for points around transect
-            "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
-            "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
-            "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
+            "along_dist": 25,
+            "min_points": 3,
+            "max_std": 15,
+            "max_range": 30,
+            "min_chainage": -100,
+            "multiple_inter": "auto",
+            "prc_multiple": 0.1,
             "apply_cloud_mask": True,
-            "image_size_filter": True,  # True means images are filtered out by size
+            "image_size_filter": True,
         }
-        self.settings.update(kwargs)
-        if "dates" in kwargs.keys():
-            updated_dates = []
-            self.settings["dates"] = kwargs["dates"]
-            for date_str in kwargs["dates"]:
+
+        # Function to parse dates with flexibility for different formats
+        def parse_date(date_str):
+            for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
                 try:
-                    dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S")
+                    return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
                 except ValueError:
-                    dt = datetime.strptime(date_str, "%Y-%m-%d")
-                updated_dates.append(dt.strftime("%Y-%m-%d"))
-            self.settings["dates"] = updated_dates
+                    continue
+            raise ValueError(f"Date format for {date_str} not recognized.")
+
+        # Update the settings with the new key-value pairs
+        self.settings.update(kwargs)
+
+        # Special handling for 'dates'
+        if "dates" in kwargs:
+            self.settings["dates"] = [parse_date(d) for d in kwargs["dates"]]
 
         for key, value in self.default_settings.items():
             self.settings.setdefault(key, value)
