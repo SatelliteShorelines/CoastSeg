@@ -128,7 +128,7 @@ def save_transect_settings(
         If the specified settings file does not exist in the given session path.
     """
     transects_settings = file_utilities.read_json_file(
-        os.path.join(session_path, filename), raise_error=True
+        os.path.join(session_path, filename), raise_error=False
     )
     transects_settings["reference_elevation"] = reference_elevation
     transects_settings["beach_slope"] = beach_slope
