@@ -363,7 +363,7 @@ def filter_images(
         "L7": 15,
         "L8": 15,
         "L9": 15,
-        "L5": 30,
+        "L5": 15,  # coastsat modifies the per pixel resolution from 30m to 15m for L5
     }
     bad_files = []
     jpg_files = [
@@ -382,21 +382,32 @@ def filter_images(
             continue
 
         filepath = os.path.join(directory, file)
-        with Image.open(filepath) as img:
-            width, height = img.size
-            img_area = (
-                width
-                * pixel_size_per_satellite[satname]
-                * height
-                * pixel_size_per_satellite[satname]
-            )
-            img_area /= 1e6  # convert to square kilometers
-            if img_area > max_area or img_area < min_area:
-                bad_files.append(file)
+        img_area = calculate_image_area(filepath, pixel_size_per_satellite[satname])
+        if img_area < min_area or (max_area is not None and img_area > max_area):
+            bad_files.append(file)
+
     bad_files = list(map(lambda s: os.path.join(directory, s), bad_files))
     # move the bad files to the bad folder
     file_utilities.move_files(bad_files, output_directory)
     return bad_files  # Optionally return the list of bad files
+
+
+def calculate_image_area(filepath: str, pixel_size: int) -> float:
+    """
+    Calculate the area of an image in square kilometers.
+
+    Args:
+        filepath (str): The path to the image file.
+        pixel_size (int): The size of a pixel in the image in meters.
+
+    Returns:
+        float: The area of the image in square kilometers.
+    """
+    with Image.open(filepath) as img:
+        width, height = img.size
+        img_area = width * pixel_size * height * pixel_size
+        img_area /= 1e6  # convert to square kilometers
+    return img_area
 
 
 def validate_geometry_types(
@@ -1289,24 +1300,21 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
         content_length = r.headers.get("Content-Length")
         if content_length:
             total_length = int(content_length)
+            with open(save_path, "wb") as fd:
+                with tqdm(
+                    total=total_length,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Downloading {filename}",
+                    initial=0,
+                    ascii=True,
+                ) as pbar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
         else:
-            print(
-                "Content length not found in response headers. Downloading without progress bar."
-            )
-            total_length = None
-        with open(save_path, "wb") as fd:
-            with tqdm(
-                total=total_length,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=f"Downloading {filename}",
-                initial=0,
-                ascii=True,
-            ) as pbar:
-                for chunk in r.iter_content(chunk_size=chunk_size):
-                    fd.write(chunk)
-                    pbar.update(len(chunk))
+            logger.warning("Content length not found in response headers")
 
 
 def get_center_point(coords: list) -> tuple:
@@ -1320,6 +1328,31 @@ def get_center_point(coords: list) -> tuple:
     x2, y2 = coords[2][0], coords[2][1]
     center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
     return center_x, center_y
+
+
+def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
+    Args:
+    - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+    Returns:
+    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
+                        already contains MultiPoints, the original GeoDataFrame is returned.
+    """
+
+    # Check if the gdf already contains MultiPoints
+    if any(gdf.geometry.type == "MultiPoint"):
+        return gdf
+
+    def linestring_to_multipoint(linestring):
+        if isinstance(linestring, LineString):
+            return MultiPoint(linestring.coords)
+        return linestring
+
+    # Convert each LineString to a MultiPoint
+    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
+
+    return gdf
 
 
 def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
@@ -1726,7 +1759,7 @@ def save_extracted_shorelines(
         geomtype="lines",
     )
 
-    # Save extracted shorelines as a GeoJSON file
+    # Save extracted shorelines to GeoJSON files
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
     )

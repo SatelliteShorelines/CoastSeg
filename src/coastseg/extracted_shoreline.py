@@ -291,6 +291,12 @@ def combine_satellite_data(satellite_data: dict) -> dict:
         satellite_data[satname].setdefault("cloud_cover", [])
         satellite_data[satname].setdefault("filename", [])
         satellite_data[satname].setdefault("idx", [])
+        satellite_data[satname].setdefault("dates", [])
+        satellite_data[satname].setdefault("geoaccuracy", [])
+        satellite_data[satname].setdefault("shorelines", [])
+        satellite_data[satname].setdefault("cloud_cover", [])
+        satellite_data[satname].setdefault("filename", [])
+        satellite_data[satname].setdefault("idx", [])
         # For each key in the nested dictionary
         for key, value in sat_data.items():
             # Wrap non-list values in a list and concatenate to merged_satellite_data

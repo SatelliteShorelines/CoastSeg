@@ -7,7 +7,8 @@ import logging
 from coastseg import exception_handler
 from coastseg import common
 from coastseg import file_utilities
-from coastseg.extract_shorelines_widget import Extracted_Shoreline_widget
+from coastseg.watchable_slider import Extracted_Shoreline_widget
+
 
 # External Python imports
 import ipywidgets
@@ -193,30 +194,13 @@ class UI:
 
         self.session_name = ""
         self.session_directory = ""
-        # extracted_shoreline_traitlet = kwargs.get("extracted_shoreline_traitlet",None)
-        # if extracted_shoreline_traitlet:
-        #     self.extract_shorelines_widget = Extracted_Shoreline_widget()
 
-        # create the extract shorelines widget that controls shorelines on the map
-        self.extract_shorelines_widget = Extracted_Shoreline_widget(
-            coastseg_map.extract_shorelines_container
-        )
-        # add callbacks to the extract shorelines widget
-        self.extract_shorelines_widget.add_load_callback(
-            coastseg_map.load_selected_shorelines_on_map
-        )
-        self.extract_shorelines_widget.add_remove_all_callback(
-            coastseg_map.delete_selected_shorelines
-        )
-        self.extract_shorelines_widget.add_remove_callback(
-            coastseg_map.remove_layer_by_name
-        )
-        # link the widgets to the traitlets
-        coastseg_map.extract_shorelines_container.link_load_list(
-            self.extract_shorelines_widget.load_list_widget
-        )
-        coastseg_map.extract_shorelines_container.link_trash_list(
-            self.extract_shorelines_widget.trash_list_widget
+        # the widget will update whenever the value of the extracted_shoreline_layer or number_extracted_shorelines changes
+        self.extract_shorelines_widget = Extracted_Shoreline_widget(self.coastseg_map)
+        # have the slider watch the extracted_shoreline_layer, number_extracted_shorelines,roi_selected_to_extract_shoreline
+
+        self.extract_shorelines_widget.set_load_extracted_shorelines_button_on_click(
+            self.coastseg_map.load_extracted_shorelines_to_map
         )
 
         # create button styles

@@ -67,6 +67,19 @@ def correct_all_tides(
     beach_slope: float,
     use_progress_bar: bool = True,
 ):
+    """
+    Corrects the tides for all regions of interest (ROIs).
+
+    This function validates the existence of a tide model, loads the regions the tide model was clipped to from a geojson file,
+    and corrects the tides for each ROI. It logs the progress and updates a progress bar if use_progress_bar is True.
+
+    Args:
+        roi_ids (Collection): The IDs of the ROIs to correct the tides for.
+        session_name (str): The name of the session containing the extracted shorelines.
+        reference_elevation (float): The reference elevation to use for the tide correction.
+        beach_slope (float): The beach slope to use for the tide correction.
+        use_progress_bar (bool, optional): Whether to display a progress bar. Defaults to True.
+    """
     # validate tide model exists at CoastSeg/tide_model
     model_location = get_tide_model_location()
     # load the regions the tide model was clipped to from geojson file
@@ -292,6 +305,21 @@ def setup_tide_model_config(model_path: str) -> dict:
 
 
 def get_tide_model_location(location: str = "tide_model"):
+    """
+    Validates the existence of a tide model at the specified location and returns the absolute path of the location.
+
+    This function checks if a tide model exists at the given location. If the model exists, it returns the absolute path
+    of the location. If the model does not exist, it raises an exception.
+
+    Args:
+        location (str, optional): The location to check for the tide model. Defaults to "tide_model".
+
+    Returns:
+        str: The absolute path of the location if the tide model exists.
+
+    Raises:
+        Exception: If the tide model does not exist at the specified location.
+    """
     logger.info(f"Checking if tide model exists at {location}")
     if validate_tide_model_exists(location):
         return os.path.abspath(location)
