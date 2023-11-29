@@ -212,7 +212,9 @@ def update_extracted_shorelines_dict_transects_dict(
 ):
     json_file = os.path.join(session_path, filename)
     if os.path.exists(json_file) and os.path.isfile(json_file):
+        # read the data from the json file 
         data = file_utilities.load_data_from_json(json_file)
+        # processes the data into nested arrays
         extracted_shorelines_dict = process_data_input(data)
         if extracted_shorelines_dict is not None:
             # Get the indexes of the selected items in the extracted_shorelines_dict
@@ -223,6 +225,7 @@ def update_extracted_shorelines_dict_transects_dict(
             transect_cross_distances_path = os.path.join(
                 session_path, "transects_cross_distances.json"
             )
+            # if the transect_cross_distances.json exists then delete the selected indexes from it
             if os.path.exists(transect_cross_distances_path) and os.path.isfile(
                 transect_cross_distances_path
             ):

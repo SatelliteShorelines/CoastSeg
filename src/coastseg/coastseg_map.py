@@ -118,7 +118,7 @@ def find_shorelines_directory(path, roi_id):
     return None
 
 
-def delete_extracted_shorelines_files(session_path, selected_items):
+def delete_extracted_shorelines_files(session_path:str, selected_items:List):
     """Delete the extracted shorelines from the session directory for all the relevant files
     Removes the extracted shorelines from the following files:
     - extracted_shorelines_lines.geojson
@@ -164,7 +164,7 @@ def delete_extracted_shorelines_files(session_path, selected_items):
     file_patterns = ["_timeseries_tidally_corrected", "_timeseries_raw.csv"]
     for file_pattern in file_patterns:
         common.drop_rows_from_csv(file_pattern, session_path, dates_list)
-    # delete the extracted shorelines from the jpg deterction files
+    # delete the extracted shorelines from the jpg detection files
     jpg_path = os.path.join(session_path, "jpg_files", "detection")
     if os.path.exists(jpg_path) and os.path.isdir(jpg_path):
         common.delete_jpg_files(dates_list, sat_list, jpg_path)
