@@ -132,7 +132,7 @@ def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> 
                 f"Model settings file does not exist at {json_file_path}"
             )
         else:
-            return None
+            return {}
     with open(json_file_path, "r", encoding=encoding) as f:
         data = json.load(f)
     return data
