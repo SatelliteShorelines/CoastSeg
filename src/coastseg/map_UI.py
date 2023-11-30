@@ -972,14 +972,8 @@ class UI:
             try:
                 if filechooser.selected:
                     self.coastseg_map.map.default_style = {"cursor": "wait"}
-                    print(f"filechooser.selected: {filechooser.selected}")
-                    print(f"Loading session: {os.path.abspath(filechooser.selected)}")
-                    print(f"Settings before \n {self.coastseg_map.get_settings()}")
                     # load the session into coastseg_map and this should update the settings in coastseg_map
                     self.coastseg_map.load_fresh_session(filechooser.selected)
-                    print(
-                        f"Session Loaded and settings\n {self.coastseg_map.get_settings()}"
-                    )
                     # update the session name text box with the session name
                     self.session_name_text.value = self.coastseg_map.get_session_name()
                     # update the settings dashboard with the settings from the loaded session
