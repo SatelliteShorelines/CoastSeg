@@ -1682,10 +1682,40 @@ def create_csv_per_transect(
             f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
         )
 
+def move_report_files(settings: dict, dest: str, filename_pattern='extract_shorelines*.txt'):
+    """
+    Move report files matching a specific pattern from the source directory to the destination.
 
-def save_extracted_shoreline_figures(
-    extracted_shorelines: "Extracted_Shoreline", save_path: str
-):
+    :param settings: Dictionary containing 'filepath' and 'sitename'.
+    :param dest: The destination path where the report files will be moved.
+    :param filename_pattern: Pattern of the filenames to search for, defaults to 'extract_shorelines*.txt'.
+    """
+    # Attempt to get the data_path and sitename
+    filepath = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
+    sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
+
+    # Check if data_path and sitename were successfully retrieved
+    if not filepath or not sitename:
+        logger.error("Data path or sitename not found in settings.")
+        return
+
+    # Construct the pattern to match files
+    pattern = os.path.join(filepath, sitename, filename_pattern)
+    matching_files = glob.glob(pattern)
+
+    # Check if there are files to move
+    if not matching_files:
+        logger.warning(f"No files found matching the pattern: {pattern}")
+        return
+
+    # Move the files
+    try:
+        file_utilities.move_files(matching_files, dest, delete_src=True)
+        logger.info(f"Files moved successfully to {dest}")
+    except Exception as e:
+        logger.error(f"Error moving files: {e}")
+
+def save_extracted_shoreline_figures(settings: dict, save_path: str):
     """
     Save extracted shoreline figures to a specified save path.
 
@@ -1696,8 +1726,15 @@ def save_extracted_shoreline_figures(
     :param extracted_shorelines:An Extracted_Shoreline object containing the extracted shorelines and shoreline settings.
     :param save_path: The path where the output figures will be saved.
     """
-    data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
-    sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
+    # Attempt to get the data_path and sitename
+    data_path = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
+    sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
+
+    # Check if data_path and sitename were successfully retrieved
+    if not data_path or not sitename:
+        logger.error(f"Data path or sitename not found in settings.{settings}")
+        return
+
     extracted_shoreline_figure_path = os.path.join(
         data_path, sitename, "jpg_files", "detection"
     )

@@ -843,7 +843,6 @@ class CoastSeg_Map:
         exception_handler.check_empty_roi_layer(selected_layer)
         logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
 
-        # @todo can this be removed since we don't have a save_config button anymore?
         # if the rois do not have any settings then save the currently loaded settings to the ROIs
         if not self.rois.roi_settings:
             filepath = filepath or os.path.abspath(os.getcwd())
@@ -1406,6 +1405,7 @@ class CoastSeg_Map:
         else:
             self.id_container.ids = ids_with_extracted_shorelines
 
+        # save a session for each ROI under one session name
         self.save_session(roi_ids, save_transects=False)
 
         # Get ROI ids that are selected on map and have had their shorelines extracted
@@ -1591,8 +1591,13 @@ class CoastSeg_Map:
                 logger.info(f"No extracted shorelines for ROI: {roi_id}")
                 continue
             # move extracted shoreline figures to session directory
-            common.save_extracted_shoreline_figures(extracted_shoreline, session_path)
+            shoreline_settings = extracted_shoreline.shoreline_settings
+            common.save_extracted_shoreline_figures(shoreline_settings, session_path)
+            # move extracted shoreline reports to session directory
+            common.move_report_files(shoreline_settings, session_path,'extract_shorelines*.txt')
+            # save the geojson and json files for extracted shorelines
             common.save_extracted_shorelines(extracted_shoreline, session_path)
+            
 
             # save transects to session folder
             if save_transects:

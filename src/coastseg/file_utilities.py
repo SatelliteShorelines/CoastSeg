@@ -229,6 +229,9 @@ def move_files(
             logger.info(
                 f"Moving all files from directory {src} to {dst_dir}. Delete Source: {delete_src}"
             )
+        elif os.path.isfile(src):
+            src_files = [src]
+            logger.info(f"Moving file {src} to {dst_dir}. Delete Source: {delete_src}")
         else:
             logger.error(
                 f"Provided src is a string but not a valid directory path: {src}"
@@ -547,8 +550,6 @@ def write_to_json(filepath: str, settings: dict):
     """ "Write the  settings dictionary to json file"""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     to_file(settings, filepath)
-    # with open(filepath, "w", encoding="utf-8") as output_file:
-    #     json.dump(settings, output_file)
 
 
 def to_file(data: dict, filepath: str) -> None:
