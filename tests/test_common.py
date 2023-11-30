@@ -1069,3 +1069,37 @@ def test_load_settings_with_list_keys(config_json):
     assert isinstance(settings, dict)
     assert len(settings) == len(keys)
     assert all(key in settings for key in keys)
+
+
+import pytest
+import os
+import shutil
+from coastseg import common
+from coastseg import file_utilities
+
+
+def test_save_extracted_shoreline_figures(temp_jpg_dir_structure, temp_dst_dir):
+    # Create a settings dictionary
+    settings = {"filepath": str(temp_jpg_dir_structure), "sitename": "sitename"}
+
+    # Create a directory for extracted shoreline figures
+    extracted_shoreline_figure_path = os.path.join(
+        settings["filepath"], settings["sitename"], "jpg_files", "detection"
+    )
+    assert os.path.exists(extracted_shoreline_figure_path) == True
+
+    # Call the function under test
+    common.save_extracted_shoreline_figures(settings, str(temp_dst_dir))
+    assert os.path.exists(os.path.join(temp_dst_dir, "jpg_files", "detection")) == True
+    assert len(os.listdir(os.path.join(temp_dst_dir, "jpg_files", "detection"))) == 5
+    # Check if the extracted shoreline figures directory is empty
+    assert os.path.exists(extracted_shoreline_figure_path) == False
+
+    # Check if the files are moved to the save path
+    for i in range(5):
+        print(
+            os.path.join(temp_dst_dir, "jpg_files", "detection", f"test_image_{i}.jpg")
+        )
+        assert os.path.exists(
+            os.path.join(temp_dst_dir, "jpg_files", "detection", f"test_image_{i}.jpg")
+        )

@@ -17,6 +17,62 @@ from tempfile import TemporaryDirectory
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 
+@pytest.fixture
+def temp_jpg_dir_structure():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # Create subdirectories
+        # creates a directory structure like this: tmpdir/sitename/jpg_files/detection
+        sitename_dir = os.path.join(tmpdirname, "sitename","jpg_files","detection")
+        os.makedirs(sitename_dir)
+
+        # Add JPG files to the subdirectories
+        for i in range(5):  # Creating 5 JPG files for example
+            image = Image.new("RGB", (100, 100), color="blue")  # Simple blue image
+            image_path = os.path.join(sitename_dir, f"test_image_{i}.jpg")
+            image.save(image_path)
+
+        yield tmpdirname
+        # Cleanup is handled by TemporaryDirectory context manager
+
+
+@pytest.fixture
+def temp_src_dir():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # Add some files to the directory
+        for i in range(5):  # Creating 5 files for example
+            with open(os.path.join(tmpdirname, f"test_file_{i}.txt"), "w") as f:
+                f.write("This is a test file")
+        yield tmpdirname
+        # Cleanup is handled by TemporaryDirectory context manager
+
+
+@pytest.fixture
+def temp_dst_dir():
+    # Create another temporary directory for destination
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        yield tmpdirname
+        # Cleanup is handled by TemporaryDirectory context manager
+
+
+@pytest.fixture
+def temp_src_files():
+    # Create a list of temporary files
+    files = []
+    for i in range(5):
+        fd, path = tempfile.mkstemp(suffix=".txt", prefix="test_file_", text=True)
+        os.write(fd, b"This is a test file")
+        os.close(fd)
+        files.append(path)
+
+    yield files
+
+    # Cleanup
+    for f in files:
+        os.remove(f)
+
+
 @pytest.fixture(scope="session")
 def config_json():
     # The dictionary you want to write to the JSON file
