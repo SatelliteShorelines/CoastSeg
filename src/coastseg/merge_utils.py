@@ -128,6 +128,19 @@ def read_first_geojson_file(
     directory: str,
     filenames=["extracted_shorelines_lines.geojson", "extracted_shorelines.geojson"],
 ):
+    """
+    Reads the first available GeoJSON file from the given directory.
+
+    Args:
+        directory (str): The directory path where the files are located.
+        filenames (list, optional): List of filenames to search for. Defaults to ["extracted_shorelines_lines.geojson", "extracted_shorelines.geojson"].
+
+    Returns:
+        geopandas.GeoDataFrame: The GeoDataFrame read from the first available file.
+
+    Raises:
+        FileNotFoundError: If none of the specified files exist in the directory.
+    """
     # Loop over the filenames
     for filename in filenames:
         filepath = os.path.join(directory, filename)
@@ -161,7 +174,6 @@ def clip_gdfs(gdfs, overlap_gdf):
         clipped_gdf = gpd.clip(gdf, overlap_gdf)
         if not clipped_gdf.empty:
             clipped_gdfs.append(clipped_gdf)
-            clipped_gdf.plot()
     return clipped_gdfs
 
 
@@ -181,7 +193,7 @@ def calculate_overlap(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     # Check if the input GeoDataFrame is empty
     if not hasattr(gdf, "empty"):
-        return gpd.GeoDataFrame()
+        return gpd.GeoDataFrame(geometry=[])
     if gdf.empty:
         # Return an empty GeoDataFrame with the same CRS if it exists
         return gpd.GeoDataFrame(
@@ -207,6 +219,31 @@ def calculate_overlap(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     # Create a GeoDataFrame from the GeoSeries
     overlap_gdf = gpd.GeoDataFrame(geometry=intersection_series)
     return overlap_gdf
+
+
+def get_overlapping_features(
+    roi_gdf: gpd.GeoDataFrame, gdfs: list[gpd.GeoDataFrame]
+) -> list[gpd.GeoDataFrame]:
+    """
+    Get the overlapping features between the region of interest (ROI) and the provided GeoDataFrames (gdfs).
+
+    Parameters:
+    - roi_gdf (GeoDataFrame): The region of interest GeoDataFrame.
+    - gdfs (GeoDataFrame or list): The GeoDataFrame(s) to check for overlap with the ROI.
+
+    Returns:
+    - list: The overlapping features as a list of GeoDataFrames. Where each element in the list is a GeoDataFrame corresponds
+            to the overlapping features between the ROI and one of the provided GeoDataFrames (gdfs).
+
+    """
+    # calculate the overlapping regions between the ROIs
+    overlap_gdf = calculate_overlap(roi_gdf)
+    if overlap_gdf.empty:
+        return []
+    if isinstance(gdfs, gpd.GeoDataFrame):
+        gdfs = [gdfs]
+    # clip the gdfs  to the overlapping regions ex. clip the extracted shorelines to the overlapping regions
+    return clip_gdfs(gdfs, overlap_gdf)
 
 
 def average_multipoints(multipoints) -> MultiPoint:
@@ -294,9 +331,19 @@ def merge_geometries(merged_gdf, columns=None, operation=unary_union):
     return merged_gdf
 
 
-def read_geojson_files(filepaths):
+def read_geojson_files(filepaths, column="type", value=None, keep_columns=None):
     """Read GeoJSON files into GeoDataFrames and return a list."""
-    return [gpd.read_file(path) for path in filepaths]
+    gdfs = []
+    for path in filepaths:
+        gdf = gpd.read_file(path)
+        print(f"Read {len(gdf)} features from {path}")
+        # print(gdf[gdf[column] == value])
+        if column in gdf.columns and value is not None:
+            gdf = gdf[gdf[column] == value]
+        if keep_columns is not None:
+            gdf = gdf[keep_columns]
+        gdfs.append(gdf)
+    return gdfs
 
 
 def concatenate_gdfs(gdfs):
@@ -308,11 +355,10 @@ def filter_and_join_gdfs(gdf, feature_type, predicate="intersects"):
     """Filter GeoDataFrame by feature type, ensure spatial index, and perform a spatial join."""
     if "type" not in gdf.columns:
         raise ValueError("The GeoDataFrame must contain a column named 'type'")
+    # Filter GeoDataFrame by feature type
     filtered_gdf = gdf[gdf["type"] == feature_type].copy()[["geometry"]]
-    filtered_gdf["geometry"] = filtered_gdf["geometry"].simplify(
-        tolerance=0.001
-    )  # Simplify geometry if possible to improve performance
     filtered_gdf.sindex  # Ensure spatial index
+    # perform a spatial join
     return gpd.sjoin(gdf, filtered_gdf[["geometry"]], how="inner", predicate=predicate)
 
 
@@ -346,8 +392,63 @@ def aggregate_gdf(gdf: gpd.GeoDataFrame, group_fields: list) -> gpd.GeoDataFrame
     )
 
 
-def merge_geojson_files(session_locations, merged_session_location):
-    """Main function to merge GeoJSON files from different session locations."""
+def process_geojson_files(
+    session_locations,
+    filenames,
+    transform_funcs=None,
+    read_func=None,
+    crs="epsg:4326",
+):
+    """
+    Reads and optionally transforms GeoDataFrames from given session locations.
+
+    Args:
+        session_locations (list): List of paths to session directories.
+        filenames (list): List of filenames to read in each session directory.
+        transform_funcs (list, optional): List of functions to apply to each file.
+        read_func (callable, optional): Function to use for reading files.
+        crs (str, optional): Coordinate reference system to convert GeoDataFrames to. Defaults to 'epsg:4326'.
+
+    Returns:
+        list: List of processed GeoDataFrames.
+    """
+    if transform_funcs is None:
+        transform_funcs = []
+    if transform_funcs and not isinstance(transform_funcs, list):
+        transform_funcs = [transform_funcs]
+    if read_func is None:
+        raise ValueError("read_func must be specified")
+
+    gdfs = []
+    for session_dir in session_locations:
+        try:
+            gdf = read_func(session_dir, filenames)
+            for func in transform_funcs:
+                gdf = func(gdf)
+            if isinstance(gdf, gpd.GeoDataFrame):
+                if "geometry" in gdf.columns and not gdf.crs:
+                    gdf.set_crs(crs, inplace=True)
+                gdf = gdf.to_crs(crs)
+            gdfs.append(gdf)
+        except Exception as e:
+            print(f"Error processing {session_dir}: {e}")
+            continue
+
+    return gdfs
+
+
+def merge_geojson_files(session_locations, dest):
+    """
+    Merge GeoJSON files from different session locations.
+
+    Args:
+        session_locations (list): List of session locations containing GeoJSON files.
+        dest (str): Path to the location where the merged GeoJSON file will be saved.
+
+    Returns:
+        merged_config (GeoDataFrame): Merged GeoDataFrame containing the merged GeoJSON data.
+
+    """
     filepaths = [
         os.path.join(location, "config_gdf.geojson") for location in session_locations
     ]
@@ -361,8 +462,11 @@ def merge_geojson_files(session_locations, merged_session_location):
     # applying the group by function in aggregate_gdf() turns the geodataframe into a dataframe
     merged_config = gpd.GeoDataFrame(merged_config, geometry="geometry")
 
-    output_path = os.path.join(merged_session_location, "merged_config.geojson")
-    merged_config.to_file(output_path, driver="GeoJSON")
+    if os.path.isdir(dest):
+        output_path = os.path.join(dest, "merged_config.geojson")
+        merged_config.to_file(output_path, driver="GeoJSON")
+    else:
+        raise ValueError(f"Output directory {dest} does not exist.")
 
     return merged_config
 
@@ -374,6 +478,16 @@ def create_csv_per_transect(
     roi_id: str = None,  # ROI ID is now optional and defaults to None
     filename_suffix: str = "_timeseries_raw.csv",
 ):
+    """
+    Create a CSV file for each transect containing time-series data.
+
+    Args:
+        save_path (str): The directory path where the CSV files will be saved.
+        cross_distance_transects (dict): A dictionary containing cross-distance transects.
+        extracted_shorelines_dict (dict): A dictionary containing extracted shorelines data.
+        roi_id (str, optional): The ROI ID. Defaults to None.
+        filename_suffix (str, optional): The suffix to be added to the CSV filenames. Defaults to "_timeseries_raw.csv".
+    """
     for key, distances in cross_distance_transects.items():
         # Initialize the dictionary for DataFrame with mandatory keys
         data_dict = {
@@ -402,6 +516,16 @@ def create_csv_per_transect(
 
 
 def merge_and_average(df1: gpd.GeoDataFrame, df2: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Merge two GeoDataFrames based on the 'satname' and 'date' columns, and average the common numeric columns.
+
+    Args:
+        df1 (gpd.GeoDataFrame): The first GeoDataFrame.
+        df2 (gpd.GeoDataFrame): The second GeoDataFrame.
+
+    Returns:
+        gpd.GeoDataFrame: The merged GeoDataFrame with averaged numeric columns.
+    """
     # Perform a full outer join
     merged = pd.merge(
         df1, df2, on=["satname", "date"], how="outer", suffixes=("_df1", "_df2")
