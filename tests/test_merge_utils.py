@@ -1,5 +1,6 @@
 # Standard library imports
 from collections import defaultdict
+import os
 
 # Related third party imports
 import geopandas as gpd
@@ -9,6 +10,7 @@ import pytest
 from shapely.geometry import LineString, MultiLineString, MultiPoint, Point, Polygon
 from coastseg import merge_utils
 from functools import reduce
+import tempfile
 
 # Local application/library specific imports
 from coastseg.merge_utils import (
@@ -16,6 +18,52 @@ from coastseg.merge_utils import (
     convert_lines_to_multipoints,
     merge_geometries,
 )
+
+
+@pytest.fixture(scope="session")
+def overlapping_roi_gdf_fixture():
+    data = {
+        "id": ["gac1", "gac6"],
+        "type": ["roi", "roi"],
+        "dummy": ["dummy1", "dummy2"],
+        "geometry": [
+            Polygon(
+                [
+                    (-121.89294822609095, 36.87805982149002),
+                    (-121.892296987737, 36.923124285162714),
+                    (-121.83616982432659, 36.922587577051516),
+                    (-121.83685404313914, 36.87752398639186),
+                    (-121.89294822609095, 36.87805982149002),
+                ]
+            ),
+            Polygon(
+                [
+                    (-121.89236580918869, 36.91836671978996),
+                    (-121.89178223277345, 36.95867333604402),
+                    (-121.8415571844796, 36.95819392646526),
+                    (-121.8421671948108, 36.917888007480336),
+                    (-121.89236580918869, 36.91836671978996),
+                ]
+            ),
+        ],
+    }
+
+    overlapping_roi_gdf = gpd.GeoDataFrame(data, geometry="geometry")
+    return overlapping_roi_gdf
+
+
+@pytest.fixture(scope="session")
+def temp_geojson_file(overlapping_roi_gdf_fixture):
+    # Create a temporary file and immediately close it to avoid lock issues on Windows
+    tmpfile = tempfile.NamedTemporaryFile(suffix=".geojson", mode="w+", delete=False)
+    tmpfile.close()
+
+    # Now open the file again to write the data
+    overlapping_roi_gdf_fixture.to_file(tmpfile.name, driver="GeoJSON")
+
+    yield tmpfile.name  # This will provide the file path to the test function
+    # Teardown code: delete the temporary file after the test session
+    os.remove(tmpfile.name)
 
 
 @pytest.fixture
@@ -764,7 +812,7 @@ def test_aggregate_gdf_merged_config_all_unique(merged_config_nulls_all_unique):
 def test_filter_and_join_gdfs():
     # Create a sample GeoDataFrame
     data = {
-        "type": ["roi", "poi", "roi", "poi"],
+        "type": ["roi", "shoreline", "roi", "shoreline"],
         "geometry": [Point(0, 0), Point(1, 1), Point(2, 2), Point(3, 3)],
     }
     gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
@@ -788,3 +836,42 @@ def test_filter_and_join_gdfs():
     assert (
         len(result) == 2
     ), "The result should only contain intersecting 'roi' geometries"
+
+
+def test_read_geojson_files(
+    temp_geojson_file,
+):
+    # Test reading a single GeoJSON file
+    filepaths = [temp_geojson_file]
+    result = merge_utils.read_geojson_files(filepaths)
+    assert len(result) == 1
+    assert isinstance(result[0], gpd.GeoDataFrame)
+    assert result[0].shape[0] > 0
+
+    # # Test reading multiple GeoJSON files
+    # filepaths = ['/path/to/file1.geojson', '/path/to/file2.geojson']
+    # result = merge_utils.read_geojson_files(filepaths)
+    # assert len(result) == 2
+    # assert isinstance(result[0], gpd.GeoDataFrame)
+    # assert isinstance(result[1], gpd.GeoDataFrame)
+    # assert result[0].shape[0] > 0
+    # assert result[1].shape[0] > 0
+
+    # Test filtering by column value
+    filepaths = [temp_geojson_file]
+    column = "type"
+    value = "roi"
+    result = merge_utils.read_geojson_files(filepaths, column, value)
+    assert len(result) == 1
+    assert isinstance(result[0], gpd.GeoDataFrame)
+    assert result[0].shape[0] > 0
+    assert all(result[0][column] == value)
+
+    # Test keeping specific columns
+    filepaths = [temp_geojson_file]
+    keep_columns = ["geometry", "id", "type"]
+    result = merge_utils.read_geojson_files(filepaths, keep_columns=keep_columns)
+    assert len(result) == 1
+    assert isinstance(result[0], gpd.GeoDataFrame)
+    assert result[0].shape[0] > 0
+    assert set(result[0].columns) == set(keep_columns)
