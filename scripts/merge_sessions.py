@@ -10,6 +10,8 @@ import geopandas as gpd
 from coastsat import SDS_transects
 import numpy as np
 
+# Step 1: OPTIONAL
+# Modify the settings_transects dictionary to change the parameters for computing the intersection between the transects and the extracted shorelines
 settings_transects = {
     "along_dist": 25,  # along-shore distance to use for computing the intersection
     "min_points": 3,  # minimum number of shoreline points to calculate an intersection
@@ -20,23 +22,24 @@ settings_transects = {
     "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
 }
 
+# Step 2: REQUIRED
 # Enter ROI session locations here
-# session_locations = [
-#     r"C:\development\doodleverse\coastseg\CoastSeg\test_data\test_case4_overlapping\ID_gac6_datetime10-30-23__01_44_50",
-#     r"C:\development\doodleverse\coastseg\CoastSeg\test_data\test_case4_overlapping\ID_gac1_datetime10-30-23__01_44_50",
-# ]
+# - Replace the session_locations list with the locations of the ROI sessions you want to merge
+# - Each of these sessions should have extracted shorelines and transects
+# - The order of the sessions in the list does not matter
 
 session_locations = [
-    r"C:\Users\sf230\Downloads\AK_shoreline1-20231127T221704Z-001\AK_shoreline1\ID_egw1_datetime09-19-23__11_37_20",
-    r"C:\Users\sf230\Downloads\AK_shoreline1-20231127T221704Z-001\AK_shoreline1\ID_egw3_datetime09-19-23__11_37_20",
-    r"C:\Users\sf230\Downloads\AK_shoreline1-20231127T221704Z-001\AK_shoreline1\ID_egw2_datetime09-19-23__11_37_20",
-    r"C:\Users\sf230\Downloads\AK_shoreline1-20231127T221704Z-001\AK_shoreline1\ID_egw4_datetime09-19-23__11_37_20",
+    r"C:\development\doodleverse\coastseg\CoastSeg\test_data\test_case4_overlapping\ID_gac6_datetime10-30-23__01_44_50",
+    r"C:\development\doodleverse\coastseg\CoastSeg\test_data\test_case4_overlapping\ID_gac1_datetime10-30-23__01_44_50",
 ]
 
-# enter directory to save the merged session
-save_location = r"C:\development\doodleverse\coastseg\CoastSeg\test_results"
-# enter the name of the merged session
-merged_session_name = "large_dataset"
+# Step 3: REQUIRED
+# Enter directory to save the merged session folder in
+save_location = r"C:\development\doodleverse\coastseg\CoastSeg\merged_sessions"
+
+# Step 4: REQUIRED
+# Enter the name of the merged session
+merged_session_name = "merged_session"
 
 # Script execution begins here
 # ----------------------------
