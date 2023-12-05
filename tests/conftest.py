@@ -16,6 +16,143 @@ from tempfile import TemporaryDirectory
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
+@pytest.fixture(scope="session")
+def config_json_no_sitename_dir():
+    # create a temporary directory that will represent the downloaded ROI directory
+    temp_dir = tempfile.mkdtemp()
+    # Create don't create the subdirectory in this temporary directory
+
+    # The dictionary you want to write to the JSON file
+    config_data = {
+        "zih2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+            "filepath": str(temp_dir),
+        },
+        "roi_ids": ["zih2"],
+        "settings": {
+            "landsat_collection": "C02",
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "cloud_thresh": 0.8,
+            "dist_clouds": 350,
+            "output_epsg": 32610,
+            "check_detection": False,
+            "adjust_detection": False,
+            "save_figure": True,
+            "min_beach_area": 1050,
+            "min_length_sl": 600,
+            "cloud_mask_issue": True,
+            "sand_color": "default",
+            "pan_off": "False",
+            "max_dist_ref": 200,
+            "along_dist": 28,
+            "min_points": 4,
+            "max_std": 16.0,
+            "max_range": 38.0,
+            "min_chainage": -105.0,
+            "multiple_inter": "auto",
+            "prc_multiple": 0.2,
+            "apply_cloud_mask": False,
+            "image_size_filter": False,
+        },
+    }
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(
+        mode="w+", delete=False, suffix=".json"
+    ) as tmpfile:
+        json.dump(config_data, tmpfile)
+        tmpfile_path = tmpfile.name  # Save the filepath
+
+    # Yield the filepath to the test
+    yield tmpfile_path,temp_dir
+
+    # Cleanup - delete the file after tests are done
+    os.remove(tmpfile_path)
+
+
+@pytest.fixture(scope="session")
+def config_json():
+    # create a temporary directory that will represent the downloaded ROI directory
+    temp_dir = tempfile.mkdtemp()
+    # Create a subdirectory in this temporary directory
+    sub_dir = os.path.join(temp_dir, "ID_zih2_datetime11-15-23__09_56_01")
+    os.makedirs(sub_dir, exist_ok=True)
+
+    # The dictionary you want to write to the JSON file
+    config_data = {
+        "zih2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+            "filepath": str(temp_dir),
+        },
+        "roi_ids": ["zih2"],
+        "settings": {
+            "landsat_collection": "C02",
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "cloud_thresh": 0.8,
+            "dist_clouds": 350,
+            "output_epsg": 32610,
+            "check_detection": False,
+            "adjust_detection": False,
+            "save_figure": True,
+            "min_beach_area": 1050,
+            "min_length_sl": 600,
+            "cloud_mask_issue": True,
+            "sand_color": "default",
+            "pan_off": "False",
+            "max_dist_ref": 200,
+            "along_dist": 28,
+            "min_points": 4,
+            "max_std": 16.0,
+            "max_range": 38.0,
+            "min_chainage": -105.0,
+            "multiple_inter": "auto",
+            "prc_multiple": 0.2,
+            "apply_cloud_mask": False,
+            "image_size_filter": False,
+        },
+    }
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(
+        mode="w+", delete=False, suffix=".json"
+    ) as tmpfile:
+        json.dump(config_data, tmpfile)
+        tmpfile_path = tmpfile.name  # Save the filepath
+
+    # Yield the filepath to the test
+    yield tmpfile_path,temp_dir
+
+    # Cleanup - delete the file after tests are done
+    os.remove(tmpfile_path)
+
 
 @pytest.fixture
 def temp_jpg_dir_structure():
@@ -23,7 +160,7 @@ def temp_jpg_dir_structure():
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Create subdirectories
         # creates a directory structure like this: tmpdir/sitename/jpg_files/detection
-        sitename_dir = os.path.join(tmpdirname, "sitename","jpg_files","detection")
+        sitename_dir = os.path.join(tmpdirname, "sitename", "jpg_files", "detection")
         os.makedirs(sitename_dir)
 
         # Add JPG files to the subdirectories
@@ -73,68 +210,68 @@ def temp_src_files():
         os.remove(f)
 
 
-@pytest.fixture(scope="session")
-def config_json():
-    # The dictionary you want to write to the JSON file
-    config_data = {
-        "zih2": {
-            "dates": ["2018-12-01", "2019-03-01"],
-            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
-            "roi_id": "zih2",
-            "polygon": [
-                [
-                    [-121.84020033533233, 36.74441575726833],
-                    [-121.83959312681607, 36.784722827004146],
-                    [-121.78948275983468, 36.78422337939962],
-                    [-121.79011617443447, 36.74391703739083],
-                    [-121.84020033533233, 36.74441575726833],
-                ]
-            ],
-            "landsat_collection": "C02",
-            "sitename": "ID_zih2_datetime11-15-23__09_56_01",
-            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-        },
-        "roi_ids": ["zih2"],
-        "settings": {
-            "landsat_collection": "C02",
-            "dates": ["2018-12-01", "2019-03-01"],
-            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
-            "cloud_thresh": 0.8,
-            "dist_clouds": 350,
-            "output_epsg": 32610,
-            "check_detection": False,
-            "adjust_detection": False,
-            "save_figure": True,
-            "min_beach_area": 1050,
-            "min_length_sl": 600,
-            "cloud_mask_issue": True,
-            "sand_color": "default",
-            "pan_off": "False",
-            "max_dist_ref": 200,
-            "along_dist": 28,
-            "min_points": 4,
-            "max_std": 16.0,
-            "max_range": 38.0,
-            "min_chainage": -105.0,
-            "multiple_inter": "auto",
-            "prc_multiple": 0.2,
-            "apply_cloud_mask": False,
-            "image_size_filter": False,
-        },
-    }
+# @pytest.fixture(scope="session")
+# def config_json():
+#     # The dictionary you want to write to the JSON file
+#     config_data = {
+#         "zih2": {
+#             "dates": ["2018-12-01", "2019-03-01"],
+#             "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+#             "roi_id": "zih2",
+#             "polygon": [
+#                 [
+#                     [-121.84020033533233, 36.74441575726833],
+#                     [-121.83959312681607, 36.784722827004146],
+#                     [-121.78948275983468, 36.78422337939962],
+#                     [-121.79011617443447, 36.74391703739083],
+#                     [-121.84020033533233, 36.74441575726833],
+#                 ]
+#             ],
+#             "landsat_collection": "C02",
+#             "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+#             "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+#         },
+#         "roi_ids": ["zih2"],
+#         "settings": {
+#             "landsat_collection": "C02",
+#             "dates": ["2018-12-01", "2019-03-01"],
+#             "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+#             "cloud_thresh": 0.8,
+#             "dist_clouds": 350,
+#             "output_epsg": 32610,
+#             "check_detection": False,
+#             "adjust_detection": False,
+#             "save_figure": True,
+#             "min_beach_area": 1050,
+#             "min_length_sl": 600,
+#             "cloud_mask_issue": True,
+#             "sand_color": "default",
+#             "pan_off": "False",
+#             "max_dist_ref": 200,
+#             "along_dist": 28,
+#             "min_points": 4,
+#             "max_std": 16.0,
+#             "max_range": 38.0,
+#             "min_chainage": -105.0,
+#             "multiple_inter": "auto",
+#             "prc_multiple": 0.2,
+#             "apply_cloud_mask": False,
+#             "image_size_filter": False,
+#         },
+#     }
 
-    # Create a temporary file
-    with tempfile.NamedTemporaryFile(
-        mode="w+", delete=False, suffix=".json"
-    ) as tmpfile:
-        json.dump(config_data, tmpfile)
-        tmpfile_path = tmpfile.name  # Save the filepath
+#     # Create a temporary file
+#     with tempfile.NamedTemporaryFile(
+#         mode="w+", delete=False, suffix=".json"
+#     ) as tmpfile:
+#         json.dump(config_data, tmpfile)
+#         tmpfile_path = tmpfile.name  # Save the filepath
 
-    # Yield the filepath to the test
-    yield tmpfile_path
+#     # Yield the filepath to the test
+#     yield tmpfile_path
 
-    # Cleanup - delete the file after tests are done
-    os.remove(tmpfile_path)
+#     # Cleanup - delete the file after tests are done
+#     os.remove(tmpfile_path)
 
 
 @pytest.fixture(scope="session")

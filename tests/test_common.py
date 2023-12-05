@@ -965,6 +965,7 @@ def test_load_settings_with_invalid_filepath():
 
 
 def test_load_settings_with_nested_settings(config_json):
+    config_path, _ = config_json
     # Test loading specific settings from a JSON file with nested settings
     keys = {
         "model_session_path",
@@ -996,7 +997,7 @@ def test_load_settings_with_nested_settings(config_json):
         "multiple_inter",
         "prc_multiple",
     }
-    settings = common.load_settings(config_json, keys)
+    settings = common.load_settings(config_path, keys)
     assert isinstance(settings, dict)
     assert settings["landsat_collection"] == "C02"
     assert settings["dates"] == ["2018-12-01", "2019-03-01"]
@@ -1026,12 +1027,14 @@ def test_load_settings_with_nested_settings(config_json):
 
 def test_load_settings_with_empty_keys(config_json):
     # Test loading all settings from a JSON file
-    settings = common.load_settings(config_json, set())
+    config_path, tmpdir = config_json
+    settings = common.load_settings(config_path, set())
     assert isinstance(settings, dict)
     assert len(settings) > 0
 
 
 def test_load_settings_with_set_keys(config_json):
+    config_path, tmpdir = config_json
     # Test loading specific settings from a JSON file using a set of keys
     keys = {
         "sat_list",
@@ -1041,7 +1044,7 @@ def test_load_settings_with_set_keys(config_json):
         "output_epsg",
         "max_dist_ref",
     }
-    settings = common.load_settings(config_json, keys)
+    settings = common.load_settings(config_path, keys)
     assert isinstance(settings, dict)
     assert settings["dates"] == ["2018-12-01", "2019-03-01"]
     assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
@@ -1052,6 +1055,7 @@ def test_load_settings_with_set_keys(config_json):
 
 
 def test_load_settings_with_list_keys(config_json):
+    config_path, tmpdir = config_json
     # Test loading specific settings from a JSON file using a list of keys
     keys = [
         "sat_list",
@@ -1061,7 +1065,7 @@ def test_load_settings_with_list_keys(config_json):
         "output_epsg",
         "max_dist_ref",
     ]
-    settings = common.load_settings(config_json, keys)
+    settings = common.load_settings(config_path, keys)
     assert settings["dates"] == ["2018-12-01", "2019-03-01"]
     assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
     assert settings["min_beach_area"] == 1050
