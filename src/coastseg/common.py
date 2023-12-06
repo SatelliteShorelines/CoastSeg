@@ -122,40 +122,6 @@ def load_settings(
     return filtered_settings
 
 
-def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
-    """
-    Creates a new configuration dictionary by combining the given settings and ROI settings.
-
-    Arguments:
-    -----------
-    roi_ids: list
-        A list of ROI IDs to include in the new configuration.
-    settings: dict
-        A dictionary containing general settings for the configuration.
-    roi_settings: dict
-        A dictionary containing ROI-specific settings for the configuration.
-        example:
-        {'example_roi_id': {'dates':[]}
-
-    Returns:
-    -----------
-    new_config: dict
-        A dictionary containing the combined settings and ROI settings, as well as the ROI IDs.
-    """
-    new_config = {
-        "settings": {},
-        "roi_ids": [],
-    }
-    if isinstance(roi_ids, str):
-        roi_ids = [roi_ids]
-    if not all(roi_id in roi_settings.keys() for roi_id in roi_ids):
-        raise ValueError(f"roi_ids {roi_ids} not in roi_settings {roi_settings.keys()}")
-    new_config = {**new_config, **roi_settings}
-    new_config["roi_ids"].extend(roi_ids)
-    new_config["settings"] = settings
-    return new_config
-
-
 def save_new_config(path: str, roi_ids: list, destination: str) -> dict:
     """Save a new config file to a path.
 
@@ -175,7 +141,7 @@ def save_new_config(path: str, roi_ids: list, destination: str) -> dict:
         if roi_id in config.keys():
             roi_settings[roi_id] = config[roi_id]
 
-    new_config = create_new_config(roi_ids, config["settings"], roi_settings)
+    new_config = create_json_config(roi_settings, config["settings"], roi_ids)
     with open(destination, "w") as f:
         json.dump(new_config, f)
 
@@ -1682,7 +1648,10 @@ def create_csv_per_transect(
             f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
         )
 
-def move_report_files(settings: dict, dest: str, filename_pattern='extract_shorelines*.txt'):
+
+def move_report_files(
+    settings: dict, dest: str, filename_pattern="extract_shorelines*.txt"
+):
     """
     Move report files matching a specific pattern from the source directory to the destination.
 
@@ -1714,6 +1683,7 @@ def move_report_files(settings: dict, dest: str, filename_pattern='extract_shore
         logger.info(f"Files moved successfully to {dest}")
     except Exception as e:
         logger.error(f"Error moving files: {e}")
+
 
 def save_extracted_shoreline_figures(settings: dict, save_path: str):
     """
@@ -1848,7 +1818,9 @@ def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) -> dict:
+def create_json_config(
+    inputs: dict, settings: dict = {}, roi_ids: list[str] = []
+) -> dict:
     """returns config dictionary with the settings, currently selected_roi ids, and
     each of the inputs specified by roi id.
     sample config:
