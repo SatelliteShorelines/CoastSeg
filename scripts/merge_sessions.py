@@ -143,7 +143,7 @@ def main(args):
     )
 
 
-if __name__ == "__main__":
+def parse_arguments():
     # Create the parser
     parser = argparse.ArgumentParser(description="Merge sessions script.")
 
@@ -223,5 +223,10 @@ if __name__ == "__main__":
     )
 
     # Parse the arguments
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    # Parse the arguments
+    args = parse_arguments()
     main(args)
