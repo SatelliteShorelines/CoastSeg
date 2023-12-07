@@ -93,65 +93,6 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
                 self.satname = properties.get("satname", "")
                 self.date = properties.get("date", "")
 
-
-def filter_settings(**kwargs):
-    # Check if any of the keys are missing
-    # if any keys are missing set the default value
-    default_settings = {
-        "landsat_collection": "C02",
-        "dates": ["2017-12-01", "2018-01-01"],
-        "sat_list": ["L8"],
-        "cloud_thresh": 0.5,
-        "dist_clouds": 300,
-        "output_epsg": 4326,
-        "check_detection": False,
-        "adjust_detection": False,
-        "save_figure": True,
-        "min_beach_area": 4500,
-        "min_length_sl": 100,
-        "cloud_mask_issue": False,
-        "sand_color": "default",
-        "pan_off": "False",
-        "max_dist_ref": 25,
-        "along_dist": 25,
-        "min_points": 3,
-        "max_std": 15,
-        "max_range": 30,
-        "min_chainage": -100,
-        "multiple_inter": "auto",
-        "prc_multiple": 0.1,
-        "apply_cloud_mask": True,
-        "image_size_filter": True,
-    }
-
-    # Function to parse dates with flexibility for different formats
-    def parse_date(date_str):
-        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-            try:
-                return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
-            except ValueError:
-                continue
-        raise ValueError(f"Date format for {date_str} not recognized.")
-
-    settings = {}
-
-    # Filter kwargs to keep only keys that are in default_settings
-    filtered_kwargs = {k: v for k, v in kwargs.items() if k in default_settings}
-
-    # Update settings with filtered kwargs
-    settings.update(filtered_kwargs)
-
-    # Special handling for 'dates'
-    if "dates" in filtered_kwargs:
-        settings["dates"] = [parse_date(d) for d in filtered_kwargs["dates"]]
-
-    # Set default values for missing keys
-    for key, value in default_settings.items():
-        settings.setdefault(key, value)
-
-    return settings
-
-
 class CoastSeg_Map:
     def __init__(self):
         # Basic settings and configurations
@@ -789,7 +730,8 @@ class CoastSeg_Map:
         # creates a dictionary mapping ROI IDs to their extracted settings from json_data
         roi_settings = self._extract_and_validate_roi_settings(json_data, data_path)
         # Make sure each ROI has the specific settings for its save location, its ID, coordinates etc.
-        self.rois.roi_settings = roi_settings
+        if hasattr(self, "rois"):
+            self.rois.roi_settings = roi_settings
         logger.info(f"roi_settings: {roi_settings}")
 
     def load_config_files(self, dir_path: str, data_path: str) -> None:
