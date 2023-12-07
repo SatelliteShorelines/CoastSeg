@@ -41,6 +41,87 @@ from coastseg.exceptions import InvalidGeometryType
 logger = logging.getLogger(__name__)
 
 
+def load_settings(
+    filepath: str = "",
+    keys: set = (
+        "model_session_path",
+        "apply_cloud_mask",
+        "image_size_filter",
+        "pan_off",
+        "save_figure",
+        "adjust_detection",
+        "check_detection",
+        "landsat_collection",
+        "sat_list",
+        "dates",
+        "sand_color",
+        "cloud_thresh",
+        "cloud_mask_issue",
+        "min_beach_area",
+        "min_length_sl",
+        "output_epsg",
+        "sand_color",
+        "pan_off",
+        "max_dist_ref",
+        "dist_clouds",
+        "percent_no_data",
+        "max_std",
+        "min_points",
+        "along_dist",
+        "max_range",
+        "min_chainage",
+        "multiple_inter",
+        "prc_multiple",
+    ),
+):
+    """
+    Loads settings from a JSON file and applies them to the object.
+    Args:
+        filepath (str, optional): The filepath to the JSON file containing the settings. Defaults to an empty string.
+        keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
+        "sat_list",
+                                                    "dates",
+                                                    "cloud_thresh",
+                                                    "cloud_mask_issue",
+                                                    "min_beach_area",
+                                                    "min_length_sl",
+                                                    "output_epsg",
+                                                    "sand_color",
+                                                    "pan_off",
+                                                    "max_dist_ref",
+                                                    "dist_clouds",
+                                                    "percent_no_data",
+                                                    "max_std",
+                                                    "min_points",
+                                                    "along_dist",
+                                                    "max_range",
+                                                    "min_chainage",
+                                                    "multiple_inter",
+                                                    "prc_multiple".
+    Returns:
+        None
+    """
+    # Convert keys to a list if a set is passed
+    if isinstance(keys, set):
+        keys = list(keys)
+    new_settings = file_utilities.read_json_file(filepath, raise_error=False)
+    logger.info(f"all of new settings read from file : {filepath} \n {new_settings}")
+    # if no keys are passed then use all of the keys in the settings file
+    if not keys:
+        keys = new_settings.keys()
+    # filter the settings to keep only the keys passed
+    filtered_settings = {k: new_settings[k] for k in keys if k in new_settings}
+    # read the nested settings located in the sub dictionary "settings" and keep only the keys passed
+    nested_settings = new_settings.get("settings", {})
+    nested_settings = {k: nested_settings[k] for k in keys if k in nested_settings}
+    logger.info(
+        f"all of new nested settings read from file : {filepath} \n {nested_settings }"
+    )
+    # combine the settings into one dictionary WARNING this could overwrite items in both settings
+    filtered_settings.update(**nested_settings)
+    return filtered_settings
+
+
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
     """
     Creates a new configuration dictionary by combining the given settings and ROI settings.
@@ -282,7 +363,7 @@ def filter_images(
         "L7": 15,
         "L8": 15,
         "L9": 15,
-        "L5": 30,
+        "L5": 15,  # coastsat modifies the per pixel resolution from 30m to 15m for L5
     }
     bad_files = []
     jpg_files = [
@@ -301,21 +382,32 @@ def filter_images(
             continue
 
         filepath = os.path.join(directory, file)
-        with Image.open(filepath) as img:
-            width, height = img.size
-            img_area = (
-                width
-                * pixel_size_per_satellite[satname]
-                * height
-                * pixel_size_per_satellite[satname]
-            )
-            img_area /= 1e6  # convert to square kilometers
-            if img_area > max_area or img_area < min_area:
-                bad_files.append(file)
+        img_area = calculate_image_area(filepath, pixel_size_per_satellite[satname])
+        if img_area < min_area or (max_area is not None and img_area > max_area):
+            bad_files.append(file)
+
     bad_files = list(map(lambda s: os.path.join(directory, s), bad_files))
     # move the bad files to the bad folder
     file_utilities.move_files(bad_files, output_directory)
     return bad_files  # Optionally return the list of bad files
+
+
+def calculate_image_area(filepath: str, pixel_size: int) -> float:
+    """
+    Calculate the area of an image in square kilometers.
+
+    Args:
+        filepath (str): The path to the image file.
+        pixel_size (int): The size of a pixel in the image in meters.
+
+    Returns:
+        float: The area of the image in square kilometers.
+    """
+    with Image.open(filepath) as img:
+        width, height = img.size
+        img_area = width * pixel_size * height * pixel_size
+        img_area /= 1e6  # convert to square kilometers
+    return img_area
 
 
 def validate_geometry_types(
@@ -1208,24 +1300,21 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
         content_length = r.headers.get("Content-Length")
         if content_length:
             total_length = int(content_length)
+            with open(save_path, "wb") as fd:
+                with tqdm(
+                    total=total_length,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Downloading {filename}",
+                    initial=0,
+                    ascii=True,
+                ) as pbar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
         else:
-            print(
-                "Content length not found in response headers. Downloading without progress bar."
-            )
-            total_length = None
-        with open(save_path, "wb") as fd:
-            with tqdm(
-                total=total_length,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=f"Downloading {filename}",
-                initial=0,
-                ascii=True,
-            ) as pbar:
-                for chunk in r.iter_content(chunk_size=chunk_size):
-                    fd.write(chunk)
-                    pbar.update(len(chunk))
+            logger.warning("Content length not found in response headers")
 
 
 def get_center_point(coords: list) -> tuple:
@@ -1239,6 +1328,31 @@ def get_center_point(coords: list) -> tuple:
     x2, y2 = coords[2][0], coords[2][1]
     center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
     return center_x, center_y
+
+
+def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
+    Args:
+    - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+    Returns:
+    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
+                        already contains MultiPoints, the original GeoDataFrame is returned.
+    """
+
+    # Check if the gdf already contains MultiPoints
+    if any(gdf.geometry.type == "MultiPoint"):
+        return gdf
+
+    def linestring_to_multipoint(linestring):
+        if isinstance(linestring, LineString):
+            return MultiPoint(linestring.coords)
+        return linestring
+
+    # Convert each LineString to a MultiPoint
+    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
+
+    return gdf
 
 
 def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
@@ -1330,7 +1444,7 @@ def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = []
     return roi_data
 
 
-def extract_fields(data, key=None, fields_of_interest=None):
+def extract_fields(data: dict, key=None, fields_of_interest=None):
     """
     Extracts specified fields from a given dictionary.
 
@@ -1354,12 +1468,12 @@ def extract_fields(data, key=None, fields_of_interest=None):
         "landsat_collection",
         "filepath",
     }
-
+    # extract the data from a sub dictionary with a specified key if it exists
     if key and key in data:
         for field in fields_of_interest:
             if field in data[key]:
                 extracted_data[field] = data[key][field]
-    else:
+    else:  # extract all the fields of interest from the data
         for field in fields_of_interest:
             if field in data:
                 extracted_data[field] = data[field]
@@ -1586,10 +1700,40 @@ def create_csv_per_transect(
             f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
         )
 
+def move_report_files(settings: dict, dest: str, filename_pattern='extract_shorelines*.txt'):
+    """
+    Move report files matching a specific pattern from the source directory to the destination.
 
-def save_extracted_shoreline_figures(
-    extracted_shorelines: "Extracted_Shoreline", save_path: str
-):
+    :param settings: Dictionary containing 'filepath' and 'sitename'.
+    :param dest: The destination path where the report files will be moved.
+    :param filename_pattern: Pattern of the filenames to search for, defaults to 'extract_shorelines*.txt'.
+    """
+    # Attempt to get the data_path and sitename
+    filepath = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
+    sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
+
+    # Check if data_path and sitename were successfully retrieved
+    if not filepath or not sitename:
+        logger.error("Data path or sitename not found in settings.")
+        return
+
+    # Construct the pattern to match files
+    pattern = os.path.join(filepath, sitename, filename_pattern)
+    matching_files = glob.glob(pattern)
+
+    # Check if there are files to move
+    if not matching_files:
+        logger.warning(f"No files found matching the pattern: {pattern}")
+        return
+
+    # Move the files
+    try:
+        file_utilities.move_files(matching_files, dest, delete_src=True)
+        logger.info(f"Files moved successfully to {dest}")
+    except Exception as e:
+        logger.error(f"Error moving files: {e}")
+
+def save_extracted_shoreline_figures(settings: dict, save_path: str):
     """
     Save extracted shoreline figures to a specified save path.
 
@@ -1600,8 +1744,15 @@ def save_extracted_shoreline_figures(
     :param extracted_shorelines:An Extracted_Shoreline object containing the extracted shorelines and shoreline settings.
     :param save_path: The path where the output figures will be saved.
     """
-    data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
-    sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
+    # Attempt to get the data_path and sitename
+    data_path = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
+    sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
+
+    # Check if data_path and sitename were successfully retrieved
+    if not data_path or not sitename:
+        logger.error(f"Data path or sitename not found in settings.{settings}")
+        return
+
     extracted_shoreline_figure_path = os.path.join(
         data_path, sitename, "jpg_files", "detection"
     )
@@ -1663,7 +1814,7 @@ def save_extracted_shorelines(
         geomtype="lines",
     )
 
-    # Save extracted shorelines as a GeoJSON file
+    # Save extracted shorelines to GeoJSON files
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
     )
