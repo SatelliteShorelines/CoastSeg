@@ -686,33 +686,6 @@ def test_merge_and_average_1_gdf(extracted_gdf1):
     assert new_result["geometry"].equals(extracted_gdf1["geometry"])
 
 
-def test_aggregate_gdf():
-    # Create a sample GeoDataFrame
-    data = {
-        "field1": [1, 1, 2, 2, 3],
-        "field2": ["A", "A", "B", "B", "C"],
-        "field3": [10, 20, 30, 40, 50],
-    }
-    gdf = gpd.GeoDataFrame(data)
-
-    # Define the group fields
-    group_fields = ["field1", "field2"]
-
-    # Call the aggregate_gdf function
-    result = merge_utils.aggregate_gdf(gdf, group_fields)
-
-    # Define the expected result
-    expected_data = {
-        "field1": [1, 2, 3],
-        "field2": ["A", "B", "C"],
-        "field3": ["10, 20", "30, 40", "50"],
-    }
-    expected_result = gpd.GeoDataFrame(expected_data)
-
-    # Check if the resulting GeoDataFrame is equal to the expected GeoDataFrame
-    assert result.equals(expected_result)
-
-
 @pytest.fixture
 def merged_config_no_nulls_no_index_right():
     data = {

@@ -16,6 +16,7 @@ from tempfile import TemporaryDirectory
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
+
 @pytest.fixture(scope="session")
 def config_json_no_sitename_dir():
     # create a temporary directory that will represent the downloaded ROI directory
@@ -78,7 +79,7 @@ def config_json_no_sitename_dir():
         tmpfile_path = tmpfile.name  # Save the filepath
 
     # Yield the filepath to the test
-    yield tmpfile_path,temp_dir
+    yield tmpfile_path, temp_dir
 
     # Cleanup - delete the file after tests are done
     os.remove(tmpfile_path)
@@ -148,7 +149,7 @@ def config_json():
         tmpfile_path = tmpfile.name  # Save the filepath
 
     # Yield the filepath to the test
-    yield tmpfile_path,temp_dir
+    yield tmpfile_path, temp_dir
 
     # Cleanup - delete the file after tests are done
     os.remove(tmpfile_path)
@@ -207,7 +208,8 @@ def temp_src_files():
 
     # Cleanup
     for f in files:
-        os.remove(f)
+        if os.path.exists(f):
+            os.remove(f)
 
 
 # @pytest.fixture(scope="session")
