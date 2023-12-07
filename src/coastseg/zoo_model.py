@@ -850,10 +850,10 @@ class Zoo_Model:
         # if configs do not exist then raise an error and do not save the session
         if not file_utilities.validate_config_files_exist(roi_directory):
             logger.warning(
-                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}"
             )
             raise FileNotFoundError(
-                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}"
             )
         # modify the config.json to only have the ROI ID that was used and save to session directory
         roi_id = file_utilities.extract_roi_id(roi_directory)
