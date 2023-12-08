@@ -11,7 +11,6 @@ from coastseg.common import (
     preprocess_geodataframe,
     create_unique_ids,
 )
-
 from coastseg.common import validate_geometry_types
 
 # External dependencies imports
@@ -130,6 +129,7 @@ class Shoreline:
                 "TIDAL_RANGE",
                 "MEAN_SIG_WAVEHEIGHT",
             ]
+
             if not shorelines.crs:
                 logger.warning(
                     f"shorelines did not have a crs converting to crs 4326 \n {shorelines}"
@@ -146,8 +146,6 @@ class Shoreline:
             )
             # make sure all the ids are unique with 3 random chars in front of id number
             shorelines = self.create_ids_service(shorelines, 3)
-            # @todo add the shorelines to the current dataframe
-            # @todo make sure none of the ids already exist in the dataframe. this can be a flag to turn an exception on/off
             self.gdf = shorelines
 
     def initialize_shorelines_with_bbox(self, bbox: gpd.GeoDataFrame):
