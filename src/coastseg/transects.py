@@ -24,6 +24,7 @@ def load_intersecting_transects(
     transect_files: List[str],
     transect_dir: str,
     columns_to_keep: set = set(["id", "geometry", "slope"]),
+    **kwargs,
 ) -> gpd.GeoDataFrame:
     """
     Loads transects from a list of GeoJSON files in the transect directory, selects the transects that intersect with
@@ -33,37 +34,59 @@ def load_intersecting_transects(
         rectangle (gpd.GeoDataFrame): A GeoDataFrame defining the rectangle to select transects within.
         transect_files (List[str]): A list of filenames of the GeoJSON transect files to load.
         transect_dir (str): The directory where the GeoJSON transect files are located.
+        columns_to_keep (set, optional): A set of column names to keep in the resulting GeoDataFrame. Defaults to set(["id", "geometry", "slope"]).
+        **kwargs: Additional keyword arguments.
+
+    Keyword Args:
+        crs (str, optional): The coordinate reference system (CRS) to use. Defaults to "EPSG:4326".
 
     Returns:
         gpd.GeoDataFrame: A new GeoDataFrame with the selected columns ('id', 'geometry', 'slope') containing the transects
         that intersect with the rectangle.
     """
-    # Create an empty GeoDataFrame to hold the selected transects
-    selected_transects = gpd.GeoDataFrame(columns=list(columns_to_keep))
+    crs = kwargs.get("crs", "EPSG:4326")
 
-    # Get the bounding box of the rectangle
+    # Create an empty GeoDataFrame to hold the selected transects
+    selected_transects = gpd.GeoDataFrame(columns=list(columns_to_keep), crs=crs)
+
+    # Get the bounding box of the rectangle in the same CRS as the transects
+    if hasattr(rectangle, "crs") and rectangle.crs:
+        rectangle = rectangle.copy().to_crs(crs)
+    else:
+        rectangle = rectangle.copy().set_crs(crs)
+    # get the bounding box of the rectangle
     bbox = rectangle.bounds.iloc[0].tolist()
+
+    # Create a list to store the GeoDataFrames
+    gdf_list = []
 
     # Iterate over each transect file and select the transects that intersect with the rectangle
     for transect_file in transect_files:
         transects_name = os.path.splitext(transect_file)[0]
         transect_path = os.path.join(transect_dir, transect_file)
         transects = gpd.read_file(transect_path, bbox=bbox)
-        if transects.empty:
-            logger.info("Skipping %s", transects_name)
-            continue
-        elif not transects.empty:
+        # drop any columns that are not in columns_to_keep
+        columns_to_keep = set(col.lower() for col in columns_to_keep)
+        transects = transects[
+            [col for col in transects.columns if col.lower() in columns_to_keep]
+        ]
+        # if the transects are not empty then add them to the list
+        if not transects.empty:
             logger.info("Adding transects from %s", transects_name)
-            transects = preprocess_geodataframe(
-                transects, columns_to_keep=list(columns_to_keep), create_ids=False
-            )
-            # Append the selected transects to the output GeoDataFrame
-            selected_transects = pd.concat(
-                [selected_transects, transects], ignore_index=True
-            )
-    selected_transects = preprocess_geodataframe(
-        selected_transects, columns_to_keep=list(columns_to_keep), create_ids=True
-    )
+            gdf_list.append(transects)
+
+    # Concatenate all the GeoDataFrames in the list into one GeoDataFrame
+    if gdf_list:
+        selected_transects = pd.concat(gdf_list, ignore_index=True)
+
+    if not selected_transects.empty:
+        selected_transects = preprocess_geodataframe(
+            selected_transects,
+            columns_to_keep=list(columns_to_keep),
+            create_ids=True,
+            output_crs=crs,
+        )
+    # ensure that the transects are either LineStrings or MultiLineStrings
     validate_geometry_types(
         selected_transects,
         set(["LineString", "MultiLineString"]),
@@ -100,6 +123,7 @@ class Transects:
     # feature_y: y-coordinate of the transect location
     # nearest_x: x-coordinate of the nearest slope location to the transect
     # nearest_y: y-coordinate of the nearest slope location to the transect
+
 
     def __init__(
         self,
@@ -156,8 +180,6 @@ class Transects:
             )
             # if not all the ids in transects are unique then create unique ids
             transects = create_unique_ids(transects, prefix_length=3)
-            # @todo add the transects to the current dataframe
-            # @todo make sure none of the ids already exist in the dataframe. this can be a flag to turn an exception on/off
             self.gdf = transects
 
     def initialize_transects_with_bbox(self, bbox: gpd.GeoDataFrame):
