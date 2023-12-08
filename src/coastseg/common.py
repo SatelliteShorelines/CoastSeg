@@ -406,9 +406,6 @@ def validate_geometry_types(
                 wrong_geom_type=geom_type,
                 help_msg=help_message,
             )
-            # raise ValueError(
-            #     f"The {feature_type} contained a geometry of type '{geom_type}' which is not in the list of valid types: {valid_types}"
-            # )
 
 
 def get_roi_polygon(
