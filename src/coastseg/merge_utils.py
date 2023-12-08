@@ -322,9 +322,13 @@ def merge_geometries(merged_gdf, columns=None, operation=unary_union):
     else:
         columns = [col for col in columns if col in merged_gdf.columns]
 
-    merged_gdf["geometry"] = merged_gdf[columns].apply(
-        lambda row: operation(row.tolist()), axis=1
+    # set the geometry of th merged_gdf to the result of the operation
+    # if no operation is provided unary_union is used to combine the geometries for the provided columns
+    merged_gdf.set_geometry(
+        merged_gdf[columns].apply(lambda row: operation(row.tolist()), axis=1),
+        inplace=True,
     )
+
     for col in columns:
         if col in merged_gdf.columns and col != "geometry":
             merged_gdf = merged_gdf.drop(columns=col)
