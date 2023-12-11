@@ -573,7 +573,23 @@ def process_satellite_image(
         do_cloud_mask=apply_cloud_mask,
     )
 
-    logger.info(f"process_satellite_image_settings: {settings}")
+    # Log all items except 'reference shoreline' and handle 'reference shoreline' separately
+    logger.info(
+        "process_satellite_image_settings : "
+        + ", ".join(
+            f"{key}: {value}"
+            for key, value in settings.items()
+            if key != "reference shoreline"
+        )
+    )
+
+    # Check and log 'reference shoreline' if it exists
+    ref_sl = settings.get("reference shoreline", np.array([]))
+    if isinstance(ref_sl, np.ndarray):
+        logger.info(f"reference shoreline.shape: {ref_sl.shape}")
+    logger.info(
+        f"Number of 'reference_shoreline': {len(settings.get('reference_shoreline', np.array([])))}"
+    )
 
     # if percentage of no data pixels are greater than allowed, skip
     percent_no_data_allowed = settings.get("percent_no_data", None)
