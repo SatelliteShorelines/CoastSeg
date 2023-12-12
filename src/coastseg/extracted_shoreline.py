@@ -12,6 +12,7 @@ from time import perf_counter
 from typing import Optional, Union, List, Dict
 from time import perf_counter
 from typing import Dict, List, Optional, Union
+from itertools import islice
 
 # External dependencies imports
 import dask
@@ -652,9 +653,6 @@ def process_satellite_image(
         "shorelines": shoreline,
         "cloud_cover": cloud_cover,
     }
-    logger.info(
-        f"output shorelines {len(output['shorelines'])} and cloud cover: {output['cloud_cover']}"
-    )
     return output
 
 
@@ -1292,27 +1290,31 @@ def extract_shorelines_with_dask(
     filtered_files = get_filtered_files_dict(good_folder, "npz", sitename)
     # keep only the metadata for the files that were sorted as 'good'
     metadata = edit_metadata(metadata, filtered_files)
-    for key in metadata.keys():
-        logger.info(
-            f"edit_metadata metadata['{key}'] length {len(metadata[key].get('epsg',[]))} of epsg: {np.unique(metadata.get('epsg',[]))}"
-        )
-        logger.info(
-            f"edit_metadata metadata['{key}'] length {len(metadata[key].get('dates',[]))} of dates: {np.unique(metadata.get('dates',[]))}"
-        )
-        logger.info(
-            f"edit_metadata metadata['{key}'] length {len(metadata[key].get('filenames',[]))} of filenames: {np.unique(metadata.get('filenames',[]))}"
-        )
-        logger.info(
-            f"edit_metadata metadata['{key}'] length {len(metadata[key].get('im_dimensions',[]))} of im_dimensions: {np.unique(metadata.get('im_dimensions',[]))}"
-        )
-        logger.info(
-            f"edit_metadata metadata['{key}'] length {len(metadata[key].get('acc_georef',[]))} of acc_georef: {np.unique(metadata.get('acc_georef',[]))}"
-        )
-        logger.info(
-            f"edit_metadata metadata['{key}'] length {len(metadata[key].get('im_quality',[]))} of im_quality: {np.unique(metadata.get('im_quality',[]))}"
-        )
 
-    result_dict = {}
+    for satname in metadata.keys():
+        if not metadata[satname]:
+            logger.warning(f"metadata['{satname}'] is empty")
+        else:
+            logger.info(
+                f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('epsg',[]))} of epsg: {np.unique(metadata[satname].get('epsg',[]))}"
+            )
+            logger.info(
+                f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('dates',[]))} of dates Sample first five: {list(islice(metadata[satname].get('dates',[]),5))}"
+            )
+            logger.info(
+                f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('filenames',[]))} of filenames Sample first five: {list(islice(metadata[satname].get('filenames',[]),5))}"
+            )
+            logger.info(
+                f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_dimensions',[]))} of im_dimensions: {np.unique(metadata[satname].get('im_dimensions',[]))}"
+            )
+            logger.info(
+                f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('acc_georef',[]))} of acc_georef: {np.unique(metadata[satname].get('acc_georef',[]))}"
+            )
+            logger.info(
+                f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_quality',[]))} of im_quality: {np.unique(metadata[satname].get('im_quality',[]))}"
+            )
+
+    shoreline_dict = {}
     for satname in metadata.keys():
         satellite_dict = process_satellite(
             satname,
@@ -1326,34 +1328,35 @@ def extract_shorelines_with_dask(
             **kwargs,
         )
         if not satellite_dict:
-            result_dict[satname] = {}
+            shoreline_dict[satname] = {}
         elif not satname in satellite_dict.keys():
-            result_dict[satname] = {}
+            shoreline_dict[satname] = {}
         else:
-            result_dict[satname] = satellite_dict[satname]
+            shoreline_dict[satname] = satellite_dict[satname]
 
-    for key in result_dict.keys():
-        logger.info(
-            f"result_dict['{key}'] length {len(result_dict[key].get('dates',[]))} of dates: {np.unique(result_dict[key].get('dates',[]))}"
-        )
-        logger.info(
-            f"result_dict['{key}'] length {len(result_dict[key].get('geoaccuracy',[]))} of geoaccuracy: {np.unique(result_dict[key].get('geoaccuracy',[]))}"
-        )
-        logger.info(
-            f"result_dict['{key}'] length {len(result_dict[key].get('cloud_cover',[]))} of cloud_cover: {np.unique(result_dict[key].get('cloud_cover',[]))}"
-        )
-        logger.info(
-            f"result_dict['{key}'] length {len(result_dict[key].get('filename',[]))} of filename: {np.unique(result_dict[key].get('filename',[]))}"
-        )
+    for satname in shoreline_dict.keys():
         # Check and log 'reference shoreline' if it exists
-        ref_sl = result_dict[key].get("shorelines", np.array([]))
+        ref_sl = shoreline_dict[satname].get("shorelines", np.array([]))
         if isinstance(ref_sl, np.ndarray):
             logger.info(f"shorelines.shape: {ref_sl.shape}")
-        logger.info(f"Number of 'shorelines': {len(ref_sl)}")
+        logger.info(f"Number of 'shorelines' for {satname}: {len(ref_sl)}")
+        if shoreline_dict[satname] == {}:
+            logger.info(f"No shorelines found for {satname}")
+        else:
+            logger.info(
+                f"result_dict['{satname}'] length {len(shoreline_dict[satname].get('dates',[]))} of dates[:3] {list(islice(shoreline_dict[satname].get('dates',[]),3))}"
+            )
+            logger.info(
+                f"result_dict['{satname}'] length {len(shoreline_dict[satname].get('geoaccuracy',[]))} of geoaccuracy: {np.unique(shoreline_dict[satname].get('geoaccuracy',[]))}"
+            )
+            logger.info(
+                f"result_dict['{satname}'] length {len(shoreline_dict[satname].get('cloud_cover',[]))} of cloud_cover: {np.unique(shoreline_dict[satname].get('cloud_cover',[]))}"
+            )
+            logger.info(
+                f"result_dict['{satname}'] length {len(shoreline_dict[satname].get('filename',[]))} of filename[:3]{list(islice(shoreline_dict[satname].get('filename',[]),3))}"
+            )
     # combine the extracted shorelines for each satellite
-    extracted_shorelines_data = combine_satellite_data(result_dict)
-
-    return extracted_shorelines_data
+    return combine_satellite_data(shoreline_dict)
 
 
 def get_sorted_model_outputs_directory(
@@ -1383,7 +1386,7 @@ def get_sorted_model_outputs_directory(
         except Exception as e:
             logger.error(f"Error finding files for satellite {satname}: {e}")
             continue
-        logger.info(f"{session_path} contained {satname} files: {files} ")
+        logger.info(f"{session_path} contained {satname} files: {len(files)} ")
         if len(files) != 0:
             filter_model_outputs(satname, files, good_folder, bad_folder)
     return good_folder
@@ -1511,8 +1514,7 @@ class Extracted_Shoreline:
         first_rows = self.gdf.head().to_string()
         # Get CRS information
         crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
-
-        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:  \nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}\n\n{crs_info}"
+        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}"
 
     def __repr__(self):
         # Get column names and their data types
@@ -1521,7 +1523,7 @@ class Extracted_Shoreline:
         first_rows = self.gdf.head().to_string()
         # Get CRS information
         crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
-        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:  \nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}\n\n{crs_info}"
+        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}"
 
     def get_roi_id(self) -> Optional[str]:
         """
@@ -1737,7 +1739,29 @@ class Extracted_Shoreline:
             self.dictionary = {}
             return self
         else:
-            logger.info(f"metadata: {metadata}")
+            # Log portions of the metadata because is massive
+            for satname in metadata.keys():
+                if not metadata[satname]:
+                    logger.warning(f"metadata['{satname}'] is empty")
+                else:
+                    logger.info(
+                        f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('epsg',[]))} of epsg: {np.unique(metadata[satname].get('epsg',[]))}"
+                    )
+                    logger.info(
+                        f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('dates',[]))} of dates Sample first five: {list(islice(metadata[satname].get('dates',[]),5))}"
+                    )
+                    logger.info(
+                        f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('filenames',[]))} of filenames Sample first five: {list(islice(metadata[satname].get('filenames',[]),5))}"
+                    )
+                    logger.info(
+                        f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_dimensions',[]))} of im_dimensions: {np.unique(metadata[satname].get('im_dimensions',[]))}"
+                    )
+                    logger.info(
+                        f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('acc_georef',[]))} of acc_georef: {np.unique(metadata[satname].get('acc_georef',[]))}"
+                    )
+                    logger.info(
+                        f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_quality',[]))} of im_quality: {np.unique(metadata[satname].get('im_quality',[]))}"
+                    )
 
             extracted_shorelines_dict = extract_shorelines_with_dask(
                 session_path,
@@ -1749,10 +1773,23 @@ class Extracted_Shoreline:
             )
             if extracted_shorelines_dict == {}:
                 raise Exception(f"Failed to extract any shorelines.")
-            from itertools import islice
+
+            # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
+            extracted_shorelines_dict = remove_duplicates(
+                extracted_shorelines_dict
+            )  # removes duplicates (images taken on the same date by the same satellite)
+            extracted_shorelines_dict = remove_inaccurate_georef(
+                extracted_shorelines_dict, 10
+            )  # remove inaccurate georeferencing (set threshold to 10 m)
+
+            # Check and log 'reference shoreline' if it exists
+            ref_sl = extracted_shorelines_dict.get("shorelines", np.array([]))
+            if isinstance(ref_sl, np.ndarray):
+                logger.info(f"shorelines.shape: {ref_sl.shape}")
+            logger.info(f"Number of 'shorelines': {len(ref_sl)}")
 
             logger.info(
-                f"extracted_shorelines_dict length {len(extracted_shorelines_dict.get('dates',[]))} of dates[:3]: {list(islice(extracted_shorelines_dict.get('dates',[]),3))}"
+                f"extracted_shorelines_dict length {len(extracted_shorelines_dict.get('dates',[]))} of dates: {list(islice(extracted_shorelines_dict.get('dates',[]),3))}"
             )
             logger.info(
                 f"extracted_shorelines_dict length {len(extracted_shorelines_dict.get('satname',[]))} of satname: {np.unique(extracted_shorelines_dict.get('satname',[]))}"
@@ -1766,19 +1803,7 @@ class Extracted_Shoreline:
             logger.info(
                 f"extracted_shorelines_dict length {len(extracted_shorelines_dict.get('filename',[]))} of filename[:3]: {list(islice(extracted_shorelines_dict.get('filename',[]),3))}"
             )
-            # Check and log 'reference shoreline' if it exists
-            ref_sl = extracted_shorelines_dict.get("shorelines", np.array([]))
-            if isinstance(ref_sl, np.ndarray):
-                logger.info(f"shorelines.shape: {ref_sl.shape}")
-            logger.info(f"Number of 'shorelines': {len(ref_sl)}")
 
-            # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
-            extracted_shorelines_dict = remove_duplicates(
-                extracted_shorelines_dict
-            )  # removes duplicates (images taken on the same date by the same satellite)
-            extracted_shorelines_dict = remove_inaccurate_georef(
-                extracted_shorelines_dict, 10
-            )  # remove inaccurate georeferencing (set threshold to 10 m)
             self.dictionary = extracted_shorelines_dict
 
             if is_list_empty(self.dictionary["shorelines"]):
@@ -1862,25 +1887,29 @@ class Extracted_Shoreline:
             logger.warning(f"No RGB files existed so no metadata.")
             return {}
 
-        for key in metadata.keys():
-            logger.info(
-                f"edit_metadata metadata['{key}'] length {len(metadata[key].get('epsg',[]))} of epsg: {np.unique(metadata.get('epsg',[]))}"
-            )
-            logger.info(
-                f"edit_metadata metadata['{key}'] length {len(metadata[key].get('dates',[]))} of dates: {np.unique(metadata.get('dates',[]))}"
-            )
-            logger.info(
-                f"edit_metadata metadata['{key}'] length {len(metadata[key].get('filenames',[]))} of filenames: {np.unique(metadata.get('filenames',[]))}"
-            )
-            logger.info(
-                f"edit_metadata metadata['{key}'] length {len(metadata[key].get('im_dimensions',[]))} of im_dimensions: {np.unique(metadata.get('im_dimensions',[]))}"
-            )
-            logger.info(
-                f"edit_metadata metadata['{key}'] length {len(metadata[key].get('acc_georef',[]))} of acc_georef: {np.unique(metadata.get('acc_georef',[]))}"
-            )
-            logger.info(
-                f"edit_metadata metadata['{key}'] length {len(metadata[key].get('im_quality',[]))} of im_quality: {np.unique(metadata.get('im_quality',[]))}"
-            )
+        for satname in metadata.keys():
+            if not metadata[satname]:
+                logger.warning(f"metadata['{satname}'] is empty")
+            else:
+                logger.info(
+                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('epsg',[]))} of epsg: {np.unique(metadata[satname].get('epsg',[]))}"
+                )
+                logger.info(
+                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('dates',[]))} of dates Sample first five: {list(islice(metadata[satname].get('dates',[]),5))}"
+                )
+                logger.info(
+                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('filenames',[]))} of filenames Sample first five: {list(islice(metadata[satname].get('filenames',[]),5))}"
+                )
+                logger.info(
+                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_dimensions',[]))} of im_dimensions: {np.unique(metadata[satname].get('im_dimensions',[]))}"
+                )
+                logger.info(
+                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('acc_georef',[]))} of acc_georef: {np.unique(metadata[satname].get('acc_georef',[]))}"
+                )
+                logger.info(
+                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_quality',[]))} of im_quality: {np.unique(metadata[satname].get('im_quality',[]))}"
+                )
+
         # extract shorelines from ROI
         if session_path is None:
             # extract shorelines with coastsat's models
@@ -1945,10 +1974,7 @@ class Extracted_Shoreline:
             "model_session_path",  # path to model session file
             "apply_cloud_mask",
         ]
-        logger.info(f"settings used to create shoreline settings: {settings}")
         shoreline_settings = {k: v for k, v in settings.items() if k in SHORELINE_KEYS}
-        logger.info(f"Loading shoreline_settings: {shoreline_settings}")
-
         shoreline_settings.update(
             {
                 "reference_shoreline": reference_shoreline,
@@ -1958,8 +1984,6 @@ class Extracted_Shoreline:
                 "inputs": roi_settings,  # copy settings for ROI shoreline will be extracted from
             }
         )
-
-        logger.info(f"shoreline_settings: {shoreline_settings}")
         return shoreline_settings
 
     def create_geodataframe(
