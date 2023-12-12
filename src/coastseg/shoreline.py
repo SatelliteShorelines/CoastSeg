@@ -80,10 +80,26 @@ class Shoreline:
         self._filename = value
 
     def __str__(self):
-        return f"Shoreline: geodataframe {self.gdf}"
+        # Get column names and their data types
+        col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
+        # Get first 5 rows as a string
+        first_rows = self.gdf.head().to_string()
+        # Get CRS information
+        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if "id" in self.gdf.columns:
+            transect_ids = self.gdf["id"].astype(str)
+        return f"Shoreline:\nself.gdf:\n\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 5 Rows:\n{first_rows}\nIDs:\n{transect_ids}"
 
     def __repr__(self):
-        return f"Shoreline: geodataframe {self.gdf}"
+        # Get column names and their data types
+        col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
+        # Get first 5 rows as a string
+        first_rows = self.gdf.head().to_string()
+        # Get CRS information
+        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if "id" in self.gdf.columns:
+            transect_ids = self.gdf["id"].astype(str)
+        return f"Shoreline:\nself.gdf:\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 5 Rows:\n{first_rows}\nIDs:\n{transect_ids}"
 
     def initialize_shorelines(
         self,
@@ -116,7 +132,11 @@ class Shoreline:
         """
         Initalize shorelines with the provided shorelines in a geodataframe
         """
-        if not shorelines.empty:
+        if not isinstance(shorelines, gpd.GeoDataFrame):
+            raise ValueError("Shorelines must be a geodataframe")
+        elif shorelines.empty:
+            raise logger.warning("Shorelines cannot be an empty geodataframe")
+        else:
             columns_to_keep = [
                 "id",
                 "geometry",
@@ -182,9 +202,6 @@ class Shoreline:
         intersecting_files = get_intersecting_files(bbox, bounding_boxes_location)
 
         if not intersecting_files:
-            logger.error(
-                f"No intersecting shorelines found within the bounding box: {bbox}"
-            )
             raise ValueError(
                 "No intersecting shorelines shorelines were available within the bounding box:. Try drawing a new bounding box elsewhere."
             )
@@ -194,9 +211,6 @@ class Shoreline:
             intersecting_files, self._download_location
         )
         if not shoreline_files:
-            logger.error(
-                f"No shoreline files found.Intersecting files were {intersecting_files}"
-            )
             raise FileNotFoundError(
                 f"No shoreline files were found at {self._download_location}."
             )
@@ -210,6 +224,7 @@ class Shoreline:
         Downloads the shorelines from online.
         Args:
             bbox (gpd.GeoDataFrame): Bounding box being searched for shorelines.
+            shoreline_files (List[str]): List of filepaths for available shoreline files.
             crs (str, optional): Coordinate reference system string. Defaults to 'EPSG:4326'.
 
         Returns:
@@ -332,10 +347,7 @@ class Shoreline:
         url = construct_download_url(root_url, dataset_id, filename)
 
         # Download shorelines from Zenodo
-        logger.info(f"Retrieving: {url}")
-        logger.info(f"Retrieving file: {save_location}")
-        print(f"Retrieving: {url}")
-        print(f"Retrieving file: {save_location}")
+        logger.info(f"Retrieving file: {save_location} from {url}")
         self.download_service(url, save_location, filename=filename)
 
 
@@ -375,7 +387,7 @@ def get_intersecting_files(
             filenames_and_ids = zip(filenames, [dataset_id] * len(filenames))
             # Add the filenames and their dataset IDs to intersecting_files
             intersecting_files.update(dict(filenames_and_ids))
-    logger.info(
+    logger.debug(
         f"Found {len(intersecting_files)} intersecting files\n {intersecting_files}"
     )
     return intersecting_files
