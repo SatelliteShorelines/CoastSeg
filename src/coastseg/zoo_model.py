@@ -670,13 +670,10 @@ class Zoo_Model:
             raise FileNotFoundError(
                 f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
             )
-        logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
         RGB_path = file_utilities.find_directory_recursively(src_directory, name="RGB")
-        logger.info(f"RGB_path: {RGB_path}")
         # convert RGB to MNDWI, NDWI,or 5 band
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
-        logger.info(f"model_dict: {model_dict}")
         return model_dict
 
     def extract_shorelines_with_unet(
