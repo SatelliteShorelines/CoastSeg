@@ -334,13 +334,12 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], filepath: str):
         filename = f"config.json"
         save_path = os.path.abspath(os.path.join(filepath, filename))
         write_to_json(save_path, config)
-        logger.info(f"Saved config json: {filename} \nSaved to {save_path}")
     elif isinstance(config, gpd.GeoDataFrame):
         filename = f"config_gdf.geojson"
         save_path = os.path.abspath(os.path.join(filepath, filename))
-        logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         config.to_file(save_path, driver="GeoJSON")
+    logger.info(f"Saved {filename} saved to {save_path}")
 
 
 def filter_files(files: List[str], avoid_patterns: List[str]) -> List[str]:

@@ -459,8 +459,6 @@ def get_cert_path_from_config(config_file="certifications.json"):
 
         # Get the cert path
         cert_path = config.get("cert_path")
-        logger.info(f"certifications.json cert_path: {cert_path}")
-
         # If the cert path is a valid file, return it
         if cert_path and os.path.isfile(cert_path):
             logger.info(f"certifications.json cert_path isfile: {cert_path}")
@@ -793,7 +791,6 @@ def get_downloaded_models_dir() -> str:
     )
     if not os.path.exists(downloaded_models_path):
         os.mkdir(downloaded_models_path)
-    logger.info(f"downloaded_models_path: {downloaded_models_path}")
 
     return downloaded_models_path
 
@@ -1131,7 +1128,6 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
     container = VBox([container_header])
 
     def uncollapse_click(change: dict):
-        logger.info(change)
         if feature_html.value == "":
             container_content.children = [msg]
         elif feature_html.value != "":
@@ -1140,7 +1136,6 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
         container.children = [container_header, container_content]
 
     def collapse_click(change: dict):
-        logger.info(change)
         container_header.children = [title, uncollapse_button]
         container.children = [container_header]
 
@@ -1249,35 +1244,38 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
     with response as r:
         logger.info(r)
         if r.status_code == 404:
-            logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
+            logger.error(f"Error {r.status_code}. DownloadError: {save_path} {r}")
             raise exceptions.DownloadError(os.path.basename(save_path))
         if r.status_code == 429:
-            logger.error(f"Error {r.status_code}.DownloadError: {save_path}")
+            logger.error(f"Error {r.status_code}.DownloadError: {save_path} {r}")
             raise Exception(
                 "Zenodo has denied the request. You may have requested too many files at once."
             )
         if r.status_code != 200:
-            logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
+            logger.error(f"Error {r.status_code}. DownloadError: {save_path} {r}")
             raise exceptions.DownloadError(os.path.basename(save_path))
         # check header to get content length, in bytes
         content_length = r.headers.get("Content-Length")
         if content_length:
             total_length = int(content_length)
-            with open(save_path, "wb") as fd:
-                with tqdm(
-                    total=total_length,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc=f"Downloading {filename}",
-                    initial=0,
-                    ascii=True,
-                ) as pbar:
-                    for chunk in r.iter_content(chunk_size=chunk_size):
-                        fd.write(chunk)
-                        pbar.update(len(chunk))
         else:
+            # Content-Length not available
             logger.warning("Content length not found in response headers")
+            total_length = None
+
+        with open(save_path, "wb") as fd:
+            with tqdm(
+                total=total_length,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=f"Downloading {filename}",
+                initial=0,
+                ascii=True,
+            ) as pbar:
+                for chunk in r.iter_content(chunk_size=chunk_size):
+                    fd.write(chunk)
+                    pbar.update(len(chunk))
 
 
 def get_center_point(coords: list) -> tuple:
@@ -1639,29 +1637,22 @@ def create_csv_per_transect(
         out_dict = dict([])
         # copy shoreline intersects for each transect
         out_dict[key] = cross_distance_transects[key]
-        logger.info(
-            f"out dict roi_ids columns : {[roi_id for _ in range(len(extracted_shorelines_dict['dates']))]}"
-        )
         out_dict["roi_id"] = [
             roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
         ]
         out_dict["dates"] = extracted_shorelines_dict["dates"]
         out_dict["satname"] = extracted_shorelines_dict["satname"]
-        logger.info(f"out_dict : {out_dict}")
+        # logger.info(f"out_dict : {out_dict}")
         df = pd.DataFrame(out_dict)
         df.index = df["dates"]
         df.pop("dates")
         # save to csv file session path
         csv_filename = f"{key}{filename}"
         fn = os.path.join(save_path, csv_filename)
-        logger.info(f"Save time series to {fn}")
         if os.path.exists(fn):
             logger.info(f"Overwriting:{fn}")
             os.remove(fn)
         df.to_csv(fn, sep=",")
-        logger.info(
-            f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
-        )
 
 
 def move_report_files(

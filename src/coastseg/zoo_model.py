@@ -1,4 +1,3 @@
-import copy
 import os
 from pathlib import Path
 import re
@@ -7,7 +6,7 @@ import asyncio
 import platform
 import json
 import logging
-import shutil
+from itertools import islice
 from typing import List, Set, Tuple
 
 from coastsat import SDS_tools
@@ -76,9 +75,6 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> li
         if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".png"):
             img = Image.open(file)
             percentage = percentage_of_black_pixels(img)
-            logger.info(
-                f"percentage black pixels in {os.path.basename(file)} is {percentage}"
-            )
             if percentage <= percent_no_data:
                 valid_images.append(file)
 
@@ -164,8 +160,6 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
     Returns:
         str: The path to the output directory for the specified imagery type.
     """
-    logger.info(f"img_type: {img_type}")
-    logger.info(f"RGB_path: {RGB_path}")
     img_type = img_type.upper()
     output_path = os.path.dirname(RGB_path)
     if img_type == "RGB":
@@ -190,7 +184,6 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
         raise ValueError(
             f"{img_type} not reconigzed as one of the valid types 'RGB', 'NDWI', 'MNDWI',or 'RGB+MNDWI+NDWI'"
         )
-    logger.info(f"output_path: {output_path}")
     return output_path
 
 
@@ -229,7 +222,6 @@ def get_five_band_imagery(
         )
         np.savez_compressed(segfile, **datadict)
         del datadict, im
-        logger.info(f"segfile: {segfile}")
     return output_path
 
 
@@ -377,7 +369,7 @@ def RGB_to_infrared(
     files = get_files(RGB_path, infrared_path)
     # output_path: directory to store MNDWI or NDWI outputs
     output_path = os.path.join(output_path, output_type.upper())
-    logger.info(f"output_path {output_path}")
+
     if not os.path.exists(output_path):
         os.mkdir(output_path)
 
@@ -681,6 +673,7 @@ class Zoo_Model:
         logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
         RGB_path = file_utilities.find_directory_recursively(src_directory, name="RGB")
+        logger.info(f"RGB_path: {RGB_path}")
         # convert RGB to MNDWI, NDWI,or 5 band
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         logger.info(f"model_dict: {model_dict}")
@@ -719,9 +712,7 @@ class Zoo_Model:
             logger.error(f"{roi_id} ROI settings did not exist: {e}")
             if roi_id is None:
                 logger.error(f"roi_id was None config: {config}")
-                raise Exception(
-                    f"This session is likely not a model sessuin because its config file did not contain an ROI ID \n config: {config}"
-                )
+                raise Exception(f"The session loaded was \n config: {config}")
             else:
                 logger.error(
                     f"roi_id {roi_id} existed but not found in config: {config}"
@@ -742,7 +733,9 @@ class Zoo_Model:
             logger.error(
                 f"{roi_id} ROI ID did not exist in geodataframe: {config_geojson_location}"
             )
-            raise ValueError
+            raise ValueError(
+                f"{roi_id} ROI ID did not exist in geodataframe: {config_geojson_location}"
+            )
 
         # get roi_id from source directory path in model settings
         model_settings = file_utilities.load_json_data_from_file(
@@ -808,7 +801,14 @@ class Zoo_Model:
         cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
             extracted_shorelines.dictionary, transects_gdf, settings
         )
-        logger.info(f"cross_distance_transects: {cross_distance_transects}")
+
+        first_key = next(iter(cross_distance_transects))
+        logger.info(
+            f"cross_distance_transects.keys(): {cross_distance_transects.keys()}"
+        )
+        logger.info(
+            f"Sample of transect intersections for first key: {list(islice(cross_distance_transects[first_key], 3))}"
+        )
 
         # save transect shoreline intersections to csv file if they exist
         if cross_distance_transects == 0:
@@ -1014,11 +1014,7 @@ class Zoo_Model:
         model_ready_files = file_utilities.filter_files(
             model_ready_files, avoid_patterns
         )
-        logger.info(f"Filtered files for {avoid_patterns}: {model_ready_files}\n")
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
-        logger.info(
-            f"Files ready for segmentation with no data pixels below {percent_no_data}% : {model_ready_files}\n"
-        )
         return model_ready_files
 
     def compute_segmentation(
@@ -1215,10 +1211,6 @@ class Zoo_Model:
             self.model_types.append(MODEL)
             self.model_list.append(model)
             config_files.append(config_file)
-
-        logger.info(f"self.N_DATA_BANDS: {self.N_DATA_BANDS}")
-        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
-        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
         return model, self.model_list, config_files, self.model_types
 
     def get_metadatadict(
@@ -1277,12 +1269,11 @@ class Zoo_Model:
             print(best_weights_list)
             # Output: ['/path/to/weights/best_model.h5']
         """
+        logger.info(f"{model_choice}")
         if model_choice == "ENSEMBLE":
             weights_list = glob(os.path.join(self.weights_directory, "*.h5"))
-            logger.info(f"ENSEMBLE: weights_list: {weights_list}")
-            logger.info(
-                f"ENSEMBLE: {len(weights_list)} sets of model weights were found "
-            )
+            logger.info(f"weights_list: {weights_list}")
+            logger.info(f"{len(weights_list)} sets of model weights were found ")
             return weights_list
         elif model_choice == "BEST":
             # read model name (fullmodel.h5) from BEST_MODEL.txt
@@ -1292,9 +1283,13 @@ class Zoo_Model:
             # remove any leading or trailing whitespace and newline characters
             model_name = model_name.strip()
             weights_list = [os.path.join(self.weights_directory, model_name)]
-            logger.info(f"BEST: weights_list: {weights_list}")
-            logger.info(f"BEST: {len(weights_list)} sets of model weights were found ")
+            logger.info(f"weights_list: {weights_list}")
+            logger.info(f"{len(weights_list)} sets of model weights were found ")
             return weights_list
+        else:
+            raise ValueError(
+                f"Invalid model_choice: {model_choice}. Valid choices are 'ENSEMBLE' or 'BEST'."
+            )
 
     def download_best(
         self, available_files: List[dict], model_path: str, model_id: str
@@ -1419,7 +1414,7 @@ class Zoo_Model:
         )
         download_dict = check_if_files_exist(download_dict)
         # download the files that don't exist
-        logger.info(f"URLs to download: {download_dict}")
+        logger.info(f"download_dict: {download_dict}")
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
             download_status = downloads.download_url_dict(download_dict)

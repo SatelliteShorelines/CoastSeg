@@ -1,4 +1,3 @@
-import glob
 import logging
 import os
 
@@ -462,7 +461,6 @@ class UI_Models:
     def handle_model_type(self, change):
         # 2 class model has not been selected disable otsu threhold
         self.model_dict["model_type"] = change["new"]
-        logger.info(f"self.model_dict['model_type']: {self.model_dict['model_type']}")
         if "2class" not in change["new"]:
             if self.otsu_radio.value == "Enabled":
                 self.model_dict["otsu"] = False
@@ -471,7 +469,6 @@ class UI_Models:
         # 2 class model was selected enable otsu threhold radio button
         if "2class" in change["new"]:
             self.otsu_radio.disabled = False
-        logger.info(f"change: {change}")
 
     def handle_otsu(self, change):
         if change["new"] == "Enabled":
@@ -511,6 +508,13 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot Run Model",
                 "Must enter a session name first",
+                position=1,
+            )
+            return
+        if self.model_dict["sample_direc"] == "":
+            self.launch_error_box(
+                "Cannot Run Model",
+                "Must click select images first and select a directory of jpgs.\n Example : C:/Users/username/CoastSeg/data/ID_lla12_datetime11-07-23__08_14_11/jpg_files/preprocessed/RGB/",
                 position=1,
             )
             return
@@ -582,18 +586,29 @@ class UI_Models:
 
     @run_model_view.capture(clear_output=True)
     def select_RGB_callback(self, filechooser: FileChooser) -> None:
+        """Handle the selection of a directory and check for the presence of JPG files.
+
+        Args:
+            filechooser: The file chooser widget used to select the directory.
+        """
+        from pathlib import Path
+
         if filechooser.selected:
-            sample_direc = os.path.abspath(filechooser.selected)
+            sample_direc = Path(filechooser.selected).resolve()
             print(f"The images in the folder will be segmented :\n{sample_direc} ")
-            jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
-            if jpgs == []:
+            # Using itertools.chain to combine the results of two glob calls
+            has_jpgs = any(sample_direc.glob("*.jpg")) or any(
+                sample_direc.glob("*.jpeg")
+            )
+            if not has_jpgs:
                 self.launch_error_box(
-                    "File Not Found",
-                    "The directory contains no jpgs! Please select a directory with jpgs.",
+                    "No jpgs found",
+                    f"The directory {sample_direc} contains no jpgs! Please select a directory with jpgs. Make sure to select 'RGB' folder located in the 'preprocessed' folder.'",
                     position=1,
                 )
-            elif jpgs != []:
-                self.model_dict["sample_direc"] = sample_direc
+                self.model_dict["sample_direc"] = ""
+            else:
+                self.model_dict["sample_direc"] = str(sample_direc)
 
     @run_model_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
@@ -645,7 +660,7 @@ class UI_Models:
     def launch_error_box(self, title: str = None, msg: str = None, position: int = 1):
         # Show user error message
         warning_box = common.create_warning_box(
-            title=title, msg=msg, instructions=None, msg_width="60%", box_width="30%"
+            title=title, msg=msg, instructions=None, msg_width="95%", box_width="30%"
         )
         # clear row and close all widgets before adding new warning_box
         common.clear_row(self.get_warning_box(position))

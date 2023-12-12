@@ -17,8 +17,6 @@ from leafmap import Map
 from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
 import traitlets
-from shapely.geometry import Polygon
-from pandas import to_datetime
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -93,6 +91,7 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
             if properties:
                 self.satname = properties.get("satname", "")
                 self.date = properties.get("date", "")
+
 
 class CoastSeg_Map:
     def __init__(self):
@@ -1535,10 +1534,11 @@ class CoastSeg_Map:
             shoreline_settings = extracted_shoreline.shoreline_settings
             common.save_extracted_shoreline_figures(shoreline_settings, session_path)
             # move extracted shoreline reports to session directory
-            common.move_report_files(shoreline_settings, session_path,'extract_shorelines*.txt')
+            common.move_report_files(
+                shoreline_settings, session_path, "extract_shorelines*.txt"
+            )
             # save the geojson and json files for extracted shorelines
             common.save_extracted_shorelines(extracted_shoreline, session_path)
-            
 
             # save transects to session folder
             if save_transects:
@@ -1654,11 +1654,8 @@ class CoastSeg_Map:
                 # save source data
                 self.save_config(session_path)
                 # save to csv file session path
-
                 fn = os.path.join(session_path, "%s_timeseries_raw.csv" % key)
-                logger.info(f"Save time series to {fn}")
                 if os.path.exists(fn):
-                    logger.info(f"Overwriting:{fn}")
                     os.remove(fn)
                 df.to_csv(fn, sep=",")
                 logger.info(
