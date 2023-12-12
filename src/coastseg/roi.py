@@ -1,5 +1,4 @@
 # Standard library imports
-from typing import Collection
 import logging
 from typing import Union, List
 
@@ -14,7 +13,7 @@ import pandas as pd
 from shapely import geometry
 from ipyleaflet import GeoJSON
 
-from coastseg.extracted_shoreline import Extracted_Shoreline
+# from coastseg.extracted_shoreline import Extracted_Shoreline
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +56,40 @@ class ROI:
             )
 
     def __str__(self):
-        return f"ROI: geodataframe {self.gdf} \nextracted_shorelines {self.extracted_shorelines}"
+        # Get column names and their data types
+        col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
+        # Get first 5 rows as a string
+        first_rows = self.gdf.head().to_string()
+        # Get CRS information
+        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        extracted_shoreline_info = ""
+        for key in self.extracted_shorelines.keys():
+            if hasattr(self.extracted_shorelines[key], "gdf") and (
+                isinstance(self.extracted_shorelines[key].gdf, gpd.GeoDataFrame)
+            ):
+                if not self.extracted_shorelines[key].gdf.empty:
+                    extracted_shoreline_info.join(
+                        f"ROI ID {key}:\n{len(self.extracted_shorelines[key].gdf)}\n"
+                    )
+        return f"ROI:\nROI IDs: {self.get_ids()}\nROI IDs with extracted shorelines: {extracted_shoreline_info}\nROI IDs with shoreline transect intersections: {list(self.cross_shore_distances.keys())}\n gdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}"
 
     def __repr__(self):
-        return f"ROI: geodataframe {self.gdf}\nextracted_shorelines {self.extracted_shorelines}"
+        # Get column names and their data types
+        col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
+        # Get first 5 rows as a string
+        first_rows = self.gdf.head().to_string()
+        # Get CRS information
+        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        extracted_shoreline_info = ""
+        for key in self.extracted_shorelines.keys():
+            if hasattr(self.extracted_shorelines[key], "gdf") and (
+                isinstance(self.extracted_shorelines[key].gdf, gpd.GeoDataFrame)
+            ):
+                if not self.extracted_shorelines[key].gdf.empty:
+                    extracted_shoreline_info.join(
+                        f"ROI ID {key}:\n{len(self.extracted_shorelines[key].gdf)}\n"
+                    )
+        return f"ROI:\nROI IDs: {self.get_ids()}\nROI IDs with extracted shorelines: {extracted_shoreline_info}\nROI IDs with shoreline transect intersections: {list(self.cross_shore_distances.keys())}\n gdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}"
 
     def remove_by_id(
         self, ids_to_drop: list | set | tuple | str | int
@@ -113,7 +142,6 @@ class ROI:
             rois_gdf, max_area=ROI.MAX_SIZE, min_area=ROI.MIN_SIZE
         )
         if drop_ids:
-            print(f"Dropping IDs {drop_ids}")
             logger.info(f"Dropping ROIs that are an invalid size {drop_ids}")
             rois_gdf.drop(index=drop_ids, axis=0, inplace=True)
             if rois_gdf.empty:
@@ -232,6 +260,8 @@ class ROI:
         Returns:
             dict: A dictionary containing all extracted shorelines, indexed by ROI ID.
         """
+        if not hasattr(self, "extracted_shorelines"):
+            self.extracted_shorelines = {}
         return self.extracted_shorelines
 
     def remove_extracted_shorelines(
@@ -246,10 +276,13 @@ class ROI:
         if roi_id in self.extracted_shorelines:
             del self.extracted_shorelines[roi_id]
         if remove_all:
+            del self.extracted_shorelines
             self.extracted_shorelines = {}
 
     def add_extracted_shoreline(
-        self, extracted_shoreline: Extracted_Shoreline, roi_id: str
+        self,
+        extracted_shoreline: "coastseg.extracted_shoreline.Extracted_Shoreline",
+        roi_id: str,
     ) -> None:
         """Adds an extracted shoreline dictionary to the collection, indexed by the specified ROI ID.
 
@@ -258,7 +291,8 @@ class ROI:
             roi_id (str): The ID of the ROI to associate the shoreline with.
         """
         self.extracted_shorelines[roi_id] = extracted_shoreline
-        logger.info(f"New self.extracted_shorelines: {self.extracted_shorelines}")
+        logger.info(f"New extracted shoreline added for ROI {roi_id}")
+        # logger.info(f"New extracted shoreline added for ROI {roi_id}: {self.extracted_shorelines}")
 
     def get_cross_shore_distances(self, roi_id: str) -> Union[None, dict]:
         """Returns the cross shore distance for the specified ROI ID.
@@ -270,9 +304,9 @@ class ROI:
             Union[None, dict]: Thecross shore distance dictionary for the specified ROI ID, or None if it does not exist.
         """
         logger.info(
-            f"ROI: {roi_id} cross distance : {self.cross_shore_distances.get(roi_id)}"
+            f"ROI: {roi_id} cross distance with keys : {self.cross_shore_distances.get(roi_id,{}).keys()}"
         )
-        return self.cross_shore_distances.get(roi_id)
+        return self.cross_shore_distances.get(roi_id, 0)
 
     def add_cross_shore_distances(
         self, cross_shore_distance: dict, roi_id: str
@@ -284,7 +318,7 @@ class ROI:
             roi_id (str): The ID of the ROI to associate the cross_shore_distance dictionary
         """
         self.cross_shore_distances[roi_id] = cross_shore_distance
-        logger.info(f"Newly added cross_shore_distance: {cross_shore_distance}")
+        # logger.info(f"Newly added cross_shore_distance: {cross_shore_distance}")
 
     def get_all_cross_shore_distances(
         self,
@@ -329,19 +363,19 @@ class ROI:
             large_length and small_length
         """
         # Create a single set of fishnets with square size = small and/or large side lengths that overlap each other
-        logger.info(f"Small Length: {small_length}  Large Length: {large_length}")
+        # logger.info(f"Small Length: {small_length}  Large Length: {large_length}")
         if small_length == 0 or large_length == 0:
-            logger.info("Creating one fishnet")
+            # logger.info("Creating one fishnet")
             # create a fishnet geodataframe with square size of either large_length or small_length
             fishnet_size = large_length if large_length != 0 else small_length
             fishnet_intersect_gdf = self.get_fishnet_gdf(bbox, shoreline, fishnet_size)
         else:
-            logger.info("Creating two fishnets")
+            # logger.info("Creating two fishnets")
             # Create two fishnets, one big (2000m) and one small(1500m) so they overlap each other
             fishnet_gpd_large = self.get_fishnet_gdf(bbox, shoreline, large_length)
             fishnet_gpd_small = self.get_fishnet_gdf(bbox, shoreline, small_length)
-            logger.info(f"fishnet_gpd_large : {fishnet_gpd_large}")
-            logger.info(f"fishnet_gpd_small : {fishnet_gpd_small}")
+            # logger.info(f"fishnet_gpd_large : {fishnet_gpd_large}")
+            # logger.info(f"fishnet_gpd_small : {fishnet_gpd_small}")
             # Concat the fishnets together to create one overlapping set of rois
             fishnet_intersect_gdf = gpd.GeoDataFrame(
                 pd.concat([fishnet_gpd_large, fishnet_gpd_small], ignore_index=True)
@@ -356,17 +390,14 @@ class ROI:
             ],
             create_ids=True,
         )
-        validate_geometry_types(
-            fishnet_intersect_gdf, set(["Polygon", "MultiPolygon"]), feature_type="ROI"
-        )
         # make sure all the ids are unique
         fishnet_intersect_gdf = common.create_unique_ids(
             fishnet_intersect_gdf, prefix_length=3
         )
-        logger.info(f"Created fishnet_intersect_gdf: {fishnet_intersect_gdf}")
+        # logger.info(f"Created fishnet_intersect_gdf: {fishnet_intersect_gdf}")
         return fishnet_intersect_gdf
 
-    def style_layer(self, geojson: dict, layer_name: str) -> "ipyleaflet.GeoJSON":
+    def style_layer(self, geojson: dict, layer_name: str) -> GeoJSON:
         """Return styled GeoJson object with layer name
 
         Args:
@@ -487,7 +518,7 @@ class ROI:
         # create geodataframe to hold all the (rois)squares
         fishnet = gpd.GeoDataFrame(geom_array, columns=["geometry"]).set_crs(input_espg)
         logger.info(
-            f"\n ROIs area before conversion to {output_epsg}:\n {fishnet.area}"
+            f"\n ROIs area before conversion to {output_epsg}:\n {fishnet.area} for CRS: {input_espg}"
         )
         fishnet = fishnet.to_crs(output_epsg)
         return fishnet
