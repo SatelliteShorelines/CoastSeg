@@ -861,6 +861,7 @@ class CoastSeg_Map:
         None
         """
         logger.info(f"New Settings: {kwargs}")
+        # logger.info(f"OLD Settings: {self.settings}")
         # Check if any of the keys are missing
         # if any keys are missing set the default value
         self.default_settings = {
@@ -909,7 +910,7 @@ class CoastSeg_Map:
         for key, value in self.default_settings.items():
             self.settings.setdefault(key, value)
 
-        logger.info(f"Settings: {self.settings}")
+        logger.info(f"Set Settings: {self.settings}")
 
     def get_settings(self):
         """
@@ -1104,7 +1105,7 @@ class CoastSeg_Map:
                 raise Exception("No ROIs found. Please load ROIs.")
             roi_ids = roi_ids[0]
         logger.info(f"roi_ids: {roi_ids}")
-        logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
+        # logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
         # set of roi ids that didn't have missing shorelines
         rois_no_extracted_shorelines = set()
         # for each ROI that has extracted shorelines load onto map
@@ -1128,11 +1129,11 @@ class CoastSeg_Map:
                             file
                         )
 
-            logger.info(f"ROI {roi_id} extracted_sl_gdf: {extracted_sl_gdf}")
-            logger.info(f"ROI {roi_id} shoreline_settings: {shoreline_settings}")
-            logger.info(
-                f"ROI {roi_id} extracted_shoreline_dict: {extracted_shoreline_dict}"
-            )
+            # logger.info(f"ROI {roi_id} extracted_sl_gdf: {extracted_sl_gdf}")
+            # logger.info(f"ROI {roi_id} shoreline_settings: {shoreline_settings}")
+            # logger.info(
+            #     f"ROI {roi_id} extracted_shoreline_dict: {extracted_shoreline_dict}"
+            # )
             # error handling for none
             if (
                 extracted_sl_gdf is None
@@ -1445,7 +1446,8 @@ class CoastSeg_Map:
             logger.info(f"No extracted shorelines for roi: {roi_id}")
             return
         cross_distance_transects = rois.get_cross_shore_distances(roi_id)
-        logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
+
+        # logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
         # if no cross distance was 0 then skip
         if cross_distance_transects == 0:
             print(
@@ -1630,15 +1632,11 @@ class CoastSeg_Map:
                 out_dict = dict([])
                 # copy shoreline intersects for each transect
                 out_dict[key] = cross_distance_transects[key]
-                logger.info(
-                    f"out dict roi_ids columns : {[roi_id for _ in range(len(extracted_shorelines_dict['dates']))]}"
-                )
                 out_dict["roi_id"] = [
                     roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
                 ]
                 out_dict["dates"] = extracted_shorelines_dict["dates"]
                 out_dict["satname"] = extracted_shorelines_dict["satname"]
-                logger.info(f"out_dict : {out_dict}")
                 df = pd.DataFrame(out_dict)
                 df.index = df["dates"]
                 df.pop("dates")
@@ -1650,7 +1648,6 @@ class CoastSeg_Map:
                 session_path = file_utilities.create_directory(
                     session_path, ROI_directory
                 )
-                logger.info(f"session_path: {session_path}")
                 # save source data
                 self.save_config(session_path)
                 # save to csv file session path
@@ -1658,12 +1655,6 @@ class CoastSeg_Map:
                 if os.path.exists(fn):
                     os.remove(fn)
                 df.to_csv(fn, sep=",")
-                logger.info(
-                    f"ROI: {roi_id} time-series of shoreline change along transects"
-                )
-                logger.info(
-                    f"Time-series of the shoreline change along the transects saved as:{fn}"
-                )
                 rois_computed_transects.add(roi_id)
         print(f"Computed transects for the following ROIs: {rois_computed_transects}")
 
@@ -1700,7 +1691,7 @@ class CoastSeg_Map:
                 continue
 
             cross_distance_transects = rois.get_cross_shore_distances(roi_id)
-            logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
+            # logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines}")
             # if no cross distance was 0 then skip
             if cross_distance_transects == 0:
                 print(
@@ -1712,20 +1703,18 @@ class CoastSeg_Map:
             cross_distance_df = common.get_cross_distance_df(
                 extracted_shorelines, cross_distance_transects
             )
-            logger.info(f"ROI: {roi_id} cross_distance_df : {cross_distance_df}")
+            # logger.info(f"ROI: {roi_id} cross_distance_df : {cross_distance_df}")
 
             # Save extracted shoreline info to session directory
             session_name = self.get_session_name()
             ROI_directory = rois.roi_settings[roi_id]["sitename"]
             session_path = os.path.join(os.getcwd(), "sessions", session_name)
             session_path = file_utilities.create_directory(session_path, ROI_directory)
-            logger.info(f"session_path: {session_path}")
             # save source data
             self.save_config(session_path)
 
             filepath = os.path.join(session_path, "transect_time_series.csv")
             if os.path.exists(filepath):
-                print(f"Overwriting:{filepath}")
                 os.remove(filepath)
             cross_distance_df.to_csv(filepath, sep=",")
             print(f"ROI: {roi_id} time-series of shoreline change along transects")
@@ -1773,7 +1762,6 @@ class CoastSeg_Map:
         existing_layer = self.map.find_layer(layer_name)
         if existing_layer is not None:
             self.map.remove(existing_layer)
-        logger.info(f"Removed layer {layer_name}")
 
     def remove_shoreline(self):
         del self.shoreline
@@ -1800,9 +1788,6 @@ class CoastSeg_Map:
         """
         if new_layer is None:
             return
-        logger.info(
-            f"layer_name {layer_name} \non_hover {on_hover}\n on_click {on_click}"
-        )
         self.remove_layer_by_name(layer_name)
         # when feature is hovered over on_hover function is called
         if on_hover is not None:
@@ -1811,11 +1796,9 @@ class CoastSeg_Map:
             # when feature is clicked on on_click function is called
             new_layer.on_click(on_click)
         self.map.add_layer(new_layer)
-        logger.info(f"Add layer to map: {layer_name}")
 
     def remove_all_rois(self) -> None:
         """Removes all the unselected rois from the map"""
-        logger.info("Removing all ROIs from map")
         # Remove the selected and unselected rois
         self.remove_layer_by_name(ROI.SELECTED_LAYER_NAME)
         self.remove_layer_by_name(ROI.LAYER_NAME)
@@ -1826,7 +1809,6 @@ class CoastSeg_Map:
 
     def remove_selected_shorelines(self) -> None:
         """Removes all the unselected rois from the map"""
-        logger.info("Removing selected shorelines from map")
         # Remove the selected and unselected rois
         self.remove_layer_by_name(SELECTED_LAYER_NAME)
         self.remove_layer_by_name(Shoreline.LAYER_NAME)
@@ -1843,7 +1825,6 @@ class CoastSeg_Map:
 
     def remove_selected_rois(self) -> None:
         """Removes all the unselected rois from the map"""
-        logger.info("Removing selected ROIs from map")
         # Remove the selected and unselected rois
         self.remove_layer_by_name(ROI.SELECTED_LAYER_NAME)
         self.remove_layer_by_name(ROI.LAYER_NAME)
@@ -1907,7 +1888,6 @@ class CoastSeg_Map:
                 exception_handler.handle_bbox_error(bbox_too_small, self.warning_box)
             else:
                 # if no exceptions occur create new bbox, remove old bbox, and load new bbox
-                logger.info(f"Made it with bbox area: {bbox_area}")
                 self.load_feature_on_map("bbox")
 
         if self.draw_control.last_action == "deleted":
@@ -1952,9 +1932,6 @@ class CoastSeg_Map:
         Returns:
             None: This function does not return anything, but rather loads the extracted shorelines onto the map.
         """
-
-        logger.info(f"row_number: {row_number}")
-
         # Remove any existing extracted shorelines
         self.remove_extracted_shoreline_layers()
 
@@ -1991,10 +1968,6 @@ class CoastSeg_Map:
         # Load extracted shorelines for the first ROI ID with extracted shorelines
         for selected_id in roi_ids_with_extracted_shorelines:
             extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
-            logger.info(
-                f"ROI ID {selected_id} extracted shorelines {extracted_shorelines}"
-            )
-
             if extracted_shorelines is not None:
                 logger.info(f"Extracted shorelines found for ROI {selected_id}")
                 self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
@@ -2015,7 +1988,6 @@ class CoastSeg_Map:
         if extracted_shorelines is None:
             return
         # Loads stylized extracted shorelines onto map for single roi
-        logger.info(f"row_number: {row_number}")
         # Convert the extracted shoreline's geometry to points
         points_gdf = extracted_shoreline.convert_linestrings_to_multipoints(
             extracted_shorelines.gdf
@@ -2029,12 +2001,12 @@ class CoastSeg_Map:
                 "radius": 1,
             },
         )
-        layer_name = extracted_shorelines.get_layer_name()
-        logger.info(
-            f"Extracted shoreline layer: {new_layer}\n"
-            f"Layer name: {layer_name}\n"
-            f"Extracted shoreline layers: {new_layer}\n"
-        )
+        # layer_name = extracted_shorelines.get_layer_name()
+        # logger.info(
+        #     f"Extracted shoreline layer: {new_layer}\n"
+        #     f"Layer name: {layer_name}\n"
+        #     f"Extracted shoreline layers: {new_layer}\n"
+        # )
         # new_layer.on_hover(self.update_extracted_shoreline_html)
         self.map.add_layer(new_layer)
         # update the extracted shoreline layer and number of shorelines available
@@ -2068,8 +2040,6 @@ class CoastSeg_Map:
         if new_feature is None:
             return
 
-        logger.info(f"new_feature: {new_feature} \ngdf: {gdf}")
-
         # load the features onto the map
         self.add_feature_on_map(
             new_feature,
@@ -2096,9 +2066,6 @@ class CoastSeg_Map:
         Returns:
         - None
         """
-        logger.info(
-            f"feature_name: {feature_name.lower()}\n layer_name: {layer_name}\n new_feature: {new_feature}"
-        )
         # get on hover and on click handlers for feature
         on_hover = self.get_on_hover_handler(feature_name)
         on_click = self.get_on_click_handler(feature_name)
@@ -2171,7 +2138,7 @@ class CoastSeg_Map:
     def create_layer(self, feature, layer_name: str):
         if feature.gdf.empty:
             logger.warning("Cannot add an empty geodataframe layer to the map.")
-            print("Cannot add an empty geodataframe layer to the map.")
+            print("Cannot add an empty layer to the map.")
             return None
         layer_geojson = json.loads(feature.gdf.to_json())
         # convert layer to GeoJson and style it accordingly
