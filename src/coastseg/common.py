@@ -1573,13 +1573,29 @@ def save_transect_intersections(
     cross_distance_transects: dict,
     filename: str = "transect_time_series.csv",
 ) -> str:
+    """
+    Saves the saves the dates from the extracted shorelines to the dictionart containing the cross distance transect intersections to a CSV file.
+
+    This function processes intersection data between shorelines and transects, removing columns with all NaN values. 
+    It then saves the processed data to a CSV file at the specified path.
+
+    Args:
+    - save_path (str): The directory path where the CSV file will be saved.
+    - extracted_shorelines (dict): A dictionary containing shoreline data.
+    - cross_distance_transects (dict): A dictionary containing transect data with cross-distance measurements.
+    - filename (str, optional): The name of the CSV file to be saved. Default is "transect_time_series.csv".
+
+    Returns:
+    - str: The full file path of the saved CSV file.
+
+    The function first combines the shoreline and transect data into a DataFrame and then removes any columns 
+    that contain only NaN values before saving to CSV.
+    """
     cross_distance_df = get_cross_distance_df(
         extracted_shorelines, cross_distance_transects
     )
+    cross_distance_df.dropna(axis="columns", how="all", inplace=True)
     filepath = os.path.join(save_path, filename)
-    if os.path.exists(filepath):
-        print(f"Overwriting:{filepath}")
-        os.remove(filepath)
     cross_distance_df.to_csv(filepath, sep=",")
     return filepath
 
@@ -1630,29 +1646,43 @@ def create_csv_per_transect(
     save_path: str,
     cross_distance_transects: dict,
     extracted_shorelines_dict: dict,
-    filename: str = "_timeseries_raw.csv",
-):
-    for key in cross_distance_transects.keys():
-        df = pd.DataFrame()
-        out_dict = dict([])
-        # copy shoreline intersects for each transect
-        out_dict[key] = cross_distance_transects[key]
-        out_dict["roi_id"] = [
-            roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
-        ]
-        out_dict["dates"] = extracted_shorelines_dict["dates"]
-        out_dict["satname"] = extracted_shorelines_dict["satname"]
-        # logger.info(f"out_dict : {out_dict}")
-        df = pd.DataFrame(out_dict)
-        df.index = df["dates"]
-        df.pop("dates")
-        # save to csv file session path
-        csv_filename = f"{key}{filename}"
-        fn = os.path.join(save_path, csv_filename)
-        if os.path.exists(fn):
-            logger.info(f"Overwriting:{fn}")
-            os.remove(fn)
-        df.to_csv(fn, sep=",")
+    file_extension: str = "_timeseries_raw.csv",
+) -> None:
+    """
+    Generates CSV files from transect and shoreline data.
+
+    For each transect in cross_distance_transects, this function creates a CSV file if the transect contains
+    non-NaN values. The CSV includes dates, transect data, region of interest ID, and satellite name.
+
+    Args:
+    - roi_id (str): ID for the region of interest.
+    - save_path (str): Path to save CSV files.
+    - cross_distance_transects (dict): Transect data with cross-distance measurements.
+    - extracted_shorelines_dict (dict): Contains 'dates' and 'satname'.
+    - file_extension (str, optional): File extension for CSV files. Default is "_timeseries_raw.csv".
+
+    Notes:
+    - CSV files are named using transect keys and file_extension.
+    - Transects with only NaN values are skipped.
+    """
+    for key, transect in cross_distance_transects.items():
+        if pd.notna(transect).any():  # Check if there's any non-NaN value
+            # Create DataFrame directly
+            df = pd.DataFrame(
+                {
+                    "dates": extracted_shorelines_dict["dates"],
+                    key: transect,
+                    "roi_id": [roi_id] * len(extracted_shorelines_dict["dates"]),
+                    "satname": extracted_shorelines_dict["satname"],
+                },
+                index=extracted_shorelines_dict["dates"],
+            )
+            # Save to csv file
+            fn = f"{key}{file_extension}"
+            file_path = os.path.join(save_path, fn)
+            df.to_csv(
+                file_path, sep=",", index=False
+            )  # Set index=False if you don't want 'dates' as index in CSV
 
 
 def move_report_files(
