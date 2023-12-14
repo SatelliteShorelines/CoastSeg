@@ -566,11 +566,13 @@ class CoastSeg_Map:
         for roi_id in tqdm(self.selected_set, desc="Processing", leave=False):
             polygon = common.get_roi_polygon(self.rois.gdf, roi_id)
             if polygon:
+                # only get the imagery in tier 1
                 images_count = count_images_in_ee_collection(
                     polygon,
                     start_date,
                     end_date,
                     satellites=set(self.settings["sat_list"]),
+                    tiers=[1],
                 )
                 satellite_messages = [f"\nROI ID: {roi_id}"]
                 for sat in self.settings["sat_list"]:
