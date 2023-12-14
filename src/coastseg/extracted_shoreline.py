@@ -1510,20 +1510,32 @@ class Extracted_Shoreline:
     def __str__(self):
         # Get column names and their data types
         col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
-        # Get first 5 rows as a string
-        first_rows = self.gdf.head().to_string()
+        # Get first 3 rows as a string
+        first_rows = self.gdf
+        geom_str = ""
+        if isinstance(self.gdf, gpd.GeoDataFrame):
+            if "geometry" in self.gdf.columns:
+                first_rows = self.gdf.head(3).drop(columns="geometry").to_string()
+            if not self.gdf.empty:
+                geom_str = str(self.gdf.iloc[0]["geometry"])[:100] + "...)"
         # Get CRS information
         crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
-        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}"
+        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 3 Rows:\n{first_rows}\n geometry: {geom_str}"
 
     def __repr__(self):
         # Get column names and their data types
         col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
         # Get first 5 rows as a string
-        first_rows = self.gdf.head().to_string()
+        first_rows = self.gdf
+        geom_str = ""
+        if isinstance(self.gdf, gpd.GeoDataFrame):
+            if "geometry" in self.gdf.columns:
+                first_rows = self.gdf.head(3).drop(columns="geometry").to_string()
+            if not self.gdf.empty:
+                geom_str = str(self.gdf.iloc[0]["geometry"])[:100] + "...)"
         # Get CRS information
         crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
-        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 5 Rows:\n{first_rows}"
+        return f"Extracted Shoreline:\nROI ID: {self.roi_id}\ngdf:\n{crs_info}\nColumns and Data Types:\n{col_info}\n\nFirst 3 Rows:\n{first_rows}\n geometry: {geom_str}"
 
     def get_roi_id(self) -> Optional[str]:
         """

@@ -82,24 +82,36 @@ class Shoreline:
     def __str__(self):
         # Get column names and their data types
         col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
-        # Get first 5 rows as a string
-        first_rows = self.gdf.head().to_string()
+        # Get first 3 rows as a string
+        first_rows = self.gdf
+        geom_str = ""
+        if isinstance(self.gdf, gpd.GeoDataFrame):
+            if "geometry" in self.gdf.columns:
+                first_rows = self.gdf.head(3).drop(columns="geometry").to_string()
+            if not self.gdf.empty:
+                geom_str = str(self.gdf.iloc[0]["geometry"])[:100] + "...)"
         # Get CRS information
         crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
         if "id" in self.gdf.columns:
-            transect_ids = self.gdf["id"].astype(str)
-        return f"Shoreline:\nself.gdf:\n\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 5 Rows:\n{first_rows}\nIDs:\n{transect_ids}"
+            ids = self.gdf["id"].astype(str)
+        return f"Shoreline:\nself.gdf:\n\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 3 Rows:\n{first_rows}\n geometry: {geom_str}\nIDs:\n{ids}"
 
     def __repr__(self):
         # Get column names and their data types
         col_info = self.gdf.dtypes.apply(lambda x: x.name).to_string()
-        # Get first 5 rows as a string
-        first_rows = self.gdf.head().to_string()
+        # Get first 3 rows as a string
+        first_rows = self.gdf
+        geom_str = ""
+        if isinstance(self.gdf, gpd.GeoDataFrame):
+            if "geometry" in self.gdf.columns:
+                first_rows = self.gdf.head(3).drop(columns="geometry").to_string()
+            if not self.gdf.empty:
+                geom_str = str(self.gdf.iloc[0]["geometry"])[:100] + "...)"
         # Get CRS information
         crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
         if "id" in self.gdf.columns:
-            transect_ids = self.gdf["id"].astype(str)
-        return f"Shoreline:\nself.gdf:\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 5 Rows:\n{first_rows}\nIDs:\n{transect_ids}"
+            ids = self.gdf["id"].astype(str)
+        return f"Shoreline:\nself.gdf:\n\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 3 Rows:\n{first_rows}\n geometry: {geom_str}\nIDs:\n{ids}"
 
     def initialize_shorelines(
         self,
