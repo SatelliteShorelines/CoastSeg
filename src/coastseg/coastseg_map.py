@@ -118,7 +118,7 @@ def find_shorelines_directory(path, roi_id):
     return None
 
 
-def delete_extracted_shorelines_files(session_path:str, selected_items:List):
+def delete_extracted_shorelines_files(session_path: str, selected_items: List):
     """Delete the extracted shorelines from the session directory for all the relevant files
     Removes the extracted shorelines from the following files:
     - extracted_shorelines_lines.geojson
@@ -384,7 +384,7 @@ class CoastSeg_Map:
     ) -> None:
         # remove the old layers
         self.remove_extracted_shoreline_layers()
-        # # update the load_list and trash_list
+        # update the load_list and trash_list
         extracted_shorelines = self.update_loadable_shorelines(selected_id)
         self.extract_shorelines_container.trash_list = []
         # load the new extracted shorelines onto the map
@@ -2279,9 +2279,7 @@ class CoastSeg_Map:
 
     def update_roi_ids_with_shorelines(self):
         # Get the list of the ROI IDs that have extracted shorelines
-        print("update_roi_ids_with_shorelines")
         ids_with_extracted_shorelines = self.get_roi_ids(has_extracted_shorelines=True)
-        print(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
         # if no ROIs have extracted shorelines, return otherwise load extracted shorelines for the first ROI ID with extracted shorelines
         if not ids_with_extracted_shorelines:
             self.id_container.ids = []
