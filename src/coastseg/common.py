@@ -761,7 +761,7 @@ def save_transects(
         save_location,
         cross_distance_transects,
         extracted_shorelines,
-        filename="_timeseries_raw.csv",
+        file_extension="_timeseries_raw.csv",
     )
     save_transect_intersections(
         save_location,
@@ -1576,7 +1576,7 @@ def save_transect_intersections(
     """
     Saves the saves the dates from the extracted shorelines to the dictionart containing the cross distance transect intersections to a CSV file.
 
-    This function processes intersection data between shorelines and transects, removing columns with all NaN values. 
+    This function processes intersection data between shorelines and transects, removing columns with all NaN values.
     It then saves the processed data to a CSV file at the specified path.
 
     Args:
@@ -1588,7 +1588,7 @@ def save_transect_intersections(
     Returns:
     - str: The full file path of the saved CSV file.
 
-    The function first combines the shoreline and transect data into a DataFrame and then removes any columns 
+    The function first combines the shoreline and transect data into a DataFrame and then removes any columns
     that contain only NaN values before saving to CSV.
     """
     cross_distance_df = get_cross_distance_df(

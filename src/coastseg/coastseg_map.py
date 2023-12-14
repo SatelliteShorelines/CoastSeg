@@ -1544,52 +1544,28 @@ class CoastSeg_Map:
 
             # save transects to session folder
             if save_transects:
-                # Saves the cross distances of the transects & extracted shorelines to csv file within each ROI's directory
-                self.save_timeseries_csv(session_path, roi_id, self.rois)
-                self.save_csv_per_transect_for_roi(session_path, roi_id, self.rois)
-
-                save_path = os.path.join(session_path, "transects_cross_distances.json")
+                # get extracted_shorelines from extracted shoreline object in rois
+                extracted_shorelines_dict = extracted_shoreline.dictionary
+                # if no shorelines were extracted then skip
+                if extracted_shorelines_dict == {}:
+                    logger.info(f"No extracted shorelines for roi: {roi_id}")
+                    continue
                 cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
-                file_utilities.to_file(cross_shore_distance, save_path)
+                # if no cross distance was 0 then skip
+                if cross_shore_distance == 0:
+                    print(
+                        f"ROI: {roi_id} had no time-series of shoreline change along transects"
+                    )
+                    logger.info(f"ROI: {roi_id} cross distance is 0")
+                    continue
 
-                # save transect settings to file
-                transect_settings = common.get_transect_settings(self.get_settings())
-                transect_settings_path = os.path.join(
-                    session_path, "transects_settings.json"
+                common.save_transects(
+                    roi_id,
+                    session_path,
+                    cross_shore_distance,
+                    extracted_shorelines_dict,
+                    self.get_settings(),
                 )
-                file_utilities.to_file(transect_settings, transect_settings_path)
-
-    def save_csv_per_transect_for_roi(
-        self, session_path: str, roi_id: list, rois: ROI
-    ) -> None:
-        """Saves cross distances of transects and
-        extracted shorelines in ROI to csv file within each ROI's directory.
-        If no shorelines were extracted for an ROI then nothing is saved
-        Args:
-            roi_ids (list): list of roi ids
-            rois (ROI): ROI instance containing keys:
-                'extracted_shorelines': extracted shoreline from roi
-                'cross_distance_transects': cross distance of transects and extracted shoreline from roi
-        """
-        # get extracted shorelines for this roi id
-        roi_extracted_shorelines = rois.get_extracted_shoreline(roi_id)
-        # if roi does not have extracted shoreline skip it
-        if roi_extracted_shorelines is None:
-            return
-        # get extracted_shorelines from extracted shoreline object in rois
-        extracted_shorelines_dict = roi_extracted_shorelines.dictionary
-        cross_distance_transects = rois.get_cross_shore_distances(roi_id)
-        logger.info(f"ROI: {roi_id} extracted_shorelines : {extracted_shorelines_dict}")
-        # if no cross distance was 0 then skip
-        if cross_distance_transects == 0:
-            return
-        # if no shorelines were extracted then skip
-        if extracted_shorelines_dict == {}:
-            return
-        # for each transect id in cross_distance_transects make a new csv file
-        common.create_csv_per_transect(
-            roi_id, session_path, cross_distance_transects, extracted_shorelines_dict
-        )
 
     def save_csv_per_transect(self, roi_ids: list, rois: ROI) -> None:
         """Saves cross distances of transects and
