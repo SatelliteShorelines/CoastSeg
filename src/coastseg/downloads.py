@@ -28,7 +28,6 @@ from coastseg import file_utilities
 logger = logging.getLogger(__name__)
 
 
-
 def get_collection_by_tier(
     polygon: List[List[float]],
     start_date: Union[str, datetime],
@@ -109,6 +108,7 @@ def count_images_in_ee_collection(
     end_date: Union[str, datetime],
     max_cloud_cover: float = 95,
     satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2"),
+    tiers: list[str] = None,
 ) -> dict:
     """
     Count the number of images in specified satellite collections over a certain area and time period.
@@ -119,7 +119,7 @@ def count_images_in_ee_collection(
     end_date (str or datetime): The end date of the time period. If a string, it should be in 'YYYY-MM-DD' format.
     max_cloud_cover (float, optional): The maximum cloud cover percentage. Images with a cloud cover percentage higher than this will be excluded. Defaults to 99.
     satellites (Collection[str], optional): A collection of satellite names. The function will return image counts for these satellites. Defaults to ("L5","L7","L8","L9","S2").
-
+    tiers (list[str], optional): A list of tiers. The function will return image counts for these tiers. Defaults to [1,2]
     Returns:
     dict: A dictionary where the keys are the satellite names and the values are the image counts.
 
@@ -153,11 +153,14 @@ def count_images_in_ee_collection(
     except:
         ee.Initialize()
 
+    if tiers is None:
+        tiers = [1, 2]
+
     image_counts = {}
     images_in_tier_count = 0
     for satellite in satellites:
         images_in_tier_count = 0
-        for tier in [1, 2]:
+        for tier in tiers:
             collection = get_collection_by_tier(
                 polygon, start_date, end_date, satellite, tier, max_cloud_cover
             )
