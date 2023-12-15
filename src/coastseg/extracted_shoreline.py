@@ -1790,9 +1790,9 @@ class Extracted_Shoreline:
             extracted_shorelines_dict = remove_duplicates(
                 extracted_shorelines_dict
             )  # removes duplicates (images taken on the same date by the same satellite
-            extracted_shorelines_dict = remove_inaccurate_georef(
-                extracted_shorelines_dict, 10
-            )  # remove inaccurate georeferencing (set threshold to 10 m)
+            # extracted_shorelines_dict = remove_inaccurate_georef(
+            #     extracted_shorelines_dict, 10
+            # )  # remove inaccurate georeferencing (set threshold to 10 m)
 
             # Check and log 'reference shoreline' if it exists
             ref_sl = extracted_shorelines_dict.get("shorelines", np.array([]))
@@ -1940,9 +1940,9 @@ class Extracted_Shoreline:
         extracted_shorelines = remove_duplicates(
             extracted_shorelines
         )  # removes duplicates (images taken on the same date by the same satellite)
-        extracted_shorelines = remove_inaccurate_georef(
-            extracted_shorelines, 10
-        )  # remove inaccurate georeferencing (set threshold to 10 m)
+        # extracted_shorelines = remove_inaccurate_georef(
+        #     extracted_shorelines, 10
+        # )  # remove inaccurate georeferencing (set threshold to 10 m)
         return extracted_shorelines
 
     def create_shoreline_settings(
