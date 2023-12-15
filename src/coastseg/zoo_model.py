@@ -23,7 +23,6 @@ import aiohttp
 import tqdm
 from PIL import Image
 import numpy as np
-import pandas as pd
 from glob import glob
 import tqdm.asyncio
 import nest_asyncio
