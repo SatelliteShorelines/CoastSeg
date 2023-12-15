@@ -40,6 +40,280 @@ from coastseg.exceptions import InvalidGeometryType
 logger = logging.getLogger(__name__)
 
 
+def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
+    """
+    Creates a new configuration dictionary by combining the given settings and ROI settings.
+
+    Arguments:
+    -----------
+    roi_ids: list
+        A list of ROI IDs to include in the new configuration.
+    settings: dict
+        A dictionary containing general settings for the configuration.
+    roi_settings: dict
+        A dictionary containing ROI-specific settings for the configuration.
+        example:
+        {'example_roi_id': {'dates':[]}
+
+    Returns:
+    -----------
+    new_config: dict
+        A dictionary containing the combined settings and ROI settings, as well as the ROI IDs.
+    """
+    new_config = {
+        "settings": {},
+        "roi_ids": [],
+    }
+    if isinstance(roi_ids, str):
+        roi_ids = [roi_ids]
+    if not all(roi_id in roi_settings.keys() for roi_id in roi_ids):
+        raise ValueError(f"roi_ids {roi_ids} not in roi_settings {roi_settings.keys()}")
+    new_config = {**new_config, **roi_settings}
+    new_config["roi_ids"].extend(roi_ids)
+    new_config["settings"] = settings
+    return new_config
+
+
+def update_transect_time_series(
+    filepaths: List[str], dates_list: List[datetime]
+) -> None:
+    """
+    Updates a series of CSV files by removing rows based on certain dates.
+
+    :param filepaths: A list of file paths to the CSV files.
+    :param dates_list: A list of datetime objects representing the dates to be filtered out.
+    :return: None
+    """
+    for filepath in filepaths:
+        # Read the CSV file into a DataFrame
+        df = pd.read_csv(filepath)
+
+        # Format the dates to match the format in the CSV file
+        formatted_dates = [
+            date.strftime("%Y-%m-%d %H:%M:%S+00:00") for date in dates_list
+        ]
+        # Keep only the rows where the 'dates' column isn't in the list of formatted dates
+        df = df[~df["dates"].isin(formatted_dates)]
+        # Write the updated DataFrame to the same CSV file
+        df.to_csv(filepath, index=False)
+
+
+def extract_dates_and_sats(
+    selected_items: List[str],
+) -> Tuple[List[datetime], List[str]]:
+    """
+    Extract the dates and satellite names from a list of selected items.
+
+    Args:
+        selected_items: A list of strings, where each string is in the format "satname_dates".
+
+    Returns:
+        A tuple of two lists: the first list contains datetime objects corresponding to the dates in the selected items,
+        and the second list contains the satellite names in the selected items.
+    """
+    dates_list = []
+    sat_list = []
+    for criteria in selected_items:
+        satname, dates = criteria.split("_")
+        sat_list.append(satname)
+        dates_list.append(
+            datetime.strptime(dates, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        )
+    return dates_list, sat_list
+
+
+def transform_data_to_nested_arrays(
+    data_dict: Dict[str, Union[List[Union[int, float, np.ndarray]], np.ndarray]]
+) -> Dict[str, np.ndarray]:
+    """
+    Convert a dictionary of data to a new dictionary with nested NumPy arrays.
+
+    Args:
+        data_dict: A dictionary of data, where each value is either a list of integers, floats, or NumPy arrays, or a NumPy array.
+
+    Returns:
+        A new dictionary with the same keys as `data_dict`, where each value is a NumPy array or a nested NumPy array.
+
+    Raises:
+        TypeError: If `data_dict` is not a dictionary, or if any value in `data_dict` is not a list or NumPy array.
+    """
+    transformed_dict = {}
+    for key, items in data_dict.items():
+        if any(isinstance(element, np.ndarray) for element in items):
+            nested_array = np.empty(len(items), dtype=object)
+            for index, array_element in enumerate(items):
+                nested_array[index] = array_element
+            transformed_dict[key] = nested_array
+        else:
+            transformed_dict[key] = np.array(items)
+    return transformed_dict
+
+
+def process_data_input(data):
+    """
+    Process the data input and transform it to nested arrays.
+
+    Parameters:
+    data (dict or str): The data input to process. If data is a string, it is assumed to be the full path to the JSON file.
+
+    Returns:
+    dict: The processed data as nested arrays.
+    """
+    # Determine if data is a dictionary or a file path
+    if isinstance(data, dict):
+        data_dict = data
+    elif isinstance(data, str):
+        # Load data from the JSON file
+        if os.path.exists(data):
+            data_dict = file_utilities.load_data_from_json(data)
+        else:
+            return None
+    else:
+        raise TypeError("data must be either a dictionary or a string file path.")
+
+    # Transform data to nested arrays
+    new_dict = transform_data_to_nested_arrays(data_dict)
+    return new_dict
+
+
+def update_extracted_shorelines_dict_transects_dict(
+    session_path, filename, dates_list, sat_list
+):
+    json_file = os.path.join(session_path, filename)
+    if os.path.exists(json_file) and os.path.isfile(json_file):
+        # read the data from the json file
+        data = file_utilities.load_data_from_json(json_file)
+        # processes the data into nested arrays
+        extracted_shorelines_dict = process_data_input(data)
+        if extracted_shorelines_dict is not None:
+            # Get the indexes of the selected items in the extracted_shorelines_dict
+            selected_indexes = get_selected_indexes(
+                extracted_shorelines_dict, dates_list, sat_list
+            )
+            # attempt to delete the selected indexes from the "transect_cross_distances.json"
+            transect_cross_distances_path = os.path.join(
+                session_path, "transects_cross_distances.json"
+            )
+            # if the transect_cross_distances.json exists then delete the selected indexes from it
+            if os.path.exists(transect_cross_distances_path) and os.path.isfile(
+                transect_cross_distances_path
+            ):
+                transects_dict = process_data_input(transect_cross_distances_path)
+                if transects_dict is not None:
+                    # Delete the selected indexes from the transects_dict
+                    transects_dict = delete_selected_indexes(
+                        transects_dict, selected_indexes
+                    )
+                    file_utilities.to_file(
+                        transects_dict, transect_cross_distances_path
+                    )
+
+            # Delete the selected indexes from the extracted_shorelines_dict
+            extracted_shorelines_dict = delete_selected_indexes(
+                extracted_shorelines_dict, selected_indexes
+            )
+            file_utilities.to_file(extracted_shorelines_dict, json_file)
+
+
+def delete_selected_indexes(input_dict, selected_indexes):
+    """
+    Delete the selected indexes from the transects_dict.
+
+    Parameters:
+    input_dict (dict): The transects dictionary to modify.
+    selected_indexes (list): The indexes to delete.
+
+    Returns:
+    dict: The modified transects dictionary.
+    """
+    for key in input_dict.keys():
+        input_dict[key] = np.delete(input_dict[key], selected_indexes)
+    return input_dict
+
+
+def load_settings(
+    filepath: str = "",
+    keys: set = (
+        "model_session_path",
+        "apply_cloud_mask",
+        "image_size_filter",
+        "pan_off",
+        "save_figure",
+        "adjust_detection",
+        "check_detection",
+        "landsat_collection",
+        "sat_list",
+        "dates",
+        "sand_color",
+        "cloud_thresh",
+        "cloud_mask_issue",
+        "min_beach_area",
+        "min_length_sl",
+        "output_epsg",
+        "sand_color",
+        "pan_off",
+        "max_dist_ref",
+        "dist_clouds",
+        "percent_no_data",
+        "max_std",
+        "min_points",
+        "along_dist",
+        "max_range",
+        "min_chainage",
+        "multiple_inter",
+        "prc_multiple",
+    ),
+):
+    """
+    Loads settings from a JSON file and applies them to the object.
+    Args:
+        filepath (str, optional): The filepath to the JSON file containing the settings. Defaults to an empty string.
+        keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
+        "sat_list",
+                                                    "dates",
+                                                    "cloud_thresh",
+                                                    "cloud_mask_issue",
+                                                    "min_beach_area",
+                                                    "min_length_sl",
+                                                    "output_epsg",
+                                                    "sand_color",
+                                                    "pan_off",
+                                                    "max_dist_ref",
+                                                    "dist_clouds",
+                                                    "percent_no_data",
+                                                    "max_std",
+                                                    "min_points",
+                                                    "along_dist",
+                                                    "max_range",
+                                                    "min_chainage",
+                                                    "multiple_inter",
+                                                    "prc_multiple".
+    Returns:
+        None
+    """
+    # Convert keys to a list if a set is passed
+    if isinstance(keys, set):
+        keys = list(keys)
+    new_settings = file_utilities.read_json_file(filepath, raise_error=False)
+    logger.info(
+        f"all of new settings read from file : {filepath} \n {new_settings.keys()}"
+    )
+    # if no keys are passed then use all of the keys in the settings file
+    if not keys:
+        keys = new_settings.keys()
+    # filter the settings to keep only the keys passed
+    filtered_settings = {k: new_settings[k] for k in keys if k in new_settings}
+    # read the nested settings located in the sub dictionary "settings" and keep only the keys passed
+    nested_settings = new_settings.get("settings", {})
+    nested_settings = {k: nested_settings[k] for k in keys if k in nested_settings}
+    logger.info(
+        f"all of new nested settings read from file : {filepath} \n {new_settings.keys()}"
+    )
+    # combine the settings into one dictionary WARNING this could overwrite items in both settings
+    filtered_settings.update(**nested_settings)
+    return filtered_settings
+
+
 def remove_rows(selected_items, gdf):
     if "dates" not in gdf.columns and "satname" not in gdf.columns:
         return gdf
@@ -78,22 +352,31 @@ def get_selected_indexes(
     - sat_list (List[str]): A list containing satellite names to match against.
 
     Returns:
-    -----------
-    new_config: dict
-        A dictionary containing the combined settings and ROI settings, as well as the ROI IDs.
+    - List[int]: A list of integer indexes where the 'dates' and 'satname' in the data_dict
+                 match the provided lists. Returns an empty list if no matches are found or if the data_dict is empty.
+
+    Examples:
+    >>> data = {'dates': ['2021-01-01', '2021-01-02'], 'satname': ['sat1', 'sat2']}
+    >>> get_selected_indexes(data, ['2021-01-01'], ['sat1'])
+    [0]
     """
-    new_config = {
-        "settings": {},
-        "roi_ids": [],
-    }
-    if isinstance(roi_ids, str):
-        roi_ids = [roi_ids]
-    if not all(roi_id in roi_settings.keys() for roi_id in roi_ids):
-        raise ValueError(f"roi_ids {roi_ids} not in roi_settings {roi_settings.keys()}")
-    new_config = {**new_config, **roi_settings}
-    new_config["roi_ids"].extend(roi_ids)
-    new_config["settings"] = settings
-    return new_config
+    if not data_dict:
+        return []
+    data_dict.setdefault("dates", [])
+    data_dict.setdefault("satname", [])
+    # Convert dictionary to DataFrame
+    df = pd.DataFrame(data_dict)
+
+    # Initialize an empty list to store selected indexes
+    selected_indexes = []
+
+    # Iterate over dates and satellite names, and get the index of the first matching row
+    for date, sat in zip(dates_list, sat_list):
+        match = df[(df["dates"] == date) & (df["satname"] == sat)]
+        if not match.empty:
+            selected_indexes.append(match.index[0])
+
+    return selected_indexes
 
 
 def save_new_config(path: str, roi_ids: list, destination: str) -> dict:

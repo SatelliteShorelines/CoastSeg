@@ -11,6 +11,7 @@ import traceback
 
 # Third-party imports
 import geopandas as gpd
+import pandas as pd
 from ipyleaflet import DrawControl, LayersControl, WidgetControl, GeoJSON
 from leafmap import Map
 from ipywidgets import Layout, HTML, HBox
@@ -1952,7 +1953,7 @@ class CoastSeg_Map:
         if hasattr(self.rois, "gdf"):
             self.load_feature_on_map("roi", gdf=self.rois.gdf, zoom_to_bounds=True)
 
-    def create_DrawControl(self, draw_control: "ipyleaflet.leaflet.DrawControl"):
+    def create_DrawControl(self, draw_control: DrawControl) -> DrawControl:
         """Modifies given draw control so that only rectangles can be drawn
 
         Args:
@@ -1977,9 +1978,7 @@ class CoastSeg_Map:
         }
         return draw_control
 
-    def handle_draw(
-        self, target: "ipyleaflet.leaflet.DrawControl", action: str, geo_json: dict
-    ):
+    def handle_draw(self, target: DrawControl, action: str, geo_json: dict):
         """Adds or removes the bounding box  when drawn/deleted from map
         Args:
             target (ipyleaflet.leaflet.DrawControl): draw control used
@@ -2267,7 +2266,7 @@ class CoastSeg_Map:
         return styled_layer
 
     def geojson_onclick_handler(
-        self, event: str = None, id: "NoneType" = None, properties: dict = None, **args
+        self, event: str = None, id: str = None, properties: dict = None, **args
     ):
         """On click handler for when unselected geojson is clicked.
 
@@ -2337,7 +2336,7 @@ class CoastSeg_Map:
         )
 
     def selected_shoreline_onclick_handler(
-        self, event: str = None, id: "NoneType" = None, properties: dict = None, **args
+        self, event: str = None, id: str = None, properties: dict = None, **args
     ):
         """On click handler for selected geojson layer.
 
@@ -2371,7 +2370,7 @@ class CoastSeg_Map:
         )
 
     def selected_onclick_handler(
-        self, event: str = None, id: "NoneType" = None, properties: dict = None, **args
+        self, event: str = None, id: str = None, properties: dict = None, **args
     ):
         """On click handler for selected geojson layer.
 
