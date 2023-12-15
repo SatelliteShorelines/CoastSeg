@@ -105,7 +105,9 @@ def load_settings(
     if isinstance(keys, set):
         keys = list(keys)
     new_settings = file_utilities.read_json_file(filepath, raise_error=False)
-    logger.info(f"all of new settings read from file : {filepath} \n {new_settings}")
+    logger.info(
+        f"all of new settings read from file : {filepath} \n {new_settings.keys()}"
+    )
     # if no keys are passed then use all of the keys in the settings file
     if not keys:
         keys = new_settings.keys()
@@ -115,7 +117,7 @@ def load_settings(
     nested_settings = new_settings.get("settings", {})
     nested_settings = {k: nested_settings[k] for k in keys if k in nested_settings}
     logger.info(
-        f"all of new nested settings read from file : {filepath} \n {nested_settings }"
+        f"all of new nested settings read from file : {filepath} \n {new_settings.keys()}"
     )
     # combine the settings into one dictionary WARNING this could overwrite items in both settings
     filtered_settings.update(**nested_settings)
