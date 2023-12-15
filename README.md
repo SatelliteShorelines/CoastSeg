@@ -336,3 +336,8 @@ Thank you to all the amazing research who contributed their transects to coastse
 9. Kilian Vos. (2023). Time-series of shoreline change along the Pacific Rim (v1.4) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.7758183
 10. Vos, Kilian, Wen, Deng, Harley, Mitchell D., Turner, Ian L., & Splinter, Kristen D. (2022). Beach-face slope dataset for Australia (Version 2) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.7272538
 11. Gibbs, A.E., Jones, B.M., and Richmond, B.M., 2020, A GIS compilation of vector shorelines and coastal bluff edge positions, and associated rate-of-change data for Barter Island, Alaska: U.S. Geological Survey data release, https://doi.org/10.5066/P9CRBC5I.
+
+To compile into a pdf use
+```
+pandoc paper.md -o paper.pdf --bibliography paper.bib
+```
