@@ -78,267 +78,6 @@ def get_selected_indexes(
     - sat_list (List[str]): A list containing satellite names to match against.
 
     Returns:
-    - List[int]: A list of integer indexes where the 'dates' and 'satname' in the data_dict
-                 match the provided lists. Returns an empty list if no matches are found or if the data_dict is empty.
-
-    Examples:
-    >>> data = {'dates': ['2021-01-01', '2021-01-02'], 'satname': ['sat1', 'sat2']}
-    >>> get_selected_indexes(data, ['2021-01-01'], ['sat1'])
-    [0]
-    """
-    if not data_dict:
-        return []
-    data_dict.setdefault("dates", [])
-    data_dict.setdefault("satname", [])
-    # Convert dictionary to DataFrame
-    df = pd.DataFrame(data_dict)
-
-    # Initialize an empty list to store selected indexes
-    selected_indexes = []
-
-    # Iterate over dates and satellite names, and get the index of the first matching row
-    for date, sat in zip(dates_list, sat_list):
-        match = df[(df["dates"] == date) & (df["satname"] == sat)]
-        if not match.empty:
-            selected_indexes.append(match.index[0])
-
-    return selected_indexes
-
-
-def update_transect_time_series(
-    filepaths: List[str], dates_list: List[datetime]
-) -> None:
-    """
-    Updates a series of CSV files by removing rows based on certain dates.
-
-    :param filepaths: A list of file paths to the CSV files.
-    :param dates_list: A list of datetime objects representing the dates to be filtered out.
-    :return: None
-    """
-    for filepath in filepaths:
-        # Read the CSV file into a DataFrame
-        df = pd.read_csv(filepath)
-
-        # Format the dates to match the format in the CSV file
-        formatted_dates = [
-            date.strftime("%Y-%m-%d %H:%M:%S+00:00") for date in dates_list
-        ]
-        # Keep only the rows where the 'dates' column isn't in the list of formatted dates
-        df = df[~df["dates"].isin(formatted_dates)]
-        # Write the updated DataFrame to the same CSV file
-        df.to_csv(filepath, index=False)
-
-
-def extract_dates_and_sats(
-    selected_items: List[str],
-) -> Tuple[List[datetime], List[str]]:
-    """
-    Extract the dates and satellite names from a list of selected items.
-
-    Args:
-        selected_items: A list of strings, where each string is in the format "satname_dates".
-
-    Returns:
-        A tuple of two lists: the first list contains datetime objects corresponding to the dates in the selected items,
-        and the second list contains the satellite names in the selected items.
-    """
-    dates_list = []
-    sat_list = []
-    for criteria in selected_items:
-        satname, dates = criteria.split("_")
-        sat_list.append(satname)
-        dates_list.append(
-            datetime.strptime(dates, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        )
-    return dates_list, sat_list
-
-
-def transform_data_to_nested_arrays(
-    data_dict: Dict[str, Union[List[Union[int, float, np.ndarray]], np.ndarray]]
-) -> Dict[str, np.ndarray]:
-    """
-    Convert a dictionary of data to a new dictionary with nested NumPy arrays.
-
-    Args:
-        data_dict: A dictionary of data, where each value is either a list of integers, floats, or NumPy arrays, or a NumPy array.
-
-    Returns:
-        A new dictionary with the same keys as `data_dict`, where each value is a NumPy array or a nested NumPy array.
-
-    Raises:
-        TypeError: If `data_dict` is not a dictionary, or if any value in `data_dict` is not a list or NumPy array.
-    """
-    transformed_dict = {}
-    for key, items in data_dict.items():
-        if any(isinstance(element, np.ndarray) for element in items):
-            nested_array = np.empty(len(items), dtype=object)
-            for index, array_element in enumerate(items):
-                nested_array[index] = array_element
-            transformed_dict[key] = nested_array
-        else:
-            transformed_dict[key] = np.array(items)
-    return transformed_dict
-
-
-def process_data_input(data):
-    """
-    Process the data input and transform it to nested arrays.
-
-    Parameters:
-    data (dict or str): The data input to process. If data is a string, it is assumed to be the full path to the JSON file.
-
-    Returns:
-    dict: The processed data as nested arrays.
-    """
-    # Determine if data is a dictionary or a file path
-    if isinstance(data, dict):
-        data_dict = data
-    elif isinstance(data, str):
-        # Load data from the JSON file
-        if os.path.exists(data):
-            data_dict = file_utilities.load_data_from_json(data)
-        else:
-            return None
-    else:
-        raise TypeError("data must be either a dictionary or a string file path.")
-
-    # Transform data to nested arrays
-    new_dict = transform_data_to_nested_arrays(data_dict)
-    return new_dict
-
-
-def update_extracted_shorelines_dict_transects_dict(
-    session_path, filename, dates_list, sat_list
-):
-    json_file = os.path.join(session_path, filename)
-    if os.path.exists(json_file) and os.path.isfile(json_file):
-        # read the data from the json file 
-        data = file_utilities.load_data_from_json(json_file)
-        # processes the data into nested arrays
-        extracted_shorelines_dict = process_data_input(data)
-        if extracted_shorelines_dict is not None:
-            # Get the indexes of the selected items in the extracted_shorelines_dict
-            selected_indexes = get_selected_indexes(
-                extracted_shorelines_dict, dates_list, sat_list
-            )
-            # attempt to delete the selected indexes from the "transect_cross_distances.json"
-            transect_cross_distances_path = os.path.join(
-                session_path, "transects_cross_distances.json"
-            )
-            # if the transect_cross_distances.json exists then delete the selected indexes from it
-            if os.path.exists(transect_cross_distances_path) and os.path.isfile(
-                transect_cross_distances_path
-            ):
-                transects_dict = process_data_input(transect_cross_distances_path)
-                if transects_dict is not None:
-                    # Delete the selected indexes from the transects_dict
-                    transects_dict = delete_selected_indexes(
-                        transects_dict, selected_indexes
-                    )
-                    file_utilities.to_file(
-                        transects_dict, transect_cross_distances_path
-                    )
-
-            # Delete the selected indexes from the extracted_shorelines_dict
-            extracted_shorelines_dict = delete_selected_indexes(
-                extracted_shorelines_dict, selected_indexes
-            )
-            file_utilities.to_file(extracted_shorelines_dict, json_file)
-
-
-# def update_selected_shorelines_dict(
-#     data_input: Union[Dict[str, Any], str],
-#     selected_items: List[Tuple[str, str]],
-# ) -> None:
-#     new_dict = process_data_input(data_input)
-
-#     # Extract dates and satellite names from the selected items
-#     dates_list, sat_list = extract_dates_and_sats(selected_items)
-
-#     # Get the indexes of the selected items in the new_dict
-#     selected_indexes = get_selected_indexes(new_dict, dates_list, sat_list)
-
-#     # Delete the selected indexes from the new_dict
-#     if selected_indexes:
-#         for key in new_dict.keys():
-#             new_dict[key] = np.delete(new_dict[key], selected_indexes)
-
-#     return new_dict
-
-
-def delete_selected_indexes(input_dict, selected_indexes):
-    """
-    Delete the selected indexes from the transects_dict.
-
-    Parameters:
-    input_dict (dict): The transects dictionary to modify.
-    selected_indexes (list): The indexes to delete.
-
-    Returns:
-    dict: The modified transects dictionary.
-    """
-    for key in input_dict.keys():
-        input_dict[key] = np.delete(input_dict[key], selected_indexes)
-    return input_dict
-
-
-# def update_selected_shorelines_dict(
-#     data_input: Union[Dict[str, Any], str],
-#     selected_items: List[Tuple[str, str]],
-#     session_path: str = "",
-#     filename: str = "",
-# ) -> None:
-#     # Determine if data_input is a dictionary or a file path
-#     if isinstance(data_input, dict):
-#         data = data_input
-#     elif isinstance(data_input, str):
-#         if not session_path or not filename:
-#             raise ValueError(
-#                 "If data_input is a file path, session_path and filename must be provided."
-#             )
-#         # Define the full path to the JSON file
-#         json_file = os.path.join(session_path, filename)
-#         # Load data from the JSON file
-#         if os.path.exists(json_file):
-#             data = file_utilities.load_data_from_json(json_file)
-#         else:
-#             return None
-#     else:
-#         raise TypeError("data_input must be either a dictionary or a string file path.")
-
-#     # Transform data to nested arrays
-#     new_dict = transform_data_to_nested_arrays(data)
-
-#     # Extract dates and satellite names from the selected items
-#     dates_list, sat_list = extract_dates_and_sats(selected_items)
-
-#     # Get the indexes of the selected items in the new_dict
-#     selected_indexes = get_selected_indexes(new_dict, dates_list, sat_list)
-
-#     # Delete the selected indexes from the new_dict
-#     if selected_indexes:
-#         for key in new_dict.keys():
-#             new_dict[key] = np.delete(new_dict[key], selected_indexes)
-
-#     return new_dict
-
-
-def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
-    """
-    Creates a new configuration dictionary by combining the given settings and ROI settings.
-
-    Arguments:
-    -----------
-    roi_ids: list
-        A list of ROI IDs to include in the new configuration.
-    settings: dict
-        A dictionary containing general settings for the configuration.
-    roi_settings: dict
-        A dictionary containing ROI-specific settings for the configuration.
-        example:
-        {'example_roi_id': {'dates':[]}
-
-    Returns:
     -----------
     new_config: dict
         A dictionary containing the combined settings and ROI settings, as well as the ROI IDs.
@@ -376,7 +115,7 @@ def save_new_config(path: str, roi_ids: list, destination: str) -> dict:
         if roi_id in config.keys():
             roi_settings[roi_id] = config[roi_id]
 
-    new_config = create_new_config(roi_ids, config["settings"], roi_settings)
+    new_config = create_json_config(roi_settings, config["settings"], roi_ids)
     with open(destination, "w") as f:
         json.dump(new_config, f)
 
@@ -569,7 +308,7 @@ def get_satellite_name(filename: str):
     try:
         return filename.split("_")[2].split(".")[0]
     except IndexError:
-        # logger.error(f"Unable to extract satellite name from filename: {filename}")
+        logger.error(f"Unable to extract satellite name from filename: {filename}")
         return None
 
 
@@ -616,7 +355,7 @@ def filter_images(
         "L7": 15,
         "L8": 15,
         "L9": 15,
-        "L5": 30,
+        "L5": 15,  # coastsat modifies the per pixel resolution from 30m to 15m for L5
     }
     bad_files = []
     jpg_files = [
@@ -635,21 +374,32 @@ def filter_images(
             continue
 
         filepath = os.path.join(directory, file)
-        with Image.open(filepath) as img:
-            width, height = img.size
-            img_area = (
-                width
-                * pixel_size_per_satellite[satname]
-                * height
-                * pixel_size_per_satellite[satname]
-            )
-            img_area /= 1e6  # convert to square kilometers
-            if img_area > max_area or img_area < min_area:
-                bad_files.append(file)
+        img_area = calculate_image_area(filepath, pixel_size_per_satellite[satname])
+        if img_area < min_area or (max_area is not None and img_area > max_area):
+            bad_files.append(file)
+
     bad_files = list(map(lambda s: os.path.join(directory, s), bad_files))
     # move the bad files to the bad folder
     file_utilities.move_files(bad_files, output_directory)
     return bad_files  # Optionally return the list of bad files
+
+
+def calculate_image_area(filepath: str, pixel_size: int) -> float:
+    """
+    Calculate the area of an image in square kilometers.
+
+    Args:
+        filepath (str): The path to the image file.
+        pixel_size (int): The size of a pixel in the image in meters.
+
+    Returns:
+        float: The area of the image in square kilometers.
+    """
+    with Image.open(filepath) as img:
+        width, height = img.size
+        img_area = width * pixel_size * height * pixel_size
+        img_area /= 1e6  # convert to square kilometers
+    return img_area
 
 
 def validate_geometry_types(
@@ -682,9 +432,6 @@ def validate_geometry_types(
                 wrong_geom_type=geom_type,
                 help_msg=help_message,
             )
-            # raise ValueError(
-            #     f"The {feature_type} contained a geometry of type '{geom_type}' which is not in the list of valid types: {valid_types}"
-            # )
 
 
 def get_roi_polygon(
@@ -738,8 +485,6 @@ def get_cert_path_from_config(config_file="certifications.json"):
 
         # Get the cert path
         cert_path = config.get("cert_path")
-        logger.info(f"certifications.json cert_path: {cert_path}")
-
         # If the cert path is a valid file, return it
         if cert_path and os.path.isfile(cert_path):
             logger.info(f"certifications.json cert_path isfile: {cert_path}")
@@ -1042,7 +787,7 @@ def save_transects(
         save_location,
         cross_distance_transects,
         extracted_shorelines,
-        filename="_timeseries_raw.csv",
+        file_extension="_timeseries_raw.csv",
     )
     save_transect_intersections(
         save_location,
@@ -1072,7 +817,6 @@ def get_downloaded_models_dir() -> str:
     )
     if not os.path.exists(downloaded_models_path):
         os.mkdir(downloaded_models_path)
-    logger.info(f"downloaded_models_path: {downloaded_models_path}")
 
     return downloaded_models_path
 
@@ -1410,7 +1154,6 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
     container = VBox([container_header])
 
     def uncollapse_click(change: dict):
-        logger.info(change)
         if feature_html.value == "":
             container_content.children = [msg]
         elif feature_html.value != "":
@@ -1419,7 +1162,6 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
         container.children = [container_header, container_content]
 
     def collapse_click(change: dict):
-        logger.info(change)
         container_header.children = [title, uncollapse_button]
         container.children = [container_header]
 
@@ -1528,25 +1270,24 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
     with response as r:
         logger.info(r)
         if r.status_code == 404:
-            logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
+            logger.error(f"Error {r.status_code}. DownloadError: {save_path} {r}")
             raise exceptions.DownloadError(os.path.basename(save_path))
         if r.status_code == 429:
-            logger.error(f"Error {r.status_code}.DownloadError: {save_path}")
+            logger.error(f"Error {r.status_code}.DownloadError: {save_path} {r}")
             raise Exception(
                 "Zenodo has denied the request. You may have requested too many files at once."
             )
         if r.status_code != 200:
-            logger.error(f"Error {r.status_code}. DownloadError: {save_path}")
+            logger.error(f"Error {r.status_code}. DownloadError: {save_path} {r}")
             raise exceptions.DownloadError(os.path.basename(save_path))
         # check header to get content length, in bytes
         content_length = r.headers.get("Content-Length")
         if content_length:
             total_length = int(content_length)
         else:
-            print(
-                "Content length not found in response headers. Downloading without progress bar."
-            )
+            logger.warning("Content length not found in response headers")
             total_length = None
+
         with open(save_path, "wb") as fd:
             with tqdm(
                 total=total_length,
@@ -1573,6 +1314,31 @@ def get_center_point(coords: list) -> tuple:
     x2, y2 = coords[2][0], coords[2][1]
     center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
     return center_x, center_y
+
+
+def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
+    Args:
+    - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+    Returns:
+    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
+                        already contains MultiPoints, the original GeoDataFrame is returned.
+    """
+
+    # Check if the gdf already contains MultiPoints
+    if any(gdf.geometry.type == "MultiPoint"):
+        return gdf
+
+    def linestring_to_multipoint(linestring):
+        if isinstance(linestring, LineString):
+            return MultiPoint(linestring.coords)
+        return linestring
+
+    # Convert each LineString to a MultiPoint
+    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
+
+    return gdf
 
 
 def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
@@ -1664,7 +1430,7 @@ def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = []
     return roi_data
 
 
-def extract_fields(data, key=None, fields_of_interest=None):
+def extract_fields(data: dict, key=None, fields_of_interest=None):
     """
     Extracts specified fields from a given dictionary.
 
@@ -1688,12 +1454,12 @@ def extract_fields(data, key=None, fields_of_interest=None):
         "landsat_collection",
         "filepath",
     }
-
+    # extract the data from a sub dictionary with a specified key if it exists
     if key and key in data:
         for field in fields_of_interest:
             if field in data[key]:
                 extracted_data[field] = data[key][field]
-    else:
+    else:  # extract all the fields of interest from the data
         for field in fields_of_interest:
             if field in data:
                 extracted_data[field] = data[field]
@@ -1800,6 +1566,24 @@ def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
 def get_cross_distance_df(
     extracted_shorelines: dict, cross_distance_transects: dict
 ) -> pd.DataFrame:
+    """
+    Creates a DataFrame from extracted shorelines and cross distance transects by
+    getting the dates from extracted shorelines and saving it to the as the intersection time for each extracted shoreline
+    for each transect
+
+    Parameters:
+    extracted_shorelines : dict
+        A dictionary containing the extracted shorelines. It must have a "dates" key with a list of dates.
+    cross_distance_transects : dict
+        A dictionary containing the transects and the cross distance where the extracted shorelines intersected it. The keys are transect names and the values are lists of cross distances.
+        eg.
+        {  'tranect 1': [1,2,3],
+            'tranect 2': [4,5,6],
+        }
+    Returns:
+    DataFrame
+        A DataFrame where each column is a transect from cross_distance_transects and the "dates" column from extracted_shorelines. Each row corresponds to a date and contains the cross distances for each transect on that date.
+    """
     transects_csv = {}
     # copy dates from extracted shoreline
     transects_csv["dates"] = extracted_shorelines["dates"]
@@ -1814,13 +1598,29 @@ def save_transect_intersections(
     cross_distance_transects: dict,
     filename: str = "transect_time_series.csv",
 ) -> str:
+    """
+    Saves the saves the dates from the extracted shorelines to the dictionart containing the cross distance transect intersections to a CSV file.
+
+    This function processes intersection data between shorelines and transects, removing columns with all NaN values.
+    It then saves the processed data to a CSV file at the specified path.
+
+    Args:
+    - save_path (str): The directory path where the CSV file will be saved.
+    - extracted_shorelines (dict): A dictionary containing shoreline data.
+    - cross_distance_transects (dict): A dictionary containing transect data with cross-distance measurements.
+    - filename (str, optional): The name of the CSV file to be saved. Default is "transect_time_series.csv".
+
+    Returns:
+    - str: The full file path of the saved CSV file.
+
+    The function first combines the shoreline and transect data into a DataFrame and then removes any columns
+    that contain only NaN values before saving to CSV.
+    """
     cross_distance_df = get_cross_distance_df(
         extracted_shorelines, cross_distance_transects
     )
+    cross_distance_df.dropna(axis="columns", how="all", inplace=True)
     filepath = os.path.join(save_path, filename)
-    if os.path.exists(filepath):
-        print(f"Overwriting:{filepath}")
-        os.remove(filepath)
     cross_distance_df.to_csv(filepath, sep=",")
     return filepath
 
@@ -1871,53 +1671,98 @@ def create_csv_per_transect(
     save_path: str,
     cross_distance_transects: dict,
     extracted_shorelines_dict: dict,
-    filename: str = "_timeseries_raw.csv",
-):
-    for key in cross_distance_transects.keys():
-        df = pd.DataFrame()
-        out_dict = dict([])
-        # copy shoreline intersects for each transect
-        out_dict[key] = cross_distance_transects[key]
-        logger.info(
-            f"out dict roi_ids columns : {[roi_id for _ in range(len(extracted_shorelines_dict['dates']))]}"
-        )
-        out_dict["roi_id"] = [
-            roi_id for _ in range(len(extracted_shorelines_dict["dates"]))
-        ]
-        out_dict["dates"] = extracted_shorelines_dict["dates"]
-        out_dict["satname"] = extracted_shorelines_dict["satname"]
-        logger.info(f"out_dict : {out_dict}")
-        df = pd.DataFrame(out_dict)
-        df.index = df["dates"]
-        df.pop("dates")
-        # save to csv file session path
-        csv_filename = f"{key}{filename}"
-        fn = os.path.join(save_path, csv_filename)
-        logger.info(f"Save time series to {fn}")
-        if os.path.exists(fn):
-            logger.info(f"Overwriting:{fn}")
-            os.remove(fn)
-        df.to_csv(fn, sep=",")
-        logger.info(
-            f"ROI: {roi_id}Time-series of the shoreline change along the transects saved as:{fn}"
-        )
+    file_extension: str = "_timeseries_raw.csv",
+) -> None:
+    """
+    Generates CSV files from transect and shoreline data.
+
+    For each transect in cross_distance_transects, this function creates a CSV file if the transect contains
+    non-NaN values. The CSV includes dates, transect data, region of interest ID, and satellite name.
+
+    Args:
+    - roi_id (str): ID for the region of interest.
+    - save_path (str): Path to save CSV files.
+    - cross_distance_transects (dict): Transect data with cross-distance measurements.
+    - extracted_shorelines_dict (dict): Contains 'dates' and 'satname'.
+    - file_extension (str, optional): File extension for CSV files. Default is "_timeseries_raw.csv".
+
+    Notes:
+    - CSV files are named using transect keys and file_extension.
+    - Transects with only NaN values are skipped.
+    """
+    for key, transect in cross_distance_transects.items():
+        if pd.notna(transect).any():  # Check if there's any non-NaN value
+            # Create DataFrame directly
+            df = pd.DataFrame(
+                {
+                    "dates": extracted_shorelines_dict["dates"],
+                    key: transect,
+                    "roi_id": [roi_id] * len(extracted_shorelines_dict["dates"]),
+                    "satname": extracted_shorelines_dict["satname"],
+                },
+                index=extracted_shorelines_dict["dates"],
+            )
+            # Save to csv file
+            fn = f"{key}{file_extension}"
+            file_path = os.path.join(save_path, fn)
+            df.to_csv(
+                file_path, sep=",", index=False
+            )  # Set index=False if you don't want 'dates' as index in CSV
 
 
-def save_extracted_shoreline_figures(
-    extracted_shorelines: "Extracted_Shoreline", save_path: str
+def move_report_files(
+    settings: dict, dest: str, filename_pattern="extract_shorelines*.txt"
 ):
     """
-    Save extracted shoreline figures to a specified save path.
+    Move report files matching a specific pattern from the source directory to the destination.
 
-    The function first constructs the path to the extracted shoreline figures
-    and checks if the path exists. If the path exists, it moves the files to a
-    new directory specified by save_path.
-
-    :param extracted_shorelines:An Extracted_Shoreline object containing the extracted shorelines and shoreline settings.
-    :param save_path: The path where the output figures will be saved.
+    :param settings: Dictionary containing 'filepath' and 'sitename'.
+    :param dest: The destination path where the report files will be moved.
+    :param filename_pattern: Pattern of the filenames to search for, defaults to 'extract_shorelines*.txt'.
     """
-    data_path = extracted_shorelines.shoreline_settings["inputs"]["filepath"]
-    sitename = extracted_shorelines.shoreline_settings["inputs"]["sitename"]
+    # Attempt to get the data_path and sitename
+    filepath = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
+    sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
+
+    # Check if data_path and sitename were successfully retrieved
+    if not filepath or not sitename:
+        logger.error("Data path or sitename not found in settings.")
+        return
+
+    # Construct the pattern to match files
+    pattern = os.path.join(filepath, sitename, filename_pattern)
+    matching_files = glob.glob(pattern)
+
+    # Check if there are files to move
+    if not matching_files:
+        logger.warning(f"No files found matching the pattern: {pattern}")
+        return
+
+    # Move the files
+    try:
+        file_utilities.move_files(matching_files, dest, delete_src=True)
+        logger.info(f"Files moved successfully to {dest}")
+    except Exception as e:
+        logger.error(f"Error moving files: {e}")
+
+
+def save_extracted_shoreline_figures(settings: dict, save_path: str):
+    """
+    Save extracted shoreline figures to the specified save path.
+
+    Args:
+        settings (dict): A dictionary containing the settings for the extraction process.
+        save_path (str): The path where the extracted shoreline figures will be saved.
+    """
+    # Get the data_path and sitename from the settings
+    data_path = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
+    sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
+
+    # Check if data_path and sitename were successfully retrieved
+    if not data_path or not sitename:
+        logger.error(f"Data path or sitename not found in settings.{settings}")
+        return
+
     extracted_shoreline_figure_path = os.path.join(
         data_path, sitename, "jpg_files", "detection"
     )
@@ -1925,7 +1770,7 @@ def save_extracted_shoreline_figures(
 
     if os.path.exists(extracted_shoreline_figure_path):
         dst_path = os.path.join(save_path, "jpg_files", "detection")
-        logger.info(f"dst_path : {dst_path }")
+        logger.info(f"Moving extracted shoreline figures to : {dst_path }")
         file_utilities.move_files(
             extracted_shoreline_figure_path, dst_path, delete_src=True
         )
@@ -1943,8 +1788,8 @@ def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFram
                         already contains MultiPoints, the original GeoDataFrame is returned.
     """
 
-    # Check if the gdf already contains MultiPoints
-    if any(gdf.geometry.type == "MultiPoint"):
+    # Check if all geometries in the gdf are MultiPoints
+    if all(gdf.geometry.type == "MultiPoint"):
         return gdf
 
     def linestring_to_multipoint(linestring):
@@ -1979,7 +1824,7 @@ def save_extracted_shorelines(
         geomtype="lines",
     )
 
-    # Save extracted shorelines as a GeoJSON file
+    # Save extracted shorelines to GeoJSON files
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
     )
@@ -2031,7 +1876,9 @@ def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def create_json_config(inputs: dict, settings: dict, roi_ids: list[str] = []) -> dict:
+def create_json_config(
+    inputs: dict, settings: dict = {}, roi_ids: list[str] = []
+) -> dict:
     """returns config dictionary with the settings, currently selected_roi ids, and
     each of the inputs specified by roi id.
     sample config:
@@ -2372,6 +2219,7 @@ def create_roi_settings(
             "landsat_collection": landsat_collection,
             "sitename": sitename,
             "filepath": filepath,
+            "include_T2": False,
         }
         roi_settings[roi_id] = inputs_dict
     return roi_settings

@@ -16,6 +16,8 @@ from shapely import geometry
 import pandas as pd
 import pytest
 from unittest.mock import patch
+import pytest
+from coastseg import common
 
 
 def test_filter_partial_images():
@@ -81,8 +83,9 @@ def test_invalid_projection():
 
 
 def test_filter_images_existing_directory(setup_image_directory):
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
     bad_images = common.filter_images(
-        0.8, 1.5, setup_image_directory, setup_image_directory.join("bad")
+        15, 30, setup_image_directory, setup_image_directory.join("bad")
     )
     assert len(bad_images) == 2
 
@@ -92,6 +95,46 @@ def test_filter_images_existing_directory(setup_image_directory):
     assert (
         os.path.join(setup_image_directory, "dummy_prefix_L5_image.jpg") in bad_images
     )
+
+
+def test_filter_images_existing_directory_bad_images(setup_image_directory_bad_images):
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
+    bad_images = common.filter_images(
+        15,
+        30,
+        setup_image_directory_bad_images,
+        setup_image_directory_bad_images.join("bad"),
+    )
+    assert len(bad_images) == 5
+
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_S2_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L5_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L7_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L8_image.jpg")
+        in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory_bad_images, "dummy_prefix_L9_image.jpg")
+        in bad_images
+    )
+
+
+def test_filter_images_all_good_images(setup_good_image_directory):
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
+    bad_images = common.filter_images(
+        15, 30, setup_good_image_directory, setup_good_image_directory.join("bad")
+    )
+    assert len(bad_images) == 0
 
 
 def test_filter_images_non_existing_directory():
@@ -104,8 +147,27 @@ def test_filter_images_no_jpg_files_found(tmpdir):
     assert len(bad_files) == 0
 
 
+def test_filter_images_no_output_directory_provided_no_max_area(setup_image_directory):
+    # min area is 60% of area 25km^2 and max area is None
+    bad_images = common.filter_images(15, None, setup_image_directory)
+    assert len(bad_images) == 2
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_S2_image.jpg") in bad_images
+    )
+    assert (
+        os.path.join(setup_image_directory, "dummy_prefix_L5_image.jpg") in bad_images
+    )
+    assert os.path.exists(
+        os.path.join(setup_image_directory, "bad", "dummy_prefix_S2_image.jpg")
+    )
+    assert os.path.exists(
+        os.path.join(setup_image_directory, "bad", "dummy_prefix_L5_image.jpg")
+    )
+
+
 def test_filter_images_no_output_directory_provided(setup_image_directory):
-    bad_images = common.filter_images(0.8, 1.5, setup_image_directory)
+    # min area is 60% of area 25km^2 and max area is 150% of area 25km^2
+    bad_images = common.filter_images(15, 30, setup_image_directory)
     assert len(bad_images) == 2
     assert (
         os.path.join(setup_image_directory, "dummy_prefix_S2_image.jpg") in bad_images
@@ -877,3 +939,171 @@ def test_extract_roi_by_id(valid_rois_gdf):
     expected_roi = valid_rois_gdf[valid_rois_gdf["id"].astype(int) == roi_id]
     assert actual_roi["geometry"][0] == expected_roi["geometry"][0]
     assert actual_roi["id"][0] == expected_roi["id"][0]
+
+
+def test_load_settings_empty_filepath():
+    # Test loading all settings from an empty filepath
+    settings = common.load_settings()
+    assert isinstance(settings, dict)
+    assert len(settings) == 0
+
+
+def test_load_settings_with_invalid_filepath():
+    # Test loading settings from an invalid filepath
+    filepath = "/path/to/invalid.json"
+    keys = {
+        "sat_list",
+        "dates",
+        "cloud_thresh",
+        "min_beach_area",
+        "output_epsg",
+        "max_dist_ref",
+    }
+    settings = common.load_settings(filepath, keys)
+    assert isinstance(settings, dict)
+    assert len(settings) == 0
+
+
+def test_load_settings_with_nested_settings(config_json):
+    config_path, _ = config_json
+    # Test loading specific settings from a JSON file with nested settings
+    keys = {
+        "model_session_path",
+        "apply_cloud_mask",
+        "image_size_filter",
+        "pan_off",
+        "save_figure",
+        "adjust_detection",
+        "check_detection",
+        "landsat_collection",
+        "sat_list",
+        "dates",
+        "sand_color",
+        "cloud_thresh",
+        "cloud_mask_issue",
+        "min_beach_area",
+        "min_length_sl",
+        "output_epsg",
+        "sand_color",
+        "pan_off",
+        "max_dist_ref",
+        "dist_clouds",
+        "percent_no_data",
+        "max_std",
+        "min_points",
+        "along_dist",
+        "max_range",
+        "min_chainage",
+        "multiple_inter",
+        "prc_multiple",
+    }
+    settings = common.load_settings(config_path, keys)
+    assert isinstance(settings, dict)
+    assert settings["landsat_collection"] == "C02"
+    assert settings["dates"] == ["2018-12-01", "2019-03-01"]
+    assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
+    assert settings["cloud_thresh"] == 0.8
+    assert settings["dist_clouds"] == 350
+    assert settings["output_epsg"] == 32610
+    assert settings["check_detection"] is False
+    assert settings["adjust_detection"] is False
+    assert settings["save_figure"] is True
+    assert settings["min_beach_area"] == 1050
+    assert settings["min_length_sl"] == 600
+    assert settings["cloud_mask_issue"] is True
+    assert settings["sand_color"] == "default"
+    assert settings["pan_off"] == "False"
+    assert settings["max_dist_ref"] == 200
+    assert settings["along_dist"] == 28
+    assert settings["min_points"] == 4
+    assert settings["max_std"] == 16.0
+    assert settings["max_range"] == 38.0
+    assert settings["min_chainage"] == -105.0
+    assert settings["multiple_inter"] == "auto"
+    assert settings["prc_multiple"] == 0.2
+    assert settings["apply_cloud_mask"] is False
+    assert settings["image_size_filter"] is False
+
+
+def test_load_settings_with_empty_keys(config_json):
+    # Test loading all settings from a JSON file
+    config_path, tmpdir = config_json
+    settings = common.load_settings(config_path, set())
+    assert isinstance(settings, dict)
+    assert len(settings) > 0
+
+
+def test_load_settings_with_set_keys(config_json):
+    config_path, tmpdir = config_json
+    # Test loading specific settings from a JSON file using a set of keys
+    keys = {
+        "sat_list",
+        "dates",
+        "cloud_thresh",
+        "min_beach_area",
+        "output_epsg",
+        "max_dist_ref",
+    }
+    settings = common.load_settings(config_path, keys)
+    assert isinstance(settings, dict)
+    assert settings["dates"] == ["2018-12-01", "2019-03-01"]
+    assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
+    assert settings["min_beach_area"] == 1050
+    assert settings["max_dist_ref"] == 200
+    assert len(settings) == len(keys)
+    assert all(key in settings for key in keys)
+
+
+def test_load_settings_with_list_keys(config_json):
+    config_path, tmpdir = config_json
+    # Test loading specific settings from a JSON file using a list of keys
+    keys = [
+        "sat_list",
+        "dates",
+        "cloud_thresh",
+        "min_beach_area",
+        "output_epsg",
+        "max_dist_ref",
+    ]
+    settings = common.load_settings(config_path, keys)
+    assert settings["dates"] == ["2018-12-01", "2019-03-01"]
+    assert settings["sat_list"] == ["L5", "L7", "L8", "L9", "S2"]
+    assert settings["min_beach_area"] == 1050
+    assert settings["max_dist_ref"] == 200
+    assert isinstance(settings, dict)
+    assert len(settings) == len(keys)
+    assert all(key in settings for key in keys)
+
+
+import pytest
+import os
+import shutil
+from coastseg import common
+from coastseg import file_utilities
+
+
+def test_save_extracted_shoreline_figures(temp_jpg_dir_structure, temp_dst_dir):
+    # Create a settings dictionary
+    settings = {"filepath": str(temp_jpg_dir_structure), "sitename": "sitename"}
+
+    # Create a directory for extracted shoreline figures
+    extracted_shoreline_figure_path = os.path.join(
+        settings["filepath"], settings["sitename"], "jpg_files", "detection"
+    )
+    assert os.path.exists(extracted_shoreline_figure_path) == True
+
+    # Call the function under test
+    common.save_extracted_shoreline_figures(settings, str(temp_dst_dir))
+    assert os.path.exists(os.path.join(temp_dst_dir, "jpg_files", "detection")) == True
+    assert len(os.listdir(os.path.join(temp_dst_dir, "jpg_files", "detection"))) == 5
+    # Check if the extracted shoreline figures directory is empty
+    assert os.path.exists(extracted_shoreline_figure_path) == False
+
+    # Check if the files are moved to the save path
+    for i in range(5):
+        print(
+            os.path.join(temp_dst_dir, "jpg_files", "detection", f"test_image_{i}.jpg")
+        )
+        assert os.path.exists(
+            os.path.join(temp_dst_dir, "jpg_files", "detection", f"test_image_{i}.jpg")
+        )
