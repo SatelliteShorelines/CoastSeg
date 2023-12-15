@@ -7,7 +7,7 @@ import logging
 from coastseg import exception_handler
 from coastseg import common
 from coastseg import file_utilities
-from coastseg.watchable_slider import Extracted_Shoreline_widget
+from coastseg.extract_shorelines_widget import Extracted_Shoreline_widget
 
 
 # External Python imports
@@ -198,7 +198,14 @@ class UI:
         # create an exception handler for extracted shorelines widget
         def my_exception_handler(error):
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
-        
+
+        def clear_map_styles(error):
+            self.coastseg_map.map.default_style = {"cursor": "default"}
+
+        # create an exception handler for extracted shorelines widget
+        def my_exception_handler(error):
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+
         def clear_map_styles(error):
             self.coastseg_map.map.default_style = {"cursor": "default"}
 
@@ -213,7 +220,7 @@ class UI:
         self.extract_shorelines_widget.handle_exception.register_callback(
             clear_map_styles
         )
-        
+
         # add callbacks to the extract shorelines widget
         self.extract_shorelines_widget.add_load_callback(
             coastseg_map.load_selected_shorelines_on_map

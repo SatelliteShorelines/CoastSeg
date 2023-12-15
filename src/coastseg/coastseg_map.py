@@ -71,6 +71,14 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
         if roi_list_widget:
             self.link_roi_list(roi_list_widget)
 
+    def link_load_list(self, widget):
+        if hasattr(widget, "options"):
+            traitlets.dlink((self, "load_list"), (widget, "options"))
+
+    def link_trash_list(self, widget):
+        if hasattr(widget, "options"):
+            traitlets.dlink((self, "trash_list"), (widget, "options"))
+
     def link_roi_list(self, widget):
         if hasattr(widget, "options"):
             traitlets.dlink((self, "roi_ids_list"), (widget, "options"))
@@ -1858,9 +1866,8 @@ class CoastSeg_Map:
         self.extract_shorelines_container.max_shorelines = 0
 
     def remove_extracted_shoreline_layers(self):
-        if self.extract_shorelines_container.geo_data.data != {}:
-            self.remove_layer_by_name(self.extract_shorelines_container.geo_data.name)
-            self.extract_shorelines_container.geo_data = GeoJSON(data={})
+        self.remove_layer_by_name("delete")
+        self.remove_layer_by_name("extracted shoreline")
 
     def remove_bbox(self):
         """Remove all the bounding boxes from the map"""
