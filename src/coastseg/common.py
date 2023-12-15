@@ -282,7 +282,7 @@ def get_satellite_name(filename: str):
     try:
         return filename.split("_")[2].split(".")[0]
     except IndexError:
-        # logger.error(f"Unable to extract satellite name from filename: {filename}")
+        logger.error(f"Unable to extract satellite name from filename: {filename}")
         return None
 
 
@@ -1259,7 +1259,6 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
         if content_length:
             total_length = int(content_length)
         else:
-            # Content-Length not available
             logger.warning("Content length not found in response headers")
             total_length = None
 
@@ -1723,16 +1722,13 @@ def move_report_files(
 
 def save_extracted_shoreline_figures(settings: dict, save_path: str):
     """
-    Save extracted shoreline figures to a specified save path.
+    Save extracted shoreline figures to the specified save path.
 
-    The function first constructs the path to the extracted shoreline figures
-    and checks if the path exists. If the path exists, it moves the files to a
-    new directory specified by save_path.
-
-    :param extracted_shorelines:An Extracted_Shoreline object containing the extracted shorelines and shoreline settings.
-    :param save_path: The path where the output figures will be saved.
+    Args:
+        settings (dict): A dictionary containing the settings for the extraction process.
+        save_path (str): The path where the extracted shoreline figures will be saved.
     """
-    # Attempt to get the data_path and sitename
+    # Get the data_path and sitename from the settings
     data_path = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
     sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
 
@@ -1748,7 +1744,7 @@ def save_extracted_shoreline_figures(settings: dict, save_path: str):
 
     if os.path.exists(extracted_shoreline_figure_path):
         dst_path = os.path.join(save_path, "jpg_files", "detection")
-        logger.info(f"dst_path : {dst_path }")
+        logger.info(f"Moving extracted shoreline figures to : {dst_path }")
         file_utilities.move_files(
             extracted_shoreline_figure_path, dst_path, delete_src=True
         )
@@ -2197,6 +2193,7 @@ def create_roi_settings(
             "landsat_collection": landsat_collection,
             "sitename": sitename,
             "filepath": filepath,
+            "include_T2": False,
         }
         roi_settings[roi_id] = inputs_dict
     return roi_settings
