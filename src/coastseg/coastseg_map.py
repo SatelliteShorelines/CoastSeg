@@ -51,7 +51,21 @@ class IDContainer(traitlets.HasTraits):
 
 
 class ExtractShorelinesContainer(traitlets.HasTraits):
-    # ROI_ids = traitlets.List(trait=traitlets.Unicode())
+    """A container class for managing shorelines extraction.
+
+    This class provides a container for managing shorelines extraction.
+    It holds lists of shorelines that can be loaded, shorelines that will be thrown away, and
+    ROI (Region of Interest) IDs that have extracted shorelines.
+
+    Args:
+        traitlets (type): The traitlets module for defining traits.
+
+    Attributes:
+        load_list (List[str]): A list of shorelines that can be loaded.
+        trash_list (List[str]): A list of shorelines that will be thrown away.
+        roi_ids_list (List[str]): A list of ROI IDs that have extracted shorelines.
+    """
+
     # list of shorelines that can be loaded
     load_list = traitlets.List(trait=traitlets.Unicode())
     # list of shorelines that will be thrown away
@@ -1863,7 +1877,6 @@ class CoastSeg_Map:
         # remove extracted shoreline vectors from the map
         self.remove_extracted_shoreline_layers()
         self.id_container.ids = []
-        self.extract_shorelines_container.max_shorelines = 0
 
     def remove_extracted_shoreline_layers(self):
         self.remove_layer_by_name("delete")
@@ -2033,7 +2046,13 @@ class CoastSeg_Map:
             # if extracted shorelines exist, load them onto map, if none exist nothing loads
             self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
 
-    def update_roi_ids_with_shorelines(self):
+    def update_roi_ids_with_shorelines(self) -> list[str]:
+        """
+        Updates the ROI IDs with extracted shorelines.
+
+        Returns:
+            A list of ROI IDs that have extracted shorelines.
+        """
         # Get the list of the ROI IDs that have extracted shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(has_extracted_shorelines=True)
         # if no ROIs have extracted shorelines, return otherwise load extracted shorelines for the first ROI ID with extracted shorelines
@@ -2052,8 +2071,20 @@ class CoastSeg_Map:
         )
         return ids_with_extracted_shorelines
 
-    def update_loadable_shorelines(self, selected_id: str):
+    def update_loadable_shorelines(
+        self, selected_id: str
+    ) -> extracted_shoreline.Extracted_Shoreline:
+        """
+        Update the loadable shorelines based on the selected ROI ID.
+
+        Args:
+            selected_id (str): The ID of the selected ROI.
+
+        Returns:
+            extracted_shorelines(extracted_shoreline.Extracted_Shoreline): The extracted shorelines for the selected ROI.
+        """
         print(f"update_loadable_shorelines {selected_id}")
+        # get the extracted shoreline for the selected roi's id
         extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
         print(
             f"ROI ID {selected_id} had gdf {hasattr(extracted_shorelines, 'gdf')} extracted shorelines"
@@ -2074,15 +2105,20 @@ class CoastSeg_Map:
                 self.extract_shorelines_container.load_list = (
                     extracted_shorelines.gdf["satname"] + "_" + formatted_dates
                 ).tolist()
-            # if not extracted_shorelines.gdf.empty:
-            #     self.extract_shorelines_container.load_list = (
-            #         extracted_shorelines.gdf["satname"]
-            #         + "_"
-            #         + extracted_shorelines.gdf["date"].apply(
-            #             lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
-            #         )
-            #     ).tolist()
+                self.extract_shorelines_container.trash_list = []
+            if not extracted_shorelines.gdf.empty:
+                self.extract_shorelines_container.load_list = (
+                    extracted_shorelines.gdf["satname"]
+                    + "_"
+                    + extracted_shorelines.gdf["date"].apply(
+                        lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
+                    )
+                ).tolist()
+                self.extract_shorelines_container.trash_list = []
         else:
+            # if the selected ROI has no extracted shorelines, clear the load list & trash list
+            self.extract_shorelines_container.load_list = []
+            self.extract_shorelines_container.trash_list = []
             return None
         return extracted_shorelines
 

@@ -90,9 +90,6 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             layout=ipywidgets.Layout(width="60%", padding="0px", margin="0px"),
         )
         # Define a lambda function that selects the first option in the options list
-        # select_first_option = lambda change: self.roi_list_widget.set_trait(
-        #     "value", self.roi_list_widget.options[0]
-        # )
         select_first_option = (
             lambda change: self.roi_list_widget.set_trait(
                 "value", self.roi_list_widget.options[0]
@@ -101,7 +98,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             else None
         )
 
-        # Register the callback function with the observe method
+        # The ROI widget will automatically select the first ROI ID when the list of available ROI IDs changes
         self.roi_list_widget.observe(select_first_option, names="options")
 
         # Buttons
