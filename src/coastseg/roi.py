@@ -1,6 +1,7 @@
 # Standard library imports
 import logging
 from typing import Union, List
+import datetime
 
 # Internal dependencies imports
 from coastseg import common
@@ -278,6 +279,25 @@ class ROI:
         if remove_all:
             del self.extracted_shorelines
             self.extracted_shorelines = {}
+
+    def remove_selected_shorelines(
+            self, roi_id: str, dates: list[datetime.datetime], satellites: list[str]
+        ) -> None:
+            """
+            Removes selected shorelines for a specific region of interest (ROI).
+
+            Args:
+                roi_id (str): The ID of the ROI.
+                dates (list[datetime.datetime]): A list of dates for which the shorelines should be removed.
+                satellites (list[str]): A list of satellite names for which the shorelines should be removed.
+
+            Returns:
+                None
+            """
+            if roi_id in self.get_ids_with_extracted_shorelines():
+                extracted_shoreline = self.get_extracted_shoreline(roi_id)
+                if extracted_shoreline is not None:
+                    extracted_shoreline.remove_selected_shorelines(dates, satellites)
 
     def add_extracted_shoreline(
         self,

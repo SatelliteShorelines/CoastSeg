@@ -131,62 +131,6 @@ def find_shorelines_directory(path, roi_id):
     return None
 
 
-def delete_extracted_shorelines_files(session_path: str, selected_items: List):
-    """Delete the extracted shorelines from the session directory for all the relevant files
-    Removes the extracted shorelines from the following files:
-    - extracted_shorelines_lines.geojson
-    - extracted_shorelines_points.geojson
-    - extracted_shorelines_dict.json
-    - transect_time_series.csv
-    - transect_time_series_tidally_corrected.csv
-    As well as all the csv files matching the following patterns
-    - _timeseries_raw.csv
-    - _timeseries_tidally_corrected.csv
-    """
-    # delete the extracted shorelines from both geojson files
-    geodata_processing.edit_geojson_files(
-        session_path,
-        [
-            "extracted_shorelines_lines.geojson",
-            "extracted_shorelines_points.geojson",
-        ],
-        selected_items,
-        common.remove_rows,
-    )
-    # delete the extracted shorelines from the extracted_shorelines_dict.json file
-    filename = "extracted_shorelines_dict.json"
-    # Extract dates and satellite names from the selected items
-    dates_list, sat_list = common.extract_dates_and_sats(selected_items)
-    # update extracted_shorelines_dict.json and transects_cross_distances.json
-    common.update_extracted_shorelines_dict_transects_dict(
-        session_path, filename, dates_list, sat_list
-    )
-    # delete the extracted shorelines from the transect_time_series.csv files
-    filenames = [
-        "transect_time_series.csv",
-        "transect_time_series_tidally_corrected.csv",
-    ]
-    filepaths = [
-        os.path.join(session_path, filename)
-        for filename in filenames
-        if os.path.isfile(os.path.join(session_path, filename))
-    ]
-    dates_list, sat_list = common.extract_dates_and_sats(selected_items)
-    common.update_transect_time_series(filepaths, dates_list)
-    # delete the selected shorelines from all the individual csv files
-    file_patterns = ["_timeseries_tidally_corrected", "_timeseries_raw.csv"]
-    for file_pattern in file_patterns:
-        common.drop_rows_from_csv(file_pattern, session_path, dates_list)
-    # delete the extracted shorelines from the jpg detection files
-    jpg_path = os.path.join(session_path, "jpg_files", "detection")
-    if os.path.exists(jpg_path) and os.path.isdir(jpg_path):
-        common.delete_jpg_files(dates_list, sat_list, jpg_path)
-
-    def link_roi_list(self, widget):
-        if hasattr(widget, "options"):
-            traitlets.dlink((self, "roi_ids_list"), (widget, "options"))
-
-
 def find_shorelines_directory(path, roi_id):
     # List the contents of the specified path
     contents = os.listdir(path)
@@ -221,14 +165,22 @@ def find_shorelines_directory(path, roi_id):
 
 
 def delete_extracted_shorelines_files(session_path: str, selected_items: List):
-    """Delete the extracted shorelines from the session directory for all the relevant files
+    """
+    Delete the extracted shorelines from the session directory for all the relevant files.
+
+    Args:
+        session_path (str): The path to the session directory.
+        selected_items: A list of strings, where each string is in the format "satname_dates".
+        This is a string that represents the satellite name and the dates of the extracted shoreline.
+
     Removes the extracted shorelines from the following files:
     - extracted_shorelines_lines.geojson
     - extracted_shorelines_points.geojson
     - extracted_shorelines_dict.json
     - transect_time_series.csv
     - transect_time_series_tidally_corrected.csv
-    As well as all the csv files matching the following patterns
+
+    As well as all the csv files matching the following patterns:
     - _timeseries_raw.csv
     - _timeseries_tidally_corrected.csv
     """
@@ -413,6 +365,13 @@ class CoastSeg_Map:
             )
             # get the path to the session directory that contains the extracted shoreline files
             session_path = find_shorelines_directory(session_path, selected_id)
+            # remove the extracted shorelines from the extracted shorelines object stored in the ROI
+            # @todo
+            dates, satellites = common.extract_dates_and_sats(selected_shorelines)
+            self.rois.remove_selected_shorelines(selected_id, dates, satellites)
+            # self.rois.
+            # remove_selected_shorelines
+            # remove the extracted shorelines from the files in the session location
             if os.path.exists(session_path) and os.path.isdir(session_path):
                 delete_extracted_shorelines_files(
                     session_path, list(selected_shorelines)
@@ -757,22 +716,29 @@ class CoastSeg_Map:
             self.load_session_from_directory(directory)
 
         # update the list of roi's ids who have extracted shorelines
-        self.update_roi_ids_with_extracted_shorelines(self.rois)
+        # self.update_roi_ids_with_extracted_shorelines(self.rois)
+        ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
 
-    def update_roi_ids_with_extracted_shorelines(self, rois: ROI):
-        # Check if no ROIs are loaded return nothing
-        if rois is None:
-            logger.warning("No ROIs found. Please load ROIs.")
-            return
-        # Get the ids of the ROIs with extracted shorelines
-        ids_with_extracted_shorelines = rois.get_ids_with_extracted_shorelines()
-        # update observable list of ROI ids with extracted shorelines
-        if ids_with_extracted_shorelines is None:
-            self.id_container.ids = []
-        elif not isinstance(ids_with_extracted_shorelines, list):
-            self.id_container.ids = list(ids_with_extracted_shorelines)
-        else:
-            self.id_container.ids = ids_with_extracted_shorelines
+        print(
+            f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
+        )
+
+    # def update_roi_ids_with_extracted_shorelines(self, rois: ROI):
+    #     # Check if no ROIs are loaded return nothing
+    #     if rois is None:
+    #         logger.warning(
+    #             "ROI were None. Cannot update ROI ids with extracted shorelines"
+    #         )
+    #         return
+    #     # Get the ids of the ROIs with extracted shorelines
+    #     ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
+    #     # update observable list of ROI ids with extracted shorelines
+    #     if ids_with_extracted_shorelines is None:
+    #         self.id_container.ids = []
+    #     elif not isinstance(ids_with_extracted_shorelines, list):
+    #         self.id_container.ids = list(ids_with_extracted_shorelines)
+    #     else:
+    #         self.id_container.ids = ids_with_extracted_shorelines
 
     def load_gdf_config(self, filepath: str) -> None:
         """Load features from geodataframe located in geojson file at filepath onto map.
@@ -1637,7 +1603,7 @@ class CoastSeg_Map:
         exception_handler.check_empty_roi_layer(selected_layer)
 
     def get_roi_ids(
-        self, is_selected: bool = True, has_shorelines: bool = False
+        self, is_selected: bool = False, has_shorelines: bool = False
     ) -> list:
         """
         Get the IDs of the regions of interest (ROIs) that meet the specified criteria.
@@ -1696,8 +1662,14 @@ class CoastSeg_Map:
         if hasattr(self.transects, "gdf"):
             self.compute_transects(self.transects.gdf, self.get_settings(), roi_ids)
         # load extracted shorelines to map
-        print(f"Available roi_ids from extracted shorelines: {roi_ids}")
-        self.load_extracted_shorelines_to_map()
+        # update the available ROI IDs and this will update the extracted shorelines on the map
+        ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
+
+        print(
+            f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
+        )
+
+        # self.load_extracted_shorelines_to_map()
 
     def get_cross_distance(
         self,
@@ -2048,23 +2020,25 @@ class CoastSeg_Map:
 
     def update_roi_ids_with_shorelines(self) -> list[str]:
         """
-        Updates the ROI IDs with extracted shorelines.
+        Returns a list of the ROI IDs with extracted shorelines and updates the id_container.ids and the extract_shorelines_container.roi_ids_list with the ROI IDs that have extracted shorelines.
+
+        Updates the id_container ids and the extract_shorelines_container.roi_ids_list with the ROI IDs that have extracted shorelines.
 
         Returns:
             A list of ROI IDs that have extracted shorelines.
         """
         # Get the list of the ROI IDs that have extracted shorelines
-        ids_with_extracted_shorelines = self.get_roi_ids(has_extracted_shorelines=True)
+        ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
+        print(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
         # if no ROIs have extracted shorelines, return otherwise load extracted shorelines for the first ROI ID with extracted shorelines
         if not ids_with_extracted_shorelines:
             self.id_container.ids = []
             self.extract_shorelines_container.roi_ids_list = []
             self.extract_shorelines_container.load_list = []
+            self.extract_shorelines_container.trash_list = []
             logger.warning("No ROIs found with extracted shorelines.")
             return []
-
-        self.id_container.ids = []
-        self.extract_shorelines_container.roi_ids_list = []
+        # save the ROI IDs that had extracted shoreline to observable variables self.id_container.ids and self.extract_shorelines_container.roi_ids_list
         self.id_container.ids = list(ids_with_extracted_shorelines)
         self.extract_shorelines_container.roi_ids_list = list(
             ids_with_extracted_shorelines
@@ -2122,38 +2096,38 @@ class CoastSeg_Map:
             return None
         return extracted_shorelines
 
-    def load_extracted_shorelines_to_map(self, row_number: int = 0) -> None:
-        """Loads stylized extracted shorelines onto the map for a single selected region of interest (ROI).
+    # def load_extracted_shorelines_to_map(self, row_number: int = 0) -> None:
+    #     """Loads stylized extracted shorelines onto the map for a single selected region of interest (ROI).
 
-        Args:
-            row_number (int, optional): The row number of the ROI to load the extracted shorelines for. Defaults to 0.
+    #     Args:
+    #         row_number (int, optional): The row number of the ROI to load the extracted shorelines for. Defaults to 0.
 
-        Raises:
-            Exception: If no ROIs are found or the selected ROI has no extracted shorelines.
+    #     Raises:
+    #         Exception: If no ROIs are found or the selected ROI has no extracted shorelines.
 
-        Returns:
-            None: This function does not return anything, but rather loads the extracted shorelines onto the map.
-        """
-        # Get the list of the ROI IDs that have extracted shorelines
-        ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
-        print(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
-        # if no ROIs have extracted shorelines, return
-        if not ids_with_extracted_shorelines:
-            return
-        print("removing shoreline layers")
-        # Remove any existing extracted shorelines
-        self.remove_extracted_shoreline_layers()
+    #     Returns:
+    #         None: This function does not return anything, but rather loads the extracted shorelines onto the map.
+    #     """
+    #     # Get the list of the ROI IDs that have extracted shorelines
+    #     ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
+    #     print(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
+    #     # if no ROIs have extracted shorelines, return
+    #     if not ids_with_extracted_shorelines:
+    #         return
+    #     print("removing shoreline layers")
+    #     # Remove any existing extracted shorelines
+    #     self.remove_extracted_shoreline_layers()
 
-        # Load extracted shorelines for the first ROI ID with extracted shorelines
-        # select the first ROI ID with extracted shorelines
-        selected_id = ids_with_extracted_shorelines[0]
-        print(f"selected_id {selected_id}")
+    #     # Load extracted shorelines for the first ROI ID with extracted shorelines
+    #     # select the first ROI ID with extracted shorelines
+    #     selected_id = ids_with_extracted_shorelines[0]
+    #     print(f"selected_id {selected_id}")
 
-        # load the extracted shorelines for the selected ROI ID
-        extracted_shorelines = self.update_loadable_shorelines(selected_id)
-        self.extract_shorelines_container.trash_list = []
-        if extracted_shorelines:
-            self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
+    #     # load the extracted shorelines for the selected ROI ID
+    #     extracted_shorelines = self.update_loadable_shorelines(selected_id)
+    #     self.extract_shorelines_container.trash_list = []
+    #     if extracted_shorelines:
+    #         self.load_extracted_shorelines_on_map(extracted_shorelines, row_number)
 
     def load_extracted_shorelines_on_map(
         self,

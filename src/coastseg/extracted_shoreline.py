@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import os
+import datetime
 from glob import glob
 from time import perf_counter
 from typing import Optional, Union, List, Dict
@@ -1562,6 +1563,69 @@ class Extracted_Shoreline:
         roi_id = sitename.split("_")[1] if sitename else None
         return roi_id
 
+    def remove_selected_shorelines(
+        self, dates: list[datetime.datetime], satellites: list[str]
+    ) -> None:
+        """
+        Removes selected shorelines based on the provided dates and satellites.
+
+        Args:
+            dates (list[datetime.datetime]): A list of dates to filter the shorelines.
+            satellites (list[str]): A list of satellites to filter the shorelines.
+
+        Returns:
+            None
+        """
+        if hasattr(self, "dictionary"):
+            self._remove_from_dict(dates, satellites)
+        if hasattr(self, "gdf"):
+            if not self.gdf.empty:
+                self.gdf = self._remove_from_gdf(dates, satellites)
+
+    def _remove_from_dict(
+        self, dates: list["datetime.datetime"], satellites: list[str]
+    ) -> dict:
+        """
+        Remove selected indexes from the dictionary based on the dates and satellites passed in for a specific region of interest.
+
+        Args:
+            dates (list['datetime.datetime']): The list of dates to filter.
+            satellites (list[str]): The list of satellites to filter.
+
+        Returns:
+            dict: The updated dictionary for the specified region of interest.
+        """
+        selected_indexes = common.get_selected_indexes(
+            self.dictionary, dates, satellites
+        )
+        self.dictionary = common.delete_selected_indexes(
+            self.dictionary, selected_indexes
+        )
+        return self.dictionary
+
+    def _remove_from_gdf(
+        self, dates: list["datetime.datetime"], satellites: list[str]
+    ) -> gpd.GeoDataFrame:
+        """
+        Remove rows from the GeoDataFrame based on the specified dates and satellites.
+
+        Args:
+            dates (list[datetime.datetime]): A list of datetime objects representing the dates to filter.
+            satellites (list[str]): A list of satellite names to filter.
+
+        Returns:
+            gpd.GeoDataFrame: The updated GeoDataFrame after removing the matching rows.
+        """
+        if all(isinstance(date, datetime.date) for date in dates):
+            dates = [date.strftime("%Y-%m-%d %H:%M:%S") for date in dates]
+
+        for sat, date in zip(satellites, dates):
+            matching_rows = self.gdf[
+                (self.gdf["satname"] == sat) & (self.gdf["date"] == date)
+            ]
+            self.gdf = self.gdf.drop(matching_rows.index)
+        return self.gdf
+
     def load_extracted_shorelines(
         self,
         extracted_shoreline_dict: dict = None,
@@ -1790,9 +1854,9 @@ class Extracted_Shoreline:
             extracted_shorelines_dict = remove_duplicates(
                 extracted_shorelines_dict
             )  # removes duplicates (images taken on the same date by the same satellite
-            # extracted_shorelines_dict = remove_inaccurate_georef(
-            #     extracted_shorelines_dict, 10
-            # )  # remove inaccurate georeferencing (set threshold to 10 m)
+            extracted_shorelines_dict = remove_inaccurate_georef(
+                extracted_shorelines_dict, 10
+            )  # remove inaccurate georeferencing (set threshold to 10 m)
 
             # Check and log 'reference shoreline' if it exists
             ref_sl = extracted_shorelines_dict.get("shorelines", np.array([]))
@@ -1940,9 +2004,9 @@ class Extracted_Shoreline:
         extracted_shorelines = remove_duplicates(
             extracted_shorelines
         )  # removes duplicates (images taken on the same date by the same satellite)
-        # extracted_shorelines = remove_inaccurate_georef(
-        #     extracted_shorelines, 10
-        # )  # remove inaccurate georeferencing (set threshold to 10 m)
+        extracted_shorelines = remove_inaccurate_georef(
+            extracted_shorelines, 10
+        )  # remove inaccurate georeferencing (set threshold to 10 m)
         return extracted_shorelines
 
     def create_shoreline_settings(

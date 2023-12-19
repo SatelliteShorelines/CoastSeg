@@ -226,8 +226,24 @@ def delete_selected_indexes(input_dict, selected_indexes):
     Returns:
     dict: The modified transects dictionary.
     """
+    if not selected_indexes:
+        return input_dict
     for key in input_dict.keys():
-        input_dict[key] = np.delete(input_dict[key], selected_indexes)
+        was_list = False
+        if isinstance(input_dict[key], list):
+            was_list = True
+        if any(isinstance(element, np.ndarray) for element in input_dict[key]):
+            nested_array = np.empty(len(input_dict[key]), dtype=object)
+            for index, array_element in enumerate(input_dict[key]):
+                nested_array[index] = array_element
+            input_dict[key] = nested_array
+            # now delete the selected indexes
+            input_dict[key] = np.delete(input_dict[key], selected_indexes)
+            # then transform back to into a list
+            if was_list == True:
+                input_dict[key] = input_dict[key].tolist()
+        else:
+            input_dict[key] = np.delete(input_dict[key], selected_indexes)
     return input_dict
 
 
@@ -1487,7 +1503,7 @@ def create_warning_box(
         f"</div>"
     )
     instructions_msg = HTML(
-        f"<div style='max-height: 250px; overflow-x: hidden; overflow-y: visible; text-align: center;'>"
+        f"<div style='max-height: 210px; overflow-x: hidden; overflow-y: visible; text-align: center;'>"
         f"<span style='color: red'></span>{instructions}"
         f"</div>"
     )
