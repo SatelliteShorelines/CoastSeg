@@ -165,35 +165,71 @@ def extract_feature_from_geodataframe(
     gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
 ) -> gpd.GeoDataFrame:
     """
-    Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
+    Extracts a GeoDataFrame of features of a given type from a larger GeoDataFrame.
 
     Args:
         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-        feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        feature_type (str): The type of feature to extract. Typically one of the following 'shoreline', 'rois', 'transects', 'bbox'.
         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
 
     Returns:
-        gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type and columns.
+        gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type.
 
     Raises:
-        ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
+        ValueError: Raised when feature_type or the type_column do not exist in the GeoDataFrame.
     """
+    # Convert column names to lower case for case-insensitive matching
+    gdf.columns = gdf.columns.str.lower()
+    type_column = type_column.lower()
+
     # Check if type_column exists in the GeoDataFrame
     if type_column not in gdf.columns:
         raise ValueError(
             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
         )
 
-    # Check if feature_type ends with 's' and define alternative feature_type
-    if feature_type.endswith("s"):
-        alt_feature_type = feature_type[:-1]
-    else:
-        alt_feature_type = feature_type + "s"
+    # Handling pluralization of feature_type
+    feature_types = {feature_type.lower(), (feature_type + 's').lower(), (feature_type.rstrip('s')).lower()}
 
-    # Filter using both feature_types
-    main_feature_gdf = gdf[gdf[type_column] == feature_type]
-    alt_feature_gdf = gdf[gdf[type_column] == alt_feature_type]
+    # Filter the GeoDataFrame for the specified types
+    filtered_gdf = gdf[gdf[type_column].str.lower().isin(feature_types)]
 
-    # Combine both GeoDataFrames
-    combined_gdf = pd.concat([main_feature_gdf, alt_feature_gdf])
-    return combined_gdf
+    return filtered_gdf
+
+
+# def extract_feature_from_geodataframe(
+#     gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
+# ) -> gpd.GeoDataFrame:
+#     """
+#     Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
+
+#     Args:
+#         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
+#         feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+#         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
+
+#     Returns:
+#         gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type and columns.
+
+#     Raises:
+#         ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
+#     """
+#     # Check if type_column exists in the GeoDataFrame
+#     if type_column not in gdf.columns:
+#         raise ValueError(
+#             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
+#         )
+
+#     # Check if feature_type ends with 's' and define alternative feature_type
+#     if feature_type.endswith("s"):
+#         alt_feature_type = feature_type[:-1]
+#     else:
+#         alt_feature_type = feature_type + "s"
+
+#     # Filter using both feature_types
+#     main_feature_gdf = gdf[gdf[type_column] == feature_type]
+#     alt_feature_gdf = gdf[gdf[type_column] == alt_feature_type]
+
+#     # Combine both GeoDataFrames
+#     combined_gdf = pd.concat([main_feature_gdf, alt_feature_gdf])
+#     return combined_gdf

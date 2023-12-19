@@ -1,28 +1,23 @@
-# standard python imports
-import os
-import glob
 import logging
+import os
 
-# internal python imports
-from coastseg import zoo_model
-from coastseg import settings_UI
-from coastseg import common
-from coastseg import file_utilities
+from IPython.display import display
+from coastseg import common, file_utilities, settings_UI, zoo_model
 from coastseg.tide_correction import compute_tidal_corrections
 from coastseg.upload_feature_widget import FileUploader
-
-# external python imports
-import ipywidgets
-from IPython.display import display
-from ipywidgets import Button
-from ipywidgets import HBox
-from ipywidgets import VBox
-from ipywidgets import Layout
-from ipywidgets import HTML
-from ipywidgets import RadioButtons
-from ipywidgets import Output
 from ipyfilechooser import FileChooser
-from ipywidgets import FloatText
+from ipywidgets import (
+    Accordion,
+    Button,
+    Dropdown,
+    FloatText,
+    HBox,
+    HTML,
+    Layout,
+    Output,
+    Text,
+    VBox,
+)
 
 # icons sourced from https://fontawesome.com/v4/icons/
 
@@ -152,7 +147,7 @@ class UI_Models:
 
     def get_shoreline_session_selection(self):
         output = Output()
-        self.shoreline_session_name_text = ipywidgets.Text(
+        self.shoreline_session_name_text = Text(
             value="",
             placeholder="Enter name",
             description="Extracted Shoreline Session Name:",
@@ -160,7 +155,7 @@ class UI_Models:
             style={"description_width": "initial"},
         )
 
-        enter_button = ipywidgets.Button(description="Enter")
+        enter_button = Button(description="Enter")
 
         @output.capture(clear_output=True)
         def enter_clicked(btn):
@@ -179,7 +174,7 @@ class UI_Models:
 
     def get_session_selection(self):
         output = Output()
-        self.session_name_text = ipywidgets.Text(
+        self.session_name_text = Text(
             value="",
             placeholder="Enter a session name",
             description="Session Name:",
@@ -187,7 +182,7 @@ class UI_Models:
             style={"description_width": "initial"},
         )
 
-        enter_button = ipywidgets.Button(description="Enter")
+        enter_button = Button(description="Enter")
 
         @output.capture(clear_output=True)
         def enter_clicked(btn):
@@ -204,12 +199,40 @@ class UI_Models:
         session_name_controls = HBox([self.session_name_text, enter_button])
         return VBox([session_name_controls, output])
 
-    def create_dashboard(self):
-        model_choices_box = HBox(
-            [self.model_input_dropdown, self.model_dropdown, self.model_implementation]
-        )
-        checkboxes = HBox([self.otsu_radio, self.tta_radio])
+    def get_adv_model_settings_section(self):
+        # declare settings widgets
+        settings = {
+            "model_implementation": self.model_implementation,
+            "otsu": self.otsu_radio,
+            "tta": self.tta_radio,
+        }
+        return VBox([widget for widget_name, widget in settings.items()])
 
+    def get_basic_model_settings_section(self):
+        # declare settings widgets
+        settings = {
+            "model_input": self.model_input_dropdown,
+            "model_type": self.model_dropdown,
+        }
+        # create settings vbox
+        return VBox([widget for widget_name, widget in settings.items()])
+
+    def get_model_settings_accordion(self):
+        # create settings accordion widget
+        settings_accordion = Accordion(
+            children=[
+                self.get_basic_model_settings_section(),
+                self.get_adv_model_settings_section(),
+            ]
+        )
+        # settings_accordion.set_title(0, "Settings")
+        settings_accordion.set_title(0, "Basic Model Settings")
+        settings_accordion.set_title(1, "Advanced Model Settings")
+        settings_accordion.selected_index = 0
+
+        return settings_accordion
+
+    def create_dashboard(self):
         # run model controls
         run_model_buttons = VBox(
             [
@@ -244,8 +267,7 @@ class UI_Models:
         self.tidal_correct_file_row = HBox([])
         display(
             self.settings_dashboard.render(),
-            checkboxes,
-            model_choices_box,
+            self.get_model_settings_accordion(),
             run_model_buttons,
             HBox([self.clear_run_model_btn(), UI_Models.run_model_view]),
             self.file_row,
@@ -317,7 +339,7 @@ class UI_Models:
         )
 
     def _create_widgets(self):
-        self.model_implementation = RadioButtons(
+        self.model_implementation = Dropdown(
             options=["ENSEMBLE", "BEST"],
             value="BEST",
             description="Select:",
@@ -325,7 +347,7 @@ class UI_Models:
         )
         self.model_implementation.observe(self.handle_model_implementation, "value")
 
-        self.otsu_radio = RadioButtons(
+        self.otsu_radio = Dropdown(
             options=["Enabled", "Disabled"],
             value="Disabled",
             description="Otsu Threshold:",
@@ -334,7 +356,7 @@ class UI_Models:
         )
         self.otsu_radio.observe(self.handle_otsu, "value")
 
-        self.tta_radio = RadioButtons(
+        self.tta_radio = Dropdown(
             options=["Enabled", "Disabled"],
             value="Disabled",
             description="Test Time Augmentation:",
@@ -342,8 +364,7 @@ class UI_Models:
             style={"description_width": "initial"},
         )
         self.tta_radio.observe(self.handle_tta, "value")
-
-        self.model_input_dropdown = ipywidgets.RadioButtons(
+        self.model_input_dropdown = Dropdown(
             options=["RGB", "MNDWI", "NDWI", "RGB+MNDWI+NDWI"],
             value="RGB",
             description="Model Input:",
@@ -351,7 +372,7 @@ class UI_Models:
         )
         self.model_input_dropdown.observe(self.handle_model_input_change, names="value")
 
-        self.model_dropdown = ipywidgets.RadioButtons(
+        self.model_dropdown = Dropdown(
             options=self.RGB_models,
             value=self.RGB_models[0],
             description="Select Model:",
@@ -440,7 +461,6 @@ class UI_Models:
     def handle_model_type(self, change):
         # 2 class model has not been selected disable otsu threhold
         self.model_dict["model_type"] = change["new"]
-        logger.info(f"self.model_dict['model_type']: {self.model_dict['model_type']}")
         if "2class" not in change["new"]:
             if self.otsu_radio.value == "Enabled":
                 self.model_dict["otsu"] = False
@@ -449,7 +469,6 @@ class UI_Models:
         # 2 class model was selected enable otsu threhold radio button
         if "2class" in change["new"]:
             self.otsu_radio.disabled = False
-        logger.info(f"change: {change}")
 
     def handle_otsu(self, change):
         if change["new"] == "Enabled":
@@ -489,6 +508,13 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot Run Model",
                 "Must enter a session name first",
+                position=1,
+            )
+            return
+        if self.model_dict["sample_direc"] == "":
+            self.launch_error_box(
+                "Cannot Run Model",
+                "Must click select images first and select a directory of jpgs.\n Example : C:/Users/username/CoastSeg/data/ID_lla12_datetime11-07-23__08_14_11/jpg_files/preprocessed/RGB/",
                 position=1,
             )
             return
@@ -560,18 +586,29 @@ class UI_Models:
 
     @run_model_view.capture(clear_output=True)
     def select_RGB_callback(self, filechooser: FileChooser) -> None:
+        """Handle the selection of a directory and check for the presence of JPG files.
+
+        Args:
+            filechooser: The file chooser widget used to select the directory.
+        """
+        from pathlib import Path
+
         if filechooser.selected:
-            sample_direc = os.path.abspath(filechooser.selected)
+            sample_direc = Path(filechooser.selected).resolve()
             print(f"The images in the folder will be segmented :\n{sample_direc} ")
-            jpgs = glob.glob1(sample_direc + os.sep, "*jpg")
-            if jpgs == []:
+            # Using itertools.chain to combine the results of two glob calls
+            has_jpgs = any(sample_direc.glob("*.jpg")) or any(
+                sample_direc.glob("*.jpeg")
+            )
+            if not has_jpgs:
                 self.launch_error_box(
-                    "File Not Found",
-                    "The directory contains no jpgs! Please select a directory with jpgs.",
+                    "No jpgs found",
+                    f"The directory {sample_direc} contains no jpgs! Please select a directory with jpgs. Make sure to select 'RGB' folder located in the 'preprocessed' folder.'",
                     position=1,
                 )
-            elif jpgs != []:
-                self.model_dict["sample_direc"] = sample_direc
+                self.model_dict["sample_direc"] = ""
+            else:
+                self.model_dict["sample_direc"] = str(sample_direc)
 
     @run_model_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
@@ -623,7 +660,7 @@ class UI_Models:
     def launch_error_box(self, title: str = None, msg: str = None, position: int = 1):
         # Show user error message
         warning_box = common.create_warning_box(
-            title=title, msg=msg, instructions=None, msg_width="60%", box_width="30%"
+            title=title, msg=msg, instructions=None, msg_width="95%", box_width="30%"
         )
         # clear row and close all widgets before adding new warning_box
         common.clear_row(self.get_warning_box(position))

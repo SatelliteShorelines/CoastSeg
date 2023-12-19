@@ -3,6 +3,7 @@
 import os
 import json
 import pytest
+import tempfile
 from PIL import Image
 from shutil import rmtree
 import geopandas as gpd
@@ -14,6 +15,265 @@ from ipyleaflet import GeoJSON
 from tempfile import TemporaryDirectory
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+@pytest.fixture(scope="session")
+def config_json_no_sitename_dir():
+    # create a temporary directory that will represent the downloaded ROI directory
+    temp_dir = tempfile.mkdtemp()
+    # Create don't create the subdirectory in this temporary directory
+
+    # The dictionary you want to write to the JSON file
+    config_data = {
+        "zih2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+            "filepath": str(temp_dir),
+        },
+        "roi_ids": ["zih2"],
+        "settings": {
+            "landsat_collection": "C02",
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "cloud_thresh": 0.8,
+            "dist_clouds": 350,
+            "output_epsg": 32610,
+            "check_detection": False,
+            "adjust_detection": False,
+            "save_figure": True,
+            "min_beach_area": 1050,
+            "min_length_sl": 600,
+            "cloud_mask_issue": True,
+            "sand_color": "default",
+            "pan_off": "False",
+            "max_dist_ref": 200,
+            "along_dist": 28,
+            "min_points": 4,
+            "max_std": 16.0,
+            "max_range": 38.0,
+            "min_chainage": -105.0,
+            "multiple_inter": "auto",
+            "prc_multiple": 0.2,
+            "apply_cloud_mask": False,
+            "image_size_filter": False,
+        },
+    }
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(
+        mode="w+", delete=False, suffix=".json"
+    ) as tmpfile:
+        json.dump(config_data, tmpfile)
+        tmpfile_path = tmpfile.name  # Save the filepath
+
+    # Yield the filepath to the test
+    yield tmpfile_path, temp_dir
+
+    # Cleanup - delete the file after tests are done
+    os.remove(tmpfile_path)
+
+
+@pytest.fixture(scope="session")
+def config_json():
+    # create a temporary directory that will represent the downloaded ROI directory
+    temp_dir = tempfile.mkdtemp()
+    # Create a subdirectory in this temporary directory
+    sub_dir = os.path.join(temp_dir, "ID_zih2_datetime11-15-23__09_56_01")
+    os.makedirs(sub_dir, exist_ok=True)
+
+    # The dictionary you want to write to the JSON file
+    config_data = {
+        "zih2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+            "filepath": str(temp_dir),
+        },
+        "roi_ids": ["zih2"],
+        "settings": {
+            "landsat_collection": "C02",
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "cloud_thresh": 0.8,
+            "dist_clouds": 350,
+            "output_epsg": 32610,
+            "check_detection": False,
+            "adjust_detection": False,
+            "save_figure": True,
+            "min_beach_area": 1050,
+            "min_length_sl": 600,
+            "cloud_mask_issue": True,
+            "sand_color": "default",
+            "pan_off": "False",
+            "max_dist_ref": 200,
+            "along_dist": 28,
+            "min_points": 4,
+            "max_std": 16.0,
+            "max_range": 38.0,
+            "min_chainage": -105.0,
+            "multiple_inter": "auto",
+            "prc_multiple": 0.2,
+            "apply_cloud_mask": False,
+            "image_size_filter": False,
+        },
+    }
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(
+        mode="w+", delete=False, suffix=".json"
+    ) as tmpfile:
+        json.dump(config_data, tmpfile)
+        tmpfile_path = tmpfile.name  # Save the filepath
+
+    # Yield the filepath to the test
+    yield tmpfile_path, temp_dir
+
+    # Cleanup - delete the file after tests are done
+    os.remove(tmpfile_path)
+
+
+@pytest.fixture
+def temp_jpg_dir_structure():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # Create subdirectories
+        # creates a directory structure like this: tmpdir/sitename/jpg_files/detection
+        sitename_dir = os.path.join(tmpdirname, "sitename", "jpg_files", "detection")
+        os.makedirs(sitename_dir)
+
+        # Add JPG files to the subdirectories
+        for i in range(5):  # Creating 5 JPG files for example
+            image = Image.new("RGB", (100, 100), color="blue")  # Simple blue image
+            image_path = os.path.join(sitename_dir, f"test_image_{i}.jpg")
+            image.save(image_path)
+
+        yield tmpdirname
+        # Cleanup is handled by TemporaryDirectory context manager
+
+
+@pytest.fixture
+def temp_src_dir():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # Add some files to the directory
+        for i in range(5):  # Creating 5 files for example
+            with open(os.path.join(tmpdirname, f"test_file_{i}.txt"), "w") as f:
+                f.write("This is a test file")
+        yield tmpdirname
+        # Cleanup is handled by TemporaryDirectory context manager
+
+
+@pytest.fixture
+def temp_dst_dir():
+    # Create another temporary directory for destination
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        yield tmpdirname
+        # Cleanup is handled by TemporaryDirectory context manager
+
+
+@pytest.fixture
+def temp_src_files():
+    # Create a list of temporary files
+    files = []
+    for i in range(5):
+        fd, path = tempfile.mkstemp(suffix=".txt", prefix="test_file_", text=True)
+        os.write(fd, b"This is a test file")
+        os.close(fd)
+        files.append(path)
+
+    yield files
+
+    # Cleanup
+    for f in files:
+        if os.path.exists(f):
+            os.remove(f)
+
+
+# @pytest.fixture(scope="session")
+# def config_json():
+#     # The dictionary you want to write to the JSON file
+#     config_data = {
+#         "zih2": {
+#             "dates": ["2018-12-01", "2019-03-01"],
+#             "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+#             "roi_id": "zih2",
+#             "polygon": [
+#                 [
+#                     [-121.84020033533233, 36.74441575726833],
+#                     [-121.83959312681607, 36.784722827004146],
+#                     [-121.78948275983468, 36.78422337939962],
+#                     [-121.79011617443447, 36.74391703739083],
+#                     [-121.84020033533233, 36.74441575726833],
+#                 ]
+#             ],
+#             "landsat_collection": "C02",
+#             "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+#             "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+#         },
+#         "roi_ids": ["zih2"],
+#         "settings": {
+#             "landsat_collection": "C02",
+#             "dates": ["2018-12-01", "2019-03-01"],
+#             "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+#             "cloud_thresh": 0.8,
+#             "dist_clouds": 350,
+#             "output_epsg": 32610,
+#             "check_detection": False,
+#             "adjust_detection": False,
+#             "save_figure": True,
+#             "min_beach_area": 1050,
+#             "min_length_sl": 600,
+#             "cloud_mask_issue": True,
+#             "sand_color": "default",
+#             "pan_off": "False",
+#             "max_dist_ref": 200,
+#             "along_dist": 28,
+#             "min_points": 4,
+#             "max_std": 16.0,
+#             "max_range": 38.0,
+#             "min_chainage": -105.0,
+#             "multiple_inter": "auto",
+#             "prc_multiple": 0.2,
+#             "apply_cloud_mask": False,
+#             "image_size_filter": False,
+#         },
+#     }
+
+#     # Create a temporary file
+#     with tempfile.NamedTemporaryFile(
+#         mode="w+", delete=False, suffix=".json"
+#     ) as tmpfile:
+#         json.dump(config_data, tmpfile)
+#         tmpfile_path = tmpfile.name  # Save the filepath
+
+#     # Yield the filepath to the test
+#     yield tmpfile_path
+
+#     # Cleanup - delete the file after tests are done
+#     os.remove(tmpfile_path)
 
 
 @pytest.fixture(scope="session")
@@ -56,6 +316,7 @@ def valid_geojson_path(geojson_directory):
     gdf.to_file(file_path, driver="GeoJSON")
     return file_path
 
+
 @pytest.fixture(scope="session")
 def config_gdf_missing_rois_path(geojson_directory):
     """Create a valid geojson file and return its path."""
@@ -82,6 +343,7 @@ def config_gdf_missing_rois_path(geojson_directory):
     gdf.to_file(file_path, driver="GeoJSON")
     return file_path
 
+
 @pytest.fixture(scope="session")
 def empty_geojson_path(geojson_directory):
     """Create an empty geojson file and return its path."""
@@ -107,12 +369,51 @@ def setup_image_directory(tmpdir):
 
     # Create dummy images for different satellites based on the new naming scheme
     sizes = {
-        "S2": (10, 50),
-        "L7": (66, 66),
-        "L8": (66, 66),
-        "L9": (66, 66),
-        "L5": (10, 33),
+        "S2": (200, 200),  # make this image too small 4.0`km^2
+        "L7": (320, 348),
+        "L8": (320, 348),
+        "L9": (320, 348),
+        "L5": (100, 100),  # make this image too small 2.5`km^2
     }
+    for sat, size in sizes.items():
+        img = Image.new("RGB", size, "white")
+        img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))
+
+    return tmpdir
+
+
+@pytest.fixture
+def setup_image_directory_bad_images(tmpdir):
+    os.makedirs(tmpdir, exist_ok=True)
+
+    # Create dummy images for different satellites based on the new naming scheme
+    sizes = {
+        "S2": (380, 390),  # make this image too small 14.82`km^2
+        "L7": (200, 320),  #  make this image too small 14.4
+        "L8": (320, 100),  # make this image too small 7.2
+        "L9": (320, 150),  # make this image too small 10.8
+        "L5": (200, 320),  # make this image too small 14.4`km^2
+    }
+    for sat, size in sizes.items():
+        img = Image.new("RGB", size, "white")
+        img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))
+
+    return tmpdir
+
+
+@pytest.fixture
+def setup_good_image_directory(tmpdir):
+    os.makedirs(tmpdir, exist_ok=True)
+
+    # Create dummy images for different satellites that are all equivalent to 25 km^2
+    sizes = {
+        "S2": (500, 500),
+        "L7": (320, 348),
+        "L8": (320, 348),
+        "L9": (320, 348),
+        "L5": (320, 348),
+    }
+    # the area for all these images is 25 km^2
     for sat, size in sizes.items():
         img = Image.new("RGB", size, "white")
         img.save(os.path.join(tmpdir, f"dummy_prefix_{sat}_image.jpg"))

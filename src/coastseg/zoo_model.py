@@ -1,11 +1,12 @@
-import copy
 import os
+from pathlib import Path
 import re
 import glob
 import asyncio
 import platform
 import json
 import logging
+from itertools import islice
 from typing import List, Set, Tuple
 
 from coastsat import SDS_tools
@@ -22,7 +23,6 @@ import aiohttp
 import tqdm
 from PIL import Image
 import numpy as np
-import pandas as pd
 from glob import glob
 import tqdm.asyncio
 import nest_asyncio
@@ -74,9 +74,6 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> li
         if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".png"):
             img = Image.open(file)
             percentage = percentage_of_black_pixels(img)
-            logger.info(
-                f"percentage black pixels in {os.path.basename(file)} is {percentage}"
-            )
             if percentage <= percent_no_data:
                 valid_images.append(file)
 
@@ -162,8 +159,6 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
     Returns:
         str: The path to the output directory for the specified imagery type.
     """
-    logger.info(f"img_type: {img_type}")
-    logger.info(f"RGB_path: {RGB_path}")
     img_type = img_type.upper()
     output_path = os.path.dirname(RGB_path)
     if img_type == "RGB":
@@ -188,7 +183,6 @@ def get_imagery_directory(img_type: str, RGB_path: str) -> str:
         raise ValueError(
             f"{img_type} not reconigzed as one of the valid types 'RGB', 'NDWI', 'MNDWI',or 'RGB+MNDWI+NDWI'"
         )
-    logger.info(f"output_path: {output_path}")
     return output_path
 
 
@@ -227,7 +221,6 @@ def get_five_band_imagery(
         )
         np.savez_compressed(segfile, **datadict)
         del datadict, im
-        logger.info(f"segfile: {segfile}")
     return output_path
 
 
@@ -375,7 +368,7 @@ def RGB_to_infrared(
     files = get_files(RGB_path, infrared_path)
     # output_path: directory to store MNDWI or NDWI outputs
     output_path = os.path.join(output_path, output_type.upper())
-    logger.info(f"output_path {output_path}")
+
     if not os.path.exists(output_path):
         os.mkdir(output_path)
 
@@ -632,6 +625,7 @@ class Zoo_Model:
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
             "percent_no_data": 50.0,  # percentage of no data pixels allowed in an image (doesn't work for npz)
             "model_session_path": "",  # path to model session file
+            "apply_cloud_mask": True,  # whether to apply cloud mask to images or not
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
@@ -675,71 +669,81 @@ class Zoo_Model:
             raise FileNotFoundError(
                 f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
             )
-        logger.info(f"img_type: {img_type}")
         # get full path to directory named 'RGB' containing RGBs
         RGB_path = file_utilities.find_directory_recursively(src_directory, name="RGB")
         # convert RGB to MNDWI, NDWI,or 5 band
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
-        logger.info(f"model_dict: {model_dict}")
         return model_dict
 
     def extract_shorelines_with_unet(
         self,
-        extract_shoreline_settings: dict,
+        settings: dict,
         session_path: str,
         session_name: str,
         shoreline_path: str = "",
         transects_path: str = "",
+        **kwargs: dict,
     ) -> None:
-        logger.info(f"extract_shoreline_settings: {extract_shoreline_settings}")
+        logger.info(f"extract_shoreline_settings: {settings}")
 
         # save the selected model session
-        extract_shoreline_settings["model_session_path"] = session_path
-        self.set_settings(**extract_shoreline_settings)
-        extract_shoreline_settings = self.get_settings()
+        settings["model_session_path"] = session_path
+        self.set_settings(**settings)
+        settings = self.get_settings()
 
         # create session path to store extracted shorelines and transects
-        sessions_dir_path = file_utilities.create_directory(os.getcwd(), "sessions")
-        new_session_path = file_utilities.create_directory(
-            sessions_dir_path, session_name
-        )
+        new_session_path = Path(os.getcwd()) / "sessions" / session_name
+        new_session_path.mkdir(parents=True, exist_ok=True)
 
+        # load the ROI settings from the config file
+        try:
+            config = file_utilities.load_json_data_from_file(
+                session_path, "config.json"
+            )
+            # get the roi_id from the config file
+            if config.get("roi_ids"):
+                roi_id = config["roi_ids"][0]
+            roi_settings = config[roi_id]
+        except (KeyError, ValueError) as e:
+            logger.error(f"{roi_id} ROI settings did not exist: {e}")
+            if roi_id is None:
+                logger.error(f"roi_id was None config: {config}")
+                raise Exception(f"The session loaded was \n config: {config}")
+            else:
+                logger.error(
+                    f"roi_id {roi_id} existed but not found in config: {config}"
+                )
+                raise Exception(
+                    f"The roi ID {roi_id} did not exist is the config.json \n config.json: {config}"
+                )
+        logger.info(f"roi_settings: {roi_settings}")
+
+        # read ROI from config geojson file
         config_geojson_location = file_utilities.find_file_recursively(
             session_path, "config_gdf.geojson"
         )
         logger.info(f"config_geojson_location: {config_geojson_location}")
+        config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
+        roi_gdf = config_gdf[config_gdf["id"] == roi_id]
+        if roi_gdf.empty:
+            logger.error(
+                f"{roi_id} ROI ID did not exist in geodataframe: {config_geojson_location}"
+            )
+            raise ValueError(
+                f"{roi_id} ROI ID did not exist in geodataframe: {config_geojson_location}"
+            )
 
         # get roi_id from source directory path in model settings
         model_settings = file_utilities.load_json_data_from_file(
             session_path, "model_settings.json"
         )
-        source_directory = model_settings.get("sample_direc", "")
-        roi_id = file_utilities.extract_roi_id(source_directory)
 
         # save model settings to session path
         model_settings_path = os.path.join(new_session_path, "model_settings.json")
         file_utilities.to_file(model_settings, model_settings_path)
 
-        # load the roi settings from the config file
-        config = file_utilities.load_json_data_from_file(session_path, "config.json")
-        roi_settings = config.get(roi_id, {})
-        logger.info(f"roi_settings: {roi_settings}")
-        if roi_settings == {}:
-            raise ValueError(f"{roi_id} roi settings did not exist")
-
-        # read ROI from config geojson file
-        config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
-        roi_gdf = config_gdf[config_gdf["id"] == roi_id]
-        if roi_gdf.empty:
-            raise ValueError(
-                f"{roi_id} roi id did not exist in geodataframe. \n {config_geojson_location}"
-            )
-
-        # get the epsg code for this region before we change it
-        output_epsg = extract_shoreline_settings["output_epsg"]
-        logger.info(f"output_epsg: {output_epsg}")
-
         # load transects and shorelines
+        output_epsg = settings["output_epsg"]
         transects_gdf = geodata_processing.create_geofeature_geodataframe(
             transects_path, roi_gdf, output_epsg, "transect"
         )
@@ -747,20 +751,19 @@ class Zoo_Model:
             shoreline_path, roi_gdf, output_epsg, "shoreline"
         )
 
-        # extract shorelines with most accurate crs
-        new_espg = common.get_most_accurate_epsg(
-            extract_shoreline_settings.get("output_epsg", 4326), roi_gdf
-        )
-        extract_shoreline_settings["output_epsg"] = new_espg
+        # Update the CRS to the most accurate crs for the ROI this makes extracted shoreline more accurate
+        new_espg = common.get_most_accurate_epsg(output_epsg, roi_gdf)
+        settings["output_epsg"] = new_espg
         self.set_settings(output_epsg=new_espg)
-
+        # convert the ROI to the new CRS
         roi_gdf = roi_gdf.to_crs(output_epsg)
+
         # save the config files to the new session location
         common.save_config_files(
             new_session_path,
             roi_ids=[roi_id],
             roi_settings=roi_settings,
-            shoreline_settings=extract_shoreline_settings,
+            shoreline_settings=settings,
             transects_gdf=transects_gdf,
             shorelines_gdf=shoreline_gdf,
             roi_gdf=roi_gdf,
@@ -773,14 +776,16 @@ class Zoo_Model:
                 roi_id,
                 shoreline_gdf,
                 roi_settings,
-                extract_shoreline_settings,
+                settings,
                 session_path,
                 new_session_path,
+                **kwargs,
             )
         )
 
         # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
+
         # common.save_extracted_shoreline_figures(extracted_shorelines, new_session_path)
         print(f"Saved extracted shorelines to {new_session_path}")
 
@@ -790,9 +795,16 @@ class Zoo_Model:
 
         # compute intersection between extracted shorelines and transects
         cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
-            extracted_shorelines.dictionary, transects_gdf, extract_shoreline_settings
+            extracted_shorelines.dictionary, transects_gdf, settings
         )
-        logger.info(f"cross_distance_transects: {cross_distance_transects}")
+
+        first_key = next(iter(cross_distance_transects))
+        logger.info(
+            f"cross_distance_transects.keys(): {cross_distance_transects.keys()}"
+        )
+        logger.info(
+            f"Sample of transect intersections for first key: {list(islice(cross_distance_transects[first_key], 3))}"
+        )
 
         # save transect shoreline intersections to csv file if they exist
         if cross_distance_transects == 0:
@@ -834,13 +846,31 @@ class Zoo_Model:
         # if configs do not exist then raise an error and do not save the session
         if not file_utilities.validate_config_files_exist(roi_directory):
             logger.warning(
-                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}"
             )
             raise FileNotFoundError(
-                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}\n This means that the download did not complete successfully."
+                f"Config files config.json or config_gdf.geojson do not exist in roi directory {roi_directory}"
             )
-        # copy configs from data/roi_id location to session location
-        common.copy_configs(roi_directory, session_path)
+        # modify the config.json to only have the ROI ID that was used and save to session directory
+        roi_id = file_utilities.extract_roi_id(roi_directory)
+        common.save_new_config(
+            os.path.join(roi_directory, "config.json"),
+            roi_id,
+            os.path.join(session_path, "config.json"),
+        )
+        # Copy over the config_gdf.geojson file
+        config_gdf_path = os.path.join(roi_directory, "config_gdf.geojson")
+        if os.path.exists(config_gdf_path):
+            # Read in the GeoJSON file using geopandas
+            gdf = gpd.read_file(config_gdf_path)
+
+            # Project the GeoDataFrame to EPSG:4326
+            gdf_4326 = gdf.to_crs("EPSG:4326")
+
+            # Save the projected GeoDataFrame to a new GeoJSON file
+            gdf_4326.to_file(
+                os.path.join(session_path, "config_gdf.geojson"), driver="GeoJSON"
+            )
         model_settings_path = os.path.join(session_path, "model_settings.json")
         file_utilities.write_to_json(model_settings_path, preprocessed_data)
 
@@ -934,12 +964,14 @@ class Zoo_Model:
         roi_directory = file_utilities.find_parent_directory(
             src_directory, "ID_", "data"
         )
+
         print(f"Preprocessing the data at {roi_directory}")
         model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
         logger.info(f"model_dict: {model_dict}")
 
         self.compute_segmentation(model_dict, percent_no_data)
         self.postprocess_data(model_dict, session, roi_directory)
+        session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
         print(f"\n Model results saved to {session.path}")
 
     def get_model_directory(self, model_id: str):
@@ -978,11 +1010,7 @@ class Zoo_Model:
         model_ready_files = file_utilities.filter_files(
             model_ready_files, avoid_patterns
         )
-        logger.info(f"Filtered files for {avoid_patterns}: {model_ready_files}\n")
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
-        logger.info(
-            f"Files ready for segmentation with no data pixels below {percent_no_data}% : {model_ready_files}\n"
-        )
         return model_ready_files
 
     def compute_segmentation(
@@ -1179,10 +1207,6 @@ class Zoo_Model:
             self.model_types.append(MODEL)
             self.model_list.append(model)
             config_files.append(config_file)
-
-        logger.info(f"self.N_DATA_BANDS: {self.N_DATA_BANDS}")
-        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
-        logger.info(f"self.TARGET_SIZE: {self.TARGET_SIZE}")
         return model, self.model_list, config_files, self.model_types
 
     def get_metadatadict(
@@ -1241,12 +1265,11 @@ class Zoo_Model:
             print(best_weights_list)
             # Output: ['/path/to/weights/best_model.h5']
         """
+        logger.info(f"{model_choice}")
         if model_choice == "ENSEMBLE":
             weights_list = glob(os.path.join(self.weights_directory, "*.h5"))
-            logger.info(f"ENSEMBLE: weights_list: {weights_list}")
-            logger.info(
-                f"ENSEMBLE: {len(weights_list)} sets of model weights were found "
-            )
+            logger.info(f"weights_list: {weights_list}")
+            logger.info(f"{len(weights_list)} sets of model weights were found ")
             return weights_list
         elif model_choice == "BEST":
             # read model name (fullmodel.h5) from BEST_MODEL.txt
@@ -1256,9 +1279,13 @@ class Zoo_Model:
             # remove any leading or trailing whitespace and newline characters
             model_name = model_name.strip()
             weights_list = [os.path.join(self.weights_directory, model_name)]
-            logger.info(f"BEST: weights_list: {weights_list}")
-            logger.info(f"BEST: {len(weights_list)} sets of model weights were found ")
+            logger.info(f"weights_list: {weights_list}")
+            logger.info(f"{len(weights_list)} sets of model weights were found ")
             return weights_list
+        else:
+            raise ValueError(
+                f"Invalid model_choice: {model_choice}. Valid choices are 'ENSEMBLE' or 'BEST'."
+            )
 
     def download_best(
         self, available_files: List[dict], model_path: str, model_id: str
@@ -1383,7 +1410,7 @@ class Zoo_Model:
         )
         download_dict = check_if_files_exist(download_dict)
         # download the files that don't exist
-        logger.info(f"URLs to download: {download_dict}")
+        logger.info(f"download_dict: {download_dict}")
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
             download_status = downloads.download_url_dict(download_dict)

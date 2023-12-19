@@ -11,8 +11,6 @@ import geopandas as gpd
 from shapely.geometry import shape
 from ipyleaflet import GeoJSON
 
-logger = logging.getLogger(__name__)
-
 __all__ = ["Bounding_Box"]
 
 

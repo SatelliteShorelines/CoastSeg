@@ -132,7 +132,7 @@ def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> 
                 f"Model settings file does not exist at {json_file_path}"
             )
         else:
-            return None
+            return {}
     with open(json_file_path, "r", encoding=encoding) as f:
         data = json.load(f)
     return data
@@ -229,6 +229,9 @@ def move_files(
             logger.info(
                 f"Moving all files from directory {src} to {dst_dir}. Delete Source: {delete_src}"
             )
+        elif os.path.isfile(src):
+            src_files = [src]
+            logger.info(f"Moving file {src} to {dst_dir}. Delete Source: {delete_src}")
         else:
             logger.error(
                 f"Provided src is a string but not a valid directory path: {src}"
@@ -331,13 +334,12 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], filepath: str):
         filename = f"config.json"
         save_path = os.path.abspath(os.path.join(filepath, filename))
         write_to_json(save_path, config)
-        logger.info(f"Saved config json: {filename} \nSaved to {save_path}")
     elif isinstance(config, gpd.GeoDataFrame):
         filename = f"config_gdf.geojson"
         save_path = os.path.abspath(os.path.join(filepath, filename))
-        logger.info(f"Saving config gdf:{config} \nSaved to {save_path}")
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         config.to_file(save_path, driver="GeoJSON")
+    logger.info(f"Saved {filename} saved to {save_path}")
 
 
 def filter_files(files: List[str], avoid_patterns: List[str]) -> List[str]:
@@ -547,8 +549,6 @@ def write_to_json(filepath: str, settings: dict):
     """ "Write the  settings dictionary to json file"""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     to_file(settings, filepath)
-    # with open(filepath, "w", encoding="utf-8") as output_file:
-    #     json.dump(settings, output_file)
 
 
 def to_file(data: dict, filepath: str) -> None:
@@ -621,9 +621,37 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
         raise Exception(f"{name} directory is empty.")
 
     if not dir_location:
-        raise Exception(f"{name} directory could not be found")
+        raise Exception(f"No directroy matching {name} could be found at {path}")
 
     return dir_location
+
+
+def find_files_recursively(
+    path: str = ".", search_pattern: str = "*RGB*", raise_error: bool = False
+) -> List[str]:
+    """
+    Recursively search for files with the given search pattern in the given path or its subdirectories.
+
+    Args:
+        path (str): The starting directory to search in. Defaults to current directory.
+        search_pattern (str): The search pattern to match against file names. Defaults to "*RGB*".
+        raise_error (bool): Whether to raise an error if no files are found. Defaults to False.
+
+    Returns:
+        list: A list of paths to all files that match the given search pattern.
+    """
+    file_locations = []
+    regex = re.compile(search_pattern, re.IGNORECASE)
+    for dirpath, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            if regex.match(filename):
+                file_location = os.path.join(dirpath, filename)
+                file_locations.append(file_location)
+
+    if not file_locations and raise_error:
+        raise Exception(f"No files matching {search_pattern} could be found at {path}")
+
+    return file_locations
 
 
 def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
@@ -646,10 +674,10 @@ def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
                 return file_location
 
     if not os.listdir(file_location):
-        raise Exception(f"{name} directory is empty.")
+        raise Exception(f"{file_location} is empty.")
 
     if not file_location:
-        raise Exception(f"{name} directory could not be found")
+        raise Exception(f" No file matching {name} could be found at {path}")
 
     return file_location
 

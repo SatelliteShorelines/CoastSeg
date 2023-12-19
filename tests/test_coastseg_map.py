@@ -155,74 +155,45 @@ def test_load_json_config_without_rois(valid_coastseg_map_with_settings, tmp_dat
         actual_coastsegmap.load_json_config("", tmp_data_path)
 
 
-def test_load_settings(
-    downloaded_config_json_filepath, valid_coastseg_map_with_settings
+def test_load_json_config_downloaded(
+    valid_coastseg_map_with_settings,
+    valid_rois_filepath,
+    config_json,
 ):
-    # create instance of Coastseg_Map
+    config_path, temp_dir = config_json
+    # tests if load_json_config will load contents into rois.roi_settings
+    # create instance of Coastseg_Map with settings and ROIs initially loaded
     actual_coastsegmap = valid_coastseg_map_with_settings
-    actual_coastsegmap.load_settings(downloaded_config_json_filepath)
+    actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
 
-    actual_coastsegmap.settings["sat_list"] = ["L8"]
-    actual_coastsegmap.settings["landsat_collection"] = "C02"
-    actual_coastsegmap.settings["dates"] = ["2018-12-01", "2019-03-01"]
-    actual_coastsegmap.settings["cloud_thresh"] = 0.5
-    actual_coastsegmap.settings["dist_clouds"] = 300
-    actual_coastsegmap.settings["output_epsg"] = 3857
-    actual_coastsegmap.settings["check_detection"] = False
-    actual_coastsegmap.settings["adjust_detection"] = False
-    actual_coastsegmap.settings["save_figure"] = True
-    actual_coastsegmap.settings["min_beach_area"] = 4500
-    actual_coastsegmap.settings["min_length_sl"] = 100
-    actual_coastsegmap.settings["cloud_mask_issue"] = False
-    actual_coastsegmap.settings["sand_color"] = "default"
-    actual_coastsegmap.settings["pan_off"] = "False"
-    actual_coastsegmap.settings["max_dist_ref"] = 25
-    actual_coastsegmap.settings["along_dist"] = 25
+    # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
+    actual_coastsegmap.load_json_config(config_path, temp_dir)
+    assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
+    actual_config = file_utilities.read_json_file(config_path)
+    for roi_id in actual_config["roi_ids"]:
+        assert roi_id in actual_coastsegmap.rois.roi_settings
+        for key in actual_config[roi_id]:
+            assert (
+                actual_coastsegmap.rois.roi_settings[roi_id][key]
+                == actual_config[roi_id][key]
+            )
+    for roi_id, item in actual_config.get("settings", {}).items():
+        assert actual_coastsegmap.settings[roi_id] == item
 
 
-# def test_load_json_config_downloaded(
-#     valid_coastseg_map_with_settings,
-#     valid_rois_filepath,
-#     downloaded_config_json_filepath,
-#     tmp_data_path,
-# ):
-#     # tests if load_json_config will load contents into rois.roi_settings
-#     # create instance of Coastseg_Map with settings and ROIs initially loaded
-#     actual_coastsegmap = valid_coastseg_map_with_settings
-#     actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
-
-#     # import os
-#     # data_path  = os.path.join(tmp_path,'data')
-#     # os.mkdir(data_path)
-#     # # simulate the ROI directories
-#     # os.mkdir(os.path.join(data_path,"ID_2_datetime10-19-22__04_00_34"))
-#     # os.mkdir(os.path.join(data_path,"ID_3_datetime10-19-22__04_00_34"))
-#     # os.mkdir(os.path.join(data_path,"ID_5_datetime10-19-22__04_00_34"))
-
-#     # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
-#     actual_coastsegmap.load_json_config(downloaded_config_json_filepath, tmp_data_path)
-#     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
-#     actual_config = file_utilities.read_json_file(downloaded_config_json_filepath)
-#     for key in actual_config["roi_ids"]:
-#         assert key in actual_coastsegmap.rois.roi_settings
-
-
-# def test_load_json_config(
-#     valid_coastseg_map_with_settings,
-#     valid_rois_filepath,
-#     config_json_filepath,
-#     tmp_data_path,
-# ):
-#     # tests if load_json_config will load contents into rois.roi_settings when rois have not been downloaded before
-#     # create instance of Coastseg_Map with settings and ROIs initially loaded
-#     actual_coastsegmap = valid_coastseg_map_with_settings
-#     actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
-#     # test if settings are correctly loaded when valid json config without 'filepath' & 'sitename' keys is loaded
-#     actual_coastsegmap.load_json_config(config_json_filepath, tmp_data_path)
-#     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
-#     actual_config = file_utilities.read_json_file(config_json_filepath)
-#     for key in actual_config["roi_ids"]:
-#         assert key in actual_coastsegmap.rois.roi_settings
+def test_load_json_config_when_data_path_not_exist(
+    valid_coastseg_map_with_settings,
+    valid_rois_filepath,
+    config_json_no_sitename_dir,
+):
+    config_path, temp_dir = config_json_no_sitename_dir
+    # tests if load_json_config will load contents into rois.roi_settings when rois have not been downloaded before
+    # create instance of Coastseg_Map with settings and ROIs initially loaded
+    actual_coastsegmap = valid_coastseg_map_with_settings
+    actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
+    # test if settings are correctly loaded when valid json config without 'filepath' & 'sitename' keys is loaded
+    with pytest.raises(exceptions.WarningException):
+        actual_coastsegmap.load_json_config(config_path, temp_dir)
 
 
 def test_valid_shoreline_gdf(valid_shoreline_gdf: gpd.GeoDataFrame):
@@ -275,9 +246,39 @@ def test_coastseg_map():
     assert isinstance(coastsegmap, coastseg_map.CoastSeg_Map)
     assert isinstance(coastsegmap.map, Map)
     assert hasattr(coastsegmap, "draw_control")
+    assert hasattr(coastsegmap, "settings")
+    default_settings = {
+        "landsat_collection": "C02",
+        "dates": ["2017-12-01", "2018-01-01"],
+        "sat_list": ["L8"],
+        "cloud_thresh": 0.5,
+        "dist_clouds": 300,
+        "output_epsg": 4326,
+        "check_detection": False,
+        "adjust_detection": False,
+        "save_figure": True,
+        "min_beach_area": 4500,
+        "min_length_sl": 100,
+        "cloud_mask_issue": False,
+        "sand_color": "default",
+        "pan_off": "False",
+        "max_dist_ref": 25,
+        "along_dist": 25,
+        "min_points": 3,
+        "max_std": 15,
+        "max_range": 30,
+        "min_chainage": -100,
+        "multiple_inter": "auto",
+        "prc_multiple": 0.1,
+        "apply_cloud_mask": True,
+        "image_size_filter": True,
+    }
+    for key in default_settings:
+        assert key in coastsegmap.settings
+        assert coastsegmap.settings[key] == default_settings[key]
 
 
-def test_coastseg_map_settings():
+def test_set_settings():
     """tests if a ROI will be created from valid rois thats a gpd.GeoDataFrame
     Args:
         valid_bbox_gdf (gpd.GeoDataFrame): alid rois as a gpd.GeoDataFrame
@@ -286,21 +287,21 @@ def test_coastseg_map_settings():
     pre_process_settings = {
         # general parameters:
         "dates": ["2018-12-01", "2019-03-01"],
-        "sat_list": ["L8"],
-        "cloud_thresh": 0.5,  # threshold on maximum cloud cover
-        "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
+        "sat_list": ["L9"],
+        "cloud_thresh": 0.9,  # threshold on maximum cloud cover
+        "dist_clouds": 400,  # ditance around clouds where shoreline can't be mapped
         "output_epsg": 3857,  # epsg code of spatial reference system desired for the output
         # quality control:
         "check_detection": True,  # if True, shows each shoreline detection to the user for validation
         "adjust_detection": False,  # if True, allows user to adjust the position of each shoreline by changing the threshold
         "save_figure": True,  # if True, saves a figure showing the mapped shoreline for each image
         # [ONLY FOR ADVANCED USERS] shoreline detection parameters:
-        "min_beach_area": 4500,  # minimum area (in metres^2) for an object to be labelled as a beach
-        "min_length_sl": 200,  # minimum length (in metres) of shoreline perimeter to be valid
-        "cloud_mask_issue": False,  # switch this parameter to True if sand pixels are masked (in black) on many images
+        "min_beach_area": 400,  # minimum area (in metres^2) for an object to be labelled as a beach
+        "min_length_sl": 100,  # minimum length (in metres) of shoreline perimeter to be valid
+        "cloud_mask_issue": True,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
-        "max_dist_ref": 25,
+        "max_dist_ref": 20,
         "landsat_collection": "C02",
     }
     coastsegmap.set_settings(**pre_process_settings)
@@ -308,6 +309,8 @@ def test_coastseg_map_settings():
     expected_settings = set(list(pre_process_settings.keys()))
     assert expected_settings.issubset(actual_settings)
     assert set(["dates", "landsat_collection", "sat_list"]).issubset(actual_settings)
+    for key in pre_process_settings:
+        assert coastsegmap.settings[key] == pre_process_settings[key]
 
 
 def test_select_roi_layer(

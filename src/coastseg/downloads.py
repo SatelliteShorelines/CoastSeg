@@ -1,39 +1,31 @@
-import os
-import json
-import math
-from typing import List, Optional, Tuple
-import platform
-import logging
-import shutil
-from glob import glob
+import asyncio
 import concurrent.futures
-import zipfile
-import requests
 from datetime import datetime
+import glob
+import json
+import logging
+import math
+import os
+import platform
+import shutil
+import zipfile
+
+import aiohttp
+import area
+import ee
+import geopandas as gpd
+import nest_asyncio
+import tqdm
+import tqdm.asyncio
+import tqdm.auto
+from shapely.geometry import LineString, MultiPolygon, Polygon
+from shapely.ops import split
+from typing import Collection, List, Optional, Tuple, Union
 
 from coastseg import common
 from coastseg import file_utilities
 
-import asyncio
-import nest_asyncio
-import aiohttp
-import tqdm
-import tqdm.auto
-import tqdm.asyncio
-from typing import Union
-from typing import Collection
-import ee
-from area import area
-import geopandas as gpd
-from shapely.geometry import LineString, MultiPolygon, Polygon
-from shapely.ops import split
-
 logger = logging.getLogger(__name__)
-
-from typing import List, Union
-from datetime import datetime
-
-import ee
 
 
 def get_collection_by_tier(
@@ -42,7 +34,7 @@ def get_collection_by_tier(
     end_date: Union[str, datetime],
     satellite: str,
     tier: int,
-    max_cloud_cover: float = 99,
+    max_cloud_cover: float = 95,
 ) -> Union[ee.ImageCollection, None]:
     """
     This function takes the required parameters and returns an ImageCollection from
@@ -66,7 +58,7 @@ def get_collection_by_tier(
     if isinstance(end_date, datetime):
         end_date = end_date.isoformat()
 
-    # Define collection names
+    # Define collection names for tier 1 and tier 2
     col_names = {
         1: {
             "L5": "LANDSAT/LT05/C02/T1_TOA",
@@ -91,20 +83,22 @@ def get_collection_by_tier(
         return None
 
     collection_name = col_names[tier][satellite]
+    # Mapping satellite names to their respective cloud properties
+    cloud_properties = {
+        "L5": "CLOUD_COVER",
+        "L7": "CLOUD_COVER",
+        "L8": "CLOUD_COVER",
+        "L9": "CLOUD_COVER",
+        "S2": "CLOUDY_PIXEL_PERCENTAGE",
+    }
+    cloud_property = cloud_properties.get(satellite)
+
     collection = (
         ee.ImageCollection(collection_name)
         .filterBounds(ee.Geometry.Polygon(polygon))
         .filterDate(ee.Date(start_date), ee.Date(end_date))
+        .filterMetadata(cloud_property, "less_than", max_cloud_cover)
     )
-
-    # Add cloud cover filter
-    cloud_property = (
-        "CLOUD_COVER"
-        if satellite in ["L5", "L7", "L8", "L9"]
-        else "CLOUDY_PIXEL_PERCENTAGE"
-    )
-    collection = collection.filter(ee.Filter.lt(cloud_property, max_cloud_cover))
-
     return collection
 
 
@@ -112,8 +106,9 @@ def count_images_in_ee_collection(
     polygon: list[list[float]],
     start_date: Union[str, datetime],
     end_date: Union[str, datetime],
-    max_cloud_cover: float = 99,
+    max_cloud_cover: float = 95,
     satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2"),
+    tiers: list[str] = None,
 ) -> dict:
     """
     Count the number of images in specified satellite collections over a certain area and time period.
@@ -124,7 +119,7 @@ def count_images_in_ee_collection(
     end_date (str or datetime): The end date of the time period. If a string, it should be in 'YYYY-MM-DD' format.
     max_cloud_cover (float, optional): The maximum cloud cover percentage. Images with a cloud cover percentage higher than this will be excluded. Defaults to 99.
     satellites (Collection[str], optional): A collection of satellite names. The function will return image counts for these satellites. Defaults to ("L5","L7","L8","L9","S2").
-
+    tiers (list[str], optional): A list of tiers. The function will return image counts for these tiers. Defaults to [1,2]
     Returns:
     dict: A dictionary where the keys are the satellite names and the values are the image counts.
 
@@ -158,11 +153,14 @@ def count_images_in_ee_collection(
     except:
         ee.Initialize()
 
+    if tiers is None:
+        tiers = [1, 2]
+
     image_counts = {}
     images_in_tier_count = 0
     for satellite in satellites:
         images_in_tier_count = 0
-        for tier in [1, 2]:
+        for tier in tiers:
             collection = get_collection_by_tier(
                 polygon, start_date, end_date, satellite, tier, max_cloud_cover
             )
