@@ -263,7 +263,6 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             # get the selected ROI ID
             selected_id = self.roi_list_widget.value
             if selected_items and self.load_callback:
-                print("Calling the load callback")
                 self.load_callback(
                     selected_id, selected_items, layer_name, colormap="viridis"
                 )

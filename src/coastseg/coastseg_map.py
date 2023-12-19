@@ -392,17 +392,20 @@ class CoastSeg_Map:
         layer_name: str,
         colormap: str,
     ) -> None:
-        print(
-            f"load_selected_shorelines_on_map: selected roi id {selected_id}  selected_shorelines from lists: {selected_shorelines}"
-        )
+        def get_selected_shorelines(gdf, selected_items: list[str]) -> gpd.GeoDataFrame:
+            """
+            Filter the GeoDataFrame based on selected items.
 
-        def get_selected_shorelines(gdf, selected_items) -> gpd.GeoDataFrame:
+            Args:
+                gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+                selected_items (list[str]): A list of selected items in the format "satname_dates".
+
+            Returns:
+                gpd.GeoDataFrame: The filtered GeoDataFrame containing the selected shorelines.
+            """
             # Filtering criteria
             frames = []  # List to collect filtered frames
-
             # Loop through each dictionary in dates_tuple
-            print(f"gdf['date'].dtype {gdf['date'].dtype}")
-            print(f"gdf['date'] {gdf['date']}")
             for criteria in list(selected_items):
                 satname, dates = criteria.split("_")
                 # if "date" column string already then don't convert to datetime
@@ -420,23 +423,17 @@ class CoastSeg_Map:
             filtered_gdf.crs = "epsg:4326"
             if frames:
                 filtered_gdf = pd.concat(frames)
-            print(f"filtered_gdf.head() {filtered_gdf.head()}")
             return filtered_gdf
 
         # load the extracted shorelines for the selected ROI ID
-        print(f"load_selected_shorelines_on_map: self.rois is None {self.rois is None}")
         if self.rois is not None:
             extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
-            print(
-                f"load_selected_shorelines_on_map: hasattr(extracted_shorelines, 'gdf') {hasattr(extracted_shorelines, 'gdf')}"
-            )
-
             # get the geodataframe for the extracted shorelines
             if hasattr(extracted_shorelines, "gdf"):
                 selected_gdf = get_selected_shorelines(
                     extracted_shorelines.gdf, selected_shorelines
                 )
-                print(
+                logger.info(
                     f"load_selected_shorelines_on_map: selected_gdf.head() {selected_gdf.head()}"
                 )
                 if not selected_gdf.empty:
@@ -719,29 +716,11 @@ class CoastSeg_Map:
             self.load_session_from_directory(directory)
 
         # update the list of roi's ids who have extracted shorelines
-        # self.update_roi_ids_with_extracted_shorelines(self.rois)
         ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
 
-        print(
+        logger.info(
             f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
         )
-
-    # def update_roi_ids_with_extracted_shorelines(self, rois: ROI):
-    #     # Check if no ROIs are loaded return nothing
-    #     if rois is None:
-    #         logger.warning(
-    #             "ROI were None. Cannot update ROI ids with extracted shorelines"
-    #         )
-    #         return
-    #     # Get the ids of the ROIs with extracted shorelines
-    #     ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
-    #     # update observable list of ROI ids with extracted shorelines
-    #     if ids_with_extracted_shorelines is None:
-    #         self.id_container.ids = []
-    #     elif not isinstance(ids_with_extracted_shorelines, list):
-    #         self.id_container.ids = list(ids_with_extracted_shorelines)
-    #     else:
-    #         self.id_container.ids = ids_with_extracted_shorelines
 
     def load_gdf_config(self, filepath: str) -> None:
         """Load features from geodataframe located in geojson file at filepath onto map.
@@ -1414,6 +1393,11 @@ class CoastSeg_Map:
         return roi_ids
 
     def load_extracted_shoreline_files(self) -> None:
+        """
+        Loads extracted shoreline files for each ROI and adds them to the map.
+        Raises:
+            Exception: If no extracted shorelines could be loaded.
+        """
         exception_handler.config_check_if_none(self.rois, "ROIs")
         # load extracted shorelines for either a selected ROI or the first ROI if no ROI is selected
         roi_ids = self.get_any_available_roi_id()
@@ -1457,12 +1441,10 @@ class CoastSeg_Map:
                 logger.info(
                     f"ROI {roi_id} successfully loaded extracted shorelines: {self.rois.get_extracted_shoreline(roi_id)}"
                 )
-
         if len(rois_no_extracted_shorelines) > 0:
-            print(
+            logger.warning(
                 f"The following ROIs didn't have extracted shoreline files to load: {rois_no_extracted_shorelines}\n"
             )
-
         rois_with_shorelines = set(roi_ids) - rois_no_extracted_shorelines
         if len(rois_with_shorelines) > 0:
             print(f"Loaded Extracted Shorelines for ROIs {rois_with_shorelines}")
@@ -1626,51 +1608,66 @@ class CoastSeg_Map:
         return roi_ids
 
     def extract_all_shorelines(self) -> None:
-        """Use this function when the user interactively downloads rois
-        Iterates through all the ROIS downloaded by the user as indicated by the roi_settings generated by
-        download_imagery() and extracts a shoreline for each of them
-        """
-        self.validate_extract_shoreline_inputs()
-        roi_ids = self.get_roi_ids(is_selected=True)
-        logger.info(f"roi_ids to extract shorelines from: {roi_ids}")
-        # update the settings with the most accurate epsg
-        self.update_settings_with_accurate_epsg()
-        # update configs with new output_epsg
-        self.save_config()
+            """
+            Extracts shorelines for all selected regions of interest (ROIs).
 
-        # get selected ROIs on map and extract shoreline for each of them
-        for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
-            print(f"Extracting shorelines from ROI with the id:{roi_id}")
-            extracted_shorelines = self.extract_shoreline_for_roi(
-                roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings()
+            This method performs the following steps:
+            1. Validates the inputs for shoreline extraction.
+            2. Retrieves the IDs of the selected ROIs.
+            3. Updates the settings with the most accurate EPSG.
+            4. Saves the updated configurations.
+            5. Extracts shorelines for each selected ROI.
+            6. Saves the ROI IDs that had extracted shorelines.
+            7. Saves a session for each ROI.
+            8. Computes transects for selected ROIs with extracted shorelines.
+            9. Loads extracted shorelines to the map.
+            10. Updates the available ROI IDs with extracted shorelines.
+
+            Note: This method assumes that the necessary data structures and attributes are already initialized.
+
+            Returns:
+                None
+            """
+            self.validate_extract_shoreline_inputs()
+            roi_ids = self.get_roi_ids(is_selected=True)
+            logger.info(f"roi_ids to extract shorelines from: {roi_ids}")
+            # update the settings with the most accurate epsg
+            self.update_settings_with_accurate_epsg()
+            # update configs with new output_epsg
+            self.save_config()
+
+            # get selected ROIs on map and extract shoreline for each of them
+            for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
+                print(f"Extracting shorelines from ROI with the id:{roi_id}")
+                extracted_shorelines = self.extract_shoreline_for_roi(
+                    roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings()
+                )
+                self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+
+            # save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
+            ids_with_extracted_shorelines = self.get_roi_ids(
+                is_selected=False, has_shorelines=True
             )
-            self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+            if ids_with_extracted_shorelines is None:
+                self.id_container.ids = []
+            elif not isinstance(ids_with_extracted_shorelines, list):
+                self.id_container.ids = list(ids_with_extracted_shorelines)
+            else:
+                self.id_container.ids = ids_with_extracted_shorelines
 
-        # save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
-        ids_with_extracted_shorelines = self.get_roi_ids(
-            is_selected=False, has_shorelines=True
-        )
-        if ids_with_extracted_shorelines is None:
-            self.id_container.ids = []
-        elif not isinstance(ids_with_extracted_shorelines, list):
-            self.id_container.ids = list(ids_with_extracted_shorelines)
-        else:
-            self.id_container.ids = ids_with_extracted_shorelines
+            # save a session for each ROI under one session name
+            self.save_session(roi_ids, save_transects=False)
 
-        # save a session for each ROI under one session name
-        self.save_session(roi_ids, save_transects=False)
-
-        # Get ROI ids that are selected on map and have had their shorelines extracted
-        roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
-        if hasattr(self.transects, "gdf"):
-            self.compute_transects(self.transects.gdf, self.get_settings(), roi_ids)
-        # load extracted shorelines to map
-        # update the available ROI IDs and this will update the extracted shorelines on the map
-        ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
-
-        print(
-            f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
-        )
+            # Get ROI ids that are selected on map and have had their shorelines extracted
+            roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
+            if hasattr(self.transects, "gdf"):
+                self.compute_transects(self.transects.gdf, self.get_settings(), roi_ids)
+            # load extracted shorelines to map
+            # update the available ROI IDs and this will update the extracted shorelines on the map
+            ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
+            logger.info(
+                f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
+            )
 
     def get_cross_distance(
         self,
@@ -2031,7 +2028,7 @@ class CoastSeg_Map:
         """
         # Get the list of the ROI IDs that have extracted shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
-        print(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
+        logger.info(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
         # if no ROIs have extracted shorelines, return otherwise load extracted shorelines for the first ROI ID with extracted shorelines
         if not ids_with_extracted_shorelines:
             self.id_container.ids = []
@@ -2059,7 +2056,6 @@ class CoastSeg_Map:
         Returns:
             extracted_shorelines(extracted_shoreline.Extracted_Shoreline): The extracted shorelines for the selected ROI.
         """
-        print(f"update_loadable_shorelines {selected_id}")
         # get the extracted shoreline for the selected roi's id
         if self.rois is None:
             self.extract_shorelines_container.load_list = []
@@ -2067,10 +2063,6 @@ class CoastSeg_Map:
             return None
         
         extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
-        print(
-            f"ROI ID {selected_id} had gdf {hasattr(extracted_shorelines, 'gdf')} extracted shorelines"
-        )
-        logger.info(f"ROI ID {selected_id} extracted shorelines {extracted_shorelines}")
         # if extracted shorelines exist, load them onto map, if none exist nothing loads
         if hasattr(extracted_shorelines, "gdf"):
             if not extracted_shorelines.gdf.empty:
@@ -2087,15 +2079,6 @@ class CoastSeg_Map:
                     extracted_shorelines.gdf["satname"] + "_" + formatted_dates
                 ).tolist()
                 self.extract_shorelines_container.trash_list = []
-            # if not extracted_shorelines.gdf.empty:
-            #     self.extract_shorelines_container.load_list = (
-            #         extracted_shorelines.gdf["satname"]
-            #         + "_"
-            #         + extracted_shorelines.gdf["date"].apply(
-            #             lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
-            #         )
-            #     ).tolist()
-            #     self.extract_shorelines_container.trash_list = []
         else:
             # if the selected ROI has no extracted shorelines, clear the load list & trash list
             self.extract_shorelines_container.load_list = []
