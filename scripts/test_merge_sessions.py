@@ -314,7 +314,6 @@ def test_main_with_different_rois():
     verify_merged_session(dest)
 
 
-
 def test_main_with_overlapping_dates():
     # Create a Namespace object with your arguments
     source_dest = os.path.join(TEST_DATA_LOCATION, "test_case3_rois_overlapping_dates")
@@ -325,7 +324,6 @@ def test_main_with_overlapping_dates():
         raise Exception("Test data not found. Please download the test data")
 
     merged_session_name = "merged_session"
-    merged_session_name = "merged_session_test_case3"
     dest = os.path.join(SAVE_LOCATION, merged_session_name)
     if os.path.exists(dest):
         clear_directory(dest)
