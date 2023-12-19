@@ -1524,6 +1524,7 @@ def create_warning_box(
         layout=Layout(height="28px", width="60px"),
     )
 
+    # make the height of the vbox 
     # create vertical box to hold title and msg
     warning_content = VBox(
         [warning_title, warning_msg, instructions_msg, close_button],

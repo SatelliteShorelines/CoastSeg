@@ -233,7 +233,7 @@ class UI:
         self.extract_shorelines_widget.add_remove_callback(
             coastseg_map.remove_layer_by_name
         )
-        # link the widgets to the traitlets
+        # link the widgets to the traitlets defined in the extract shorelines container located within coastseg_map
         coastseg_map.extract_shorelines_container.link_load_list(
             self.extract_shorelines_widget.load_list_widget
         )

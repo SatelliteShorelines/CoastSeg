@@ -1467,7 +1467,7 @@ def load_extracted_shoreline_from_files(
     }
 
     extracted_files = {}
-
+    logger.info(f"Loading extracted shorelines from: {dir_path}")
     for file_type, file_pattern in required_files.items():
         file_paths = glob(os.path.join(dir_path, file_pattern))
         if not file_paths:
@@ -1481,11 +1481,16 @@ def load_extracted_shoreline_from_files(
             extracted_files[file_type] = file_utilities.load_data_from_json(file_path)
 
     extracted_shorelines = Extracted_Shoreline()
-    extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
-        extracted_files["dict"], extracted_files["settings"], extracted_files["geojson"]
-    )
+    # attempt to load the extracted shorelines from the files. If there is an error, return None
+    try:
+        extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
+            extracted_files["dict"], extracted_files["settings"], extracted_files["geojson"]
+        )
+    except ValueError as e:
+        logger.error(f"Error loading extracted shorelines: {e}")
+        del extracted_shorelines
+        return None
 
-    logger.info(f"Loaded extracted shorelines from: {dir_path}")
     return extracted_shorelines
 
 
