@@ -11,7 +11,7 @@ import shutil
 
 TEST_DATA_LOCATION = r"C:\development\doodleverse\coastseg\CoastSeg\test_data"
 SAVE_LOCATION = (
-    r"C:\development\doodleverse\coastseg\CoastSeg\test_data\merged_sessions"
+    r"C:\development\doodleverse\coastseg\CoastSeg\test_data\merged_sessions12"
 )
 
 # helper functions
@@ -324,6 +324,7 @@ def test_main_with_overlapping_dates():
         raise Exception("Test data not found. Please download the test data")
 
     merged_session_name = "merged_session"
+    merged_session_name = "merged_session_test_case3"
     dest = os.path.join(SAVE_LOCATION, merged_session_name)
     if os.path.exists(dest):
         clear_directory(dest)
