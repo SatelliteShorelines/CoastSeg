@@ -389,14 +389,15 @@ def process_satellite(
         return output
 
     collection = settings["inputs"]["landsat_collection"]
-    default_min_length_sl = settings["min_length_sl"]
     # deep copy settings
     settings = copy.deepcopy(settings)
     filepath = get_filepath(settings["inputs"], satname)
     pixel_size = get_pixel_size_for_satellite(satname)
 
     # get the minimum beach area in number of pixels depending on the satellite
-    settings["min_length_sl"] = get_min_shoreline_length(satname, default_min_length_sl)
+    settings["min_length_sl"] = get_min_shoreline_length(
+        satname, settings["min_length_sl"]
+    )
 
     # loop through the images
     espg_list = []
