@@ -141,6 +141,8 @@ def read_first_geojson_file(
     Raises:
         FileNotFoundError: If none of the specified files exist in the directory.
     """
+    if isinstance(filenames, str):
+        filenames = [filenames]
     # Loop over the filenames
     for filename in filenames:
         filepath = os.path.join(directory, filename)
@@ -422,6 +424,9 @@ def process_geojson_files(
         transform_funcs = [transform_funcs]
     if read_func is None:
         raise ValueError("read_func must be specified")
+
+    if not isinstance(session_locations, list):
+        session_locations = [session_locations]
 
     gdfs = []
     for session_dir in session_locations:
