@@ -10,9 +10,7 @@ import argparse
 import shutil
 
 TEST_DATA_LOCATION = r"C:\development\doodleverse\coastseg\CoastSeg\test_data"
-SAVE_LOCATION = (
-    r"C:\development\doodleverse\coastseg\CoastSeg\test_data\merged_sessions12"
-)
+SAVE_LOCATION = os.path.join(TEST_DATA_LOCATION, "merged_sessions")
 
 # helper functions
 # --------------
