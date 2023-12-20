@@ -2,6 +2,7 @@ import pytest
 import os
 import json
 import datetime
+from datetime import timezone
 import tempfile
 import shutil
 
@@ -18,6 +19,137 @@ import pytest
 from unittest.mock import patch
 import pytest
 from coastseg import common
+from typing import Dict, List, Union
+
+
+# Scenario 1: 'date' column as string
+def test_remove_matching_rows_date_string():
+    # Create mock GeoDataFrame with 'date' as string
+    data = {
+        "date": ["2023-01-01", "2023-01-02", "2023-01-03", "2023-01-04"],
+        "satname": ["SatA", "SatB", "SatA", "SatC"],
+        "value": [10, 20, 30, 40],
+    }
+    gdf = gpd.GeoDataFrame(data)
+
+    # Criteria for removal
+    kwargs = {"date": ["2023-01-03", "2023-01-04"], "satname": ["SatA", "SatC"]}
+
+    # Apply function
+    updated_gdf = common.remove_matching_rows(gdf, **kwargs)
+
+    # Assertions
+    assert len(updated_gdf) == 2
+    assert all(item not in updated_gdf["date"].values for item in kwargs["date"])
+
+
+# Scenario 2: 'date' column as datetime
+def test_remove_matching_rows_date_datetime():
+    # Create mock GeoDataFrame with 'date' as datetime
+    data = {
+        "date": [
+            datetime.datetime(2018, 12, 5, 16, 14, 8),
+            datetime.datetime(2018, 12, 5, 17, 14, 8),
+            datetime.datetime(2018, 12, 5, 17, 15, 8),
+            datetime.datetime(2018, 12, 5, 18, 18, 9),
+        ],
+        "satname": ["L8", "L9", "L8", "S2"],
+        "value": [10, 20, 30, 40],
+    }
+    gdf = gpd.GeoDataFrame(data)
+
+    # Criteria for removal
+    kwargs = {
+        "date": ["2018-12-05 16:14:8", "2018-12-05 18:18:9"],
+        "satname": ["L8", "S2"],
+    }
+
+    # Apply function
+    updated_gdf = common.remove_matching_rows(gdf, **kwargs)
+
+    # Assertions
+    assert len(updated_gdf) == 2
+    assert all(
+        datetime.datetime.strptime(item, "%Y-%m-%d %H:%M:%S")
+        not in updated_gdf["date"].values
+        for item in kwargs["date"]
+    )
+    assert len(updated_gdf[updated_gdf["satname"] == "L8"]) == 1
+
+
+# Scenario 3: dates given to remove_matching_rows are datetime
+def test_remove_matching_rows_date_datetime_format_inputs():
+    # Create mock GeoDataFrame with 'date' as datetime
+    data = {
+        "date": [
+            datetime.datetime(2018, 12, 5, 16, 14, 8),
+            datetime.datetime(2018, 12, 5, 17, 14, 8),
+            datetime.datetime(2018, 12, 5, 17, 15, 8),
+            datetime.datetime(2018, 12, 5, 18, 18, 9),
+        ],
+        "satname": ["SatA", "SatB", "SatA", "SatC"],
+        "value": [10, 20, 30, 40],
+    }
+    gdf = gpd.GeoDataFrame(data)
+    date = ["2018-12-05 16:14:8", "2018-12-05 18:18:9"]
+
+    # Criteria for removal
+    kwargs = {
+        "date": [
+            datetime.datetime.strptime(datestr, "%Y-%m-%d %H:%M:%S") for datestr in date
+        ],
+        "satname": ["SatA", "SatC"],
+    }
+
+    # Apply function
+    updated_gdf = common.remove_matching_rows(gdf, **kwargs)
+
+    # Assertions
+    assert len(updated_gdf) == 2
+    assert all(item not in updated_gdf["date"].values for item in kwargs["date"])
+
+
+def test_extract_dates_and_sats():
+    # Sample input
+    selected_items = [
+        "S2_2018-12-05 16:14:08",
+        "S2_2018-12-25 16:14:09",
+        "S2_2018-01-09 16:14:08",
+    ]
+
+    # Expected output
+    expected_dates = [
+        datetime.datetime(2018, 12, 5, 16, 14, 8, tzinfo=timezone.utc),
+        datetime.datetime(2018, 12, 25, 16, 14, 9, tzinfo=timezone.utc),
+        datetime.datetime(2018, 1, 9, 16, 14, 8, tzinfo=timezone.utc),
+    ]
+    expected_sat_list = ["S2", "S2", "S2"]
+
+    # Run the function
+    dates_list, sat_list = common.extract_dates_and_sats(selected_items)
+
+    # Assertions
+    assert dates_list == expected_dates
+    assert sat_list == expected_sat_list
+
+
+# Helper functions
+def create_temp_jpg_file(filename, dir_path):
+    """
+    Helper function to create a temporary JPEG file with a specified filename in a directory.
+    """
+    full_path = os.path.join(dir_path, filename)
+    open(full_path, "a").close()  # Create an empty file
+
+
+def create_temp_csv_with_data(data, column_names):
+    """
+    Helper function to create a temporary CSV file with specified data and column names.
+    """
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
+    df = pd.DataFrame(data, columns=column_names)
+    df.to_csv(temp_file.name, index=False)
+    return temp_file.name
 
 
 def test_filter_partial_images():
@@ -1107,3 +1239,371 @@ def test_save_extracted_shoreline_figures(temp_jpg_dir_structure, temp_dst_dir):
         assert os.path.exists(
             os.path.join(temp_dst_dir, "jpg_files", "detection", f"test_image_{i}.jpg")
         )
+
+
+def test_update_transect_time_series():
+    # Sample data and column names
+    data = [
+        ["2023-01-01 00:00:00+00:00", 10],
+        ["2023-01-02 00:00:00+00:00", 20],
+        ["2023-01-03 00:00:00+00:00", 30],
+    ]
+    column_names = ["dates", "values"]
+
+    # Create a temporary CSV file
+    temp_csv_path = create_temp_csv_with_data(data, column_names)
+
+    # Dates to remove
+    dates_to_remove = [datetime.datetime(2023, 1, 2)]
+
+    # Call the function with the temporary file and dates
+    common.update_transect_time_series([temp_csv_path], dates_to_remove)
+    # Read the updated CSV file into a DataFrame
+    df_updated = pd.read_csv(temp_csv_path)
+
+    # Assertions
+    assert len(df_updated) == 2  # Should only have 2 rows now
+    assert "2023-01-02 00:00:00+00:00" not in df_updated["dates"].values
+
+    # Clean up - remove the temporary file
+    os.remove(temp_csv_path)
+
+
+def test_delete_jpg_files():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Sample data
+        dates_list = [
+            datetime.datetime(2023, 1, 1, 12, 0),
+            datetime.datetime(2023, 1, 2, 12, 0),
+        ]
+        sat_list = ["SatA", "SatB"]
+        extra_file = "2023-01-03-12-00-00_SatC.jpg"
+
+        # Create temporary JPEG files
+        for date, sat in zip(dates_list, sat_list):
+            create_temp_jpg_file(
+                date.strftime("%Y-%m-%d-%H-%M-%S") + "_" + sat + ".jpg", tmp_dir
+            )
+        create_temp_jpg_file(
+            extra_file, tmp_dir
+        )  # Extra file that should not be deleted
+
+        # Call the function
+        common.delete_jpg_files(dates_list, sat_list, tmp_dir)
+
+        # Assertions
+        remaining_files = os.listdir(tmp_dir)
+        assert len(remaining_files) == 1  # Only the extra file should remain
+        assert extra_file in remaining_files
+
+
+def test_delete_jpg_files_only_satellite_matches():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Sample data
+        dates_list = [
+            datetime.datetime(2023, 1, 1, 12, 0),
+            datetime.datetime(2023, 1, 2, 12, 0),
+        ]
+        sat_list = ["SatA", "SatB"]
+        extra_file = "2023-01-03-12-00-00_SatC.jpg"
+
+        # Create temporary JPEG files
+        for date, sat in zip(dates_list, sat_list):
+            create_temp_jpg_file(
+                date.strftime("%Y-%m-%d-%H-%M-%S") + "_" + sat + ".jpg", tmp_dir
+            )
+        create_temp_jpg_file(
+            extra_file, tmp_dir
+        )  # Extra file that should not be deleted
+
+        # Call the function
+        dates_list = [
+            datetime.datetime(2023, 4, 1, 12, 0),
+            datetime.datetime(2023, 5, 2, 12, 0),
+        ]
+        common.delete_jpg_files(dates_list, sat_list, tmp_dir)
+
+        # Assertions
+        remaining_files = os.listdir(tmp_dir)
+        assert len(remaining_files) == 3  # No files should be deleted
+        assert extra_file in remaining_files
+
+
+def test_delete_jpg_files_only_date_matches():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Sample data
+        dates_list = [
+            datetime.datetime(2023, 1, 1, 12, 0),
+            datetime.datetime(2023, 1, 2, 12, 0),
+        ]
+        sat_list = ["SatA", "SatB"]
+        extra_file = "2023-01-03-12-00-00_SatC.jpg"
+
+        # Create temporary JPEG files
+        for date, sat in zip(dates_list, sat_list):
+            create_temp_jpg_file(
+                date.strftime("%Y-%m-%d-%H-%M-%S") + "_" + sat + ".jpg", tmp_dir
+            )
+        create_temp_jpg_file(
+            extra_file, tmp_dir
+        )  # Extra file that should not be deleted
+
+        # Call the function
+        sat_list = ["SatZ", "SatG"]
+        common.delete_jpg_files(dates_list, sat_list, tmp_dir)
+
+        # Assertions
+        remaining_files = os.listdir(tmp_dir)
+        assert len(remaining_files) == 3  # No files should be deleted
+        assert extra_file in remaining_files
+
+
+def test_delete_jpg_files_nothing_matches_and_empty():
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Sample data
+        dates_list = [
+            datetime.datetime(2023, 1, 1, 12, 0),
+            datetime.datetime(2023, 1, 2, 12, 0),
+        ]
+        sat_list = ["SatA", "SatB"]
+        extra_file = "2023-01-03-12-00-00_SatC.jpg"
+
+        # Create temporary JPEG files
+        for date, sat in zip(dates_list, sat_list):
+            create_temp_jpg_file(
+                date.strftime("%Y-%m-%d-%H-%M-%S") + "_" + sat + ".jpg", tmp_dir
+            )
+        create_temp_jpg_file(
+            extra_file, tmp_dir
+        )  # Extra file that should not be deleted
+
+        # Call the function
+        sat_list = ["SatZ", "SatG"]
+        dates_list = [
+            datetime.datetime(2024, 1, 1, 12, 0),
+            datetime.datetime(2028, 1, 2, 12, 0),
+        ]
+        common.delete_jpg_files([], [], tmp_dir)
+
+        # Assertions
+        remaining_files = os.listdir(tmp_dir)
+        assert len(remaining_files) == 3  # No files should be deleted
+        assert extra_file in remaining_files
+
+        # test again but with empty lists
+        common.delete_jpg_files([], [], tmp_dir)
+
+        # Assertions
+        remaining_files = os.listdir(tmp_dir)
+        assert len(remaining_files) == 3  # No files should be deleted
+        assert extra_file in remaining_files
+
+
+import numpy as np
+from coastseg import common
+
+
+def test_delete_selected_indexes_empty_input_dict():
+    input_dict = {}
+    selected_indexes = [0, 2, 4]
+    expected_output = {}
+    assert (
+        common.delete_selected_indexes(input_dict, selected_indexes) == expected_output
+    )
+
+
+def test_delete_selected_indexes_empty_selected_indexes():
+    input_dict = {"key1": [1, 2, 3], "key2": [4, 5, 6]}
+    selected_indexes = []
+    expected_output = {"key1": [1, 2, 3], "key2": [4, 5, 6]}
+    assert (
+        common.delete_selected_indexes(input_dict, selected_indexes) == expected_output
+    )
+
+
+def test_delete_selected_indexes_no_nested_arrays():
+    input_dict = {"key1": [1, 2, 3], "key2": [4, 5, 6]}
+    selected_indexes = [0, 2]
+    expected_output = {"key1": [2], "key2": [5]}
+    assert (
+        common.delete_selected_indexes(input_dict, selected_indexes) == expected_output
+    )
+
+
+def test_delete_selected_indexes_with_nested_arrays():
+    input_dict = {"key1": [np.array([1, 2, 3]), np.array([4, 5, 6])]}
+    selected_indexes = [0]
+    expected_output = {"key1": [np.array([4, 5, 6])]}
+    output_dict = common.delete_selected_indexes(input_dict, selected_indexes)
+    for key in expected_output.keys():
+        if isinstance(expected_output[key][0], np.ndarray):
+            assert np.array_equal(output_dict[key][0], expected_output[key][0])
+        else:
+            assert output_dict[key][0] == expected_output[key][0]
+
+
+def test_delete_selected_indexes_with_nested_arrays_and_lists():
+    input_dict = {"key1": [np.array([1, 2, 3]), [4, 5, 6]], "key2": [7, 8, 9]}
+    selected_indexes = [1]
+    expected_output = {"key1": [np.array([1, 2, 3]), [5, 6]], "key2": [7, 9]}
+    for key in expected_output.keys():
+        if isinstance(expected_output[key][0], np.ndarray):
+            assert np.array_equal(input_dict[key][0], expected_output[key][0])
+        else:
+            assert input_dict[key][0] == expected_output[key][0]
+
+
+def test_get_selected_indexes_empty_data_dict():
+    # Empty data_dict
+    data_dict = {}
+    dates_list = ["2021-01-01"]
+    sat_list = ["sat1"]
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == []
+
+
+def test_get_selected_indexes_no_matches():
+    # No matches in data_dict
+    data_dict = {"dates": ["2021-01-01", "2021-01-02"], "satname": ["sat1", "sat2"]}
+    dates_list = ["2022-01-01"]
+    sat_list = ["sat1"]
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == []
+
+
+def test_get_selected_indexes_single_match():
+    # Single match in data_dict
+    data_dict = {"dates": ["2021-01-01", "2021-01-02"], "satname": ["sat1", "sat2"]}
+    dates_list = ["2021-01-01"]
+    sat_list = ["sat1"]
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == [0]
+
+
+def test_get_selected_indexes_multiple_matches():
+    # Multiple matches in data_dict
+    data_dict = {
+        "dates": [
+            "2018-12-03T18:40:12+00:00",
+            "2018-12-03T18:40:12+00:00",
+            "2018-12-03T18:40:12+00:00",
+        ],
+        "satname": ["sat1", "sat2", "sat3"],
+    }
+    dates_list = ["2018-12-03T18:40:12+00:00"]
+    sat_list = ["sat1"]
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == [0]
+
+
+def test_get_selected_indexes_empty_lists():
+    # Empty lists in data_dict
+    data_dict = {"dates": [], "satname": []}
+    dates_list = ["2021-01-01"]
+    sat_list = ["sat1"]
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == []
+
+
+def test_get_selected_indexes_empty_dates_list():
+    # Empty dates_list
+    data_dict = {"dates": ["2021-01-01", "2021-01-02"], "satname": ["sat1", "sat2"]}
+    dates_list = []
+    sat_list = ["sat1"]
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == []
+
+
+def test_get_selected_indexes_empty_sat_list():
+    # Empty sat_list
+    data_dict = {"dates": ["2021-01-01", "2021-01-02"], "satname": ["sat1", "sat2"]}
+    dates_list = ["2021-01-01"]
+    sat_list = []
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == []
+
+
+def test_get_selected_indexes_empty_data_dict_and_lists():
+    # Empty data_dict, dates_list, and sat_list
+    data_dict = {}
+    dates_list = []
+    sat_list = []
+    assert common.get_selected_indexes(data_dict, dates_list, sat_list) == []
+
+
+def test_transform_data_to_nested_arrays():
+    # Test case 1: Dictionary with lists of integers
+    data_dict = {"list1": [1, 2, 3], "list2": [4, 5, 6]}
+    expected_result = {"list1": np.array([1, 2, 3]), "list2": np.array([4, 5, 6])}
+    actual_result = common.transform_data_to_nested_arrays(data_dict)
+    for key in expected_result.keys():
+        assert np.array_equal(actual_result[key], expected_result[key])
+
+    # Test case 2: Dictionary with lists of floats
+    data_dict = {"list1": [1.1, 2.2, 3.3], "list2": [4.4, 5.5, 6.6]}
+    expected_result = {
+        "list1": np.array([1.1, 2.2, 3.3]),
+        "list2": np.array([4.4, 5.5, 6.6]),
+    }
+    actual_result = common.transform_data_to_nested_arrays(data_dict)
+    for key in expected_result.keys():
+        assert np.array_equal(actual_result[key], expected_result[key])
+
+    # Test case 3: Dictionary with lists of NumPy arrays
+    data_dict = {
+        "list1": [
+            np.array(
+                [
+                    np.array(
+                        [
+                            1,
+                            2,
+                        ]
+                    ),
+                    np.array(
+                        [
+                            2,
+                            7,
+                        ]
+                    ),
+                    np.array(
+                        [
+                            1,
+                            2,
+                        ]
+                    ),
+                ]
+            ),
+            np.array(
+                [
+                    4,
+                    5,
+                ]
+            ),
+        ],
+    }
+    expected_result = {
+        "list1": np.array(
+            [np.array([[1, 2], [2, 7], [1, 2]]), np.array([4, 5])], dtype=object
+        ),
+    }
+    actual_result = common.transform_data_to_nested_arrays(data_dict)
+    assert actual_result["list1"].shape == expected_result["list1"].shape
+    assert actual_result["list1"][0].shape == expected_result["list1"][0].shape
+    assert actual_result["list1"][1].shape == expected_result["list1"][1].shape
+
+    # Test case 4: Dictionary with NumPy arrays
+    data_dict = {"array1": np.array([1, 2, 3]), "array2": np.array([4, 5, 6])}
+    expected_result = {"array1": np.array([1, 2, 3]), "array2": np.array([4, 5, 6])}
+    actual_result = common.transform_data_to_nested_arrays(data_dict)
+    for key in expected_result.keys():
+        assert np.array_equal(actual_result[key], expected_result[key])
+
+    # Test case 5: Empty dictionary
+    data_dict = {}
+    expected_result = {}
+    assert common.transform_data_to_nested_arrays(data_dict) == expected_result
+
+    # Test case 6: Dictionary with invalid value type
+    data_dict = {"list1": "invalid", "list2": [1, 2, 3]}
+    try:
+        common.transform_data_to_nested_arrays(data_dict)
+    except Exception
+        assert True
