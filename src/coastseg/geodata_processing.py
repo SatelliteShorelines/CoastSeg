@@ -1,7 +1,7 @@
 import os
 import copy
 import logging
-from typing import Callable, List
+from typing import Callable, Dict, List
 from typing import Union
 
 # Internal dependencies imports
@@ -16,47 +16,51 @@ logger = logging.getLogger(__name__)
 
 
 def edit_geojson_files(
-    location: str,
-    filenames: List[str],
-    selected_items: List[Any],
+    filepaths: List[str],
     filter_function: Callable[[List[Any], gpd.GeoDataFrame], gpd.GeoDataFrame],
+    **kwargs,
 ) -> None:
     """
     Applies a filter function to GeoDataFrame objects loaded from GeoJSON files,
     and writes the results back to the files.
 
-    :param location: A string representing the directory containing the GeoJSON files.
-    :param filenames: A list of strings representing the names of the GeoJSON files to be edited.
-    :param selected_items: A list of items to be used in the filter function.
-    :param filter_function: A function that takes a list of selected items and a GeoDataFrame,
+    Each of the keywoard argument should be a column name in the GeoDataFrame with the values
+    to filter in the given column. The filter function should take a GeoDataFrame and the kwargs.
+
+    Args:
+    filepaths (list): A list of strings representing the locations of the GeoJSON files to be edited.
+    filter_function (Callable): A function that takes a list of selected items and a GeoDataFrame,
                             applies some filtering or editing based on the selected items,
                             and returns the modified GeoDataFrame.
-    :return: None
+    Returns:
+     None
     """
-    for filename in filenames:
-        filepath = os.path.join(location, filename)
+    for filepath in filepaths:
         if os.path.exists(filepath):
-            edit_gdf_file(filepath, selected_items, filter_function)
+            edit_gdf_file(filepath, filter_function, **kwargs)
 
 
 def edit_gdf_file(
     filepath: str,
-    selected_items: List[Any],
-    filter_function: Callable[[List[Any], gpd.GeoDataFrame], gpd.GeoDataFrame],
+    filter_function: Callable[[gpd.GeoDataFrame, Dict[str, Any]], gpd.GeoDataFrame],
+    **kwargs: Any,
 ) -> None:
     """
     Applies a filter function to a GeoDataFrame object loaded from a GeoJSON file,
     and writes the result back to the file.
 
+    Each of the keywoard argument should be a column name in the GeoDataFrame with the values
+    to filter in the given column. The filter function should take a GeoDataFrame and the kwargs.
+
     :param filepath: A string representing the path to the GeoJSON file.
-    :param selected_items: A list of items to be used in the filter function.
-    :param filter_function: A function that takes a list of selected items and a GeoDataFrame,
-                            applies some filtering or editing based on the selected items,
+    :param filter_function: A function that takes a GeoDataFrame and kwargs,
+                            applies some filtering or editing based on the kwargs,
                             and returns the modified GeoDataFrame.
+    :param kwargs: Additional keyword arguments to be passed to the filter function.
     :return: None
     """
     gdf = read_gpd_file(filepath)
-    new_gdf = filter_function(selected_items, gdf)
+    new_gdf = filter_function(gdf, **kwargs)
     new_gdf.to_file(filepath, driver="GeoJSON")
 
 
@@ -236,7 +240,11 @@ def extract_feature_from_geodataframe(
         )
 
     # Handling pluralization of feature_type
-    feature_types = {feature_type.lower(), (feature_type + 's').lower(), (feature_type.rstrip('s')).lower()}
+    feature_types = {
+        feature_type.lower(),
+        (feature_type + "s").lower(),
+        (feature_type.rstrip("s")).lower(),
+    }
 
     # Filter the GeoDataFrame for the specified types
     filtered_gdf = gdf[gdf[type_column].str.lower().isin(feature_types)]

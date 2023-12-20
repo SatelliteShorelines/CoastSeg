@@ -8,6 +8,7 @@ import math
 import logging
 import random
 import string
+from typing import List
 from datetime import datetime, timezone
 
 # Third-party imports
@@ -330,21 +331,72 @@ def load_settings(
     return filtered_settings
 
 
-def remove_rows(selected_items, gdf):
-    if "dates" not in gdf.columns and "satname" not in gdf.columns:
-        return gdf
-    # Loop through each dictionary in dates_tuple
-    for criteria in list(selected_items):
-        satname, dates = criteria.split("_")
-        # Convert the dates string to a Timestamp object
-        # dates_obj = Timestamp(datetime.strptime(dates, "%Y-%m-%d-%H-%M-%S"))
-        dates_obj = datetime.strptime(dates, "%Y-%m-%d %H:%M:%S")
-        # Use boolean indexing to select the rows that match the criteria
-        mask = (gdf["date"] == dates_obj) & (gdf["satname"] == satname)
-        # Drop the rows that match the criteria
-        gdf = gdf.drop(gdf[mask].index)
-    # Return the new GeoDataFrame
-    gdf["date"] = gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+# def remove_rows(selected_items, gdf):
+#     """
+#     Remove rows from a GeoDataFrame based on selected items.
+
+#     Args:
+#         selected_items (list): List of selected items in the format "satname_dates".
+#         gdf (GeoDataFrame): Input GeoDataFrame.
+
+#     Returns:
+#         GeoDataFrame: GeoDataFrame with rows removed based on the selected items.
+#     """
+#     # Loop through each dictionary in dates_tuple
+#     for criteria in list(selected_items):
+#         satname, dates = criteria.split("_")
+#         # Convert the dates string to a Timestamp object
+#         dates_obj = datetime.strptime(dates, "%Y-%m-%d %H:%M:%S")
+#         # Use boolean indexing to select the rows that match the criteria
+#         mask = (gdf["date"] == dates_obj) & (gdf["satname"] == satname)
+#         # Drop the rows that match the criteria
+#         gdf = gdf.drop(gdf[mask].index)
+#     # Return the new GeoDataFrame
+#     gdf["date"] = gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+#     return gdf
+
+
+def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
+    """
+    Remove rows from a GeoDataFrame that match ALL the columns and items specified in the keyword arguments.
+
+    Each of the keyword argument should be a column name in the GeoDataFrame with the values
+    to filter in the given column.
+
+    Parameters:
+    gdf (GeoDataFrame): The input GeoDataFrame.
+    **kwargs: Keyword arguments representing column names and items to match.
+
+    Returns:
+    GeoDataFrame: The modified GeoDataFrame with matching rows removed.
+    """
+
+    # Initialize a mask with all True values
+    combined_mask = pd.Series([True] * len(gdf))
+
+    for column_name, items_list in kwargs.items():
+        # Ensure the column exists in the DataFrame
+        if column_name not in gdf.columns:
+            raise ValueError(f"Column '{column_name}' not found in GeoDataFrame")
+
+        # Create a mask for each condition and combine them using logical AND
+        condition_mask = pd.Series([False] * len(gdf))
+        # Iterate over the items in the list
+        for item in items_list:
+            # creates a mask where the column value is equal to the item and the condition mask is True, meaning previous conditions were met
+            condition_mask = condition_mask | (gdf[column_name] == item)
+        # Combine the condition mask with the combined mask with a logical AND
+        combined_mask = combined_mask & condition_mask
+
+        # Convert datetime columns to strings
+        if pd.api.types.is_datetime64_any_dtype(gdf[column_name]) or isinstance(
+            gdf[column_name].dtype, pd.DatetimeTZDtype
+        ):
+            gdf[column_name] = gdf[column_name].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Drop the rows that match the combined criteria
+    gdf = gdf.drop(gdf[combined_mask].index)
+
     return gdf
 
 
@@ -482,36 +534,70 @@ def filter_images_by_roi(roi_settings: list[dict]):
         logger.info(f"Partial images filtered out: {bad_images}")
 
 
-def drop_rows_from_csv(file_pattern, session_path, dates_list):
+def drop_dates_from_csv(
+    file_pattern: str,
+    session_path: str,
+    dates_list: list[datetime],
+    column_name: str = "dates",
+):
     """
-    Drop rows containing formatted dates from CSV files that match a specified pattern in a directory.
+    Drops rows from CSV files that match a given file pattern and have dates in a specified list.
 
     Args:
-        file_pattern: A string representing the file pattern to match, e.g. '*_timeseries_raw.csv'.
-        session_path: A string representing the directory path where the CSV files are located.
-        formatted_dates: A list of formatted dates to drop, e.g. ['2018-12-01 19:03:46+00:00', '2018-12-02 20:04:47+00:00'].
+        file_pattern (str): The pattern to match for the CSV files.
+        session_path (str): The path to the directory containing the CSV files.
+        dates_list (list[datetime]): The list of datetime objects representing the dates to drop.
+        column_name (str, optional): The name of the column containing the dates. Defaults to "dates".
+
+    Raises:
+        AssertionError: If any element in the dates_list is not a datetime object.
+
+    Returns:
+        None
     """
+    # assert that datetime objects are passed
+    assert all(
+        isinstance(date, datetime) for date in dates_list
+    ), "dates_list must contain datetime objects"
+    formatted_dates = [date.strftime("%Y-%m-%d %H:%M:%S+00:00") for date in dates_list]
+
     # Get a list of files that match the file pattern in the directory
     # Compile the regex pattern
     # Filter files based on the regex pattern
     matched_files = glob.glob(session_path + f"/*{file_pattern}*")
-    formatted_dates = [date.strftime("%Y-%m-%d %H:%M:%S+00:00") for date in dates_list]
     # Loop through each file in the matched files list
     for file in matched_files:
         # Read the CSV file into a DataFrame
         df = pd.read_csv(file)
 
-        # Convert the 'dates' column to datetime objects
-        df["dates"] = pd.to_datetime(df["dates"])
+        # Convert the column to datetime objects
+        df[column_name] = pd.to_datetime(df[column_name])
 
-        # Drop rows where the 'dates' column is in the list of formatted dates
-        df = df[~df["dates"].isin(formatted_dates)]
+        # Drop rows where the column is in the list of formatted dates
+        df = df[~df[column_name].isin(formatted_dates)]
 
         # Write the updated DataFrame to the same CSV file
         df.to_csv(file, index=False)
 
 
-def delete_jpg_files(dates_list, sat_list, jpg_path):
+def delete_jpg_files(
+    dates_list: List[datetime], sat_list: List[str], jpg_path: str
+) -> None:
+    """
+    Delete JPEG files based on the given dates and satellite list.
+
+    Args:
+        dates_list (List[datetime]): A list of datetime objects representing the dates.
+        sat_list (list): A list of satellite names.
+        jpg_path (str): The path to the directory containing the JPEG files.
+
+    Returns:
+        None
+    """
+    # assert that datetime objects are passed
+    assert all(
+        isinstance(date, datetime) for date in dates_list
+    ), "dates_list must contain datetime objects"
     # Format the dates in dates_list as strings
     formatted_dates = [date.strftime("%Y-%m-%d-%H-%M-%S") for date in dates_list]
 
@@ -1524,7 +1610,7 @@ def create_warning_box(
         layout=Layout(height="28px", width="60px"),
     )
 
-    # make the height of the vbox 
+    # make the height of the vbox
     # create vertical box to hold title and msg
     warning_content = VBox(
         [warning_title, warning_msg, instructions_msg, close_button],
