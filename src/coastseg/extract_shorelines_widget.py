@@ -2,9 +2,28 @@ import logging
 from typing import Callable, List
 import ipywidgets
 from ipywidgets import Layout
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
+
+
+# helper function to sort the list of extracted shorelines by timestamp
+def sort_by_timestamp(data):
+    """
+    Sorts a list of strings containing satellite names and timestamps.
+
+    Parameters:
+    data (list): A list of strings in the format 'satelliteName_timestamp'
+
+    Returns:
+    list: The sorted list based on the timestamps
+    """
+
+    def extract_datetime(s):
+        return datetime.strptime(s.split("_")[1], "%Y-%m-%d %H:%M:%S")
+
+    return sorted(data, key=extract_datetime)
 
 
 class Extracted_Shoreline_widget(ipywidgets.VBox):
@@ -307,12 +326,18 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         try:
             selected_items = self.load_list_widget.value
             # add the items to the trash list
-            self.extracted_shoreline_traitlet.trash_list = (
-                self.extracted_shoreline_traitlet.trash_list + list(selected_items)
+            satellite_data = self.extracted_shoreline_traitlet.trash_list + list(
+                selected_items
+            )
+            self.extracted_shoreline_traitlet.trash_list = sort_by_timestamp(
+                satellite_data
             )
             # remove the items from the load_list
-            self.extracted_shoreline_traitlet.load_list = list(
+            satellite_data = list(
                 set(self.extracted_shoreline_traitlet.load_list) - set(selected_items)
+            )
+            self.extracted_shoreline_traitlet.load_list = sort_by_timestamp(
+                satellite_data
             )
         except Exception as e:
             self.handle_exception(e)
@@ -325,8 +350,11 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
                 set(self.extracted_shoreline_traitlet.trash_list) - set(selected_items)
             )
             # add the items back to the load_list
-            self.extracted_shoreline_traitlet.load_list = list(
+            satellite_data = list(
                 self.extracted_shoreline_traitlet.load_list + list(selected_items)
+            )
+            self.extracted_shoreline_traitlet.load_list = sort_by_timestamp(
+                satellite_data
             )
         except Exception as e:
             self.handle_exception(e)
@@ -337,8 +365,11 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             selected_items = self.trash_list_widget.options
             self.extracted_shoreline_traitlet.trash_list = []
             # remove the deleted items from the load list
-            self.extracted_shoreline_traitlet.load_list = list(
+            satellite_data = list(
                 set(self.load_list_widget.options) - set(selected_items)
+            )
+            self.extracted_shoreline_traitlet.load_list = sort_by_timestamp(
+                satellite_data
             )
             # get the selected ROI ID
             selected_id = self.roi_list_widget.value

@@ -2072,7 +2072,11 @@ class CoastSeg_Map:
         extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
         # if extracted shorelines exist, load them onto map, if none exist nothing loads
         if hasattr(extracted_shorelines, "gdf"):
+            # sort the extracted shoreline gdf by date
             if not extracted_shorelines.gdf.empty:
+                extracted_shorelines.gdf = extracted_shorelines.gdf.sort_values(
+                    by=["date"]
+                )
                 if extracted_shorelines.gdf["date"].dtype == "object":
                     # If the "date" column is already of string type, concatenate directly
                     formatted_dates = extracted_shorelines.gdf["date"]
