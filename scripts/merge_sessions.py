@@ -18,6 +18,8 @@ def main(args):
     session_locations = args.session_locations
     save_location = args.save_location
     merged_session_name = args.merged_session_name
+    # output_epsg = "epsg:4326"
+    output_epsg = "epsg:32610"
     settings_transects = {
         "along_dist": args.along_dist,  # along-shore distance to use for computing the intersection
         "min_points": args.min_points,  # minimum number of shoreline points to calculate an intersection
@@ -38,7 +40,7 @@ def main(args):
     #    - if the shorelines or transects are at the exact same location, they will be merged into one
     #    - if transects have different ids for the same location, they will be merged into one and both ids will be saved
     merged_config = merge_utils.merge_geojson_files(
-        session_locations, merged_session_location
+        session_locations, merged_session_location, crs=output_epsg
     )
 
     # read the extracted shorelines from the session locations
@@ -47,6 +49,7 @@ def main(args):
         ["extracted_shorelines_points.geojson", "extracted_shorelines.geojson"],
         merge_utils.convert_lines_to_multipoints,
         merge_utils.read_first_geojson_file,
+        crs=output_epsg,
     )
 
     # get all the ROIs from all the sessions
@@ -62,7 +65,7 @@ def main(args):
             "Overlapping ROIs found. Overlapping regions may have double shorelines if the shorelines were detected on the same dates."
         )
 
-    # merge the extracted shorelin geodataframes on date and satname, then average the cloud_cover and geoaccuracy for the merged rows
+    # merge the extracted shoreline geodataframes on date and satname, then average the cloud_cover and geoaccuracy for the merged rows
 
     # Perform a full outer join and average the numeric columns across all GeoDataFrames
     merged_shorelines = reduce(merge_utils.merge_and_average, gdfs)
