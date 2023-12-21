@@ -1605,5 +1605,5 @@ def test_transform_data_to_nested_arrays():
     data_dict = {"list1": "invalid", "list2": [1, 2, 3]}
     try:
         common.transform_data_to_nested_arrays(data_dict)
-    except Exception
+    except Exception:
         assert True
