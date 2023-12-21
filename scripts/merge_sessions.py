@@ -18,8 +18,7 @@ def main(args):
     session_locations = args.session_locations
     save_location = args.save_location
     merged_session_name = args.merged_session_name
-    # output_epsg = "epsg:4326"
-    output_epsg = "epsg:32610"
+    output_epsg = args.crs
     settings_transects = {
         "along_dist": args.along_dist,  # along-shore distance to use for computing the intersection
         "min_points": args.min_points,  # minimum number of shoreline points to calculate an intersection
@@ -148,7 +147,10 @@ def main(args):
 
 def parse_arguments():
     # Create the parser
-    parser = argparse.ArgumentParser(description="Merge sessions script.")
+    parser = argparse.ArgumentParser(
+        description="Merge sessions script.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
 
     # Add mandatory arguments
     parser.add_argument(
@@ -156,14 +158,21 @@ def parse_arguments():
         "--session_locations",
         nargs="+",
         required=True,
-        help="Locations for the session folders to be merged",
+        help='Locations of the ROI sessions to be merged. \n- USE DOUBLE QUOTES or it will not work \n Example: -i "C:\CoastSeg\sessions\session_2022\ID_ewr1_datetime12-20-23__03_25_23"  "C:\CoastSeg\sessions\session_2022\ID_ewr3_datetime12-20-23__03_25_23"  \n  ',
+    )
+
+    parser.add_argument(
+        "-c",
+        "--crs",
+        required=True,
+        help="Coordinate reference system (CRS) for the merged session. \n You can find the EPSG code for your CRS in your config.json at 'output_epsg': or set a new one.\n The CRS must be in a cartesian coordinate system (i.e. projected) and not a geographic coordinate system (i.e. lat/lon). \n Example: 'EPSG:32610' is the EPSG code for UTM Zone 10N.\n  ",
     )
 
     parser.add_argument(
         "-n",
         "--merged_session_name",
         required=True,
-        help="Name for the merged session folder",
+        help="Name for the merged session folder that will be created at save_location. \n Example: 'merged_session_2022' \n   ",
     )
 
     # Add optional argument with default value
@@ -171,7 +180,7 @@ def parse_arguments():
         "-s",
         "--save_location",
         default=os.path.join(os.getcwd(), "merged_sessions"),
-        help="Location to save the merged session (default: current directory/merged_sessions)",
+        help='Location to save the merged session (default: coastseg\scripts\merged_sessions) \n Example: -s "C:\CoastSeg\merged_sessions" \n  ',
     )
 
     # Settings for transects
@@ -180,49 +189,49 @@ def parse_arguments():
         "--along_dist",
         type=int,
         default=25,
-        help="Along-shore distance for computing the intersection (default: 25)",
+        help="\n Along-shore distance (in meters) for computing the intersection (default: 25m)\n Example: --ad 30 \n   ",
     )
     parser.add_argument(
         "-mp",
         "--min_points",
         type=int,
         default=3,
-        help="Minimum number of shoreline points to calculate an intersection (default: 3)",
+        help="Minimum number of shoreline points to calculate an intersection (default: 3)\n Example: --mp 5 \n   ",
     )
     parser.add_argument(
         "-ms",
         "--max_std",
         type=int,
         default=15,
-        help="Maximum standard deviation for points around transect (default: 15)",
+        help="Maximum standard deviation for points around transect (default: 15)\n Example: --ms 20\n   ",
     )
     parser.add_argument(
         "-mr",
         "--max_range",
         type=int,
         default=30,
-        help="Maximum range for points around transect (default: 30)",
+        help="Maximum range for points around transect (default: 30)\n Example: --mr 40\n   ",
     )
     parser.add_argument(
         "-mc",
         "--min_chainage",
         type=int,
         default=-100,
-        help="Largest negative value along transect (landwards of transect origin) (default: -100)",
+        help="Largest negative value along transect (landwards of transect origin) (default: -100)\n Example: --mc -200 \n   ",
     )
     parser.add_argument(
         "-mi",
         "--multiple_inter",
         default="auto",
         choices=["auto", "nan", "max"],
-        help="Mode for removing outliers ('auto', 'nan', 'max') (default: 'auto')",
+        help='Mode for removing outliers ("auto", "nan", "max") (default: "auto")\n Example: --mi "nan"\n   ',
     )
     parser.add_argument(
         "-pm",
         "--prc_multiple",
         type=float,
         default=0.1,
-        help="Percentage of the time that multiple intersects are present to use the max (default: 0.1)",
+        help="Percentage of the time that multiple intersects are present to use the max shoreline point for intersection value along transect (default: 0.1)\n Example: --pm 0.20 \n   ",
     )
 
     # Parse the arguments
