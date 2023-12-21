@@ -92,6 +92,7 @@ def verify_merged_session(dest:str):
     # 10. Check if the length of all the values in the dictionary is the same as the number of dates in the csv file
     for key in extracted_shorelines_dict.keys():
         assert len(extracted_shorelines_dict.get(key)) == len(transect_time_series['dates'])
+        
 def validate_dates(session_locations:list[str], dest:str):
     """
     Validates that the dates before and after merging shoreline geojson files are the same.

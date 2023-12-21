@@ -337,11 +337,15 @@ def merge_geometries(merged_gdf, columns=None, operation=unary_union):
     return merged_gdf
 
 
-def read_geojson_files(filepaths, column="type", value=None, keep_columns=None):
+def read_geojson_files(
+    filepaths, column="type", value=None, keep_columns=None, crs=None
+):
     """Read GeoJSON files into GeoDataFrames and return a list."""
     gdfs = []
     for path in filepaths:
         gdf = gpd.read_file(path)
+        if crs:
+            gdf = gdf.to_crs(crs)
         print(f"Read {len(gdf)} features from {path}")
         # print(gdf[gdf[column] == value])
         if column in gdf.columns and value is not None:
@@ -403,7 +407,7 @@ def process_geojson_files(
     filenames,
     transform_funcs=None,
     read_func=None,
-    crs="epsg:4326",
+    crs=None,
 ):
     """
     Reads and optionally transforms GeoDataFrames from given session locations.
@@ -437,7 +441,8 @@ def process_geojson_files(
             if isinstance(gdf, gpd.GeoDataFrame):
                 if "geometry" in gdf.columns and not gdf.crs:
                     gdf.set_crs(crs, inplace=True)
-                gdf = gdf.to_crs(crs)
+                if crs:
+                    gdf = gdf.to_crs(crs)
             gdfs.append(gdf)
         except Exception as e:
             print(f"Error processing {session_dir}: {e}")
@@ -446,7 +451,7 @@ def process_geojson_files(
     return gdfs
 
 
-def merge_geojson_files(session_locations, dest):
+def merge_geojson_files(session_locations, dest, crs=None):
     """
     Merge GeoJSON files from different session locations.
 
@@ -461,7 +466,7 @@ def merge_geojson_files(session_locations, dest):
     filepaths = [
         os.path.join(location, "config_gdf.geojson") for location in session_locations
     ]
-    gdfs = read_geojson_files(filepaths)
+    gdfs = read_geojson_files(filepaths, crs=crs)
     merged_gdf = gpd.GeoDataFrame(concatenate_gdfs(gdfs), geometry="geometry")
 
     # Filter the geodataframe to only elements that intersect with the rois (dramatically drops the size of the geodataframe)
