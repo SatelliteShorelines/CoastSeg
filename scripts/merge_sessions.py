@@ -165,14 +165,14 @@ def parse_arguments():
         "-c",
         "--crs",
         required=True,
-        help="Coordinate reference system (CRS) for the merged session. \n You can find the EPSG code for your CRS in your config.json at 'output_epsg': or set a new one.\n The CRS must be in a cartesian coordinate system (i.e. projected) and not a geographic coordinate system (i.e. lat/lon). \n Example: 'EPSG:32610' is the EPSG code for UTM Zone 10N.\n  ",
+        help='Coordinate reference system (CRS) for the merged session. \n You can find the EPSG code for your CRS in your config.json at "output_epsg": or set a new one.\n The CRS must be in a cartesian coordinate system (i.e. projected) and not a geographic coordinate system (i.e. lat/lon). \n Example: "EPSG:32610" is the EPSG code for UTM Zone 10N.\n  ',
     )
 
     parser.add_argument(
         "-n",
         "--merged_session_name",
         required=True,
-        help="Name for the merged session folder that will be created at save_location. \n Example: 'merged_session_2022' \n   ",
+        help='Name for the merged session folder that will be created at save_location. \n Example: "merged_session_2022" \n   ',
     )
 
     # Add optional argument with default value
