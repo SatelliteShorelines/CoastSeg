@@ -204,7 +204,7 @@ class ROI:
         Returns:
             dict: A dictionary of settings for the specified ROI, or the entire ROI settings dictionary if roi_id is not provided.
         """
-        return self.roi_settings if not roi_id else {}
+        return self.roi_settings if roi_id else {}
 
     def set_roi_settings(self, roi_settings: dict) -> None:
         """Sets the ROI settings dictionary to the specified value.
@@ -281,23 +281,23 @@ class ROI:
             self.extracted_shorelines = {}
 
     def remove_selected_shorelines(
-            self, roi_id: str, dates: list[datetime.datetime], satellites: list[str]
-        ) -> None:
-            """
-            Removes selected shorelines for a specific region of interest (ROI).
+        self, roi_id: str, dates: list[datetime.datetime], satellites: list[str]
+    ) -> None:
+        """
+        Removes selected shorelines for a specific region of interest (ROI).
 
-            Args:
-                roi_id (str): The ID of the ROI.
-                dates (list[datetime.datetime]): A list of dates for which the shorelines should be removed.
-                satellites (list[str]): A list of satellite names for which the shorelines should be removed.
+        Args:
+            roi_id (str): The ID of the ROI.
+            dates (list[datetime.datetime]): A list of dates for which the shorelines should be removed.
+            satellites (list[str]): A list of satellite names for which the shorelines should be removed.
 
-            Returns:
-                None
-            """
-            if roi_id in self.get_ids_with_extracted_shorelines():
-                extracted_shoreline = self.get_extracted_shoreline(roi_id)
-                if extracted_shoreline is not None:
-                    extracted_shoreline.remove_selected_shorelines(dates, satellites)
+        Returns:
+            None
+        """
+        if roi_id in self.get_ids_with_extracted_shorelines():
+            extracted_shoreline = self.get_extracted_shoreline(roi_id)
+            if extracted_shoreline is not None:
+                extracted_shoreline.remove_selected_shorelines(dates, satellites)
 
     def add_extracted_shoreline(
         self,
@@ -323,9 +323,13 @@ class ROI:
         Returns:
             Union[None, dict]: Thecross shore distance dictionary for the specified ROI ID, or None if it does not exist.
         """
-        logger.info(
-            f"ROI: {roi_id} cross distance with keys : {self.cross_shore_distances.get(roi_id,{}).keys()}"
-        )
+        self.cross_shore_distances.get(roi_id, {})
+        if self.cross_shore_distances.get(roi_id, {}) == {}:
+            logger.info(f"ROI: {roi_id} has no cross shore distance")
+        else:
+            logger.info(
+                f"ROI: {roi_id} cross distance with keys : {self.cross_shore_distances.get(roi_id,{})}"
+            )
         return self.cross_shore_distances.get(roi_id, 0)
 
     def add_cross_shore_distances(

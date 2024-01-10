@@ -456,7 +456,7 @@ class CoastSeg_Map:
         extracted_shorelines = self.update_loadable_shorelines(selected_id)
         self.extract_shorelines_container.trash_list = []
         # load the new extracted shorelines onto the map
-        self.load_extracted_shorelines_on_map(extracted_shorelines, 1)
+        self.load_extracted_shorelines_on_map(extracted_shorelines, 0)
 
     def create_map(self):
         """create an interactive map object using the map_settings
@@ -2085,12 +2085,13 @@ class CoastSeg_Map:
                     formatted_dates = extracted_shorelines.gdf["date"].apply(
                         lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
                     )
-
+                self.extract_shorelines_container.load_list = []
                 self.extract_shorelines_container.load_list = (
                     extracted_shorelines.gdf["satname"] + "_" + formatted_dates
                 ).tolist()
                 self.extract_shorelines_container.trash_list = []
         else:
+            logger.warning(f"No shorelines extracted for ROI {selected_id}")
             # if the selected ROI has no extracted shorelines, clear the load list & trash list
             self.extract_shorelines_container.load_list = []
             self.extract_shorelines_container.trash_list = []
@@ -2113,6 +2114,18 @@ class CoastSeg_Map:
             return
         # create the extracted shoreline layer and add it to the map
         layer_name = "extracted shoreline"
+        if extracted_shorelines.gdf.empty:
+            logger.info(
+                f"No extracted shorelines for ROI {extracted_shorelines.roi_id}"
+            )
+            return
+        # check if row number exists in gdf
+        if row_number >= len(extracted_shorelines.gdf):
+            logger.warning(
+                f"Row number {row_number} does not exist in extracted shoreline gdf using row number 0 instead"
+            )
+            row_number = 0
+        # load the selected extracted shoreline layer onto the map
         self.load_extracted_shoreline_layer(
             extracted_shorelines.gdf.iloc[[row_number]], layer_name, colormap="viridis"
         )
