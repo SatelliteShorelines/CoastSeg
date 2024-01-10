@@ -12,6 +12,8 @@ from typing import List
 from datetime import datetime, timezone
 
 # Third-party imports
+import ee
+from google.auth import exceptions as google_auth_exceptions
 import requests
 import geopandas as gpd
 import numpy as np
@@ -39,6 +41,68 @@ from coastseg.exceptions import InvalidGeometryType
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+
+def initialize_gee(
+    auth_mode: str = "localhost",
+    print_mode: bool = True,
+    auth_args: dict = {},
+    **kwargs,
+):
+    """
+    Initialize Google Earth Engine (GEE). If initialization fails due to authentication issues,prompt the user to authenticate and try again.
+
+    Arguments:
+    -----------
+        auth_mode (str, optional): The authentication mode, can be one of localhost.
+                Note: gcloud method of authentication is not supported.
+                Note: colab method of authentication is not supported.
+                See https://developers.google.com/earth-engine/guides/auth for more details. Defaults to localhost.
+        print_mode (bool, optional): Whether to print messages to the console. Defaults to True.
+        auth_args (dict, optional): Additional authentication parameters for aa.Authenticate(). Defaults to {}.
+        kwargs (dict, optional): Additional parameters for ee.Initialize().
+
+    """
+    auth_args = {"auth_mode": auth_mode}
+    # update auth_args
+    auth_args.update(kwargs)
+
+    if auth_mode == "colab":
+        raise ValueError("Colab authentication is not supported.")
+    elif auth_mode == "gcloud":
+        raise ValueError("GCloud authentication is not supported.")
+    elif auth_mode == "notebook":
+        raise ValueError("Notebook authentication is not supported.")
+
+    try:
+        if print_mode:
+            print("Initializing Google Earth Engine...\n")
+        ee.Initialize(**kwargs)
+        if print_mode:
+            print("Google Earth Engine initialized successfully.\n")
+        return
+    except google_auth_exceptions.RefreshError:
+        print("Please refresh your Google authentication token.\n")
+        ee.Authenticate(**auth_args)
+    except ee.EEException:
+        print("Please authenticate with Google Earth Engine:\n")
+        ee.Authenticate(**auth_args)
+    except FileNotFoundError:
+        print(
+            "Credentials file not found. Please authenticate with Google Earth Engine:\n"
+        )
+        ee.Authenticate(**auth_args)
+
+    # Try to initialize again after authentication
+    try:
+        if print_mode:
+            print("Attempt 2: Initializing Google Earth Engine...\n")
+        ee.Initialize(**kwargs)
+        if print_mode:
+            print("Attempt 2: Google Earth Engine initialized successfully.\n")
+    except Exception as e:
+        raise Exception(f"Failed to initialize Google Earth Engine:\n {e}")
 
 
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
