@@ -5,6 +5,8 @@ rois.geojson
 
 # ignore the certifications.json file, since that's empty in the repo but users will need to modify it
 certifications.json
+./certifications.json
+certifications.json
 
 # ignore the downloaded tide_model
 /*tide_model*/*
@@ -20,7 +22,7 @@ certifications.json
 # But don't ignore these specific files
 !download_tide_model.py
 !Download_tide_model.ipynb
-!certifications.json
+# !certifications.json
 !src/coastseg/tide_model/tide_regions_map.geojson
 
 myscripts/*

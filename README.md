@@ -1,6 +1,6 @@
 # CoastSeg
 
-[![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb)
+<!--  [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb) -->
 
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
 </br>
@@ -127,7 +127,7 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
 
 - To update coastseg to a specific version specify the version after the `==`
 
-`pip install coastseg==0.0.72.dev6`
+`pip install coastseg==1.1.26`
 
 ### Update to the latest version
 
