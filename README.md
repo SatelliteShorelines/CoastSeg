@@ -127,7 +127,7 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
 
 - To update coastseg to a specific version specify the version after the `==`
 
-`pip install coastseg==0.0.72.dev6`
+`pip install coastseg==1.1.26`
 
 ### Update to the latest version
 
