@@ -768,7 +768,7 @@ def main():
     # predicted_tides_df = read_csv(TIDE_PREDICTIONS_FILE_NAME)
 
     start_time = time.time()
-    print("Correcting tides this may take some time....")
+    print("Predicting tides this may take some time....")
     predicted_tides_df = predict_tides(
         CONFIG_FILE_PATH,
         raw_timeseries_df,
