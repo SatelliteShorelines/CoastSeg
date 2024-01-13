@@ -162,7 +162,7 @@ def test_filter_partial_images():
     directory = "/path/to/directory"
 
     with patch("coastseg.common.filter_images") as mock_filter:
-        common.filter_partial_images(roi_gdf, directory)
+        common.filter_partial_images(roi_gdf, directory, min_area_percentage=0.60)
 
         # area calculations don't exactly match because the geometry is converted to the most accurate UTM zone to get the least distorted area
         expected_min_area = 7393.52
