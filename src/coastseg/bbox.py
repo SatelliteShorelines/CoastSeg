@@ -1,10 +1,10 @@
 # Standard library imports
-import logging
 from typing import Optional, Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
 from coastseg.common import preprocess_geodataframe, validate_geometry_types
+from coastseg.feature import Feature
 
 # External dependencies imports
 import geopandas as gpd
@@ -14,7 +14,7 @@ from ipyleaflet import GeoJSON
 __all__ = ["Bounding_Box"]
 
 
-class Bounding_Box:
+class Bounding_Box(Feature):
     """Bounding_Box
 
     A Bounding Box drawn by user.

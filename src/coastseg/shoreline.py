@@ -12,6 +12,7 @@ from coastseg.common import (
     create_unique_ids,
 )
 from coastseg.common import validate_geometry_types
+from coastseg.feature import Feature
 
 # External dependencies imports
 import geopandas as gpd
@@ -38,7 +39,7 @@ class ShorelineServices:
         self.create_ids_service = create_unique_ids_service or create_unique_ids
 
 
-class Shoreline:
+class Shoreline(Feature):
     """Shoreline: contains the shorelines within a region specified by bbox (bounding box)"""
 
     LAYER_NAME = "shoreline"

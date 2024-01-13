@@ -20,6 +20,7 @@ import traitlets
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
+from coastseg.feature import Feature
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
 from coastseg.roi import ROI
@@ -2253,14 +2254,36 @@ class CoastSeg_Map:
             layer_name, new_layer, on_hover=on_hover, on_click=on_click
         )
 
-    def create_layer(self, feature, layer_name: str):
+    def create_layer(self, feature: Feature, layer_name: str) -> GeoJSON:
+        """
+        Creates a layer for the map using the given feature and layer name.
+
+        Args:
+            feature (Feature): The feature containing the geodataframe for the layer.
+            layer_name (str): The name of the layer.
+
+        Returns:
+            GeoJSON: The styled layer in GeoJSON format.
+        """
+        if not hasattr(feature, "gdf"):
+            logger.warning("Cannot add an empty geodataframe layer to the map.")
+            print("Cannot add an empty layer to the map.")
+            return None
+        if feature.gdf is None:
+            logger.warning("Cannot add an empty geodataframe layer to the map.")
+            print("Cannot add an empty layer to the map.")
+            return None
         if feature.gdf.empty:
             logger.warning("Cannot add an empty geodataframe layer to the map.")
             print("Cannot add an empty layer to the map.")
             return None
-        layer_geojson = json.loads(feature.gdf.to_json())
-        # convert layer to GeoJson and style it accordingly
-        styled_layer = feature.style_layer(layer_geojson, layer_name)
+        if "transects" in layer_name.lower():
+            styled_layer = feature.style_layer(feature.gdf, layer_name)
+        else:
+            # load the feature from the geodataframe into json
+            layer_geojson = json.loads(feature.gdf.to_json())
+            # convert layer to GeoJson and style it accordingly
+            styled_layer = feature.style_layer(layer_geojson, layer_name)
         return styled_layer
 
     def geojson_onclick_handler(

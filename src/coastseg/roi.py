@@ -7,6 +7,7 @@ import datetime
 from coastseg import common
 from coastseg.common import validate_geometry_types
 from coastseg import exceptions
+from coastseg.feature import Feature
 
 # External dependencies imports
 import geopandas as gpd
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["ROI"]
 
 
-class ROI:
+class ROI(Feature):
     """A class that controls all the ROIs on the map"""
 
     LAYER_NAME = "ROIs"
