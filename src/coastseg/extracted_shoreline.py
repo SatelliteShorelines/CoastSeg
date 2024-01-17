@@ -44,7 +44,7 @@ import numpy as np
 import pandas as pd
 import skimage.measure as measure
 import skimage.morphology as morphology
-from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
+
 from coastsat.SDS_download import get_metadata
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
@@ -474,7 +474,9 @@ def process_satellite(
 
 def get_cloud_cover_combined(cloud_mask: np.ndarray):
     """
-    Calculate the cloud cover percentage (ignoring no-data pixels) of a cloud_mask.
+    Calculate the cloud cover percentage of a cloud_mask.
+    Note: The way that cloud_mask is created in SDS_preprocess.preprocess_single() means that it will contain 1's where no data pixels were detected.
+    TLDR the cloud mask is combined with the no data mask. No idea why.
 
     Parameters:
     cloud_mask (numpy.ndarray): A 2D numpy array with 0s (clear) and 1s (cloudy) representing the cloud mask.
@@ -579,12 +581,15 @@ def process_satellite_image(
     if not check_percent_no_data_allowed(
         percent_no_data_allowed, cloud_mask, im_nodata
     ):
+        logger.info(
+            f"percent_no_data_allowed > {settings.get('percent_no_data', None)}: {filename}"
+        )
         return None
 
     # compute cloud_cover percentage (with no data pixels)
     cloud_cover_combined = get_cloud_cover_combined(cloud_mask)
     if cloud_cover_combined > 0.99:  # if 99% of cloudy pixels in image skip
-        logger.info("cloud_cover_combined > 0.99")
+        logger.info(f"cloud_cover_combined > 0.99 : {filename} ")
         return None
 
     # compute cloud cover percentage (without no data pixels)
@@ -1485,7 +1490,9 @@ def load_extracted_shoreline_from_files(
     # attempt to load the extracted shorelines from the files. If there is an error, return None
     try:
         extracted_shorelines = extracted_shorelines.load_extracted_shorelines(
-            extracted_files["dict"], extracted_files["settings"], extracted_files["geojson"]
+            extracted_files["dict"],
+            extracted_files["settings"],
+            extracted_files["geojson"],
         )
     except ValueError as e:
         logger.error(f"Error loading extracted shorelines: {e}")
@@ -1963,10 +1970,12 @@ class Extracted_Shoreline:
 
         # filter out files that were removed from RGB directory
         try:
-            # logger.info(f"metadata before filter : {metadata}")
             metadata = common.filter_metadata(metadata, sitename, filepath_data)
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
+            print(
+                f"No shorelines were extracted because no RGB files were found at {os.path.join(filepath_data,sitename)}"
+            )
             return {}
 
         for satname in metadata.keys():
