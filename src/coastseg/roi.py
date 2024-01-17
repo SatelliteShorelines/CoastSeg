@@ -205,7 +205,10 @@ class ROI(Feature):
         Returns:
             dict: A dictionary of settings for the specified ROI, or the entire ROI settings dictionary if roi_id is not provided.
         """
-        return self.roi_settings if roi_id else {}
+        if not roi_id:
+            return self.roi_settings
+        else:
+            return self.roi_settings.get(roi_id, {})
 
     def set_roi_settings(self, roi_settings: dict) -> None:
         """Sets the ROI settings dictionary to the specified value.
