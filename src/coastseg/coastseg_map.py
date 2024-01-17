@@ -1070,14 +1070,13 @@ class CoastSeg_Map:
         settings = self.get_settings()
         # if no rois exist on the map do not allow configs to be saved
         exception_handler.config_check_if_none(self.rois, "ROIs")
-
-        # selected_layer must contain selected ROI
-        selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
-        exception_handler.check_empty_roi_layer(selected_layer)
         logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
 
         # if the rois do not have any settings then save the currently loaded settings to the ROIs
         if not self.rois.roi_settings:
+            # selected_layer must contain selected ROI that we will use to get the ROI geometries from
+            selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
+            exception_handler.check_empty_roi_layer(selected_layer)
             filepath = filepath or os.path.abspath(os.getcwd())
             roi_settings = common.create_roi_settings(
                 settings, selected_layer.data, filepath
