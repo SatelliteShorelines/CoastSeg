@@ -43,7 +43,6 @@ from coastseg.exceptions import InvalidGeometryType
 logger = logging.getLogger(__name__)
 
 
-
 def initialize_gee(
     auth_mode: str = "localhost",
     print_mode: bool = True,
@@ -687,7 +686,7 @@ def delete_jpg_files(
 def filter_partial_images(
     roi_gdf: gpd.geodataframe,
     directory: str,
-    min_area_percentage: float = 0.60,
+    min_area_percentage: float = 0.40,
     max_area_percentage: float = 1.5,
 ):
     """
@@ -1766,29 +1765,6 @@ def get_center_point(coords: list) -> tuple:
     return center_x, center_y
 
 
-def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """
-    Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
-    Args:
-    - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
-    Returns:
-    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
-                        already contains MultiPoints, the original GeoDataFrame is returned.
-    """
-
-    # Check if the gdf already contains MultiPoints
-    if any(gdf.geometry.type == "MultiPoint"):
-        return gdf
-
-    def linestring_to_multipoint(linestring):
-        if isinstance(linestring, LineString):
-            return MultiPoint(linestring.coords)
-        return linestring
-
-    # Convert each LineString to a MultiPoint
-    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
-
-    return gdf
 
 
 def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
@@ -2251,6 +2227,7 @@ def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFram
     gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
 
     return gdf
+
 
 
 def save_extracted_shorelines(
