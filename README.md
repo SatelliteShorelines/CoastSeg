@@ -121,21 +121,74 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
    conda install -c conda-forge h5py -y
    ```
 
-## How to Update
+## CoastSeg Update Guide
 
-### Update to a specific version
+This guide is designed to help you easily update CoastSeg, whether you're updating to a specific version, the latest version, applying a patch, or updating code and notebooks from GitHub.
 
-- To update coastseg to a specific version specify the version after the `==`
+### Option 1:  Update to the latest version
+To ensure you have the latest features and fixes, use this command:
+```bash
+pip install coastseg --upgrade
+pip install jsonschema==4.19.0 --user
+```
 
-`pip install coastseg==1.1.26`
+### Option 2:  Update to a Specific Version
+If you need a specific version of CoastSeg, use this command:
+- Replace <version> with the desired version number (e.g., 1.1.26).
+```bash
+pip install coastseg==<version>
+pip install jsonschema==4.19.0 --user
+```
 
-### Update to the latest version
+## Update Code and Notebooks from GitHub
+(Optional) Follow these steps if you want the latest notebooks or code updates from the CoastSeg GitHub repository.
 
-`pip install coastseg --upgrade`
-
-### Apply the `jsonschema` patch
-
-`pip install jsonschema==4.19.0 --user`
+### Step 1: Open CoastSeg in Anaconda
+1. Open Anaconda Prompt
+2. Activate the coastseg environment
+```bash
+   conda activate coastseg
+```
+3. Go to your coastseg location
+```bash
+cd <coastseg location>
+```
+### Step 2: Check for a Remote Connection to CoastSeg Repository
+- You should see `origin  https://github.com/Doodleverse/CoastSeg.git (fetch)`
+```
+git remote -v
+```
+![git remote output](https://github.com/Doodleverse/CoastSeg/assets/61564689/adbb9783-0f0e-4081-ad3f-cbfb00964a9d)
+- If you don't see this output, then run the following command
+  ```bash
+   git remote add origin  https://github.com/Doodleverse/CoastSeg.git
+   git pull origin main
+  ```
+### Step 3: Pull the Latest Changes
+```
+git pull origin main
+```
+- If you got the error below
+- ```
+   Please commit your changes or stash them before you merge
+  Aborting
+  ```
+- Run the command below:
+   - ⚠️ This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
+   - ```
+     git fetch origin
+     git reset --hard origin/main
+     git pull origin main
+     ```
+### Step 4: Verify Update Success
+```
+git status
+```
+- This command should return the following message
+- ```
+  On branch main
+  Your branch is up to date with 'origin/main'.
+  ```
 
 ## **Having Installation Errors?**
 
