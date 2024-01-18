@@ -185,7 +185,7 @@ git remote -v
 
    3.  Run the command below:
 
-  - ⚠️ This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
+  - **WARNING** This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
        
   ```
          git fetch origin
