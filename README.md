@@ -170,21 +170,28 @@ git remote -v
    git pull origin main
   ```
 ### Step 3: Pull the Latest Changes
-```
-git pull origin main
-```
-- If you got the error below
-- ```
-   Please commit your changes or stash them before you merge
-  Aborting
+   1. Run the command below
+      ```
+       git pull origin main
+      ```
+   2. If you recieve an error message like the one shown below then proceed to 3, otherwise go to [Go to Step 4: Verify Update Success](#step-4-verify-update-success)
+      
+       ```
+           Please commit your changes or stash them before you merge
+           Aborting
+       ```
+       
+      <img width="437" alt="git_pull_fail" src="https://github.com/Doodleverse/CoastSeg/assets/61564689/fd7ebceb-11f4-4c68-8aad-19f4d5f85030">
+
+   3.  Run the command below:
+
+  - ⚠️ This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
+       
   ```
-- Run the command below:
-   - ⚠️ This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
-   - ```
-     git fetch origin
-     git reset --hard origin/main
-     git pull origin main
-     ```
+         git fetch origin
+         git reset --hard origin/main
+         git pull origin main
+  ```
 ### Step 4: Verify Update Success
 ```
 git status
