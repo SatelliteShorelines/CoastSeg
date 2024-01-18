@@ -18,6 +18,7 @@
 
 ![official_coastseg](https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif)
 
+
 ## News
 We are thrilled to announce the official release of CoastSeg version 1.0.0! Please see the [release notes](https://github.com/Doodleverse/CoastSeg/releases/tag/v1.0.0). If you are an existing CoastSeg user, to upgrade to this latest version of CoastSeg:
 
@@ -121,15 +122,17 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
    conda install -c conda-forge h5py -y
    ```
 
-## CoastSeg Update Guide
+# CoastSeg Update Guide
 
 This guide is designed to help you easily update CoastSeg, whether you're updating to a specific version, the latest version, applying a patch, or updating code and notebooks from GitHub.
+
+## Step 1: Install CoastSeg from PyPi
 
 ### Option 1:  Update to the latest version
 To ensure you have the latest features and fixes, use this command:
 ```bash
-pip install coastseg --upgrade
-pip install jsonschema==4.19.0 --user
+   pip install coastseg --upgrade
+   pip install jsonschema==4.19.0 --user
 ```
 
 ### Option 2:  Update to a Specific Version
@@ -140,21 +143,23 @@ pip install coastseg==<version>
 pip install jsonschema==4.19.0 --user
 ```
 
-## Update Code and Notebooks from GitHub
+## Step 2: Update Code and Notebooks from GitHub</h2>
 (Optional) Follow these steps if you want the latest notebooks or code updates from the CoastSeg GitHub repository.
-
-### Step 1: Open CoastSeg in Anaconda
-1. Open Anaconda Prompt
-2. Activate the coastseg environment
-```bash
-   conda activate coastseg
-```
+<details>
+  <summary><strong>Click to expand instructions</strong></strong></summary>
+    
+  ### Step 1: Open CoastSeg in Anaconda
+   1. Open Anaconda Prompt
+   2. Activate the coastseg environment
+   ```bash
+     conda activate coastseg
+   ```
 3. Go to your coastseg location
 ```bash
 cd <coastseg location>
 ```
 ### Step 2: Check for a Remote Connection to CoastSeg Repository
-- You should see `origin  https://github.com/Doodleverse/CoastSeg.git (fetch)`
+-Run the command below. In the output of this command you should see `origin  https://github.com/Doodleverse/CoastSeg.git (fetch)`
 ```
 git remote -v
 ```
@@ -189,6 +194,9 @@ git status
   On branch main
   Your branch is up to date with 'origin/main'.
   ```
+
+</details>
+<br>
 
 ## **Having Installation Errors?**
 
