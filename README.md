@@ -129,19 +129,38 @@ This guide is designed to help you easily update CoastSeg, whether you're updati
 ## Step 1: Install CoastSeg from PyPi
 
 ### Option 1:  Update to the latest version
-To ensure you have the latest features and fixes, use this command:
-```bash
-   pip install coastseg --upgrade
+1. **Install CoastSeg from PyPi**
+   - To ensure you have the latest features and fixes, use this command:
+   ```bash
+     pip install coastseg --upgrade
+   ```
+  - Don't worry if you see the warning message below. This is normal
+  ```bash
+    "ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts."
+  ```
+
+2. **Install jsonschema**
+   - This is necessary to run coastseg in a jupyter notebook. 
+  ```bash
    pip install jsonschema==4.19.0 --user
-```
+  ```
 
 ### Option 2:  Update to a Specific Version
-If you need a specific version of CoastSeg, use this command:
-- Replace <version> with the desired version number (e.g., 1.1.26).
-```bash
-pip install coastseg==<version>
-pip install jsonschema==4.19.0 --user
-```
+1. **Install CoastSeg from PyPi**
+   - If you need a specific version of CoastSeg, use this command:
+   -  Replace <version> with the desired version number (e.g., 1.1.26).
+   ```bash
+    pip install coastseg==<version>
+   ```
+  - Don't worry if you see the warning message below. This is normal
+  ```bash
+    "ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts."
+  ```
+2. **Install jsonschema**
+   - This is necessary to run coastseg in a jupyter notebook. 
+  ```bash
+   pip install jsonschema==4.19.0 --user
+  ```
 
 ## Step 2: Update Code and Notebooks from GitHub</h2>
 (Optional) Follow these steps if you want the latest notebooks or code updates from the CoastSeg GitHub repository.
