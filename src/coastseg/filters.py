@@ -58,6 +58,11 @@ def get_good_bad_files(files: list, labels: np.array, scores: list) -> tuple:
             - files_bad (np.array): Array of 'bad' categorized file paths (highest score label).
             - files_good (np.array): Array of 'good' categorized file paths (lowest score label).
     """
+    # drop NaN values from scores
+    scores = np.array(scores)[~np.isnan(scores)]
+    # if all the scores or labels are the same return all the files as 'good' even if they may be bad
+    if len(np.unique(scores)) == 1 or len(np.unique(labels)) == 1:
+        return [], np.array(files)
     files_bad = np.array(files)[labels == np.argmax(scores)]
     files_good = np.array(files)[labels == np.argmin(scores)]
     return files_bad, files_good
@@ -77,10 +82,6 @@ def get_time_vectors(files: list) -> tuple:
     """
     times = [f.split(os.sep)[-1].split("_")[0] for f in files]
     return times, xr.Variable("time", times)
-
-
-def get_image_shapes(files: list) -> list:
-    return [load_data(f).shape for f in files]
 
 
 def get_image_shapes(files: list) -> list:
@@ -181,7 +182,7 @@ def return_valid_files(files: list) -> list:
 
 
 def filter_model_outputs(
-    label: str, files: list, dest_folder_good: str, dest_folder_bad: str
+    satname: str, files: list, dest_folder_good: str, dest_folder_bad: str
 ) -> None:
     """
     Filter model outputs based on KMeans clustering of RMSE values and organize into 'good' and 'bad'.
@@ -193,6 +194,7 @@ def filter_model_outputs(
         dest_folder_bad (str): Destination folder for 'bad' files.
     """
     valid_files = return_valid_files(files)
+    logger.info(f"Found {len(valid_files)} valid files for {satname}.")
     times, time_var = get_time_vectors(valid_files)
     da = xr.concat([load_xarray_data(f) for f in valid_files], dim=time_var)
     timeav = da.mean(dim="time")
@@ -200,6 +202,8 @@ def filter_model_outputs(
     rmse, input_rmse = measure_rmse(da, times, timeav)
     labels, scores = get_kmeans_clusters(input_rmse, rmse)
     files_bad, files_good = get_good_bad_files(valid_files, labels, scores)
+    logger.info(f"Found {len(files_bad)} files_bad.")
+    logger.info(f"Found {len(files_good)} files_good.")
 
     handle_files_and_directories(
         files_bad, files_good, dest_folder_bad, dest_folder_good

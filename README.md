@@ -18,6 +18,7 @@
 
 ![official_coastseg](https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif)
 
+
 ## News
 We are thrilled to announce the official release of CoastSeg version 1.0.0! Please see the [release notes](https://github.com/Doodleverse/CoastSeg/releases/tag/v1.0.0). If you are an existing CoastSeg user, to upgrade to this latest version of CoastSeg:
 
@@ -121,21 +122,107 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
    conda install -c conda-forge h5py -y
    ```
 
-## How to Update
+# CoastSeg Update Guide
 
-### Update to a specific version
+This guide is designed to help you easily update CoastSeg, whether you're updating to a specific version, the latest version, applying a patch, or updating code and notebooks from GitHub.
 
-- To update coastseg to a specific version specify the version after the `==`
+## Step 1: Install CoastSeg from PyPi
 
-`pip install coastseg==1.1.26`
+### Option 1:  Update to the latest version
+1. **Install CoastSeg from PyPi**
+   - To ensure you have the latest features and fixes, use this command:
+   ```bash
+     pip install coastseg --upgrade
+   ```
+  - Don't worry if you see the warning message below. This is normal
+  ```bash
+    "ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts."
+  ```
 
-### Update to the latest version
+2. **Install jsonschema**
+   - This is necessary to run coastseg in a jupyter notebook. 
+  ```bash
+   pip install jsonschema==4.19.0 --user
+  ```
 
-`pip install coastseg --upgrade`
+### Option 2:  Update to a Specific Version
+1. **Install CoastSeg from PyPi**
+   - If you need a specific version of CoastSeg, use this command:
+   -  Replace <version> with the desired version number (e.g., 1.1.26).
+   ```bash
+    pip install coastseg==<version>
+   ```
+  - Don't worry if you see the warning message below. This is normal
+  ```bash
+    "ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts."
+  ```
+2. **Install jsonschema**
+   - This is necessary to run coastseg in a jupyter notebook. 
+  ```bash
+   pip install jsonschema==4.19.0 --user
+  ```
 
-### Apply the `jsonschema` patch
+## Step 2: Update Code and Notebooks from GitHub</h2>
+(Optional) Follow these steps if you want the latest notebooks or code updates from the CoastSeg GitHub repository.
+<details>
+  <summary><strong>Click to expand instructions</strong></strong></summary>
+    
+  ### Step 1: Open CoastSeg in Anaconda
+   1. Open Anaconda Prompt
+   2. Activate the coastseg environment
+   ```bash
+     conda activate coastseg
+   ```
+3. Go to your coastseg location
+```bash
+cd <coastseg location>
+```
+### Step 2: Check for a Remote Connection to CoastSeg Repository
+-Run the command below. In the output of this command you should see `origin  https://github.com/Doodleverse/CoastSeg.git (fetch)`
+```
+git remote -v
+```
+![git remote output](https://github.com/Doodleverse/CoastSeg/assets/61564689/adbb9783-0f0e-4081-ad3f-cbfb00964a9d)
+- If you don't see this output, then run the following command
+  ```bash
+   git remote add origin  https://github.com/Doodleverse/CoastSeg.git
+   git pull origin main
+  ```
+### Step 3: Pull the Latest Changes
+   1. Run the command below
+      ```
+       git pull origin main
+      ```
+   2. If you recieve an error message like the one shown below then proceed to 3, otherwise go to [Go to Step 4: Verify Update Success](#step-4-verify-update-success)
+      
+       ```
+           Please commit your changes or stash them before you merge
+           Aborting
+       ```
+       
+      <img width="437" alt="git_pull_fail" src="https://github.com/Doodleverse/CoastSeg/assets/61564689/fd7ebceb-11f4-4c68-8aad-19f4d5f85030">
 
-`pip install jsonschema==4.19.0 --user`
+   3.  Run the command below:
+
+  - **WARNING** This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
+       
+  ```
+         git fetch origin
+         git reset --hard origin/main
+         git pull origin main
+  ```
+### Step 4: Verify Update Success
+```
+git status
+```
+- This command should return the following message
+- ```
+  On branch main
+  Your branch is up to date with 'origin/main'.
+  ```
+
+</details>
+<br>
 
 ## **Having Installation Errors?**
 

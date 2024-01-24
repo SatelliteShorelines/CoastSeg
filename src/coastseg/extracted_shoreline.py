@@ -654,6 +654,7 @@ def process_satellite_image(
         satname,
         class_mapping,
         save_location,
+        ref_shoreline_buffer,
     )
     # create dictionary of output
     output = {
@@ -902,8 +903,9 @@ def plot_image_with_legend(
     merged_overlay: "np.ndarray[float]",
     all_overlay: "np.ndarray[float]",
     pixelated_shoreline: "np.ndarray[float]",
-    merged_legend,
-    all_legend,
+    merged_legend: list,
+    all_legend: list,
+    im_ref_buffer: np.ndarray[float],
     titles: list[str] = [],
 ):
     """
@@ -917,7 +919,7 @@ def plot_image_with_legend(
     merged_legend (list): A list of legend handles for the merged classes. Each handle must be a matplotlib artist.
     all_legend (list): A list of legend handles for all classes. Each handle must be a matplotlib artist.
     titles (list, optional): A list of titles for the subplots. Must contain three strings if provided. Defaults to ["Original Image", "Merged Classes", "All Classes"].
-
+    im_ref_buffer (numpy.ndarray): A 2D numpy array with the same shape as original_image. The array should have True values where reference shoreline pixels are present.
 
     Returns:
     matplotlib.figure.Figure: The resulting figure.
@@ -931,6 +933,13 @@ def plot_image_with_legend(
         gs = gridspec.GridSpec(3, 1)
     else:
         gs = gridspec.GridSpec(1, 3)
+
+    # Create a masked array where False values are masked
+    masked_array = None
+    if im_ref_buffer is not None:
+        masked_array = np.ma.masked_where(im_ref_buffer == False, im_ref_buffer)
+    # color map for the reference shoreline buffer
+    masked_cmap = plt.cm.get_cmap("PiYG")
 
     # if original_image is wider than 2.5 times as tall, plot the images in a 3x1 grid (vertical)
     if original_image.shape[0] > 2.5 * original_image.shape[1]:
@@ -957,8 +966,11 @@ def plot_image_with_legend(
     ax1.set_title(titles[0])
     ax1.axis("off")
 
-    # Plot first combined image with overlay and legend
+    # Plot the second image that has the merged the water classes and all the land classes together
     ax2.imshow(merged_overlay)
+    # Plot the reference shoreline buffer
+    if masked_array is not None:
+        ax2.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
     ax2.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
     ax2.set_title(titles[1])
     ax2.axis("off")
@@ -970,8 +982,10 @@ def plot_image_with_legend(
             borderaxespad=0.0,
         )
 
-    # Plot second combined image with overlay and legend
+    # Plot the second image that shows all the classes separately
     ax3.imshow(all_overlay)
+    if masked_array is not None:
+        ax3.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
     ax3.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
     ax3.set_title(titles[2])
     ax3.axis("off")
@@ -1000,7 +1014,11 @@ def save_detection_figure(fig, filepath: str, date: str, satname: str) -> None:
     Returns:
     None
     """
-    fig.savefig(os.path.join(filepath, date + "_" + satname + ".jpg"), dpi=150)
+    fig.savefig(
+        os.path.join(filepath, date + "_" + satname + ".jpg"),
+        dpi=150,
+        bbox_inches="tight",
+    )
     plt.close(fig)  # Close the figure after saving
     plt.close("all")
     del fig
@@ -1070,6 +1088,7 @@ def shoreline_detection_figures(
     satname: str,
     class_mapping: dict,
     save_location: str = "",
+    im_ref_buffer: np.ndarray = None,
 ):
     """
     Creates shoreline detection figures with overlays and saves them as JPEG files.
@@ -1130,11 +1149,16 @@ def shoreline_detection_figures(
 
     # Create legend for the shorelines
     black_line = mlines.Line2D([], [], color="k", linestyle="-", label="shoreline")
-
+    buffer_patch = mpatches.Patch(
+        color="#800000", alpha=0.80, label="Reference shoreline buffer"
+    )
     # create a legend for the class colors and the shoreline
-    all_classes_legend = create_legend(class_mapping, additional_patches=[black_line])
+    all_classes_legend = create_legend(
+        class_mapping, additional_patches=[black_line, buffer_patch]
+    )
     merged_classes_legend = create_legend(
-        class_mapping={0: "other", 1: "water"}, additional_patches=[black_line]
+        class_mapping={0: "other", 1: "water"},
+        additional_patches=[black_line, buffer_patch],
     )
 
     # Plot images
@@ -1145,6 +1169,7 @@ def shoreline_detection_figures(
         pixelated_shoreline,
         merged_classes_legend,
         all_classes_legend,
+        im_ref_buffer,
         titles=[sitename, date, satname],
     )
     # save a .jpg under /jpg_files/detection

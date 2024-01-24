@@ -289,8 +289,8 @@ class UI_Models:
     def create_tidal_correction_widget(self):
         load_style = dict(button_color="#69add1", description_width="initial")
 
-        self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
-        self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
+        self.beach_slope_text = FloatText(value=0.02, description="Beach Slope (m/m):",style={'description_width': 'initial'})
+        self.reference_elevation_text = FloatText(value=0.0, description="Beach Elevation (m, relative M.S.L.):",style={'description_width': 'initial'})
 
         self.tidally_correct_button = Button(
             description="Correct Tides",
