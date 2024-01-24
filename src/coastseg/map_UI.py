@@ -415,12 +415,12 @@ class UI:
 
         correct_tides_html = HTML(
             value="<h3><b>Apply Tide Correction</b></h3> \
-               Only apply after extracting shorelines",
+               Only apply after extracting shorelines</br>",
             layout=Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.beach_slope_text = FloatText(value=0.1, description="Beach Slope")
-        self.reference_elevation_text = FloatText(value=0.585, description="Elevation")
+        self.beach_slope_text = FloatText(value=0.02, description="Beach Slope (m/m):",style={'description_width': 'initial'})
+        self.reference_elevation_text = FloatText(value=0.0, description="Beach Elevation (m, relative M.S.L.):",style={'description_width': 'initial'})
 
         self.scrollable_select = SelectMultiple(
             description="Select ROIs",
