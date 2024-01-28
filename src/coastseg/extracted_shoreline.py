@@ -584,14 +584,14 @@ def process_satellite_image(
     # compute cloud_cover percentage (with no data pixels)
     cloud_cover_combined = get_cloud_cover_combined(cloud_mask)
     if cloud_cover_combined > 0.99:  # if 99% of cloudy pixels in image skip
-        logger.info("cloud_cover_combined > 0.99")
+        logger.info(f"cloud_cover_combined > 0.99 for {filename}")
         return None
 
     # compute cloud cover percentage (without no data pixels)
     cloud_cover = get_cloud_cover(cloud_mask, im_nodata)
     # skip image if cloud cover is above user-defined threshold
     if cloud_cover > settings["cloud_thresh"]:
-        logger.info("Cloud thresh exceeded")
+        logger.info(f"Cloud thresh exceeded for {filename}")
         return None
     # calculate a buffer around the reference shoreline (if any has been digitised)
     ref_shoreline_buffer = SDS_shoreline.create_shoreline_buffer(
@@ -1109,6 +1109,7 @@ def shoreline_detection_figures(
         filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection")
     os.makedirs(filepath, exist_ok=True)
     # logger.info(f"shoreline_detection_figures filepath: {filepath}")
+    logger.info(f"im_ref_buffer.shape: {im_ref_buffer.shape}")
 
     # increase the intensity of the image for visualization
     im_RGB = increase_image_intensity(im_ms, cloud_mask, prob_high=99.9)
@@ -1262,6 +1263,7 @@ def find_shoreline(
     Returns:
         numpy.ndarray or None: The shoreline as a numpy array, or None if the shoreline could not be found.
     """
+
     try:
         contours = simplified_find_contours(
             im_labels, cloud_mask, reference_shoreline_buffer
@@ -1825,15 +1827,15 @@ class Extracted_Shoreline:
             + ", ".join(
                 f"{key}: {value}"
                 for key, value in settings.items()
-                if key != "reference shoreline"
+                if key != "reference_shoreline"
             )
         )
-        # Check and log 'reference shoreline' if it exists
-        ref_sl = self.shoreline_settings.get("reference shoreline", np.array([]))
+        # Check and log 'reference_shoreline' if it exists
+        ref_sl = self.shoreline_settings.get("reference_shoreline", np.array([]))
         if isinstance(ref_sl, np.ndarray):
-            logger.info(f"reference shoreline.shape: {ref_sl.shape}")
+            logger.info(f"reference_shoreline.shape: {ref_sl.shape}")
         logger.info(
-            f"Number of 'reference_shoreline': {len(settings.get('reference_shoreline', np.array([])))}"
+            f"Number of 'reference_shoreline': {len(ref_sl)} for ROI {roi_id}"
         )
         # gets metadata used to extract shorelines
         metadata = get_metadata(self.shoreline_settings["inputs"])
@@ -1892,10 +1894,10 @@ class Extracted_Shoreline:
             )  # remove inaccurate georeferencing (set threshold to 10 m)
 
             # Check and log 'reference shoreline' if it exists
-            ref_sl = extracted_shorelines_dict.get("shorelines", np.array([]))
-            if isinstance(ref_sl, np.ndarray):
-                logger.info(f"shorelines.shape: {ref_sl.shape}")
-            logger.info(f"Number of 'shorelines': {len(ref_sl)}")
+            shorelines_array = extracted_shorelines_dict.get("shorelines", np.array([]))
+            if isinstance(shorelines_array, np.ndarray):
+                logger.info(f"shorelines.shape: {shorelines_array.shape}")
+            logger.info(f"Number of 'shorelines': {len(shorelines_array)}")
 
             logger.info(
                 f"extracted_shorelines_dict length {len(extracted_shorelines_dict.get('dates',[]))} of dates: {list(islice(extracted_shorelines_dict.get('dates',[]),3))}"
