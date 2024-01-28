@@ -163,7 +163,8 @@ class UI_Models:
             session_path = file_utilities.create_directory(os.getcwd(), "sessions")
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
-                print(f"Session {session_name} already exists at {new_session_path}")
+                print(f"Session {session_name} already exists at {new_session_path} and will be overwritten.")
+                self.set_shoreline_session_name(session_name)
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} will be created at {new_session_path}")
                 self.set_shoreline_session_name(session_name)
