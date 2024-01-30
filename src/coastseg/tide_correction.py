@@ -453,6 +453,8 @@ def get_tide_predictions(
         if transect_id not in timeseries_df.columns:
             return None
         dates_for_transect_id_df = timeseries_df[["dates", transect_id]].dropna()
+    else:    
+        dates_for_transect_id_df = timeseries_df[["dates"]].dropna()
     tide_predictions_df = model_tides(
         x,
         y,
@@ -493,7 +495,10 @@ def predict_tides_for_df(
     )
     # Filter out None values
     all_tides = all_tides.dropna()
-
+    # if no tides are predicted return an empty dataframe
+    if all_tides.empty:
+        return pd.DataFrame(columns=["dates", "x", "y", "tide", "transect_id"])
+    
     # Concatenate all the results
     all_tides_df = pd.concat(all_tides.tolist())
 
@@ -717,25 +722,6 @@ def model_tides(
         df.set_index("dates")
         return df
 
-
-def get_seaward_points(
-    transects_gdf: gpd.GeoDataFrame,
-) -> Dict[str, Union[Point, None]]:
-    """
-    Extracts the seaward points from a given GeoDataFrame containing transects.
-
-    Parameters:
-    - transects_gdf: A GeoDataFrame containing transect data.
-
-    Returns:
-    - dict: A dictionary where keys are transect IDs and values are the seaward points (or None if not available).
-    """
-    transect_seaward_points = {}
-    for index, row in transects_gdf.iterrows():
-        points = list(row["geometry"].coords)
-        seaward_point = points[1] if len(points) > 1 else None
-        transect_seaward_points[row["id"]] = seaward_point
-    return transect_seaward_points
 
 
 def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
