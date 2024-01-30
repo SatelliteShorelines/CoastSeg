@@ -700,10 +700,10 @@ class Zoo_Model:
             config = file_utilities.load_json_data_from_file(
                 session_path, "config.json"
             )
-            # get the roi_id from the config file
+            # get the roi_id from the config file @todo this won't work for multiple ROIs
             if config.get("roi_ids"):
                 roi_id = config["roi_ids"][0]
-            roi_settings = config[roi_id]
+            roi_settings = {roi_id:config[roi_id]}
         except (KeyError, ValueError) as e:
             logger.error(f"{roi_id} ROI settings did not exist: {e}")
             if roi_id is None:
@@ -767,6 +767,7 @@ class Zoo_Model:
             transects_gdf=transects_gdf,
             shorelines_gdf=shoreline_gdf,
             roi_gdf=roi_gdf,
+            epsg_code="epsg:4326"
         )
 
         # extract shorelines
@@ -775,7 +776,7 @@ class Zoo_Model:
             extracted_shorelines.create_extracted_shorelines_from_session(
                 roi_id,
                 shoreline_gdf,
-                roi_settings,
+                roi_settings[roi_id],
                 settings,
                 session_path,
                 new_session_path,
