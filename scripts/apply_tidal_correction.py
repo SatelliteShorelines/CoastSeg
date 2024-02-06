@@ -763,7 +763,7 @@ def main():
     end_time = time.time()
     print(f"Time taken for all tide predictions: {end_time - start_time}s")
     # Save the tide_predictions
-    print(f"Predicted tides saved to {TIDE_PREDICTIONS_FILE_NAME}")
+    print(f"Predicted tides saved to {os.path.abspath(TIDE_PREDICTIONS_FILE_NAME)}")
     predicted_tides_df.to_csv(TIDE_PREDICTIONS_FILE_NAME)
 
     print(f"Applying tide corrections to {RAW_TIMESERIES_FILE_PATH}")
@@ -774,7 +774,7 @@ def main():
         BEACH_SLOPE,
     )
     # Tidally correct the raw time series
-    print(f"Tidally corrected data saved to {TIDALLY_CORRECTED_FILE_NAME}")
+    print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_FILE_NAME)}")
     # Save the Tidally corrected time series
     tide_corrected_timeseries_df.to_csv(TIDALLY_CORRECTED_FILE_NAME)
 
