@@ -727,6 +727,7 @@ def model_tides(
 def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Creates a GeoDataFrame containing the seaward points from a given GeoDataFrame containing transects.
+    CRS will always be 4326.
 
     Parameters:
     - transects_gdf: A GeoDataFrame containing transect data.
@@ -754,43 +755,6 @@ def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     seaward_points_gdf = gpd.GeoDataFrame(data, crs="epsg:4326")
 
     return seaward_points_gdf
-
-# def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-#     """
-#     Creates a GeoDataFrame containing the seaward points from a given GeoDataFrame containing transects.
-
-#     Parameters:
-#     - transects_gdf: A GeoDataFrame containing transect data.
-
-#     Returns:
-#     - gpd.GeoDataFrame: A GeoDataFrame containing the seaward points for all of the transects
-#     Contains columns transect_id,x,y in crs 4326
-#     """
-#     data = []
-#     # Set transects crs to epsg:4326 if it is not already.Tide model requires crs 4326
-#     if transects_gdf.crs is None:
-#         transects_gdf = transects_gdf.set_crs("epsg:4326")
-#     else:
-#         transects_gdf = transects_gdf.to_crs("epsg:4326")
-
-#     for index, row in transects_gdf.iterrows():
-#         points = list(row["geometry"].coords)
-#         seaward_point = points[1] if len(points) > 1 else (None, None)
-
-#         # Append data for each transect to the data list
-#         data.append(
-#             {"transect_id": row["id"], "x": seaward_point[0], "y": seaward_point[1]}
-#         )
-
-#     # Convert the data list to a pandas DataFrame
-#     df = pd.DataFrame(data)
-
-#     # Create a GeoDataFrame with geometry as Point objects from x and y columns
-#     gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.x, df.y))
-#     gdf = gdf.set_crs("epsg:4326")
-
-#     return gdf
-
 
 def read_and_filter_geojson(
     file_path: str,
@@ -840,6 +804,7 @@ def perform_spatial_join(
 ) -> gpd.GeoDataFrame:
     """
     Perform a spatial join between seaward points and regions based on intersection.
+    BOTH GeoDataFrames must be in crs 4326. Otherwise the spatial join will not work.
 
     Parameters:
     - seaward_points_gdf: A GeoDataFrame containing seaward points.
