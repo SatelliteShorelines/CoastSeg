@@ -431,34 +431,36 @@ def contains_sub_directories(directory_name: str, num_regions: int) -> bool:
 
 
 def get_tide_predictions(
-    row: pd.Series, timeseries_df: pd.DataFrame, model_region_directory: str
+   x:float,y:float, timeseries_df: pd.DataFrame, model_region_directory: str,transect_id:str="",
 ) -> pd.DataFrame:
     """
-    Get tide predictions for a given row.
+    Get tide predictions for a given location and transect ID.
 
-    Parameters:
-    - row: A row from a DataFrame containing transect seaward point to predict tide for.
-      Must contain columns "transect_id" and "region_id".
-    - timeseries_df: A DataFrame containing time series data for each transect. A DataFrame containing time series data for the transects.
-    - model_region_directory: The path to the FES 2014 model region that will be used to compute the tide predictions
-    ex."C:/development/doodleverse/CoastSeg/tide_model/region"
-
+    Args:
+        x (float): The x-coordinate of the location to predict tide for.
+        y (float): The y-coordinate of the location to predict tide for.
+        - timeseries_df: A DataFrame containing time series data for each transect.
+       - model_region_directory: The path to the FES 2014 model region that will be used to compute the tide predictions
+         ex."C:/development/doodleverse/CoastSeg/tide_model/region"
+        transect_id (str): The ID of the transect. Pass "" if no transect ID is available.
+        
     Returns:
-    - pd.DataFrame: A DataFrame containing tide predictions for all the dates that the selected transect_id using the
+            - pd.DataFrame: A DataFrame containing tide predictions for all the dates that the selected transect_id using the
     fes 2014 model region specified in the "region_id".
     """
-    transect_id = row["transect_id"]
-    region_id = row["region_id"]
-    directory = f"{model_region_directory}{region_id}"
-    if transect_id not in timeseries_df.columns:
-        return None
-    dates_for_transect_id_df = timeseries_df[["dates", transect_id]].dropna()
+    # if the transect ID is not in the timeseries_df then return None
+    if transect_id != "":
+        if transect_id not in timeseries_df.columns:
+            return None
+        dates_for_transect_id_df = timeseries_df[["dates", transect_id]].dropna()
+    else:    
+        dates_for_transect_id_df = timeseries_df[["dates"]].dropna()
     tide_predictions_df = model_tides(
-        row["x"],
-        row["y"],
+        x,
+        y,
         dates_for_transect_id_df.dates.values,
         transect_id=transect_id,
-        directory=directory,
+        directory=model_region_directory,
     )
     return tide_predictions_df
 
@@ -475,22 +477,28 @@ def predict_tides_for_df(
     - seaward_points_gdf: A GeoDataFrame containing seaward points for each transect
     - timeseries_df: A DataFrame containing time series data for each transect. A DataFrame containing time series data for the transects
     - config: Configuration dictionary.
-    Must contain key:
-    "REGION_DIRECTORY" : contains full path to the fes 2014 model region folder
+        Must contain key:
+        "REGION_DIRECTORY" : contains full path to the fes 2014 model region folder
 
     Returns:
     - pd.DataFrame: A DataFrame containing predicted tides.
     Contains columns dates,x,y,tide,transect_id
     """
     region_directory = config["REGION_DIRECTORY"]
-
     # Apply the get_tide_predictions over each row and collect results in a list
     all_tides = seaward_points_gdf.apply(
-        lambda row: get_tide_predictions(row, timeseries_df, region_directory), axis=1
+        lambda row: get_tide_predictions(row.geometry.x,
+                                         row.geometry.y,
+                                         timeseries_df,
+                                         f"{region_directory}{row['region_id']}",
+                                         row["transect_id"]), axis=1
     )
     # Filter out None values
     all_tides = all_tides.dropna()
-
+    # if no tides are predicted return an empty dataframe
+    if all_tides.empty:
+        return pd.DataFrame(columns=["dates", "x", "y", "tide", "transect_id"])
+    
     # Concatenate all the results
     all_tides_df = pd.concat(all_tides.tolist())
 
@@ -715,57 +723,38 @@ def model_tides(
         return df
 
 
-def get_seaward_points(
-    transects_gdf: gpd.GeoDataFrame,
-) -> Dict[str, Union[Point, None]]:
-    """
-    Extracts the seaward points from a given GeoDataFrame containing transects.
-
-    Parameters:
-    - transects_gdf: A GeoDataFrame containing transect data.
-
-    Returns:
-    - dict: A dictionary where keys are transect IDs and values are the seaward points (or None if not available).
-    """
-    transect_seaward_points = {}
-    for index, row in transects_gdf.iterrows():
-        points = list(row["geometry"].coords)
-        seaward_point = points[1] if len(points) > 1 else None
-        transect_seaward_points[row["id"]] = seaward_point
-    return transect_seaward_points
-
 
 def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Creates a GeoDataFrame containing the seaward points from a given GeoDataFrame containing transects.
+    CRS will always be 4326.
 
     Parameters:
     - transects_gdf: A GeoDataFrame containing transect data.
 
     Returns:
-    - gpd.GeoDataFrame: A GeoDataFrame containing the seaward points for all of the transects
-    Contains columns transect_id,x,y
+    - gpd.GeoDataFrame: A GeoDataFrame containing the seaward points for all of the transects.
+    Contains columns transect_id and geometry in crs 4326
     """
-    data = []
+    # Set transects crs to epsg:4326 if it is not already. Tide model requires crs 4326
+    if transects_gdf.crs is None:
+        transects_gdf = transects_gdf.set_crs("epsg:4326")
+    else:
+        transects_gdf = transects_gdf.to_crs("epsg:4326")
 
+    # Prepare data for the new GeoDataFrame
+    data = []
     for index, row in transects_gdf.iterrows():
         points = list(row["geometry"].coords)
-        seaward_point = points[1] if len(points) > 1 else (None, None)
+        seaward_point = Point(points[1]) if len(points) > 1 else Point()
 
         # Append data for each transect to the data list
-        data.append(
-            {"transect_id": row["id"], "x": seaward_point[0], "y": seaward_point[1]}
-        )
+        data.append({"transect_id": row["id"], "geometry": seaward_point})
 
-    # Convert the data list to a pandas DataFrame
-    df = pd.DataFrame(data)
+    # Create the new GeoDataFrame
+    seaward_points_gdf = gpd.GeoDataFrame(data, crs="epsg:4326")
 
-    # Create a GeoDataFrame with geometry as Point objects from x and y columns
-    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.x, df.y))
-    gdf = gdf.set_crs("epsg:4326")
-
-    return gdf
-
+    return seaward_points_gdf
 
 def read_and_filter_geojson(
     file_path: str,
@@ -815,6 +804,7 @@ def perform_spatial_join(
 ) -> gpd.GeoDataFrame:
     """
     Perform a spatial join between seaward points and regions based on intersection.
+    BOTH GeoDataFrames must be in crs 4326. Otherwise the spatial join will not work.
 
     Parameters:
     - seaward_points_gdf: A GeoDataFrame containing seaward points.
@@ -921,7 +911,12 @@ def predict_tides(
     """
     # Read in the model regions from a GeoJSON file
     regions_gdf = load_regions_from_geojson(model_regions_geojson_path)
-    # Get the seaward points
+    # convert to crs 4326 if it is not already
+    if regions_gdf.crs is None:
+        regions_gdf = regions_gdf.set_crs("epsg:4326")
+    else:
+        regions_gdf = regions_gdf.to_crs("epsg:4326")
+    # Get the seaward points in CRS 4326
     seaward_points_gdf = get_seaward_points_gdf(transects_gdf)
     # Perform a spatial join to get the region_id for each point in seaward_points_gdf
     regional_seaward_points_gdf = perform_spatial_join(seaward_points_gdf, regions_gdf)
