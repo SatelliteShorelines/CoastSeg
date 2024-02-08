@@ -330,20 +330,31 @@ class Shoreline(Feature):
         Returns:
             "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
         """
-        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": "black",
-                "fill_color": "black",
-                "opacity": 1,
-                "dashArray": "5",
-                "fillOpacity": 0.5,
-                "weight": 4,
-            },
-            hover_style={"color": "white", "dashArray": "4", "fillOpacity": 0.7},
-        )
+        style={
+            "color": "black",
+            "fill_color": "black",
+            "opacity": 1,
+            "dashArray": "5",
+            "fillOpacity": 0.5,
+            "weight": 4,
+        }
+        hover_style={"color": "white", "dashArray": "4", "fillOpacity": 0.7}
+        return super().style_layer(geojson, layer_name, style=style, hover_style=hover_style)
+    
+        # assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+        # return GeoJSON(
+        #     data=geojson,
+        #     name=layer_name,
+        #     style={
+        #         "color": "black",
+        #         "fill_color": "black",
+        #         "opacity": 1,
+        #         "dashArray": "5",
+        #         "fillOpacity": 0.5,
+        #         "weight": 4,
+        #     },
+        #     hover_style={"color": "white", "dashArray": "4", "fillOpacity": 0.7},
+        # )
 
     def download_shoreline(
         self, filename: str, save_location: str, dataset_id: str = "7814755"

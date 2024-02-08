@@ -477,18 +477,7 @@ class ROI(Feature):
         Returns:
             "ipyleaflet.GeoJSON": ROIs as GeoJson layer styled with yellow dashes
         """
-        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": "#555555",
-                "fill_color": "#555555",
-                "fillOpacity": 0.1,
-                "weight": 1,
-            },
-            hover_style={"color": "red", "fillOpacity": 0.1, "color": "crimson"},
-        )
+        return super().style_layer(geojson, layer_name,hover_style={"color": "red", "fillOpacity": 0.1, "color": "crimson"})
 
     def fishnet_intersection(
         self, fishnet: gpd.GeoDataFrame, data: gpd.GeoDataFrame

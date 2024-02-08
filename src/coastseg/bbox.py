@@ -103,19 +103,27 @@ class Bounding_Box(Feature):
         Returns:
             "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
         """
-        if geojson == {}:
-            raise Exception("ERROR.\n Empty geojson cannot be drawn onto map")
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": "#75b671",
-                "fill_color": "#75b671",
-                "opacity": 1,
-                "fillOpacity": 0.1,
-                "weight": 3,
-            },
-        )
+        style={
+            "color": "#75b671",
+            "fill_color": "#75b671",
+            "opacity": 1,
+            "fillOpacity": 0.1,
+            "weight": 3,
+        }
+        return super().style_layer(geojson, layer_name, style=style, hover_style=None)
+        # if geojson == {}:
+        #     raise Exception("ERROR.\n Empty geojson cannot be drawn onto map")
+        # return GeoJSON(
+        #     data=geojson,
+        #     name=layer_name,
+        #     style={
+        #         "color": "#75b671",
+        #         "fill_color": "#75b671",
+        #         "opacity": 1,
+        #         "fillOpacity": 0.1,
+        #         "weight": 3,
+        #     },
+        # )
 
     def check_bbox_size(bbox_area: float):
         """ "Raises an exception if the size of the bounding box is too large or small."""

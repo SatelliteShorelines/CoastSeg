@@ -407,29 +407,39 @@ class Transects(Feature):
         Returns:
             "ipyleaflet.GeoJSON": transects as styled GeoJSON layer
         """
-        if type(data) == dict:
+        geojson = data
+        if isinstance(data, dict):
             geojson = data
-        elif type(data) == gpd.geodataframe.GeoDataFrame:
+        elif isinstance(data,gpd.geodataframe.GeoDataFrame):
             gdf = create_transects_with_arrowheads(data, arrow_angle=30)
             geojson = json.loads(gdf.to_json())
 
-        assert (
-            geojson != {}
-        ), f"ERROR.\n Empty {layer_name} geojson cannot be drawn onto map"
+        style={
+            "color": "grey",
+            "fill_color": "grey",
+            "opacity": 1,
+            "fillOpacity": 0.2,
+            "weight": 2,
+        }
+        hover_style={"color": "blue", "fillOpacity": 0.7}
+        return super().style_layer(geojson, layer_name, style=style, hover_style=hover_style)
+        # assert (
+        #     geojson != {}
+        # ), f"ERROR.\n Empty {layer_name} geojson cannot be drawn onto map"
 
-        # Add style to each feature in the geojson
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": "grey",
-                "fill_color": "grey",
-                "opacity": 1,
-                "fillOpacity": 0.2,
-                "weight": 2,
-            },
-            hover_style={"color": "blue", "fillOpacity": 0.7},
-        )
+        # # Add style to each feature in the geojson
+        # return GeoJSON(
+        #     data=geojson,
+        #     name=layer_name,
+        #     style={
+        #         "color": "grey",
+        #         "fill_color": "grey",
+        #         "opacity": 1,
+        #         "fillOpacity": 0.2,
+        #         "weight": 2,
+        #     },
+        #     hover_style={"color": "blue", "fillOpacity": 0.7},
+        # )
 
     def get_intersecting_files(self, bbox_gdf: gpd.geodataframe) -> list:
         """Returns a list of filenames that intersect with bbox_gdf

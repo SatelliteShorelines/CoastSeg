@@ -1034,11 +1034,13 @@ class CoastSeg_Map:
         exception_handler.config_check_if_none(self.rois, "ROIs")
         logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
 
+        # selected_layer must contain selected ROI
+        selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
+        exception_handler.check_empty_roi_layer(selected_layer)
+        logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
+        
         # if the rois do not have any settings then save the currently loaded settings to the ROIs
         if not self.rois.get_roi_settings():
-            # selected_layer must contain selected ROI that we will use to get the ROI geometries from
-            selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
-            exception_handler.check_empty_roi_layer(selected_layer)
             filepath = filepath or os.path.abspath(os.getcwd())
             roi_settings = common.create_roi_settings(
                 settings, selected_layer.data, filepath
@@ -2297,13 +2299,15 @@ class CoastSeg_Map:
             logger.warning("Cannot add an empty geodataframe layer to the map.")
             print("Cannot add an empty layer to the map.")
             return None
-        if "transects" in layer_name.lower():
-            styled_layer = feature.style_layer(feature.gdf, layer_name)
         else:
-            # load the feature from the geodataframe into json
-            layer_geojson = json.loads(feature.gdf.to_json())
-            # convert layer to GeoJson and style it accordingly
-            styled_layer = feature.style_layer(layer_geojson, layer_name)
+            styled_layer = feature.style_layer(feature.gdf, layer_name)
+        # if "transects" in layer_name.lower():
+        #     styled_layer = feature.style_layer(feature.gdf, layer_name)
+        # else:
+        #     # load the feature from the geodataframe into json
+        #     layer_geojson = json.loads(feature.gdf.to_json())
+        #     # convert layer to GeoJson and style it accordingly
+        #     styled_layer = feature.style_layer(layer_geojson, layer_name)
         return styled_layer
 
     def geojson_onclick_handler(
