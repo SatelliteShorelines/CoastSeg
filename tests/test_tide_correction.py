@@ -204,7 +204,7 @@ def test_get_tide_predictions():
         assert (result['x'] == x).all(), "All 'x' values should be equal to input x"
         assert (result['y'] == y).all(), "All 'y' values should be equal to input y"
 
-def test_get_tide_predictions_valid_transect(mocker):
+def test_get_tide_predictions_valid_transect():
     # Test data setup
     x, y = 1.0, 2.0
     timeseries_df = pd.DataFrame({

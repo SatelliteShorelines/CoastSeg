@@ -233,6 +233,7 @@ def test_style_layer():
 
 
 # # you can also mock some methods that depend on external data, like downloading from the internet
+# this requires the use of the pytest-mock library which must be installed ( it is not as of 2/8/2024)
 # def test_download_shoreline(mocker):
 #     mock_download = mocker.patch("coastseg.common.download_url", return_value=None)
 #     shoreline = Shoreline()
