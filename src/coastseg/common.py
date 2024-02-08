@@ -2470,10 +2470,16 @@ def create_json_config(
 
 def set_crs_or_initialize_empty(gdf: gpd.GeoDataFrame, epsg_code: str):
     """Set the CRS for the given GeoDataFrame or initialize an empty one."""
-    if gdf is not None and not gdf.empty:
+    # Check if the GeoDataFrame is empty
+    if gdf is None:
+        # Initialize an empty GeoDataFrame with the new CRS
+        return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
+    elif gdf.empty:
+        # Initialize an empty GeoDataFrame with the new CRS
+        return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
+    else:
+        # Transform the CRS of the non-empty GeoDataFrame
         return gdf.to_crs(epsg_code)
-    return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-
 
 def create_config_gdf(
     rois_gdf: gpd.GeoDataFrame,

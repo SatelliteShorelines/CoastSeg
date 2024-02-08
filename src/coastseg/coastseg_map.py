@@ -360,12 +360,8 @@ class CoastSeg_Map:
                 "opacity": 1,
             },
         )
-        # features_json = json.loads(projected_gdf.to_json())
-        # # create an ipyleaflet GeoJSON layer with the extracted shorelines selected
-        # new_layer = GeoJSON(
-        #     data=features_json, name=layer_name, style=style, point_style=style
-        # )
-        self.replace_layer_by_name(layer_name, new_layer, on_hover=None, on_click=None)
+        # this will add the new layer on map and update the widget on the side with the extracted shoreline information
+        self.replace_layer_by_name(layer_name, new_layer, on_hover=self.update_extracted_shoreline_html, on_click=None)
 
     def delete_selected_shorelines(
         self, layer_name: str, selected_id: str, selected_shorelines: List = None
