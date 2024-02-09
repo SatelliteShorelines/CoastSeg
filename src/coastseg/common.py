@@ -196,9 +196,11 @@ def get_missing_roi_dirs(roi_settings: dict, roi_ids: list = None) -> dict:
     return missing_directories
 
 def initialize_gee(
-    auth_mode: str = "localhost",
+    auth_mode: str = "notebook",
     print_mode: bool = True,
     auth_args: dict = {},
+    project: str = "",
+    force:bool=False,
     **kwargs,
 ):
     """
@@ -215,14 +217,18 @@ def initialize_gee(
         kwargs (dict, optional): Additional parameters for ee.Initialize().
 
     """
-    auth_args = {"auth_mode": auth_mode}
-    # update auth_args
-    auth_args.update(kwargs)
+    auth_args.update({"auth_mode": auth_mode})
+    if project != "":
+        kwargs.update({"project": project})
 
     if auth_mode == "colab":
         raise ValueError("Colab authentication is not supported.")
     elif auth_mode == "gcloud":
         raise ValueError("GCloud authentication is not supported.")
+    
+    if force:
+        print("Forcing authentication with Google Earth Engine...\n")
+        ee.Authenticate(force=force,**auth_args)
 
     try:
         if print_mode:
