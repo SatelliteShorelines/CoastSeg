@@ -223,8 +223,6 @@ def initialize_gee(
         raise ValueError("Colab authentication is not supported.")
     elif auth_mode == "gcloud":
         raise ValueError("GCloud authentication is not supported.")
-    elif auth_mode == "notebook":
-        raise ValueError("Notebook authentication is not supported.")
 
     try:
         if print_mode:
