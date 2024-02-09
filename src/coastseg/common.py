@@ -1383,13 +1383,6 @@ def save_transects(
     Returns:
         None.
     """
-    create_csv_per_transect(
-        roi_id,
-        save_location,
-        cross_distance_transects,
-        extracted_shorelines,
-        file_extension="_timeseries_raw.csv",
-    )
     save_transect_intersections(
         save_location,
         extracted_shorelines,
