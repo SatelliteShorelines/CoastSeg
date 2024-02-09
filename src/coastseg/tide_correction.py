@@ -217,8 +217,14 @@ def correct_tides(
         save_transect_settings(
             session_path, reference_elevation, beach_slope, "transects_settings.json"
         )
-
-        predicted_tides_df.to_csv(os.path.join(session_path, "predicted_tides.csv"))
+        
+        # format the predicted tides as a matrix of date vs transect id with the tide as the values
+        # Pivot the table
+        pivot_df = predicted_tides_df.pivot_table(index='dates', columns='transect_id', values='tide', aggfunc='first')
+        # Reset index if you want 'dates' back as a column
+        pivot_df.reset_index(inplace=True)
+        pivot_df.to_csv(os.path.join(session_path, "predicted_tides.csv"))
+        
         tide_corrected_timeseries_df = tidally_correct_timeseries(
             raw_timeseries_df,
             predicted_tides_df,
@@ -229,6 +235,14 @@ def correct_tides(
         tide_corrected_timeseries_df.to_csv(
             os.path.join(session_path, "transect_time_series_tidally_corrected.csv")
         )
+        
+        # save the time series as a matrix of date vs transect id with the cross_distance as the values
+        pivot_df = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')
+
+        # Reset index if you want 'dates' back as a column
+        pivot_df.reset_index(inplace=True)
+        # Save the Tidally corrected time series
+        pivot_df.to_csv(os.path.join(session_path, 'transect_time_series_tidally_corrected_matrix.csv'))
         # # save a csv for each transect that was tidally corrected
         # save_csv_per_id(
         #     tide_corrected_timeseries_df,

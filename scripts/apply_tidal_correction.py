@@ -742,6 +742,7 @@ def main():
     # RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\transect_time_series.csv"
     TIDE_PREDICTIONS_FILE_NAME = args.predictions
     TIDALLY_CORRECTED_FILE_NAME = args.output
+    TIDALLY_CORRECTED_MATRIX_FILE_NAME = 'transect_time_series_tidally_corrected_matrix.csv'
     MODEL_REGIONS_GEOJSON_PATH = args.regions
     FES_2014_MODEL_PATH = args.model
 
@@ -764,7 +765,14 @@ def main():
     print(f"Time taken for all tide predictions: {end_time - start_time}s")
     # Save the tide_predictions
     print(f"Predicted tides saved to {os.path.abspath(TIDE_PREDICTIONS_FILE_NAME)}")
-    predicted_tides_df.to_csv(TIDE_PREDICTIONS_FILE_NAME)
+    
+    # format the predicted tides as a matrix of date vs transect id with the tide as the values
+    # Pivot the table
+    pivot_df = predicted_tides_df.pivot_table(index='dates', columns='transect_id', values='tide', aggfunc='first')
+    # Reset index if you want 'dates' back as a column
+    pivot_df.reset_index(inplace=True)    
+
+    pivot_df.to_csv(TIDE_PREDICTIONS_FILE_NAME)
 
     print(f"Applying tide corrections to {RAW_TIMESERIES_FILE_PATH}")
     tide_corrected_timeseries_df = tidally_correct_timeseries(
@@ -777,7 +785,16 @@ def main():
     print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_FILE_NAME)}")
     # Save the Tidally corrected time series
     tide_corrected_timeseries_df.to_csv(TIDALLY_CORRECTED_FILE_NAME)
+    
+    # save the time series as a matrix of date vs transect id with the cross_distance as the values
+    pivot_df = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')
 
+    # Reset index if you want 'dates' back as a column
+    pivot_df.reset_index(inplace=True)
+    # Tidally correct the raw time series
+    print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_MATRIX_FILE_NAME)}")
+    # Save the Tidally corrected time series
+    pivot_df.to_csv(TIDALLY_CORRECTED_MATRIX_FILE_NAME)
 
 if __name__ == "__main__":
     main()
