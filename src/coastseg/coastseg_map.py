@@ -1666,7 +1666,7 @@ class CoastSeg_Map:
         roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
         if hasattr(self.transects, "gdf"):
             self.compute_transects(self.transects.gdf, self.get_settings(), roi_ids)
-        # load extracted shorelines to map
+            
         # update the available ROI IDs and this will update the extracted shorelines on the map
         ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
         logger.info(
@@ -1853,6 +1853,7 @@ class CoastSeg_Map:
                     cross_shore_distance,
                     extracted_shorelines_dict,
                     self.get_settings(),
+                    self.transects.gdf
                 )
 
     def remove_all(self):

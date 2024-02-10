@@ -1370,6 +1370,7 @@ def save_transects(
     cross_distance_transects: dict,
     extracted_shorelines: dict,
     settings: dict,
+    transects_gdf:gpd.GeoDataFrame,
 ) -> None:
     """
     Save transect data, including raw timeseries, intersection data, and cross distances.
@@ -1383,12 +1384,33 @@ def save_transects(
     Returns:
         None.
     """
-    save_transect_intersections(
-        save_location,
-        extracted_shorelines,
-        cross_distance_transects,
-        filename="transect_time_series.csv",
+    # cross_distance_df =save_transect_intersections(
+    #     save_location,
+    #     extracted_shorelines,
+    #     cross_distance_transects,
+    #     filename="transect_time_series.csv",
+    # )
+    cross_distance_df =get_cross_distance_df(
+        extracted_shorelines, cross_distance_transects
     )
+    cross_distance_df.dropna(axis="columns", how="all", inplace=True)
+    filepath = os.path.join(save_location, "transect_time_series.csv")
+    cross_distance_df.to_csv(filepath, sep=",")
+    
+    from coastseg.tide_correction import get_seaward_points_gdf,convert_transect_ids_to_rows,merge_dataframes
+    
+    # get the last point (aka the seaward point) from each transect
+    seaward_points = get_seaward_points_gdf(transects_gdf)
+    timeseries_df = convert_transect_ids_to_rows(cross_distance_df)
+    timeseries_df = timeseries_df.sort_values('dates')
+    merged_timeseries_df=merge_dataframes(timeseries_df, seaward_points,columns_to_merge_on=["transect_id"])
+    merged_timeseries_df['X'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.x)
+    merged_timeseries_df['Y'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.y)
+    merged_timeseries_df.drop('geometry', axis=1, inplace=True)
+    filepath = os.path.join(save_location, "transect_time_series_merged.csv")
+    merged_timeseries_df.to_csv(filepath, sep=",")
+    
+    
     save_path = os.path.join(save_location, "transects_cross_distances.json")
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
@@ -2151,6 +2173,9 @@ def get_cross_distance_df(
     transects_csv["dates"] = extracted_shorelines["dates"]
     # add cross distances for each transect within the ROI
     transects_csv = {**transects_csv, **cross_distance_transects}
+    # df = pd.DataFrame(transects_csv)
+    # this would add the satellite the image was captured on to the timeseries
+    # df['satname'] = extracted_shorelines["satname"]
     return pd.DataFrame(transects_csv)
 
 
@@ -2178,13 +2203,14 @@ def save_transect_intersections(
     The function first combines the shoreline and transect data into a DataFrame and then removes any columns
     that contain only NaN values before saving to CSV.
     """
-    cross_distance_df = get_cross_distance_df(
+    cross_distance_df =get_cross_distance_df(
         extracted_shorelines, cross_distance_transects
     )
+    
     cross_distance_df.dropna(axis="columns", how="all", inplace=True)
     filepath = os.path.join(save_path, filename)
     cross_distance_df.to_csv(filepath, sep=",")
-    return filepath
+    return cross_distance_df
 
 
 def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
