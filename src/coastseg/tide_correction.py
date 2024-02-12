@@ -45,21 +45,6 @@ def compute_tidal_corrections(
     else:
         print("\ntidal corrections completed")
 
-
-# def save_csv_per_id(
-#     df: pd.DataFrame,
-#     save_location: str,
-#     filename: str = "timeseries_tidally_corrected.csv",
-#     id_column_name: str = "transect_id",
-# ):
-#     new_df = pd.DataFrame()
-#     unique_ids = df[id_column_name].unique()
-#     for uid in unique_ids:
-#         new_filename = f"{uid}_{filename}"
-#         new_df = df[df[id_column_name] == uid]
-#         new_df.to_csv(os.path.join(save_location, new_filename))
-
-
 def correct_all_tides(
     roi_ids: Collection,
     session_name: str,
@@ -243,12 +228,6 @@ def correct_tides(
         pivot_df.reset_index(inplace=True)
         # Save the Tidally corrected time series
         pivot_df.to_csv(os.path.join(session_path, 'transect_time_series_tidally_corrected_matrix.csv'))
-        # # save a csv for each transect that was tidally corrected
-        # save_csv_per_id(
-        #     tide_corrected_timeseries_df,
-        #     session_path,
-        #     filename="timeseries_tidally_corrected.csv",
-        # )
         update(f"{roi_id} was tidally corrected")
     return tide_corrected_timeseries_df
 

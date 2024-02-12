@@ -37,6 +37,7 @@ from coastseg import exceptions
 from coastseg.validation import find_satellite_in_filename
 from coastseg import file_utilities
 from coastseg.exceptions import InvalidGeometryType
+from coastseg.tide_correction import get_seaward_points_gdf,convert_transect_ids_to_rows,merge_dataframes
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 # Logger setup
@@ -1397,7 +1398,6 @@ def save_transects(
     filepath = os.path.join(save_location, "transect_time_series.csv")
     cross_distance_df.to_csv(filepath, sep=",")
     
-    from coastseg.tide_correction import get_seaward_points_gdf,convert_transect_ids_to_rows,merge_dataframes
     
     # get the last point (aka the seaward point) from each transect
     seaward_points = get_seaward_points_gdf(transects_gdf)
@@ -2252,50 +2252,6 @@ def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         # @debug not sure if this will break everything
         # Use explode to break multilinestrings in linestrings
         return geodf.explode(ignore_index=True)
-
-
-def create_csv_per_transect(
-    roi_id: str,
-    save_path: str,
-    cross_distance_transects: dict,
-    extracted_shorelines_dict: dict,
-    file_extension: str = "_timeseries_raw.csv",
-) -> None:
-    """
-    Generates CSV files from transect and shoreline data.
-
-    For each transect in cross_distance_transects, this function creates a CSV file if the transect contains
-    non-NaN values. The CSV includes dates, transect data, region of interest ID, and satellite name.
-
-    Args:
-    - roi_id (str): ID for the region of interest.
-    - save_path (str): Path to save CSV files.
-    - cross_distance_transects (dict): Transect data with cross-distance measurements.
-    - extracted_shorelines_dict (dict): Contains 'dates' and 'satname'.
-    - file_extension (str, optional): File extension for CSV files. Default is "_timeseries_raw.csv".
-
-    Notes:
-    - CSV files are named using transect keys and file_extension.
-    - Transects with only NaN values are skipped.
-    """
-    for key, transect in cross_distance_transects.items():
-        if pd.notna(transect).any():  # Check if there's any non-NaN value
-            # Create DataFrame directly
-            df = pd.DataFrame(
-                {
-                    "dates": extracted_shorelines_dict["dates"],
-                    key: transect,
-                    "roi_id": [roi_id] * len(extracted_shorelines_dict["dates"]),
-                    "satname": extracted_shorelines_dict["satname"],
-                },
-                index=extracted_shorelines_dict["dates"],
-            )
-            # Save to csv file
-            fn = f"{key}{file_extension}"
-            file_path = os.path.join(save_path, fn)
-            df.to_csv(
-                file_path, sep=",", index=False
-            )  # Set index=False if you don't want 'dates' as index in CSV
 
 
 def move_report_files(
