@@ -7,7 +7,7 @@ from typing import Collection, Dict, Tuple, Union
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
-from coastseg import exception_handler
+from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf
 
 # Third-party imports
 import geopandas as gpd
@@ -716,39 +716,6 @@ def model_tides(
         return df
 
 
-
-def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """
-    Creates a GeoDataFrame containing the seaward points from a given GeoDataFrame containing transects.
-    CRS will always be 4326.
-
-    Parameters:
-    - transects_gdf: A GeoDataFrame containing transect data.
-
-    Returns:
-    - gpd.GeoDataFrame: A GeoDataFrame containing the seaward points for all of the transects.
-    Contains columns transect_id and geometry in crs 4326
-    """
-    # Set transects crs to epsg:4326 if it is not already. Tide model requires crs 4326
-    if transects_gdf.crs is None:
-        transects_gdf = transects_gdf.set_crs("epsg:4326")
-    else:
-        transects_gdf = transects_gdf.to_crs("epsg:4326")
-
-    # Prepare data for the new GeoDataFrame
-    data = []
-    for index, row in transects_gdf.iterrows():
-        points = list(row["geometry"].coords)
-        seaward_point = Point(points[1]) if len(points) > 1 else Point()
-
-        # Append data for each transect to the data list
-        data.append({"transect_id": row["id"], "geometry": seaward_point})
-
-    # Create the new GeoDataFrame
-    seaward_points_gdf = gpd.GeoDataFrame(data, crs="epsg:4326")
-
-    return seaward_points_gdf
-
 def read_and_filter_geojson(
     file_path: str,
     columns_to_keep: Tuple[str, ...] = ("id", "type", "geometry"),
@@ -920,21 +887,6 @@ def predict_tides(
     return all_tides_df
 
 
-def convert_transect_ids_to_rows(df):
-    """
-    Reshapes the timeseries data so that transect IDs become rows.
-
-    Args:
-    - df (DataFrame): Input data with transect IDs as columns.
-
-    Returns:
-    - DataFrame: Reshaped data with transect IDs as rows.
-    """
-    reshaped_df = df.melt(
-        id_vars="dates", var_name="transect_id", value_name="cross_distance"
-    )
-    return reshaped_df.dropna()
-
 
 def apply_tide_correction(
     df: pd.DataFrame, reference_elevation: float, beach_slope: float
@@ -953,22 +905,6 @@ def apply_tide_correction(
     correction = (df["tide"] - reference_elevation) / beach_slope
     df["cross_distance"] = df["cross_distance"] + correction
     return df.drop(columns=["correction"], errors="ignore")
-
-
-def merge_dataframes(df1, df2, columns_to_merge_on=set(["transect_id", "dates"])):
-    """
-    Merges two DataFrames based on column names provided in columns_to_merge_on by default
-    merges on "transect_id", "dates".
-
-    Args:
-    - df1 (DataFrame): First DataFrame.
-    - df2 (DataFrame): Second DataFrame.
-    - columns_to_merge_on(collection): column names to merge on
-    Returns:
-    - DataFrame: Merged data.
-    """
-    merged_df = pd.merge(df1, df2, on=list(columns_to_merge_on), how="inner")
-    return merged_df.drop_duplicates(ignore_index=True)
 
 
 def timeseries_read_csv(file_path):

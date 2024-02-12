@@ -1,47 +1,104 @@
 # Standard library imports
-import os
-import re
 import glob
-import shutil
 import json
-import math
 import logging
+import math
+import os
 import random
+import re
+import shutil
 import string
-from typing import List
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 # Third-party imports
 import ee
-from google.auth import exceptions as google_auth_exceptions
-import requests
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import requests
 import shapely
 from area import area
-from tqdm.auto import tqdm
-from PIL import Image
+from google.auth import exceptions as google_auth_exceptions
 from ipyfilechooser import FileChooser
-from ipywidgets import ToggleButton, HBox, VBox, Layout, HTML
+from ipywidgets import HBox, HTML, Layout, ToggleButton, VBox
+from PIL import Image
 from requests.exceptions import SSLError
-from shapely.geometry import Polygon
-from shapely.geometry import MultiPoint, LineString
-
-# Specific classes/functions from modules
-from typing import Callable, List, Optional, Union, Dict, Set, Any, Tuple
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
+from tqdm.auto import tqdm
 
 # Internal dependencies imports
-from coastseg import exceptions
-from coastseg.validation import find_satellite_in_filename
-from coastseg import file_utilities
+from coastseg import exceptions, file_utilities
 from coastseg.exceptions import InvalidGeometryType
-from coastseg.tide_correction import get_seaward_points_gdf,convert_transect_ids_to_rows,merge_dataframes
+from coastseg.validation import find_satellite_in_filename
+
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+def merge_dataframes(df1, df2, columns_to_merge_on=set(["transect_id", "dates"])):
+    """
+    Merges two DataFrames based on column names provided in columns_to_merge_on by default
+    merges on "transect_id", "dates".
+
+    Args:
+    - df1 (DataFrame): First DataFrame.
+    - df2 (DataFrame): Second DataFrame.
+    - columns_to_merge_on(collection): column names to merge on
+    Returns:
+    - DataFrame: Merged data.
+    """
+    merged_df = pd.merge(df1, df2, on=list(columns_to_merge_on), how="inner")
+    return merged_df.drop_duplicates(ignore_index=True)
+
+
+def convert_transect_ids_to_rows(df):
+    """
+    Reshapes the timeseries data so that transect IDs become rows.
+
+    Args:
+    - df (DataFrame): Input data with transect IDs as columns.
+
+    Returns:
+    - DataFrame: Reshaped data with transect IDs as rows.
+    """
+    reshaped_df = df.melt(
+        id_vars="dates", var_name="transect_id", value_name="cross_distance"
+    )
+    return reshaped_df.dropna()
+
+def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Creates a GeoDataFrame containing the seaward points from a given GeoDataFrame containing transects.
+    CRS will always be 4326.
+
+    Parameters:
+    - transects_gdf: A GeoDataFrame containing transect data.
+
+    Returns:
+    - gpd.GeoDataFrame: A GeoDataFrame containing the seaward points for all of the transects.
+    Contains columns transect_id and geometry in crs 4326
+    """
+    # Set transects crs to epsg:4326 if it is not already. Tide model requires crs 4326
+    if transects_gdf.crs is None:
+        transects_gdf = transects_gdf.set_crs("epsg:4326")
+    else:
+        transects_gdf = transects_gdf.to_crs("epsg:4326")
+
+    # Prepare data for the new GeoDataFrame
+    data = []
+    for index, row in transects_gdf.iterrows():
+        points = list(row["geometry"].coords)
+        seaward_point = Point(points[1]) if len(points) > 1 else Point()
+
+        # Append data for each transect to the data list
+        data.append({"transect_id": row["id"], "geometry": seaward_point})
+
+    # Create the new GeoDataFrame
+    seaward_points_gdf = gpd.GeoDataFrame(data, crs="epsg:4326")
+
+    return seaward_points_gdf
 
 def update_config(config_json: dict, roi_settings: dict) -> dict:
     """
