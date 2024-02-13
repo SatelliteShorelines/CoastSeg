@@ -205,9 +205,10 @@ def delete_extracted_shorelines_files(session_path: str, selected_items: List):
 
 
 class CoastSeg_Map:
-    def __init__(self):
+    def __init__(self,create_map:bool=True):
         # Basic settings and configurations
         self.settings = {}
+        self.map = None
         self.set_settings()
         self.session_name = ""
 
@@ -225,36 +226,59 @@ class CoastSeg_Map:
         self.bbox = None
         self.selected_set = set()
         self.selected_shorelines_set = set()
-        self._init_map_components()
+        if create_map:
+            self._init_map_components()
+            # Warning and information boxes that appear on top of the map
+            self._init_info_boxes()
 
-        # Warning and information boxes
-        self._init_info_boxes()
+    def get_map(self):
+        if self.map is None:
+            self.map = self.create_map()
+        return self.map
 
     def _init_map_components(self):
-        """Initialize map-related attributes and settings."""
-        self.map = self.create_map()
+        """Initialize map-related attributes and settings.
+        
+        This method initializes the map-related attributes and settings for the CoastSeg application.
+        It creates a draw control and adds it to the map instance.
+        It also adds a layers control to the map instance.
+        """
+        map_instance = self.get_map()
         self.draw_control = self.create_DrawControl(DrawControl())
         self.draw_control.on_draw(self.handle_draw)
-        self.map.add(self.draw_control)
-        self.map.add(LayersControl(position="topright"))
+        map_instance.add(self.draw_control)
+        map_instance.add(LayersControl(position="topright"))
 
     def _init_info_boxes(self):
-        """Initialize info and warning boxes for the map."""
-        self.warning_box = HBox([],layout=Layout(height='242px'))
-        self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
-        self.map.add(self.warning_widget)
+            """
+            Initialize info and warning boxes for the map.
 
-        self.roi_html = HTML("""""")
-        self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html,default_msg="Hover over a ROI")
-        self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
-        self.map.add(self.roi_widget)
+            This method initializes the warning box, ROI box, and hover box for the map.
+            The warning box displays warning messages, the ROI box displays information about the region of interest,
+            and the hover box displays information about the selected feature on the map.
+            Available selected features include extracted shorelines, shorelines, and transects.
 
-        self.feature_html = HTML("""""")
-        self.hover_box = common.create_hover_box(
-            title="Feature", feature_html=self.feature_html
-        )
-        self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
-        self.map.add(self.hover_widget)
+            Parameters:
+                None
+
+            Returns:
+                None
+            """
+            self.warning_box = HBox([],layout=Layout(height='242px'))
+            self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
+            self.map.add(self.warning_widget)
+
+            self.roi_html = HTML("""""")
+            self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html,default_msg="Hover over a ROI")
+            self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
+            self.map.add(self.roi_widget)
+
+            self.feature_html = HTML("""""")
+            self.hover_box = common.create_hover_box(
+                title="Feature", feature_html=self.feature_html
+            )
+            self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
+            self.map.add(self.hover_widget)
 
     def __str__(self):
         return f"CoastSeg: roi={self.rois}\n shoreline={self.shoreline}\n  transects={self.transects}\n bbox={self.bbox}"
