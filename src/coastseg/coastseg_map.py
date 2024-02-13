@@ -137,39 +137,6 @@ def find_shorelines_directory(path, roi_id):
     return None
 
 
-def find_shorelines_directory(path, roi_id):
-    # List the contents of the specified path
-    contents = os.listdir(path)
-
-    # Check for extracted shorelines geojson file in the specified path
-    extracted_shorelines_file = [
-        file
-        for file in contents
-        if "extracted_shorelines" in file and file.endswith(".geojson")
-    ]
-    if extracted_shorelines_file:
-        return path
-
-    # If the file is not found, check for a directory with the ROI ID
-    roi_directory = [
-        directory
-        for directory in contents
-        if os.path.isdir(os.path.join(path, directory)) and roi_id in directory
-    ]
-    if roi_directory:
-        roi_path = os.path.join(path, roi_directory[0])
-        roi_contents = os.listdir(roi_path)
-        extracted_shorelines_file = [
-            file
-            for file in roi_contents
-            if "extracted_shorelines" in file and file.endswith(".geojson")
-        ]
-        if extracted_shorelines_file:
-            return roi_path
-
-    return None
-
-
 def delete_extracted_shorelines_files(session_path: str, selected_items: List):
     """
     Delete the extracted shorelines from the session directory for all the relevant files.
@@ -278,7 +245,7 @@ class CoastSeg_Map:
         self.map.add(self.warning_widget)
 
         self.roi_html = HTML("""""")
-        self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html)
+        self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html,default_msg="Hover over a ROI")
         self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
         self.map.add(self.roi_widget)
 

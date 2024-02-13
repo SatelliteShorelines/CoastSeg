@@ -1776,7 +1776,7 @@ def mount_google_drive(name: str = "CoastSeg") -> None:
         print("Not running in Google Colab.")
 
 
-def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
+def create_hover_box(title: str, feature_html: HTML = HTML(""),default_msg: str = "Hover over a feature") -> VBox:
     """
     Creates a box with a title and optional HTML containing information about the feature that was
     last hovered over.
@@ -1792,26 +1792,28 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
     Returns:
     container (VBox): Box with the given title and details about the feature given by feature_html
     """
-    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    padding = "0px 0px 4px 0px"  # upper, right, bottom, left
     # create title
-    title = HTML(f"  <h4>{title} Hover  </h4>")
+    # title = HTML(f"<b>{title}</b>")
+    title_html = HTML(f"<b>{title}</b>", layout=Layout(margin="0px 8px"))  # Adjust 10px as needed for left and right margins
+    
     # Default message shown when nothing has been hovered
-    msg = HTML(f"Hover over a feature</br>")
+    msg = HTML(f"{default_msg}<br/>")
     # open button allows user to see hover data
     uncollapse_button = ToggleButton(
         value=False,
         tooltip="Show hover data",
         icon="angle-down",
-        button_style="info",
+        button_style='primary',
         layout=Layout(height="28px", width="28px", padding=padding),
     )
 
     # collapse_button collapses hover data
-    collapse_button = ToggleButton(
+    close_button = ToggleButton(
         value=False,
-        tooltip="Show hover data",
-        icon="angle-up",
-        button_style="info",
+        tooltip="Close",
+        icon="times",
+        button_style="danger",
         layout=Layout(height="28px", width="28px", padding=padding),
     )
 
@@ -1823,7 +1825,7 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
         container_content.children = [feature_html]
 
     # default configuration for container is in collapsed mode
-    container_header = HBox([title, uncollapse_button])
+    container_header = HBox([uncollapse_button,title_html])
     container = VBox([container_header])
 
     def uncollapse_click(change: dict):
@@ -1831,14 +1833,14 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
             container_content.children = [msg]
         elif feature_html.value != "":
             container_content.children = [feature_html]
-        container_header.children = [title, collapse_button]
+        container_header.children = [close_button,title_html]
         container.children = [container_header, container_content]
 
     def collapse_click(change: dict):
-        container_header.children = [title, uncollapse_button]
+        container_header.children = [uncollapse_button,title_html]
         container.children = [container_header]
 
-    collapse_button.observe(collapse_click, "value")
+    close_button.observe(collapse_click, "value")
     uncollapse_button.observe(uncollapse_click, "value")
     return container
 
