@@ -179,6 +179,8 @@ def load_intersecting_transects(
         transects_name = os.path.splitext(transect_file)[0]
         transect_path = os.path.join(transect_dir, transect_file)
         transects = gpd.read_file(transect_path, bbox=bbox)
+        # keep only those transects that intersect with the rectangle
+        transects = transects[transects.intersects(rectangle.unary_union)]
         # drop any columns that are not in columns_to_keep
         columns_to_keep = set(col.lower() for col in columns_to_keep)
         transects = transects[
