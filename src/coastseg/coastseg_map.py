@@ -239,22 +239,35 @@ class CoastSeg_Map:
         self.map.add(LayersControl(position="topright"))
 
     def _init_info_boxes(self):
-        """Initialize info and warning boxes for the map."""
-        self.warning_box = HBox([],layout=Layout(height='242px'))
-        self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
-        self.map.add(self.warning_widget)
+            """
+            Initialize info and warning boxes for the map.
 
-        self.roi_html = HTML("""""")
-        self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html,default_msg="Hover over a ROI")
-        self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
-        self.map.add(self.roi_widget)
+            This method initializes the warning box, ROI box, and hover box for the map.
+            The warning box displays warning messages, the ROI box displays information about the region of interest,
+            and the hover box displays information about the selected feature on the map.
+            Available selected features include extracted shorelines, shorelines, and transects.
 
-        self.feature_html = HTML("""""")
-        self.hover_box = common.create_hover_box(
-            title="Feature", feature_html=self.feature_html
-        )
-        self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
-        self.map.add(self.hover_widget)
+            Parameters:
+                None
+
+            Returns:
+                None
+            """
+            self.warning_box = HBox([],layout=Layout(height='242px'))
+            self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
+            self.map.add(self.warning_widget)
+
+            self.roi_html = HTML("""""")
+            self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html,default_msg="Hover over a ROI")
+            self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
+            self.map.add(self.roi_widget)
+
+            self.feature_html = HTML("""""")
+            self.hover_box = common.create_hover_box(
+                title="Feature", feature_html=self.feature_html
+            )
+            self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
+            self.map.add(self.hover_widget)
 
     def __str__(self):
         return f"CoastSeg: roi={self.rois}\n shoreline={self.shoreline}\n  transects={self.transects}\n bbox={self.bbox}"
@@ -1949,7 +1962,17 @@ class CoastSeg_Map:
         """
         draw_control.polyline = {}
         draw_control.circlemarker = {}
-        draw_control.polygon = {}
+        draw_control.polygon = {
+            "shapeOptions": {
+                "fillColor": "green",
+                "color": "green",
+                "fillOpacity": 0.1,
+                "Opacity": 0.1,
+            },
+            "drawError": {"color": "#dd253b", "message": "Ops!"},
+            "allowIntersection": False,
+            "transform": True,
+        }
         draw_control.rectangle = {
             "shapeOptions": {
                 "fillColor": "green",
@@ -1972,7 +1995,6 @@ class CoastSeg_Map:
         """
         if (
             self.draw_control.last_action == "created"
-            and self.draw_control.last_draw["geometry"]["type"] == "Polygon"
         ):
             # validate the bbox size
             geometry = self.draw_control.last_draw["geometry"]
