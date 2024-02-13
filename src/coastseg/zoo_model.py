@@ -820,6 +820,7 @@ class Zoo_Model:
                 cross_distance_transects,
                 extracted_shorelines.dictionary,
                 transect_settings,
+                transects_gdf,
             )
 
     def postprocess_data(

@@ -1461,10 +1461,12 @@ def save_transects(
     timeseries_df = convert_transect_ids_to_rows(cross_distance_df)
     timeseries_df = timeseries_df.sort_values('dates')
     merged_timeseries_df=merge_dataframes(timeseries_df, seaward_points,columns_to_merge_on=["transect_id"])
-    merged_timeseries_df['X'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.x)
-    merged_timeseries_df['Y'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.y)
+    merged_timeseries_df['x'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.x)
+    merged_timeseries_df['y'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.y)
     merged_timeseries_df.drop('geometry', axis=1, inplace=True)
     filepath = os.path.join(save_location, "transect_time_series_merged.csv")
+    # re-order columns
+    merged_timeseries_df = merged_timeseries_df[['dates', 'x', 'y', 'transect_id', 'cross_distance']]
     merged_timeseries_df.to_csv(filepath, sep=",")
     
     
