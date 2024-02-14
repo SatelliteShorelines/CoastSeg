@@ -17,6 +17,8 @@ from leafmap import Map
 from ipywidgets import Layout, HTML, HBox
 from tqdm.auto import tqdm
 import traitlets
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -297,9 +299,6 @@ class CoastSeg_Map:
         # create a layer with the extracted shorelines selected
         points_gdf = extracted_shoreline.convert_linestrings_to_multipoints(gdf)
         projected_gdf = points_gdf.to_crs(map_crs)
-
-        import matplotlib.pyplot as plt
-        import numpy as np
 
         # convert date column to datetime
         projected_gdf["date"] = pd.to_datetime(projected_gdf["date"])
@@ -874,7 +873,7 @@ class CoastSeg_Map:
 
                 print("\n".join(satellite_messages))
 
-    def download_imagery(self) -> None:
+    def download_imagery(self,rois:gpd.GeoDataFrame=None, settings:dict={},selected_ids:set=None ) -> None:
         """
         Downloads all images for the selected ROIs  from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2  covering the area of interest and acquired between the specified dates.
         The downloaded imagery for each ROI is stored in a directory that follows the convention
@@ -887,19 +886,31 @@ class CoastSeg_Map:
             Exception: raised if 'dates','sat_list', and 'landsat_collection' are not in settings
             Exception: raised if no ROIs have been selected
         """
-
-        self.validate_download_imagery_inputs()
-
         # Get the location where the downloaded imagery will be saved
         file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
         date_str = file_utilities.generate_datestring()
-        settings = self.get_settings()
 
-        # selected_layer contains the selected ROIs
-        selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
+        # read geometry from ROIs and get only the selected ROIs
+        if self.map is not None:
+            selected_ids = list(self.selected_set)
+            rois = self.rois.gdf
+            settings = self.get_settings()
+        
+        if isinstance(selected_ids,str):
+            selected_ids = [selected_ids]
+        if isinstance(selected_ids,set):
+            selected_ids = list(selected_ids)
+            
+        self.validate_download_imagery_inputs(settings,selected_ids,rois)
+        
+        # get only the ROIs whose IDs are in the selected_ids
+        filtered_gdf = rois[rois['id'].isin(selected_ids)]
+        geojson_str = filtered_gdf.to_json()
+        geojson_dict = json.loads(geojson_str)
+
         # Create a list of download settings for each ROI
         roi_settings = common.create_roi_settings(
-            settings, selected_layer.data, file_path, date_str
+            settings, geojson_dict, file_path, date_str
         )
 
         # Save the ROI settings
@@ -1544,7 +1555,7 @@ class CoastSeg_Map:
         exception_handler.check_if_dirs_missing(missing_directories)
         
 
-    def validate_download_imagery_inputs(self):
+    def validate_download_imagery_inputs(self,settings:dict=None,selected_ids:set=None,roi_gdf:gpd.GeoDataFrame=None):
         """
         Validates the inputs required for downloading imagery.
 
@@ -1561,11 +1572,22 @@ class CoastSeg_Map:
         required_settings_keys = set(["dates", "sat_list", "landsat_collection"])
         superset = set(list(settings.keys()))
         exception_handler.check_if_subset(required_settings_keys, superset, "settings")
-
-        # selected_layer must contain selected ROI
-        selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
-        exception_handler.check_empty_layer(selected_layer, ROI.SELECTED_LAYER_NAME)
-        exception_handler.check_empty_roi_layer(selected_layer)
+        
+        if selected_ids == []:
+             raise Exception("No ROIs have been selected. Please enter the IDs of the ROIs you want to download imagery for")
+        
+        if roi_gdf is None:
+            raise Exception("No ROIs provided to download imagery")
+        if roi_gdf.empty:
+            raise Exception("No ROIs provided to download imagery")
+        filtered_gdf = roi_gdf[roi_gdf['id'].isin(selected_ids)]
+        if filtered_gdf.empty:
+            raise Exception("None of the selected ids were ids in ROIs. Please enter the IDs of the ROIs you want to download imagery for")
+        
+        # # selected_layer must contain selected ROI
+        # selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
+        # exception_handler.check_empty_layer(selected_layer, ROI.SELECTED_LAYER_NAME)
+        # exception_handler.check_empty_roi_layer(selected_layer)
 
     def get_roi_ids(
         self, is_selected: bool = False, has_shorelines: bool = False
@@ -1629,6 +1651,7 @@ class CoastSeg_Map:
         #                     session_name, ROI_directory
         #                 )
         #     self.save_config(session_path)
+    
         
         #3. get selected ROIs on map and extract shoreline for each of them
         for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
