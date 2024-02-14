@@ -25,6 +25,10 @@ def test_imports():
     from coastseg import map_UI
     from coastseg import models_UI
 
+def test_init_coastseg_map_no_map():
+    coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
+    assert coastsegmap.map ==None
+    
 
 def test_save_config_invalid_inputs(
     valid_coastseg_map,
