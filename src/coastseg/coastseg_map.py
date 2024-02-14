@@ -211,6 +211,15 @@ class CoastSeg_Map:
         # Basic settings and configurations
         self.settings = {}
         self.map = None
+        self.draw_control = None
+        self.warning_box = None
+        self.roi_html = None
+        self.roi_box = None
+        self.roi_widget = None
+        self.feature_html = None
+        self.hover_box = None
+        
+        
         self.set_settings()
         self.session_name = ""
 
@@ -1066,9 +1075,13 @@ class CoastSeg_Map:
             if roi_ids is None:
                 roi_ids = self.get_roi_ids()
                 roi_ids = self.get_roi_ids(is_selected=True)
+        else:
+            if roi_ids is None:
+                roi_ids = self.get_roi_ids()
                 
         #@todo should I update the ROI settings with the currently loaded settings?
-        
+        if isinstance(roi_ids, str):
+            roi_ids = [roi_ids]
         # if the rois do not have any settings then save the currently loaded settings to the ROIs
         if not self.rois.get_roi_settings():
             filtered_gdf = self.rois.gdf[self.rois.gdf['id'].isin(roi_ids)]
@@ -1784,6 +1797,22 @@ class CoastSeg_Map:
 
         return cross_distance, failure_reason
 
+    def compute_transects_per_roi(self,roi_gdf:gpd.GeoDataFrame,transects_gdf: gpd.GeoDataFrame, settings: dict, roi_id: str, output_epsg: int) -> None:
+        # get transects that intersect with ROI
+        single_roi = common.extract_roi_by_id(roi_gdf, roi_id)
+        # save cross distances by ROI id
+        transects_in_roi_gdf = transects_gdf[
+            transects_gdf.intersects(single_roi.unary_union)
+        ]
+        cross_distance, failure_reason = self.get_cross_distance(
+            str(roi_id), transects_in_roi_gdf, settings, output_epsg
+        )
+        if cross_distance == 0:
+            logger.warning(f"{failure_reason} for ROI {roi_id}")
+            print(f"{failure_reason} for ROI {roi_id}")
+        return cross_distance
+
+
     def compute_transects(
         self, transects_gdf: gpd.GeoDataFrame, settings: dict, roi_ids: list[str]
     ) -> dict:
@@ -1820,19 +1849,23 @@ class CoastSeg_Map:
         output_epsg = "epsg:" + str(settings["output_epsg"])
         # for each ROI save cross distances for each transect that intersects each extracted shoreline
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
-            # get transects that intersect with ROI
-            single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
-            # save cross distances by ROI id
-            transects_in_roi_gdf = transects_gdf[
-                transects_gdf.intersects(single_roi.unary_union)
-            ]
-            cross_distance, failure_reason = self.get_cross_distance(
-                str(roi_id), transects_in_roi_gdf, settings, output_epsg
-            )
-            if cross_distance == 0:
-                logger.warning(f"{failure_reason} for ROI {roi_id}")
-                print(f"{failure_reason} for ROI {roi_id}")
+            cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
+            self.save_session([roi_id],save_transects=True)
+        # for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
+        #     # get transects that intersect with ROI
+        #     single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
+        #     # save cross distances by ROI id
+        #     transects_in_roi_gdf = transects_gdf[
+        #         transects_gdf.intersects(single_roi.unary_union)
+        #     ]
+        #     cross_distance, failure_reason = self.get_cross_distance(
+        #         str(roi_id), transects_in_roi_gdf, settings, output_epsg
+        #     )
+        #     if cross_distance == 0:
+        #         logger.warning(f"{failure_reason} for ROI {roi_id}")
+        #         print(f"{failure_reason} for ROI {roi_id}")
+        #     self.rois.add_cross_shore_distances(cross_distance, roi_id)
 
         self.save_session(roi_ids)
 
@@ -1936,20 +1969,41 @@ class CoastSeg_Map:
         self.remove_layer_by_name("extracted shoreline")
 
     def remove_bbox(self):
-        """Remove all the bounding boxes from the map"""
+        """
+        Removes the bounding box from the map and clears the draw control.
+
+        If a bounding box exists, it is deleted. The draw control is also cleared.
+        Additionally, if a layer with the name Bounding_Box.LAYER_NAME exists in the map,
+        it is removed.
+
+        """
         if self.bbox is not None:
             del self.bbox
-            self.bbox = None
-        self.draw_control.clear()
-        existing_layer = self.map.find_layer(Bounding_Box.LAYER_NAME)
-        if existing_layer is not None:
-            self.map.remove_layer(existing_layer)
+
+        if self.draw_control is not None:
+            self.draw_control.clear()
+
+        if self.map is not None:
+            existing_layer = self.map.find_layer(Bounding_Box.LAYER_NAME)
+            if existing_layer is not None:
+                self.map.remove_layer(existing_layer)
         self.bbox = None
 
     def remove_layer_by_name(self, layer_name: str):
-        existing_layer = self.map.find_layer(layer_name)
-        if existing_layer is not None:
-            self.map.remove(existing_layer)
+            """
+            Removes a layer from the map by its name.
+
+            Args:
+                layer_name (str): The name of the layer to be removed.
+
+            Returns:
+                None
+            """
+            if self.map is None:
+                return
+            existing_layer = self.map.find_layer(layer_name)
+            if existing_layer is not None:
+                self.map.remove(existing_layer)
 
     def remove_shoreline(self):
         del self.shoreline
@@ -1975,6 +2029,8 @@ class CoastSeg_Map:
             should take the event and the feature as inputs. Defaults to None.
         """
         if new_layer is None:
+            return
+        if self.map is None:
             return
         self.remove_layer_by_name(layer_name)
         # when feature is hovered over on_hover function is called
