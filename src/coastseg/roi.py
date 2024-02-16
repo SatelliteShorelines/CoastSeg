@@ -271,7 +271,7 @@ class ROI(Feature):
         Returns:
             Union[None, dict]: The extracted shoreline dictionary for the specified ROI ID, or None if it does not exist.
         """
-        return self.extracted_shorelines.get(roi_id)
+        return self.extracted_shorelines.get(roi_id,None)
 
     def get_ids(self) -> list:
         """Returns list of all roi ids"""

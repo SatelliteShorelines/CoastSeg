@@ -480,8 +480,19 @@ class CoastSeg_Map:
         )
 
     def compute_tidal_corrections(
-        self, roi_ids: Collection, beach_slope: float, reference_elevation: float
+        self, roi_ids: Collection, beach_slope: float=0.02, reference_elevation: float=0
     ):
+        """
+        Computes tidal corrections for the specified region of interest (ROI) IDs.
+
+        Args:
+            roi_ids (Collection): A collection of ROI IDs for which tidal corrections need to be computed.
+            beach_slope (float, optional): The slope of the beach in meters. Defaults to 0.02.
+            reference_elevation (float, optional): The reference elevation in meters relative to MSL (Mean Sea Level). Defaults to 0.
+
+        Returns:
+            None
+        """
         logger.info(
             f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
         )
@@ -1114,6 +1125,8 @@ class CoastSeg_Map:
         if selected_rois is not None:
             if not selected_rois.empty:
                 epsg_code = selected_rois.crs
+        # config should always be in epsg 4326
+        epsg_code = '4326'        
         config_gdf = common.create_config_gdf(
             selected_rois,
             shorelines_gdf=shorelines_gdf,
@@ -1526,17 +1539,26 @@ class CoastSeg_Map:
             )
         return None
 
-    def update_settings_with_accurate_epsg(self):
+    def update_settings_with_accurate_epsg(self,gdf:gpd.GeoDataFrame):
         """Updates settings with the most accurate epsg code based on lat and lon if output epsg
         was 4326 or 4327.
         """
         settings = self.get_settings()
-        new_espg = common.get_most_accurate_epsg(
-            settings.get("output_epsg", 4326), self.bbox.gdf
-        )
-        self.set_settings(output_epsg=new_espg)
+        if hasattr(gdf,"crs"):
+            new_espg = common.get_most_accurate_epsg(
+                settings.get("output_epsg", 4326), gdf
+            )
+            self.set_settings(output_epsg=new_espg)
+        else:
+            raise Exception("The GeoDataFrame does not have a crs attribute")
+        # new_espg = common.get_most_accurate_epsg(
+        #     settings.get("output_epsg", 4326), self.bbox.gdf
+        # )
+        # self.set_settings(output_epsg=new_espg)
+        return self.get_settings()
+        
 
-    def validate_transect_inputs(self, settings):
+    def validate_transect_inputs(self, settings:dict, roi_ids:list=None):
         # ROIs,settings, roi-settings cannot be None or empty
         exception_handler.check_if_empty_string(self.get_session_name(), "session name")
         # ROIs, transects, and extracted shorelines must exist
@@ -1550,28 +1572,32 @@ class CoastSeg_Map:
             set(["along_dist"]), set(list(settings.keys())), "settings"
         )
         # if no rois are selected throw an error
-        exception_handler.check_selected_set(self.selected_set)
-
-        # ids of ROIs that have had their shorelines extracted
-        extracted_shoreline_ids = set(
-            list(self.rois.get_all_extracted_shorelines().keys())
-        )
-        # Get ROI ids that are selected on map and have had their shorelines extracted
-        roi_ids = list(extracted_shoreline_ids & self.selected_set)
+        # exception_handler.check_selected_set(self.selected_set)
+        # # ids of ROIs that have had their shorelines extracted
+        # extracted_shoreline_ids = set(
+        #     list(self.rois.get_all_extracted_shorelines().keys())
+        # )
+        # # Get ROI ids that are selected on map and have had their shorelines extracted
+        # roi_ids = list(extracted_shoreline_ids & self.selected_set)
         # if none of the selected ROIs on the map have had their shorelines extracted throw an error
         exception_handler.check_if_list_empty(roi_ids)
 
 
 
-    def validate_extract_shoreline_inputs(self):
+    def validate_extract_shoreline_inputs(self,roi_ids:list=None,settings:dict=None):
         # ROIs,settings, roi-settings cannot be None or empty
-        settings = self.get_settings()
+        if not settings:
+            settings = self.get_settings()
+        if not roi_ids:
+            # if no rois are selected throw an error
+            exception_handler.check_selected_set(self.selected_set)
+
         exception_handler.check_if_empty_string(self.get_session_name(), "session name")
         # ROIs, transects,shorelines and a bounding box must exist
         exception_handler.validate_feature(self.rois, "roi")
         exception_handler.validate_feature(self.shoreline, "shoreline")
         exception_handler.validate_feature(self.transects, "transects")
-        exception_handler.validate_feature(self.bbox, "bounding box")
+        # exception_handler.validate_feature(self.bbox, "bounding box")
         # ROI settings must not be empty
         if hasattr(self.rois, "roi_settings"):
             exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
@@ -1584,8 +1610,6 @@ class CoastSeg_Map:
             set(["dates", "sat_list", "landsat_collection"]), superset, "settings"
         )
 
-        # if no rois are selected throw an error
-        exception_handler.check_selected_set(self.selected_set)
 
         # roi_settings must contain roi ids in selected set
         superset = set(list(self.rois.roi_settings.keys()))
@@ -1663,7 +1687,7 @@ class CoastSeg_Map:
             roi_ids = list(set(roi_ids) & self.selected_set)
         return roi_ids
 
-    def extract_all_shorelines(self) -> None:
+    def extract_all_shorelines(self,roi_ids:list=None) -> None:
         """
         Extracts shorelines for all selected regions of interest (ROIs).
 
@@ -1685,15 +1709,21 @@ class CoastSeg_Map:
             None
         """
         # 1. validate the inputs for shoreline extraction exist: ROIs, transects,shorelines and a downloaded data for each ROI
-        self.validate_extract_shoreline_inputs()
-        # if self.session_exists(self.get_session_name()):
-        #     raise Exception("Session already exists. Please save the session with a different name.")
-        # if the session name of where the extracted shorelines already exists
-        # then don't allow the user to extract shorelines to this session 
-        roi_ids = self.get_roi_ids(is_selected=True)
+        self.validate_extract_shoreline_inputs(roi_ids)
+
+        # if ROI ids are not provided then get the selected ROI ids from the map
+        if not roi_ids:
+            roi_ids = self.get_roi_ids(is_selected=True)
+        
         logger.info(f"roi_ids to extract shorelines from: {roi_ids}")
         #2. update the settings with the most accurate epsg
-        self.update_settings_with_accurate_epsg()
+        if self.bbox:
+            self.update_settings_with_accurate_epsg(self.bbox.gdf)
+        else:
+            # pick the first ROI ID and use it to update the settings with the most accurate epsg
+            roi_id = roi_ids[0]
+            single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
+            self.update_settings_with_accurate_epsg(single_roi)
     
         # @todo make this change official after finding a way to test it properly    
         # save the updated configs
@@ -1731,9 +1761,14 @@ class CoastSeg_Map:
         self.save_session(roi_ids, save_transects=False)
 
         #6. Get ROI ids that are selected on map and have had their shorelines extracted, and compute transects for them
-        roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
+        # roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
+        roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
+        print(f"Selected ROIs with extracted shorelines: {roi_ids_with_extracted_shorelines}")
+        # BUT when map is running how do we only get the selected ones??
+        selected_roi_ids = list(set(roi_ids) & set(roi_ids_with_extracted_shorelines))
+        print(f"Selected ROIs with extracted shorelines: {selected_roi_ids}")
         if hasattr(self.transects, "gdf"):
-            self.compute_transects(self.transects.gdf, self.get_settings(), roi_ids)
+            self.compute_transects(self.transects.gdf, self.get_settings(), selected_roi_ids)
             
         # update the available ROI IDs and this will update the extracted shorelines on the map
         ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
@@ -1770,18 +1805,18 @@ class CoastSeg_Map:
         """
         failure_reason = ""
         cross_distance = 0
+        
+        transects_in_roi_gdf = transects_in_roi_gdf.loc[:, ["id", "geometry"]]
+        
+        if transects_in_roi_gdf.empty:
+            failure_reason = f"No transects intersect for the ROI {roi_id}"
+            return cross_distance, failure_reason
 
         # Get extracted shorelines object for the currently selected ROI
         roi_extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
 
-        transects_in_roi_gdf = transects_in_roi_gdf.loc[:, ["id", "geometry"]]
-
         if roi_extracted_shoreline is None:
-            failure_reason = "No extracted shorelines were found"
-
-        elif transects_in_roi_gdf.empty:
-            failure_reason = "No transects intersect"
-
+            failure_reason = f"No extracted shorelines were found for the ROI {roi_id}"
         else:
             # Convert transects_in_roi_gdf to output_crs from settings
             transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
@@ -1797,7 +1832,20 @@ class CoastSeg_Map:
 
         return cross_distance, failure_reason
 
-    def compute_transects_per_roi(self,roi_gdf:gpd.GeoDataFrame,transects_gdf: gpd.GeoDataFrame, settings: dict, roi_id: str, output_epsg: int) -> None:
+    def compute_transects_per_roi(self, roi_gdf: gpd.GeoDataFrame, transects_gdf: gpd.GeoDataFrame, settings: dict, roi_id: str, output_epsg: int) -> None:
+        """
+        Computes the cross distance for transects within a specific region of interest (ROI).
+
+        Args:
+            roi_gdf (gpd.GeoDataFrame): GeoDataFrame containing the ROIs.
+            transects_gdf (gpd.GeoDataFrame): GeoDataFrame containing the transects.
+            settings (dict): Dictionary of settings.
+            roi_id (str): ID of the ROI.
+            output_epsg (int): EPSG code for the output coordinate reference system.
+
+        Returns:
+            None: The cross distance is computed and logged. If the cross distance is 0, a warning message is logged.
+        """
         # get transects that intersect with ROI
         single_roi = common.extract_roi_by_id(roi_gdf, roi_id)
         # save cross distances by ROI id
@@ -1844,7 +1892,7 @@ class CoastSeg_Map:
             { roi_id :  dict
                 time-series of cross-shore distance along each of the transects. Not tidally corrected. }
         """
-        self.validate_transect_inputs(settings)
+        self.validate_transect_inputs(settings,roi_ids)
         # user selected output projection
         output_epsg = "epsg:" + str(settings["output_epsg"])
         # for each ROI save cross distances for each transect that intersects each extracted shoreline
