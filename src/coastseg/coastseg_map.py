@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 import traitlets
 import matplotlib.pyplot as plt
 import numpy as np
+from shapely.geometry import shape
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
@@ -2182,7 +2183,9 @@ class CoastSeg_Map:
                 exception_handler.handle_bbox_error(bbox_too_small, self.warning_box)
             else:
                 # if no exceptions occur create new bbox, remove old bbox, and load new bbox
-                self.load_feature_on_map("bbox")
+                geom = [shape(self.draw_control.last_draw["geometry"])]
+                bbox_gdf = gpd.GeoDataFrame({"geometry": geom},crs="EPSG:4326")
+                self.load_feature_on_map("bbox",gdf=bbox_gdf)
 
         if self.draw_control.last_action == "deleted":
             self.remove_bbox()
@@ -2325,21 +2328,49 @@ class CoastSeg_Map:
             file (str, optional): geojson file containing feature. Defaults to "".
             gdf (gpd.GeoDataFrame, optional): geodataframe containing feature geometry. Defaults to None.
         """
+        new_feature = None
+        
         # Load GeoDataFrame if file is provided
         if file:
             new_feature = self.load_feature_from_file(feature_name,file,**kwargs)
-        elif gdf is not None:
-            new_feature = self.load_feature_from_gdf(feature_name,gdf,**kwargs)
+        elif isinstance(gdf, gpd.GeoDataFrame):
+            if gdf.empty:
+                logger.info(f"No {feature_name} was empty")
+                return
+            else:
+                new_feature = self.load_feature_from_gdf(feature_name, gdf, **kwargs)
         else:
-            logger.warning(f"no {feature_name} was loaded")
-            return
+            # if gdf is None then create the feature from scratch and load a default
+            new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
+            
+        if new_feature is not None:
+            # load the features onto the map
+            self.add_feature_on_map(
+                new_feature,
+                feature_name,
+                **kwargs,
+            )
+        
+    def make_feature(self, feature_name: str, gdf: gpd.GeoDataFrame=None, **kwargs) -> Feature:
+        """Creates a new feature of type feature_name from a given geodataframe.
+        If no gdf is provided then a default feature is created if the feature_name is "rois" "shoreline" or "transects"
 
-        # load the features onto the map
-        self.add_feature_on_map(
-            new_feature,
-            feature_name,
-            **kwargs,
-        )
+        Args:
+            feature_name (str): name of feature must be one of the following
+            "shoreline","transects","bbox","rois"
+            gdf (gpd.GeoDataFrame): geodataframe containing feature geometry optional. Defaults to None.
+            
+
+        Returns:
+            Feature: new feature created from gdf.
+        """
+        # Ensure the gdf is not empty
+        if gdf is not None and gdf.empty:
+            logger.info(f"No {feature_name} was empty")
+            return
+        # create the feature and add it to the class
+        new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
+        return new_feature
         
     def load_feature_from_file(self, feature_name: str, file: str, **kwargs) -> Feature:
         """Loads feature of type feature_name  from a file and creates it as a new feature.

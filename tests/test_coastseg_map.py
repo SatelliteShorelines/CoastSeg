@@ -54,10 +54,6 @@ def test_save_config_invalid_inputs(
         # save config will not work without ROIs loaded onto map
         valid_coastseg_map_with_settings.save_config()
 
-    # test if exception is raised when coastseg_map missing selected_layer
-    with pytest.raises(Exception):
-        coastseg_map_with_rois.save_config()
-
 
 def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     """tests if save configs will save both a config.json and

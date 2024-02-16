@@ -122,10 +122,6 @@ def create_bbox(
     if gdf is not None:
         bbox = Bounding_Box(gdf)
         exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
-    else:
-        geometry = coastsegmap.draw_control.last_draw["geometry"]
-        bbox = Bounding_Box(geometry)
-        exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
     coastsegmap.remove_bbox()
     if coastsegmap.draw_control is not None:
         coastsegmap.draw_control.clear()

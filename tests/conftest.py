@@ -641,7 +641,7 @@ def valid_coastseg_map_with_incomplete_settings() -> coastseg_map.CoastSeg_Map:
     # artifically set the settings to be invalid
     # don't use set_settings because it will add the missing keys to the dictionary
     # coastsegmap.set_settings(**pre_process_settings)
-    coastsegmap.settigns = pre_process_settings
+    coastsegmap.settings = pre_process_settings
     return coastsegmap
 
 
