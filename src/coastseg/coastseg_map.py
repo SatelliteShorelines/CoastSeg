@@ -894,7 +894,7 @@ class CoastSeg_Map:
 
                 print("\n".join(satellite_messages))
 
-    def download_imagery(self,rois:gpd.GeoDataFrame=None, settings:dict={},selected_ids:set=None, ) -> None:
+    def download_imagery(self,rois:gpd.GeoDataFrame=None, settings:dict={},selected_ids:set=None,file_path:str=None) -> None:
         """
         Downloads all images for the selected ROIs  from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2  covering the area of interest and acquired between the specified dates.
         The downloaded imagery for each ROI is stored in a directory that follows the convention
@@ -908,7 +908,8 @@ class CoastSeg_Map:
             Exception: raised if no ROIs have been selected
         """
         # Get the location where the downloaded imagery will be saved
-        file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
+        if not file_path:
+            file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
         # used to uniquely identify the folder where the imagery will be saved
         # example  ID_12_datetime06-05-23__04_16_45
         date_str = file_utilities.generate_datestring()

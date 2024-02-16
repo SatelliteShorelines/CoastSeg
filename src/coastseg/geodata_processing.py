@@ -159,7 +159,7 @@ def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
         logger.info(f"Opening \n {filename}")
         return gpd.read_file(filename)
     else:
-        raise FileNotFoundError
+        raise FileNotFoundError(filename)
 
 
 def load_geodataframe_from_file(
