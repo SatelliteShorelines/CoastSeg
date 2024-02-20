@@ -684,6 +684,8 @@ class CoastSeg_Map:
         Returns:
             None
         """
+        if not os.path.exists(session_path):
+            raise FileNotFoundError(f"Session path {session_path} does not exist")
         # remove all the old features from the map
         self.remove_all()
         self.load_session(session_path)
@@ -1682,6 +1684,8 @@ class CoastSeg_Map:
         Returns:
             list: The IDs of the ROIs that meet the specified criteria.
         """
+        if self.rois is None:
+            return []
         roi_ids = self.get_all_roi_ids()
         if has_shorelines:
             roi_ids = set(self.rois.get_ids_with_extracted_shorelines())
