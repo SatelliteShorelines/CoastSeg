@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Callable
 
 
 # Internal dependencies imports
+from coastseg import exception_handler
 from coastseg.exceptions import DownloadError
 from coastseg.common import (
     download_url,
@@ -189,6 +190,10 @@ class Shoreline(Feature):
         """
         if not bbox.empty:
             shoreline_files = self.get_intersecting_shoreline_files(bbox)
+            # if no shorelines were found to intersect with the bounding box raise an exception
+            if not shoreline_files:
+                exception_handler.check_if_default_feature_available(None, "shoreline")
+                
             self.gdf = self.create_geodataframe(bbox, shoreline_files)
 
     def get_clipped_shoreline(
@@ -215,8 +220,9 @@ class Shoreline(Feature):
         intersecting_files = get_intersecting_files(bbox, bounding_boxes_location)
 
         if not intersecting_files:
+            return []
             raise ValueError(
-                "No intersecting shorelines shorelines were available within the bounding box:. Try drawing a new bounding box elsewhere."
+                "No intersecting shorelines shorelines were available within the bounding box. Try drawing a new bounding box elsewhere."
             )
 
         # Download any missing shoreline files
