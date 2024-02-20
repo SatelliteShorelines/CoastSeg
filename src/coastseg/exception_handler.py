@@ -9,6 +9,8 @@ from coastseg import exceptions
 from coastseg import common
 from coastseg.roi import ROI
 
+import geopandas as gpd
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,16 @@ NO_CROSS_DISTANCE_TRANSECTS = "No cross distances transects have been computed"
 # Checking decides the message
 # Handling it sends message to user
 
+def check_if_default_feature_available(feature, feature_type: str = ""):
+    DEFAULT_FEATURE_NOT_FOUND = f"No {feature_type} were available in this region. Draw a new bounding box elsewhere or load a {feature_type} from a file.",
+
+    if isinstance(feature, gpd.GeoDataFrame):
+        if feature.empty:
+            logger.error(f"{feature_type} is empty {DEFAULT_FEATURE_NOT_FOUND}")
+            raise exceptions.Object_Not_Found(feature_type, DEFAULT_FEATURE_NOT_FOUND)
+    elif feature is None:
+        logger.error(f"{feature_type} is None {DEFAULT_FEATURE_NOT_FOUND}")
+        raise exceptions.Object_Not_Found(feature_type, DEFAULT_FEATURE_NOT_FOUND)
 
 def config_check_if_none(feature, feature_type: str = ""):
     """
