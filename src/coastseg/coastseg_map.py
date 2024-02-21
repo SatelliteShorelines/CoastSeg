@@ -339,6 +339,7 @@ class CoastSeg_Map:
                 "radius": 1,
                 "opacity": 1,
             },
+            hover_style={"color": "red"}
         )
         # this will add the new layer on map and update the widget on the side with the extracted shoreline information
         self.replace_layer_by_name(layer_name, new_layer, on_hover=self.update_extracted_shoreline_html, on_click=None)
