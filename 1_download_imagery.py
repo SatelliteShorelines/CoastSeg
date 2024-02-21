@@ -1,3 +1,4 @@
+from coastseg import coastseg_logs
 from coastseg.common import initialize_gee
 from coastseg import coastseg_map
 import os
