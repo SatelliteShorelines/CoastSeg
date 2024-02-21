@@ -56,7 +56,8 @@ In more detail, CoastSeg represents the following advances in satellite-derived 
 
 Version 1 is now stable, and we have a lot of planned new features for version 2.
 
-![gif of map with rectangles on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/create_rois_demo.gif)
+![coastseg_main_flow_updated](https://github.com/Doodleverse/CoastSeg/assets/61564689/ac9076bd-bf40-44c5-a686-0fdc1acf8656)
+
 
 - Create ROIs(regions of interest) along the coast and automatically load shorelines on the map.
 - Use Google Earth Engine to automatically download satellite imagery for each ROI clicked on the map.
