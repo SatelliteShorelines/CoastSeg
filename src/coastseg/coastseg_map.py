@@ -507,12 +507,15 @@ class CoastSeg_Map:
                 beach_slope,
             )
         except Exception as e:
-            exception_handler.handle_exception(
-                e,
-                self.warning_box,
-                title="Tide Model Error",
-                msg=str(e),
-            )
+            if self.map is not None:
+                exception_handler.handle_exception(
+                    e,
+                    self.warning_box,
+                    title="Tide Model Error",
+                    msg=str(e),
+                )
+            else:
+                raise Exception(f"""Tide Model Error:\n {e}""")
         else:
             print("\ntidal corrections completed")
 
