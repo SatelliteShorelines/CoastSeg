@@ -1723,6 +1723,22 @@ class CoastSeg_Map:
         # if ROI ids are not provided then get the selected ROI ids from the map
         if not roi_ids:
             roi_ids = self.get_roi_ids(is_selected=True)
+            
+        # get the ROIs and check if they have settings 
+        if self.rois is not None:
+            roi_settings = self.rois.get_roi_settings()
+            logger.info(f"Checking roi_settings for missing ROIs: {roi_settings}")
+            # check if any of the ROIs were missing in in the data directory
+            missing_directories = common.get_missing_roi_dirs(roi_settings)
+            logger.info(f"missing_directories: {missing_directories}")
+            
+        
+        # remove the ROI IDs that are missing directories from the list of ROI IDs
+        if len(missing_directories) > 0:
+            original_roi_ids = roi_ids
+            roi_ids = list(set(roi_ids) - set(missing_directories.keys()))
+            if len(roi_ids) == 0:
+                raise Exception(f"None of the selected ROIs {original_roi_ids} have been downloaded. Please download the ROIs again.")
         
         logger.info(f"roi_ids to extract shorelines from: {roi_ids}")
         #2. update the settings with the most accurate epsg
