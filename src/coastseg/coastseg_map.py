@@ -359,6 +359,7 @@ class CoastSeg_Map:
                 "radius": 1,
                 "opacity": 1,
             },
+            hover_style={"color": "red"}
         )
         # this will add the new layer on map and update the widget on the side with the extracted shoreline information
         self.replace_layer_by_name(layer_name, new_layer, on_hover=self.update_extracted_shoreline_html, on_click=None)
@@ -2169,7 +2170,17 @@ class CoastSeg_Map:
         """
         draw_control.polyline = {}
         draw_control.circlemarker = {}
-        draw_control.polygon = {}
+        draw_control.polygon = {
+            "shapeOptions": {
+                "fillColor": "green",
+                "color": "green",
+                "fillOpacity": 0.1,
+                "Opacity": 0.1,
+            },
+            "drawError": {"color": "#dd253b", "message": "Ops!"},
+            "allowIntersection": False,
+            "transform": True,
+        }
         draw_control.rectangle = {
             "shapeOptions": {
                 "fillColor": "green",
@@ -2192,7 +2203,6 @@ class CoastSeg_Map:
         """
         if (
             self.draw_control.last_action == "created"
-            and self.draw_control.last_draw["geometry"]["type"] == "Polygon"
         ):
             # validate the bbox size
             geometry = self.draw_control.last_draw["geometry"]

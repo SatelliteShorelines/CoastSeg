@@ -1,16 +1,17 @@
 earthengine-api
 google-api-python-client
 geopandas
+h5py
+jupyterlab>=3.0.0
 scikit-image
 scikit-learn
 scipy
+area
 astropy
 jupyterlab
-# cartopy
 fiona
 rtree
 pygeos
 simplekml
 leafmap
 tqdm
-area
