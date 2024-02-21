@@ -12,7 +12,6 @@ certifications.json
 /*tide_model*/*
 # ignore any geojson, csv, py files in the main coastseg directory
 /*.geojson
-/*.py
 /*.csv
 /*.json
 /*.drawio
