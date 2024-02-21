@@ -340,15 +340,17 @@ def check_if_dirs_missing(missing_dirs: dict,location:str="/data"):
         if not location:
             location = "/data"
         # format the missing directories into a string
-        missing_dirs_str = "</br>".join([f"<span style='color: red'><i><b>{roi_id}</b> was missing the folder '<u>{folder}</u>'</i></span>" for roi_id, folder in missing_dirs.items()])
+        # missing_dirs_str = "</br>".join([f"<span style='color: red'><i><b>{roi_id}</b> was missing the folder '<u>{folder}</u>'</i></span>" for roi_id, folder in missing_dirs.items()])
 
         logger.error(
-            f"The following ROIs that were in the config.json file are missing their data:</br> \n {missing_dirs_str}"
+            f"The following ROIs that were in the config.json file are missing their data:</br> \n {missing_dirs}"
         )
-        raise exceptions.WarningException(
-            message=f"The following ROIs that were in the config.json file are missing their data:</br> \n{missing_dirs_str}",
-            instructions=f"You can't extract shorelines for the ROIs missing data, but you can for the rest of your ROIs.</br>Make sure to de-select these ROIs before extracting shorelines.</br> </br> Before you can extract shorelines the missing ROIs you can either:</br> 1. Move the missing directories into <u>'{location}'</u> and reload the session </br> 2. Download the missing data in a new session ",
-        )
+        raise exceptions.WarningMissingDirsException(
+            message=f"The following ROIs that were in the config.json file are missing their data:", 
+            instructions=f"You can't extract shorelines for the ROIs missing data, but you can for the rest of your ROIs.\nMake sure to de-select these ROIs before extracting shorelines.\n Before you can extract shorelines the missing ROIs you can either:\n 1. Move the missing directories into '{location}' and reload the session \n 2. Download the missing data in a new session ",
+            styled_instructions=f"You can't extract shorelines for the ROIs missing data, but you can for the rest of your ROIs.</br>Make sure to de-select these ROIs before extracting shorelines.</br> </br> Before you can extract shorelines the missing ROIs you can either:</br> 1. Move the missing directories into <u>'{location}'</u> and reload the session </br> 2. Download the missing data in a new session ",
+            missing_dirs=missing_dirs
+        )   
 
 
 def handle_exception(error:Exception, row: "ipywidgets.HBox", title: str = None, msg: str = None):
@@ -366,7 +368,15 @@ def handle_exception(error:Exception, row: "ipywidgets.HBox", title: str = None,
     """
 
     logger.error(f"{traceback.format_exc()}")
-    if isinstance(error, exceptions.WarningException):
+    if isinstance(error, exceptions.WarningMissingDirsException):
+        logger.error(f"error.instructions: {error.instructions}")
+        launch_error_box(
+            row,
+            title="Warning Data Missing",
+            msg=error.get_styled_message(),
+            instructions=error.get_instructions(),
+        )
+    elif isinstance(error, exceptions.WarningException):
         logger.error(f"error.instructions: {error.instructions}")
         launch_error_box(
             row,
