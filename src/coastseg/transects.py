@@ -261,7 +261,13 @@ class Transects(Feature):
         # Get first 5 rows as a string
         first_rows = self.gdf.head().to_string()
         # Get CRS information
-        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if self.gdf.empty:
+            crs_info = "CRS: None"
+        else:
+            if self.gdf is not None and hasattr(self.gdf, 'crs'):
+                crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+            else:
+                crs_info = "CRS: None"
         ids = ""
         if "id" in self.gdf.columns:
             ids = self.gdf["id"].astype(str)
@@ -273,7 +279,13 @@ class Transects(Feature):
         # Get first 5 rows as a string
         first_rows = self.gdf.head().to_string()
         # Get CRS information
-        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if self.gdf.empty:
+            crs_info = "CRS: None"
+        else:
+            if self.gdf is not None and hasattr(self.gdf, 'crs'):
+                crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+            else:
+                crs_info = "CRS: None"
         ids = ""
         if "id" in self.gdf.columns:
             ids = self.gdf["id"].astype(str)
