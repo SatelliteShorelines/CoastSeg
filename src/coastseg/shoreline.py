@@ -93,7 +93,14 @@ class Shoreline(Feature):
             if not self.gdf.empty:
                 geom_str = str(self.gdf.iloc[0]["geometry"])[:100] + "...)"
         # Get CRS information
-        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if self.gdf.empty:
+            crs_info = "CRS: None"
+        else:
+            if self.gdf is not None and hasattr(self.gdf, 'crs'):
+                crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+            else:
+                crs_info = "CRS: None"
+        ids = []
         if "id" in self.gdf.columns:
             ids = self.gdf["id"].astype(str)
         return f"Shoreline:\nself.gdf:\n\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 3 Rows:\n{first_rows}\n geometry: {geom_str}\nIDs:\n{ids}"
@@ -110,11 +117,18 @@ class Shoreline(Feature):
             if not self.gdf.empty:
                 geom_str = str(self.gdf.iloc[0]["geometry"])[:100] + "...)"
         # Get CRS information
-        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if self.gdf.empty:
+            crs_info = "CRS: None"
+        else:
+            if self.gdf is not None and hasattr(self.gdf, 'crs'):
+                crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+            else:
+                crs_info = "CRS: None"
+                
+        ids = []
         if "id" in self.gdf.columns:
             ids = self.gdf["id"].astype(str)
         return f"Shoreline:\nself.gdf:\n\n{crs_info}\n- Columns and Data Types:\n{col_info}\n\n- First 3 Rows:\n{first_rows}\n geometry: {geom_str}\nIDs:\n{ids}"
-
     def initialize_shorelines(
         self,
         bbox: Optional[gpd.GeoDataFrame] = None,
@@ -210,6 +224,21 @@ class Shoreline(Feature):
     def get_intersecting_shoreline_files(
         self, bbox: gpd.GeoDataFrame, bounding_boxes_location: str = ""
     ) -> List[str]:
+        """
+        Retrieves a list of intersecting shoreline files based on the given bounding box.
+
+        Args:
+            bbox (gpd.GeoDataFrame): The bounding box to use for finding intersecting shoreline files.
+            bounding_boxes_location (str, optional): The location to store the bounding box files. If not provided,
+                it defaults to the download location specified during object initialization.
+
+        Returns:
+            List[str]: A list of intersecting shoreline file paths.
+
+        Raises:
+            ValueError: If no intersecting shorelines were available within the bounding box.
+            FileNotFoundError: If no shoreline files were found at the download location.
+        """
         # load the intersecting shoreline files
         bounding_boxes_location = (
             bounding_boxes_location
@@ -220,10 +249,8 @@ class Shoreline(Feature):
         intersecting_files = get_intersecting_files(bbox, bounding_boxes_location)
 
         if not intersecting_files:
+            logger.warning("No intersecting shoreline files were found.")
             return []
-            raise ValueError(
-                "No intersecting shorelines shorelines were available within the bounding box. Try drawing a new bounding box elsewhere."
-            )
 
         # Download any missing shoreline files
         shoreline_files = self.get_shoreline_files(

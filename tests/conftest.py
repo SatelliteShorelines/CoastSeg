@@ -1,6 +1,7 @@
 # This file is meant to hold fixtures that can be used for testing
 # These fixtures set up data that can be used as inputs for the tests, so that no code is repeated
 import os
+import io
 import json
 import pytest
 import tempfile
@@ -16,6 +17,22 @@ from tempfile import TemporaryDirectory
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
+@pytest.fixture(scope="session")
+def box_no_shorelines_transects():
+    geojson = {
+        "type": "FeatureCollection",
+        "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+        "features": [
+            { "type": "Feature", "properties": { }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -82.823127, 44.023466 ], [ -82.823127, 44.041917 ], [ -82.802875, 44.041917 ], [ -82.802875, 44.023466 ], [ -82.823127, 44.023466 ] ] ] } }
+        ]
+    }
+
+    # Convert the GeoJSON into a string
+    geojson_str = json.dumps(geojson)
+    # Convert the string into a file-like object
+    geojson_file = io.StringIO(geojson_str)
+    # Read the GeoJSON file into a GeoDataFrame
+    return gpd.read_file(geojson_file)
 
 @pytest.fixture(scope="session")
 def config_json_no_sitename_dir():
