@@ -1,7 +1,5 @@
 # coastseg files
-bbox.geojson
 fishnet_rois.geojson
-rois.geojson
 
 # ignore the certifications.json file, since that's empty in the repo but users will need to modify it
 certifications.json
