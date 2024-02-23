@@ -5,7 +5,7 @@ import os
 
 
 # if you get an error here, enter your project id
-initialize_gee(auth_mode = "notebook",project='')
+initialize_gee(auth_mode = "localhost",project='')
 
 coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
 
