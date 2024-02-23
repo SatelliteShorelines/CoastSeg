@@ -58,4 +58,4 @@ coastsegmap.extract_all_shorelines(roi_ids = roi_ids)
 # Tutorial: https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-and-clip-Tide-Model
 beach_slope = 0.02 # Slope of the beach (m)
 reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
-coastsegmap.compute_tidal_corrections(roi_ids, beach_slope, reference_elevation)
+# coastsegmap.compute_tidal_corrections(roi_ids, beach_slope, reference_elevation)
