@@ -5,31 +5,29 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "1.1.27" 
+version = "1.1.39" 
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
 # find` directive with `include` or `exclude`
 description = "An interactive jupyter notebook for downloading satellite imagery"
 dependencies = [
-  "coastsat-package>=0.1.43",
   "area",
-  "doodleverse-utils>=0.0.35",
-  "ipyfilechooser>=0.6.0",
-  "tqdm",
-  "leafmap>=0.14.0",
-  "geojson", # installed by leafmap
   "aiohttp",
-  "nest-asyncio",
-  "tensorflow",
-  "dask",
-  "ipywidgets>=8.0.6",
-  "transformers",
   "chardet",
-  "xarray",
-  "pyTMD"]
+  "coastsat-package>=0.1.43",
+  "dask",
+  "doodleverse-utils>=0.0.35",
+  "earthengine-api>=0.1.388",
+  "geojson",
+  "geopandas",
+  "jupyterlab>=3.0.0",
+  "leafmap>=0.14.0",
+  "nest-asyncio",
+  "pyTMD",
+  "xarray",]
 license = { file="LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

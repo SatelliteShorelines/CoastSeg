@@ -1,53 +1,264 @@
 # Standard library imports
-import os
-import re
 import glob
-import shutil
 import json
-import math
 import logging
+import math
+import os
 import random
+import re
+import shutil
 import string
-from typing import List
 from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 # Third-party imports
 import ee
-from google.auth import exceptions as google_auth_exceptions
-import requests
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import requests
 import shapely
 from area import area
-from tqdm.auto import tqdm
-from PIL import Image
+from google.auth import exceptions as google_auth_exceptions
 from ipyfilechooser import FileChooser
-from ipywidgets import ToggleButton, HBox, VBox, Layout, HTML
+from ipywidgets import HBox, HTML, Layout, ToggleButton, VBox
+from PIL import Image
 from requests.exceptions import SSLError
-from shapely.geometry import Polygon
-from shapely.geometry import MultiPoint, LineString
-
-# Specific classes/functions from modules
-from typing import Callable, List, Optional, Union, Dict, Set, Any, Tuple
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
+from tqdm.auto import tqdm
 
 # Internal dependencies imports
-from coastseg import exceptions
-from coastseg.validation import find_satellite_in_filename
-from coastseg import file_utilities
+from coastseg import exceptions, file_utilities
 from coastseg.exceptions import InvalidGeometryType
+from coastseg.validation import find_satellite_in_filename
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
 # Logger setup
 logger = logging.getLogger(__name__)
 
+def merge_dataframes(df1, df2, columns_to_merge_on=set(["transect_id", "dates"])):
+    """
+    Merges two DataFrames based on column names provided in columns_to_merge_on by default
+    merges on "transect_id", "dates".
 
+    Args:
+    - df1 (DataFrame): First DataFrame.
+    - df2 (DataFrame): Second DataFrame.
+    - columns_to_merge_on(collection): column names to merge on
+    Returns:
+    - DataFrame: Merged data.
+    """
+    merged_df = pd.merge(df1, df2, on=list(columns_to_merge_on), how="inner")
+    return merged_df.drop_duplicates(ignore_index=True)
+
+
+def convert_transect_ids_to_rows(df):
+    """
+    Reshapes the timeseries data so that transect IDs become rows.
+
+    Args:
+    - df (DataFrame): Input data with transect IDs as columns.
+
+    Returns:
+    - DataFrame: Reshaped data with transect IDs as rows.
+    """
+    reshaped_df = df.melt(
+        id_vars="dates", var_name="transect_id", value_name="cross_distance"
+    )
+    return reshaped_df.dropna()
+
+def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Creates a GeoDataFrame containing the seaward points from a given GeoDataFrame containing transects.
+    CRS will always be 4326.
+
+    Parameters:
+    - transects_gdf: A GeoDataFrame containing transect data.
+
+    Returns:
+    - gpd.GeoDataFrame: A GeoDataFrame containing the seaward points for all of the transects.
+    Contains columns transect_id and geometry in crs 4326
+    """
+    # Set transects crs to epsg:4326 if it is not already. Tide model requires crs 4326
+    if transects_gdf.crs is None:
+        transects_gdf = transects_gdf.set_crs("epsg:4326")
+    else:
+        transects_gdf = transects_gdf.to_crs("epsg:4326")
+
+    # Prepare data for the new GeoDataFrame
+    data = []
+    for index, row in transects_gdf.iterrows():
+        points = list(row["geometry"].coords)
+        seaward_point = Point(points[1]) if len(points) > 1 else Point()
+
+        # Append data for each transect to the data list
+        data.append({"transect_id": row["id"], "geometry": seaward_point})
+
+    # Create the new GeoDataFrame
+    seaward_points_gdf = gpd.GeoDataFrame(data, crs="epsg:4326")
+
+    return seaward_points_gdf
+
+def update_config(config_json: dict, roi_settings: dict) -> dict:
+    """
+    Update the configuration JSON with the provided ROI settings.
+
+    Args:
+        config_json (dict): The original configuration JSON.
+        roi_settings (dict): The ROI settings to be updated.
+
+    Returns:
+        dict: The updated configuration JSON.
+    """
+    for roi_id, settings in roi_settings.items():
+        if roi_id in config_json:
+            config_json[roi_id].update(settings)
+    return config_json
+
+
+def update_downloaded_configs(roi_settings: dict, roi_ids: list =None):
+    """
+    Update the downloaded configuration files for the specified ROI(s).
+    Args:
+        roi_settings (dict, optional): Dictionary containing the ROI settings. Defaults to None.
+            ROI settings should contain the ROI IDs as the keys and a dictionary of settings as the values.
+            Each ROI ID should have the following keys: "dates", "sitename", "polygon", "roi_id", "sat_list", "landsat_collection", "filepath"
+        roi_ids (list, optional): List of ROI IDs to update. Defaults to None.
+    """
+    if not isinstance(roi_settings, dict):
+        raise ValueError("Invalid roi_settings provided.")
+    
+    if not roi_ids:
+        roi_ids = list(roi_settings.keys())
+    if isinstance(roi_ids, str):
+        roi_ids = [roi_ids]
+    
+    for roi_id in roi_ids:
+        try:
+            # read the settings for the current ROI
+            settings = roi_settings.get(roi_id,{})
+            if not settings:
+                logging.warning(f"No settings found for ROI {roi_id}. Skipping.")
+                continue
+
+            config_path = os.path.join(settings["filepath"], settings["sitename"], "config.json")
+            
+            if not os.path.exists(config_path):
+                logging.warning(f"Config file not found for ROI {roi_id}. Skipping.")
+                continue
+
+            # load the current contents of the config.json file
+            config_json = file_utilities.read_json_file(config_path)
+            # Update the ROI data for each ROI in config.json
+            updated_config = update_config(config_json, roi_settings)
+            file_utilities.config_to_file(updated_config, config_path)
+            logging.info(f"Successfully updated config for ROI {roi_id} at {config_path}")
+        except IOError as e:
+            logging.error(f"Failed to update config for ROI {roi_id}: {e}")
+
+def extract_roi_settings(json_data: dict,fields_of_interest: set = set(),roi_ids: list = None) -> dict:
+    """
+    Extracts the settings for regions of interest (ROI) from the given JSON data.
+    Overwrites the filepath attribute for each ROI with the data_path provided.
+    Args:
+        json_data (dict): The JSON data containing ROI information.
+        data_path (str): The path to the data directory.
+        fields_of_interest (set, optional): A set of fields to include in the ROI settings.
+            Defaults to an empty set.
+    Returns:
+        dict: A dictionary containing the ROI settings, where the keys are ROI IDs and
+            the values are dictionaries containing the fields of interest for each ROI.
+    """
+    if not fields_of_interest:
+        fields_of_interest = {
+                "dates",
+                "sitename",
+                "polygon",
+                "roi_id",
+                "sat_list",
+                "landsat_collection",
+                "filepath",
+            }
+    if not roi_ids:
+        roi_ids = json_data.get("roi_ids", [])
+    roi_settings = {}
+    for roi_id in roi_ids:
+        # create a dictionary containing the fields of interest for the ROI with the roi_id
+        roi_data = extract_roi_data(json_data, roi_id, fields_of_interest)
+        roi_settings[str(roi_id)] = roi_data
+    return roi_settings
+
+def update_roi_settings(roi_settings, key, value):
+    """
+    Updates the settings for a region of interest (ROI) in the given ROI settings dictionary.
+
+    Args:
+        roi_settings (dict): A dictionary containing the ROI settings.
+        key (str): The key of the ROI settings to update.
+        value (Any): The new value for the specified key.
+
+    Returns:
+        dict: The updated ROI settings dictionary.
+
+    """
+    for roi_id, settings in roi_settings.items():
+        if key in settings:
+            settings[key] = value
+    return roi_settings
+
+def process_roi_settings(json_data, data_path)->dict:
+    """
+    Process the ROI settings from the given JSON data and update the filepath to be the data_path.
+
+    Args:
+        json_data (dict): The JSON data containing ROI settings.
+        data_path (str): The path to the data directory.
+
+    Returns:
+        dict: A dictionary mapping ROI IDs to their extracted settings with updated filepath.
+    """
+    roi_ids = json_data.get("roi_ids", [])
+    roi_settings = extract_roi_settings(json_data, roi_ids=roi_ids)
+    roi_settings = update_roi_settings(roi_settings, 'filepath', data_path)
+    return roi_settings
+
+def get_missing_roi_dirs(roi_settings: dict, roi_ids: list = None) -> dict:
+    """
+    Get the missing ROI directories based on the provided ROI settings and data path.
+
+    Args:
+        roi_settings (dict): A dictionary containing ROI settings.
+        roi_ids (list, optional): A list of ROI IDs to check. If not provided, all ROIs in roi_settings are checked. Defaults to None.
+
+    Returns:
+        dict: A dictionary containing the missing ROI directories, where the key is the ROI ID and the value is the sitename.
+    """
+    missing_directories = {}
+    if roi_settings == {}:
+        return missing_directories
+
+    # If roi_ids is not provided, check all ROIs in roi_settings
+    if roi_ids is None:
+        roi_ids = roi_settings.keys()
+
+    for roi_id in roi_ids:
+        item = roi_settings.get(roi_id, {})
+        sitename = item.get("sitename", "")
+        filepath = item.get("filepath", "")
+        roi_path = os.path.join(filepath, sitename)
+
+        if not os.path.exists(roi_path):
+            missing_directories[roi_id] = sitename
+
+    return missing_directories
 
 def initialize_gee(
-    auth_mode: str = "localhost",
+    auth_mode: str = "",
     print_mode: bool = True,
     auth_args: dict = {},
+    project: str = "",
+    force:bool=False,
     **kwargs,
 ):
     """
@@ -55,54 +266,73 @@ def initialize_gee(
 
     Arguments:
     -----------
-        auth_mode (str, optional): The authentication mode, can be one of localhost.
-                Note: gcloud method of authentication is not supported.
-                Note: colab method of authentication is not supported.
-                See https://developers.google.com/earth-engine/guides/auth for more details. Defaults to localhost.
-        print_mode (bool, optional): Whether to print messages to the console. Defaults to True.
-        auth_args (dict, optional): Additional authentication parameters for aa.Authenticate(). Defaults to {}.
-        kwargs (dict, optional): Additional parameters for ee.Initialize().
-
+    - auth_mode (str, optional): The authentication mode 
+      'gcloud' and 'colab' methods are not supported.
+       See https://developers.google.com/earth-engine/guides/auth for more details. 
+    - print_mode (bool, optional): Whether to print initialization messages. Defaults to True.
+    - auth_args (dict, optional): Additional arguments for authentication. Defaults to {}.
+    - project (str, optional): The project to initialize GEE with. Defaults to an empty string.
+    - force (bool, optional): Forces re-authentication if True. Defaults to False.
+    - **kwargs: Additional keyword arguments for `ee.Initialize()`.
+    
+    Raises:
+    - ValueError: If an unsupported authentication mode is specified.
+    - Exception: If initialization fails after authentication.
     """
-    auth_args = {"auth_mode": auth_mode}
-    # update auth_args
-    auth_args.update(kwargs)
+    # Validate authentication mode
+    if auth_mode in ["gcloud", "colab"]:
+        raise ValueError(f"{auth_mode} authentication is not supported.")
+    
+    # separate the force argument from the auth_args
+    if 'force' in auth_args:
+        force = auth_args['force']
+        del auth_args['force']
+    
+    # Update authentication arguments
+    if auth_mode:
+        auth_args["auth_mode"] = auth_mode
+    if project:
+        kwargs["project"] = project
+        
+    # Authenticate and initialize
+    authenticate_and_initialize(print_mode, force, auth_args, kwargs)
 
-    if auth_mode == "colab":
-        raise ValueError("Colab authentication is not supported.")
-    elif auth_mode == "gcloud":
-        raise ValueError("GCloud authentication is not supported.")
-    elif auth_mode == "notebook":
-        raise ValueError("Notebook authentication is not supported.")
 
+def authenticate_and_initialize(print_mode:bool, force:bool, auth_args:dict, kwargs:dict):
+    """
+    Handles the authentication and initialization of Google Earth Engine.
+
+    Args:
+        print_mode (bool): Flag indicating whether to print status messages.
+        force (bool): Flag indicating whether to force authentication.
+        auth_args (dict): Dictionary of authentication arguments for ee.Authenticate().
+        kwargs (dict): Dictionary of initialization arguments for ee.Initialize().
+    """
+    logger.info(f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode}")
+    if print_mode:
+        print(f"{'Forcing authentication and ' if force else ''}Initializing Google Earth Engine...\n")
     try:
-        if print_mode:
-            print("Initializing Google Earth Engine...\n")
+        if force or not ee.data._credentials:
+            ee.Authenticate(force=force, **auth_args)
         ee.Initialize(**kwargs)
         if print_mode:
             print("Google Earth Engine initialized successfully.\n")
-        return
-    except google_auth_exceptions.RefreshError:
-        print("Please refresh your Google authentication token.\n")
-        ee.Authenticate(**auth_args)
-    except ee.EEException:
-        print("Please authenticate with Google Earth Engine:\n")
-        ee.Authenticate(**auth_args)
-    except FileNotFoundError:
-        print(
-            "Credentials file not found. Please authenticate with Google Earth Engine:\n"
-        )
-        ee.Authenticate(**auth_args)
-
-    # Try to initialize again after authentication
-    try:
-        if print_mode:
-            print("Attempt 2: Initializing Google Earth Engine...\n")
-        ee.Initialize(**kwargs)
-        if print_mode:
-            print("Attempt 2: Google Earth Engine initialized successfully.\n")
     except Exception as e:
-        raise Exception(f"Failed to initialize Google Earth Engine:\n {e}")
+        error_message = str(e)
+        if "Please refresh your Google authentication token" in error_message:
+            print("Please refresh your Google authentication token.\n")
+        elif "Credentials file not found" in error_message:
+            print("Credentials file not found. Please authenticate with Google Earth Engine:\n")
+        else:
+            print(f"An error occurred: {error_message}\n")
+
+        # Re-attempt authentication only if not already attempted
+        if not force:
+            print("Re-attempting authentication...\n")
+            ee.Authenticate(**auth_args)
+            authenticate_and_initialize( print_mode, True, auth_args, kwargs)  # Force re-authentication on retry
+        else:
+            raise Exception(f"Failed to initialize Google Earth Engine: {error_message}")
 
 
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
@@ -344,13 +574,14 @@ def load_settings(
         "multiple_inter",
         "prc_multiple",
     ),
+    new_settings: dict={},
 ):
     """
     Loads settings from a JSON file and applies them to the object.
     Args:
         filepath (str, optional): The filepath to the JSON file containing the settings. Defaults to an empty string.
         keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
-        "sat_list",
+                                                    "sat_list",
                                                     "dates",
                                                     "cloud_thresh",
                                                     "cloud_mask_issue",
@@ -369,16 +600,20 @@ def load_settings(
                                                     "min_chainage",
                                                     "multiple_inter",
                                                     "prc_multiple".
+        new_settings(dict, optional): A dictionary containing new settings to apply to the object. Defaults to an empty dictionary.
     Returns:
         None
     """
     # Convert keys to a list if a set is passed
     if isinstance(keys, set):
         keys = list(keys)
-    new_settings = file_utilities.read_json_file(filepath, raise_error=False)
-    logger.info(
-        f"all of new settings read from file : {filepath} \n {new_settings.keys()}"
-    )
+    if filepath:
+        new_settings = file_utilities.read_json_file(filepath, raise_error=False)
+        logger.info(
+            f"all of new settings read from file : {filepath} \n {new_settings.keys()}"
+        )
+    elif new_settings:
+        logger.info(f"all of new settings read from dict : {new_settings.keys()}") 
     # if no keys are passed then use all of the keys in the settings file
     if not keys:
         keys = new_settings.keys()
@@ -393,31 +628,6 @@ def load_settings(
     # combine the settings into one dictionary WARNING this could overwrite items in both settings
     filtered_settings.update(**nested_settings)
     return filtered_settings
-
-
-# def remove_rows(selected_items, gdf):
-#     """
-#     Remove rows from a GeoDataFrame based on selected items.
-
-#     Args:
-#         selected_items (list): List of selected items in the format "satname_dates".
-#         gdf (GeoDataFrame): Input GeoDataFrame.
-
-#     Returns:
-#         GeoDataFrame: GeoDataFrame with rows removed based on the selected items.
-#     """
-#     # Loop through each dictionary in dates_tuple
-#     for criteria in list(selected_items):
-#         satname, dates = criteria.split("_")
-#         # Convert the dates string to a Timestamp object
-#         dates_obj = datetime.strptime(dates, "%Y-%m-%d %H:%M:%S")
-#         # Use boolean indexing to select the rows that match the criteria
-#         mask = (gdf["date"] == dates_obj) & (gdf["satname"] == satname)
-#         # Drop the rows that match the criteria
-#         gdf = gdf.drop(gdf[mask].index)
-#     # Return the new GeoDataFrame
-#     gdf["date"] = gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
-#     return gdf
 
 
 def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
@@ -687,7 +897,7 @@ def delete_jpg_files(
 def filter_partial_images(
     roi_gdf: gpd.geodataframe,
     directory: str,
-    min_area_percentage: float = 0.60,
+    min_area_percentage: float = 0.40,
     max_area_percentage: float = 1.5,
 ):
     """
@@ -1218,6 +1428,7 @@ def save_transects(
     cross_distance_transects: dict,
     extracted_shorelines: dict,
     settings: dict,
+    transects_gdf:gpd.GeoDataFrame,
 ) -> None:
     """
     Save transect data, including raw timeseries, intersection data, and cross distances.
@@ -1231,19 +1442,34 @@ def save_transects(
     Returns:
         None.
     """
-    create_csv_per_transect(
-        roi_id,
-        save_location,
-        cross_distance_transects,
-        extracted_shorelines,
-        file_extension="_timeseries_raw.csv",
+    # cross_distance_df =save_transect_intersections(
+    #     save_location,
+    #     extracted_shorelines,
+    #     cross_distance_transects,
+    #     filename="transect_time_series.csv",
+    # )
+    cross_distance_df =get_cross_distance_df(
+        extracted_shorelines, cross_distance_transects
     )
-    save_transect_intersections(
-        save_location,
-        extracted_shorelines,
-        cross_distance_transects,
-        filename="transect_time_series.csv",
-    )
+    cross_distance_df.dropna(axis="columns", how="all", inplace=True)
+    filepath = os.path.join(save_location, "transect_time_series.csv")
+    cross_distance_df.to_csv(filepath, sep=",")
+    
+    
+    # get the last point (aka the seaward point) from each transect
+    seaward_points = get_seaward_points_gdf(transects_gdf)
+    timeseries_df = convert_transect_ids_to_rows(cross_distance_df)
+    timeseries_df = timeseries_df.sort_values('dates')
+    merged_timeseries_df=merge_dataframes(timeseries_df, seaward_points,columns_to_merge_on=["transect_id"])
+    merged_timeseries_df['x'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.x)
+    merged_timeseries_df['y'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.y)
+    merged_timeseries_df.drop('geometry', axis=1, inplace=True)
+    filepath = os.path.join(save_location, "transect_time_series_merged.csv")
+    # re-order columns
+    merged_timeseries_df = merged_timeseries_df[['dates', 'x', 'y', 'transect_id', 'cross_distance']]
+    merged_timeseries_df.to_csv(filepath, sep=",")
+    
+    
     save_path = os.path.join(save_location, "transects_cross_distances.json")
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
@@ -1372,24 +1598,24 @@ def create_file_chooser(
     return chooser
 
 
-def get_most_accurate_epsg(epsg_code: int, bbox: gpd.GeoDataFrame):
-    """Returns most accurate epsg code based on lat and lon if output epsg
-    was 4326 or 4327
+def get_most_accurate_epsg(epsg_code: int, polygon: gpd.GeoDataFrame):
+    """Returns most accurate epsg code based on lat and lon if epsg code is 4326 or 4327. If not 4326 or 4327 returns unchanged epsg code
     Args:
         epsg_code(int or str): current epsg code
         bbox (gpd.GeoDataFrame): geodataframe for bounding box on map
     Returns:
         int: epsg code that is most accurate or unchanged if crs not 4326 or 4327
     """
+    if polygon.empty:
+        raise ValueError("polygon is empty cannot get epsg code from it")
     if isinstance(epsg_code, str) and epsg_code.startswith("epsg:"):
         epsg_code = epsg_code.split(":")[1]
     epsg_code = int(epsg_code)
     # coastsat cannot use 4326 to extract shorelines so modify epsg_code
     if epsg_code == 4326 or epsg_code == 4327:
-        geometry = bbox.iloc[0]["geometry"]
+        geometry = polygon.iloc[0]["geometry"]
         epsg_code = get_epsg_from_geometry(geometry)
     return epsg_code
-
 
 def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
@@ -1552,7 +1778,7 @@ def mount_google_drive(name: str = "CoastSeg") -> None:
         print("Not running in Google Colab.")
 
 
-def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
+def create_hover_box(title: str, feature_html: HTML = HTML(""),default_msg: str = "Hover over a feature") -> VBox:
     """
     Creates a box with a title and optional HTML containing information about the feature that was
     last hovered over.
@@ -1568,26 +1794,28 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
     Returns:
     container (VBox): Box with the given title and details about the feature given by feature_html
     """
-    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    padding = "0px 0px 4px 0px"  # upper, right, bottom, left
     # create title
-    title = HTML(f"  <h4>{title} Hover  </h4>")
+    # title = HTML(f"<b>{title}</b>")
+    title_html = HTML(f"<b>{title}</b>", layout=Layout(margin="0px 8px"))  # Adjust 10px as needed for left and right margins
+    
     # Default message shown when nothing has been hovered
-    msg = HTML(f"Hover over a feature</br>")
+    msg = HTML(f"{default_msg}<br/>")
     # open button allows user to see hover data
     uncollapse_button = ToggleButton(
         value=False,
         tooltip="Show hover data",
         icon="angle-down",
-        button_style="info",
+        button_style='primary',
         layout=Layout(height="28px", width="28px", padding=padding),
     )
 
     # collapse_button collapses hover data
-    collapse_button = ToggleButton(
+    close_button = ToggleButton(
         value=False,
-        tooltip="Show hover data",
-        icon="angle-up",
-        button_style="info",
+        tooltip="Close",
+        icon="times",
+        button_style="danger",
         layout=Layout(height="28px", width="28px", padding=padding),
     )
 
@@ -1599,7 +1827,7 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
         container_content.children = [feature_html]
 
     # default configuration for container is in collapsed mode
-    container_header = HBox([title, uncollapse_button])
+    container_header = HBox([uncollapse_button,title_html])
     container = VBox([container_header])
 
     def uncollapse_click(change: dict):
@@ -1607,14 +1835,14 @@ def create_hover_box(title: str, feature_html: HTML = HTML("")) -> VBox:
             container_content.children = [msg]
         elif feature_html.value != "":
             container_content.children = [feature_html]
-        container_header.children = [title, collapse_button]
+        container_header.children = [close_button,title_html]
         container.children = [container_header, container_content]
 
     def collapse_click(change: dict):
-        container_header.children = [title, uncollapse_button]
+        container_header.children = [uncollapse_button,title_html]
         container.children = [container_header]
 
-    collapse_button.observe(collapse_click, "value")
+    close_button.observe(collapse_click, "value")
     uncollapse_button.observe(uncollapse_click, "value")
     return container
 
@@ -1624,7 +1852,7 @@ def create_warning_box(
     msg: str = None,
     instructions: str = None,
     msg_width: str = "75%",
-    box_width: str = "50%",
+    box_width: str = "60%",
 ) -> HBox:
     """
     Creates a warning box with a title and message that can be closed with a close button.
@@ -1648,16 +1876,15 @@ def create_warning_box(
     if instructions is None:
         instructions = ""
     warning_msg = HTML(
-        f"<div style='max-height: 250px; overflow-x: hidden; overflow-y: visible; text-align: center;'>"
+        f"<div style='max-height: 250px; overflow-x: hidden; overflow-y:  auto; text-align: center;'>"
         f"<span style='color: red'>⚠️</span>{msg}"
         f"</div>"
     )
     instructions_msg = HTML(
-        f"<div style='max-height: 210px; overflow-x: hidden; overflow-y: visible; text-align: center;'>"
+        f"<div style='max-height: 210px; overflow-x: hidden; overflow-y:  auto; text-align: center;'>"
         f"<span style='color: red'></span>{instructions}"
         f"</div>"
     )
-
     x_button = ToggleButton(
         value=False,
         tooltip="Close Warning Box",
@@ -1678,7 +1905,7 @@ def create_warning_box(
     # create vertical box to hold title and msg
     warning_content = VBox(
         [warning_title, warning_msg, instructions_msg, close_button],
-        layout=Layout(width=msg_width, max_width="95%"),
+        layout=Layout(width=msg_width, max_width="95%",padding='0px 0px 10px 0px',margin='4px 4px 4px 4px'),
     )
 
     def close_click(change):
@@ -1692,7 +1919,7 @@ def create_warning_box(
     x_button.observe(close_click, "value")
     warning_box = HBox(
         [warning_content, x_button],
-        layout=Layout(width=box_width, border="2px solid red"),
+        layout=Layout(width=box_width, height='100%', border="4px solid red"),
     )
     return warning_box
 
@@ -1766,29 +1993,6 @@ def get_center_point(coords: list) -> tuple:
     return center_x, center_y
 
 
-def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """
-    Convert LineString geometries in a GeoDataFrame to MultiPoint geometries.
-    Args:
-    - gdf (gpd.GeoDataFrame): The input GeoDataFrame.
-    Returns:
-    - gpd.GeoDataFrame: A new GeoDataFrame with MultiPoint geometries. If the input GeoDataFrame
-                        already contains MultiPoints, the original GeoDataFrame is returned.
-    """
-
-    # Check if the gdf already contains MultiPoints
-    if any(gdf.geometry.type == "MultiPoint"):
-        return gdf
-
-    def linestring_to_multipoint(linestring):
-        if isinstance(linestring, LineString):
-            return MultiPoint(linestring.coords)
-        return linestring
-
-    # Convert each LineString to a MultiPoint
-    gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
-
-    return gdf
 
 
 def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
@@ -1857,7 +2061,7 @@ def get_area(polygon: dict) -> float:
     return round(area(polygon), 3)
 
 
-def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = []):
+def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = None):
     """
     Extracts the specified fields for a specific ROI from a JSON data dictionary.
 
@@ -1880,7 +2084,7 @@ def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = []
     return roi_data
 
 
-def extract_fields(data: dict, key=None, fields_of_interest=None):
+def extract_fields(data: dict, key=None, fields_of_interest:list=None)->dict:
     """
     Extracts specified fields from a given dictionary.
 
@@ -1895,15 +2099,6 @@ def extract_fields(data: dict, key=None, fields_of_interest=None):
 
     """
     extracted_data = {}
-    fields_of_interest = fields_of_interest or {
-        "dates",
-        "sitename",
-        "polygon",
-        "roi_id",
-        "sat_list",
-        "landsat_collection",
-        "filepath",
-    }
     # extract the data from a sub dictionary with a specified key if it exists
     if key and key in data:
         for field in fields_of_interest:
@@ -2039,6 +2234,9 @@ def get_cross_distance_df(
     transects_csv["dates"] = extracted_shorelines["dates"]
     # add cross distances for each transect within the ROI
     transects_csv = {**transects_csv, **cross_distance_transects}
+    # df = pd.DataFrame(transects_csv)
+    # this would add the satellite the image was captured on to the timeseries
+    # df['satname'] = extracted_shorelines["satname"]
     return pd.DataFrame(transects_csv)
 
 
@@ -2066,13 +2264,14 @@ def save_transect_intersections(
     The function first combines the shoreline and transect data into a DataFrame and then removes any columns
     that contain only NaN values before saving to CSV.
     """
-    cross_distance_df = get_cross_distance_df(
+    cross_distance_df =get_cross_distance_df(
         extracted_shorelines, cross_distance_transects
     )
+    
     cross_distance_df.dropna(axis="columns", how="all", inplace=True)
     filepath = os.path.join(save_path, filename)
     cross_distance_df.to_csv(filepath, sep=",")
-    return filepath
+    return cross_distance_df
 
 
 def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -2114,50 +2313,6 @@ def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         # @debug not sure if this will break everything
         # Use explode to break multilinestrings in linestrings
         return geodf.explode(ignore_index=True)
-
-
-def create_csv_per_transect(
-    roi_id: str,
-    save_path: str,
-    cross_distance_transects: dict,
-    extracted_shorelines_dict: dict,
-    file_extension: str = "_timeseries_raw.csv",
-) -> None:
-    """
-    Generates CSV files from transect and shoreline data.
-
-    For each transect in cross_distance_transects, this function creates a CSV file if the transect contains
-    non-NaN values. The CSV includes dates, transect data, region of interest ID, and satellite name.
-
-    Args:
-    - roi_id (str): ID for the region of interest.
-    - save_path (str): Path to save CSV files.
-    - cross_distance_transects (dict): Transect data with cross-distance measurements.
-    - extracted_shorelines_dict (dict): Contains 'dates' and 'satname'.
-    - file_extension (str, optional): File extension for CSV files. Default is "_timeseries_raw.csv".
-
-    Notes:
-    - CSV files are named using transect keys and file_extension.
-    - Transects with only NaN values are skipped.
-    """
-    for key, transect in cross_distance_transects.items():
-        if pd.notna(transect).any():  # Check if there's any non-NaN value
-            # Create DataFrame directly
-            df = pd.DataFrame(
-                {
-                    "dates": extracted_shorelines_dict["dates"],
-                    key: transect,
-                    "roi_id": [roi_id] * len(extracted_shorelines_dict["dates"]),
-                    "satname": extracted_shorelines_dict["satname"],
-                },
-                index=extracted_shorelines_dict["dates"],
-            )
-            # Save to csv file
-            fn = f"{key}{file_extension}"
-            file_path = os.path.join(save_path, fn)
-            df.to_csv(
-                file_path, sep=",", index=False
-            )  # Set index=False if you don't want 'dates' as index in CSV
 
 
 def move_report_files(
@@ -2251,6 +2406,7 @@ def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFram
     gdf["geometry"] = gdf["geometry"].apply(linestring_to_multipoint)
 
     return gdf
+
 
 
 def save_extracted_shorelines(
@@ -2371,10 +2527,16 @@ def create_json_config(
 
 def set_crs_or_initialize_empty(gdf: gpd.GeoDataFrame, epsg_code: str):
     """Set the CRS for the given GeoDataFrame or initialize an empty one."""
-    if gdf is not None and not gdf.empty:
+    # Check if the GeoDataFrame is empty
+    if gdf is None:
+        # Initialize an empty GeoDataFrame with the new CRS
+        return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
+    elif gdf.empty:
+        # Initialize an empty GeoDataFrame with the new CRS
+        return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
+    else:
+        # Transform the CRS of the non-empty GeoDataFrame
         return gdf.to_crs(epsg_code)
-    return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-
 
 def create_config_gdf(
     rois_gdf: gpd.GeoDataFrame,
@@ -2561,7 +2723,7 @@ def do_rois_have_sitenames(roi_settings: dict, roi_ids: list) -> bool:
 
 
 def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
-    """Returns true if rois were downloaded before. False if they have not
+    """Returns true if rois were downloaded before. False if they have not.
     Uses 'sitename' key for each roi to determine if roi was downloaded.
     And checks if filepath were roi is saved is valid
     If each roi's 'sitename' is not empty string returns true

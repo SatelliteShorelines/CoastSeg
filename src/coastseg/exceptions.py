@@ -26,6 +26,39 @@ class WarningException(Exception):
 
     def __str__(self):
         return f"{self.msg}"
+    
+class WarningMissingDirsException(Exception):
+    """WarningMissingDirsException: class for all exceptions that are raised when something is wrong with the configuration, but the program can still continue
+    Args:
+        Exception: Inherits from the WarningException class
+    """
+
+    def __init__(self, message: str = "", instructions: str = "",missing_dirs: dict = {},styled_instructions:str=""):
+        self.msg = f"{message}"
+        self.instructions = f"{instructions}"
+        self.missing_dirs = missing_dirs
+        self.styled_instructions = styled_instructions
+        super().__init__(self.msg)
+    
+    # set the missing folders for each roi id
+    def get_styled_message(self):
+        # format the missing directories into a string
+        missing_dirs_str = "</br>".join([f"<span style='color: red'><i><b>{roi_id}</b> was missing the folder '<u>{folder}</u>'</i></span>" for roi_id, folder in self.missing_dirs.items()])
+        message=f"{self.msg}</br> \n{missing_dirs_str}"
+        return message
+    
+    def get_instructions(self):
+        if self.styled_instructions:
+            return self.styled_instructions
+        return self.instructions
+
+    def __str__(self):
+        # format the missing directories into a string
+        if len(self.missing_dirs) == 0:
+            return f"{self.msg}"
+        missing_dirs_str = "\n".join([f"- {roi_id} was missing the folder '{folder}'" for roi_id, folder in self.missing_dirs.items()])
+        message=f"\n{self.msg}\n\n{missing_dirs_str}\n\n{self.instructions}"
+        return message
 
 
 class No_Extracted_Shoreline(Exception):

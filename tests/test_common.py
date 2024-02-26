@@ -20,7 +20,593 @@ from unittest.mock import patch
 import pytest
 from coastseg import common
 from typing import Dict, List, Union
+from unittest.mock import patch
 
+def test_get_missing_roi_dirs():
+    roi_settings = {
+        "mgm8": {
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
+            "roi_id": "mgm8",
+            "polygon": [
+                [
+                    [-122.58841842370852, 37.82808364277896],
+                    [-122.58819431715895, 37.868390556469954],
+                    [-122.53734956261897, 37.86820174354389],
+                    [-122.5376013368467, 37.827895102082195],
+                    [-122.58841842370852, 37.82808364277896]
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": "ID_mgm8_datetimefake",
+            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            "include_T2": False
+        },
+        "roi_ids": ["mgm8"],
+        "settings": {
+            "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
+            "cloud_thresh": 0.5,
+            "dist_clouds": 300,
+            "output_epsg": 4326,
+            "check_detection": False,
+            "adjust_detection": False,
+            "save_figure": True,
+            "min_beach_area": 4500,
+            "min_length_sl": 100,
+            "cloud_mask_issue": False,
+            "sand_color": "default",
+            "pan_off": False,
+            "max_dist_ref": 25,
+            "along_dist": 25,
+            "min_points": 3,
+            "max_std": 15,
+            "max_range": 30,
+            "min_chainage": -100,
+            "multiple_inter": "auto",
+            "prc_multiple": 0.1,
+            "apply_cloud_mask": True,
+            "image_size_filter": True
+        }
+    }
+    missing_directories = common.get_missing_roi_dirs(roi_settings,roi_ids=["mgm8"])
+    assert missing_directories == {"mgm8": "ID_mgm8_datetimefake"}
+
+
+# if the file does not exist, then nothing should be updated
+def test_update_downloaded_configs_tmp_path(config_json_temp_file):
+    # Setup
+    roi_id = "zih2"
+    config_path, filepath,config = config_json_temp_file
+    # ROI settings to update config with
+    roi_settings = {
+        roi_id: {
+            "dates": ["2012-12-01", "2019-03-01"],
+            "sat_list": ["L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-124.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+            "filepath": str(filepath),
+            "roi_id": roi_id
+        }
+    }
+
+    # Call the function
+    common.update_downloaded_configs(roi_settings, [roi_id])
+
+    # Verify the result
+    with open(config_path, "r") as file:
+        updated_config = json.load(file)
+    
+    assert updated_config[roi_id].keys() == roi_settings[roi_id].keys()
+    assert updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
+    assert updated_config[roi_id]["sat_list"] == roi_settings[roi_id]["sat_list"]
+    assert updated_config[roi_id]["dates"] == roi_settings[roi_id]["dates"]
+    assert updated_config[roi_id]["landsat_collection"] == roi_settings[roi_id]["landsat_collection"]
+    assert updated_config[roi_id]["sitename"] == roi_settings[roi_id]["sitename"]
+    assert updated_config[roi_id]["filepath"] == roi_settings[roi_id]["filepath"]
+    assert updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
+    assert updated_config['settings'] == config['settings']
+    assert updated_config["roi_ids"] == config["roi_ids"]
+
+def test_update_downloaded_configs_no_config_file(config_json_temp_file):
+    # Setup
+    roi_id = "zih2"
+    # sitename = "ID_vnv5_datetime01-10-24__01_15_42"
+    sitename= "ID_zih2_datetime11-15-23__09_56_01"
+    config_path, filepath,config = config_json_temp_file
+
+    # Call the function
+    temp_dir = tempfile.mkdtemp('fake')
+    temp_dir = os.path.join(temp_dir,'ugh')
+
+    # ROI settings to update config with
+    roi_settings = {
+        roi_id: {
+            "dates": ["2012-12-01", "2019-03-01"],
+            "sat_list": ["L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-124.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": sitename,
+            "filepath": str(temp_dir),
+            "roi_id": roi_id
+        }
+    }
+    
+
+    common.update_downloaded_configs(roi_settings, [roi_id])
+
+    # Verify the result
+    with open(config_path, "r") as file:
+        updated_config = json.load(file)
+    
+    # assert updated_config[roi_id]["polygon"] != roi_settings[roi_id]["polygon"]
+    assert updated_config[roi_id]["sat_list"] != roi_settings[roi_id]["sat_list"]
+    assert updated_config[roi_id]["dates"] != roi_settings[roi_id]["dates"]
+    assert updated_config[roi_id]["filepath"] != roi_settings[roi_id]["filepath"]
+
+def test_update_downloaded_configs_mult_roi(config_json_multiple_roi_temp_file):
+    # Setup
+    roi_id1 = "zih2"
+    roi_id2 ="zih1"
+    sitename= "ID_zih2_datetime11-15-23__09_56_01"
+    sitename2= "ID_zih1_datetime11-15-23__09_56_01"
+    filepath,config = config_json_multiple_roi_temp_file
+    
+
+    # ROI settings to update config with
+    roi_settings = {
+        roi_id1: {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": sitename,
+            "filepath": str(filepath),
+            "roi_id": roi_id1,
+        },
+        roi_id2: {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-124.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-124.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": sitename2,
+            "filepath": str(filepath),
+            "roi_id": roi_id2
+        }
+    }
+
+    # Call the function
+    common.update_downloaded_configs(roi_settings, [roi_id1,roi_id2])
+
+    # Verify the result
+    for config_roi_id in [roi_id1, roi_id2]:
+        config_path = os.path.join(filepath,roi_settings[config_roi_id]["sitename"],  "config.json")
+        with open(config_path, "r") as file:
+            updated_config = json.load(file)
+            for roi_id in [roi_id1, roi_id2]:
+                assert updated_config[roi_id].keys() == roi_settings[roi_id].keys()
+                assert updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
+                assert updated_config[roi_id]["sat_list"] == roi_settings[roi_id]["sat_list"]
+                assert updated_config[roi_id]["dates"] == roi_settings[roi_id]["dates"]
+                assert updated_config[roi_id]["landsat_collection"] == roi_settings[roi_id]["landsat_collection"]
+                assert updated_config[roi_id]["sitename"] == roi_settings[roi_id]["sitename"]
+                assert updated_config[roi_id]["filepath"] == roi_settings[roi_id]["filepath"]
+                assert updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
+        assert updated_config['settings'] == config['settings']
+        assert updated_config["roi_ids"] == config["roi_ids"]
+
+
+def test_update_downloaded_configs_mult_shared_roi(config_json_multiple_shared_roi_temp_file):
+    # Setup
+    roi_id1 = "zih2"
+    roi_id2 ="zih1"
+    sitename= "ID_zih2_datetime11-15-23__09_56_01"
+    sitename2= "ID_zih1_datetime11-15-23__09_56_01"
+    
+    filepath,config = config_json_multiple_shared_roi_temp_file
+    # The dictionary you want to write to the JSON file
+    # ROI settings to update config with
+    roi_settings = {
+        roi_id1: {
+            "dates": ["2017-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-121.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-121.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": sitename,
+            "filepath": str(filepath),
+            "roi_id": roi_id1,
+        },
+        roi_id2: {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+            "roi_id": "zih2",
+            "polygon": [
+                [
+                    [-124.84020033533233, 36.74441575726833],
+                    [-121.83959312681607, 36.784722827004146],
+                    [-121.78948275983468, 36.78422337939962],
+                    [-121.79011617443447, 36.74391703739083],
+                    [-124.84020033533233, 36.74441575726833],
+                ]
+            ],
+            "landsat_collection": "C02",
+            "sitename": sitename2,
+            "filepath": str(filepath),
+            "roi_id": roi_id2
+        }
+    }
+
+    # Call the function
+    common.update_downloaded_configs(roi_settings, [roi_id1,roi_id2])
+
+    # Verify the result
+    for config_roi_id in [roi_id1, roi_id2]:
+        config_path = os.path.join(filepath,roi_settings[config_roi_id]["sitename"],  "config.json")
+        with open(config_path, "r") as file:
+            updated_config = json.load(file)
+            for roi_id in [roi_id1, roi_id2]:
+                assert updated_config[roi_id].keys() == roi_settings[roi_id].keys()
+                assert updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
+                assert updated_config[roi_id]["sat_list"] == roi_settings[roi_id]["sat_list"]
+                assert updated_config[roi_id]["dates"] == roi_settings[roi_id]["dates"]
+                assert updated_config[roi_id]["landsat_collection"] == roi_settings[roi_id]["landsat_collection"]
+                assert updated_config[roi_id]["sitename"] == roi_settings[roi_id]["sitename"]
+                assert updated_config[roi_id]["filepath"] == roi_settings[roi_id]["filepath"]
+                assert updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
+        assert updated_config['settings'] == config['settings']
+        assert updated_config["roi_ids"] == config["roi_ids"]
+        
+
+def test_update_config_existing_roi():
+    # Testing update of existing ROI
+    config_json = {
+        "vnv5": {
+            "dates": ["2017-01-01", "2017-02-01"],
+            "sat_list": ["L7"],
+            'filepath': 'path/to/roi1'
+        },
+        "vnv6": {
+            "dates": ["2019-01-01", "2020-02-01"],
+            "sat_list": ["L9"],
+            'filepath': 'path/to/vnv6'
+        }
+    }
+    roi_settings = {
+        "vnv5": {
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
+            'filepath': 'data/roi1'
+        }
+    }
+    expected = {
+        "vnv5": {
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
+            'filepath': 'data/roi1'
+        },
+        "vnv6": {
+            "dates": ["2019-01-01", "2020-02-01"],
+            "sat_list": ["L9"],
+            'filepath': 'path/to/vnv6'
+        }
+    }
+    assert common.update_config(config_json, roi_settings) == expected
+
+def test_update_config_non_existing_roi():
+    # Testing update with a non-existing ROI
+    config_json = {
+        "vnv4": {
+            "dates": ["2017-01-01", "2017-02-01"],
+            "sat_list": ["L7"],
+        }
+    }
+    roi_settings = {
+        "vnv5": {
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
+        }
+    }
+    expected = {
+        "vnv4": {
+            "dates": ["2017-01-01", "2017-02-01"],
+            "sat_list": ["L7"],
+        }
+    }
+    assert common.update_config(config_json, roi_settings) == expected
+
+def test_update_config_empty_config():
+    # Testing update with an empty config JSON
+    config_json = {}
+    roi_settings = {
+        "vnv5": {
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sat_list": ["L8"],
+        }
+    }
+    expected = {}
+    assert common.update_config(config_json, roi_settings) == expected
+
+def test_update_config_empty_roi_settings():
+    # Testing update with empty ROI settings
+    config_json = {
+        "vnv5": {
+            "dates": ["2017-01-01", "2017-02-01"],
+            "sat_list": ["L7"],
+        }
+    }
+    roi_settings = {}
+    expected = {
+        "vnv5": {
+            "dates": ["2017-01-01", "2017-02-01"],
+            "sat_list": ["L7"],
+        }
+    }
+    assert common.update_config(config_json, roi_settings) == expected
+
+
+def test_empty_roi_ids_and_json_data():
+    extracted_settings = common.extract_roi_settings({}, roi_ids=[])
+    assert extracted_settings == {}
+
+def test_custom_fields_of_interest():
+    json_data = {
+        "roi_ids": ["roi1"],
+        "roi1": {
+            "dates": "2020-01-01",
+            "sitename": "Site1",
+            "custom_field": "value"
+        }
+    }
+    fields_of_interest = {"dates", "custom_field"}
+    extracted_settings = common.extract_roi_settings(json_data, fields_of_interest)
+    assert  set(fields_of_interest).issubset(set(extracted_settings["roi1"].keys()))
+
+def test_default_fields_of_interest():
+    json_data = {
+        "roi_ids": ["vnv5"],
+        "vnv5": {
+            "polygon": [
+            [
+                [-73.79437084401454, 40.604969508734285],
+                [-73.79437084401454, 40.58122710499745],
+                [-73.76134532936206, 40.58122710499745],
+                [-73.76134532936206, 40.604969508734285],
+                [-73.79437084401454, 40.604969508734285]
+            ]
+            ],
+            "sat_list": ["L8"],
+            "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sitename": "ID_vnv5_datetime01-10-24__01_15_42",
+            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            "roi_id": "vnv5"
+        },
+    }
+    expected_fields = set(["dates", "sitename", "polygon", "roi_id", "sat_list", "landsat_collection", "filepath"])
+    extracted_settings = common.extract_roi_settings(json_data)
+    assert set(extracted_settings["vnv5"].keys()) == expected_fields
+
+def test_specific_roi_ids():
+    json_data = {
+        "roi_ids": ["vnv5"],
+        "vnv5": {
+            "polygon": [
+            [
+                [-73.79437084401454, 40.604969508734285],
+                [-73.79437084401454, 40.58122710499745],
+                [-73.76134532936206, 40.58122710499745],
+                [-73.76134532936206, 40.604969508734285],
+                [-73.79437084401454, 40.604969508734285]
+            ]
+            ],
+            "sat_list": ["L8"],
+            "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sitename": "ID_vnv5_datetime01-10-24__01_15_42",
+            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            "roi_id": "vnv5"
+        },
+        "vnv6": {
+            "polygon": [
+            [
+                [-73.79437084401454, 40.604969508734285],
+                [-73.79437084401454, 40.58122710499745],
+                [-73.76134532936206, 40.58122710499745],
+                [-73.76134532936206, 40.604969508734285],
+                [-73.79437084401454, 40.604969508734285]
+            ]
+            ],
+            "sat_list": ["L8"],
+            "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "sitename": "ID_vnv6_datetime01-10-24__01_15_42",
+            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            "roi_id": "vnv6"
+        }
+    }
+    roi_ids = ["vnv6"]
+    extracted_settings = common.extract_roi_settings(json_data, roi_ids=roi_ids)
+    assert "vnv6" in extracted_settings and "vnv5" not in extracted_settings
+
+def test_missing_fields_in_json_data():
+    # test what happens if a field like sitename is missing
+    json_data = {
+        "roi_ids": ["vnv5"],
+        "vnv5": {
+            "polygon": [
+            [
+                [-73.79437084401454, 40.604969508734285],
+                [-73.79437084401454, 40.58122710499745],
+                [-73.76134532936206, 40.58122710499745],
+                [-73.76134532936206, 40.604969508734285],
+                [-73.79437084401454, 40.604969508734285]
+            ]
+            ],
+            "sat_list": ["L8"],
+            "landsat_collection": "C02",
+            "dates": ["2017-12-01", "2018-01-01"],
+            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            "roi_id": "vnv5"
+        }
+    }
+    extracted_settings = common.extract_roi_settings(json_data)
+    assert "sitename" not in extracted_settings["vnv5"]
+    assert "dates" in extracted_settings["vnv5"] 
+    assert "polygon" in extracted_settings["vnv5"]
+    assert "sat_list" in extracted_settings["vnv5"]
+    assert "landsat_collection" in extracted_settings["vnv5"]
+    assert "dates" in extracted_settings["vnv5"]
+    assert "filepath" in extracted_settings["vnv5"]
+    assert "roi_id" in extracted_settings["vnv5"]
+
+
+def test_update_existing_key():
+    roi_settings = {
+        'roi1': {'key1': 'value1', 'key2': 'value2'},
+        'roi2': {'key1': 'value3', 'key2': 'value4'}
+    }
+    updated_settings = common.update_roi_settings(roi_settings, 'key1', 'new_value')
+    assert all(settings['key1'] == 'new_value' for settings in updated_settings.values())
+
+def test_update_non_existing_key():
+    roi_settings = {
+        'roi1': {'key2': 'value2'},
+        'roi2': {'key2': 'value4'}
+    }
+    updated_settings = common.update_roi_settings(roi_settings, 'key1', 'new_value')
+    assert all('key1' not in settings for settings in updated_settings.values())
+
+def test_empty_roi_settings():
+    updated_settings = common.update_roi_settings({}, 'key1', 'new_value')
+    assert updated_settings == {}
+
+def test_multiple_roi_ids():
+    roi_settings = {
+        'roi1': {'key1': 'value1'},
+        'roi2': {'key1': 'value3'},
+        'roi3': {'key1': 'value5'}
+    }
+    updated_settings = common.update_roi_settings(roi_settings, 'key1', 'new_value')
+    assert all(settings['key1'] == 'new_value' for settings in updated_settings.values())
+
+def test_non_dict_roi_settings():
+    with pytest.raises(AttributeError):
+        common.update_roi_settings("not_a_dict", 'key1', 'new_value')
+
+def test_ioerror_during_file_update():
+    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
+    roi_ids = ['roi1']
+    with patch('os.path.exists') as mock_exists, \
+         patch('coastseg.file_utilities.read_json_file') as mock_read, \
+         patch('coastseg.file_utilities.config_to_file') as mock_write, \
+         patch('coastseg.common.logging') as mock_logging:
+        mock_exists.return_value = True
+        mock_read.return_value = {}
+        mock_write.side_effect = IOError
+        
+        common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
+        
+        mock_logging.error.assert_called()
+
+
+def test_successful_update():
+    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
+    roi_ids = ['roi1']
+    with patch('os.path.exists') as mock_exists, \
+         patch('coastseg.file_utilities.read_json_file') as mock_read, \
+         patch('coastseg.file_utilities.config_to_file') as mock_write:
+        mock_exists.return_value = True
+        mock_read.return_value = {}
+        
+        common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
+        
+        mock_write.assert_called_once()
+
+def test_config_file_not_found():
+    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
+    roi_ids = ['roi1']
+    with patch('os.path.exists') as mock_exists, \
+         patch('coastseg.common.logging') as mock_logging:
+        mock_exists.return_value = False
+        
+        common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
+        
+        mock_logging.warning.assert_called()
+
+def test_nonexistent_roi_ids():
+    roi_settings = {'roi2': {'filepath': 'path/to/roi2', 'sitename': 'Site2'}}
+    roi_ids = ['roi1']
+    with patch('coastseg.common.logging') as mock_logging:
+        common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
+        mock_logging.warning.assert_called()
+
+
+def test_valid_roi_ids_and_settings():
+    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
+    roi_ids = ['roi1']
+    with patch('os.path.exists') as mock_exists, \
+         patch('coastseg.file_utilities.read_json_file') as mock_read, \
+         patch('coastseg.file_utilities.config_to_file') as mock_write:
+        mock_exists.return_value = True
+        mock_read.return_value = {}
+        
+        common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
+        
+        mock_write.assert_called_once()
+
+
+def test_empty_roi_settings():
+    with patch('coastseg.file_utilities') as mock_file_utils:
+        common.update_downloaded_configs(roi_settings={}, roi_ids=[])
+        mock_file_utils.read_json_file.assert_not_called()
+        mock_file_utils.config_to_file.assert_not_called()
 
 # Scenario 1: 'date' column as string
 def test_remove_matching_rows_date_string():
@@ -162,7 +748,7 @@ def test_filter_partial_images():
     directory = "/path/to/directory"
 
     with patch("coastseg.common.filter_images") as mock_filter:
-        common.filter_partial_images(roi_gdf, directory)
+        common.filter_partial_images(roi_gdf, directory, min_area_percentage=0.60)
 
         # area calculations don't exactly match because the geometry is converted to the most accurate UTM zone to get the least distorted area
         expected_min_area = 7393.52

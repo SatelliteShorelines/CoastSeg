@@ -130,9 +130,34 @@ def test_initialize_shorelines_with_wrong_CRS(valid_shoreline_gdf):
     assert not any(actual_shoreline.gdf["id"].duplicated()) == True
     assert actual_shoreline.gdf.crs.to_string() == "EPSG:4326"
 
+def test_intersecting_files(box_no_shorelines_transects):
+    """
+    Test case to verify the behavior of get_intersecting_shoreline_files
+    when there are no intersecting shoreline files.
+
+    Args:
+        box_no_shorelines_transects: The box with no default shoreline or transects.
+
+    """
+    sl = Shoreline()
+    assert sl.get_intersecting_shoreline_files(box_no_shorelines_transects) == []
+    
+def test_intersecting_files_valid_bbox(valid_bbox_gdf):
+    """
+    Test case to check if the get_intersecting_shoreline_files method returns a non-empty list
+    when provided with a valid bounding box GeoDataFrame.
+    """
+    sl = Shoreline()
+    assert sl.get_intersecting_shoreline_files(valid_bbox_gdf) != []
 
 # 3. load shorelines from a shorelines geodataframe with empty ids
 def test_initialize_shorelines_with_empty_id_column(valid_shoreline_gdf):
+    """
+    Test case to verify the initialization of shorelines with an empty 'id' column.
+
+    Args:
+        valid_shoreline_gdf (geopandas.GeoDataFrame): A valid GeoDataFrame containing shoreline data.
+    """
     # change the crs of the geodataframe
     shorelines_diff_crs = valid_shoreline_gdf.to_crs("EPSG:4326", inplace=False)
     # make id column empty
@@ -233,6 +258,7 @@ def test_style_layer():
 
 
 # # you can also mock some methods that depend on external data, like downloading from the internet
+# this requires the use of the pytest-mock library which must be installed ( it is not as of 2/8/2024)
 # def test_download_shoreline(mocker):
 #     mock_download = mocker.patch("coastseg.common.download_url", return_value=None)
 #     shoreline = Shoreline()

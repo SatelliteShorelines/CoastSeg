@@ -7,6 +7,7 @@ import datetime
 from coastseg import common
 from coastseg.common import validate_geometry_types
 from coastseg import exceptions
+from coastseg.feature import Feature
 
 # External dependencies imports
 import geopandas as gpd
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["ROI"]
 
 
-class ROI:
+class ROI(Feature):
     """A class that controls all the ROIs on the map"""
 
     LAYER_NAME = "ROIs"
@@ -196,15 +197,40 @@ class ROI:
         )
 
     def get_roi_settings(self, roi_id: str = "") -> dict:
-        """Returns the settings dictionary for the specified region of interest (ROI).
+        """
+        Retrieve the settings for a specific ROI or all ROI settings.
+        If roi_id is not provided, all ROI settings will be returned.
+        If the ROI ID is not found, an empty dictionary will be returned.
 
         Args:
-            roi_id (str, optional): The ID of the ROI to retrieve settings for. Defaults to "".
+            roi_id (str, optional): The ID of the ROI to retrieve settings for. 
+                If not provided, all ROI settings will be returned. Defaults to "".
 
         Returns:
-            dict: A dictionary of settings for the specified ROI, or the entire ROI settings dictionary if roi_id is not provided.
+            dict: The settings for the specified ROI, or all ROI settings if no ROI ID is provided.
         """
-        return self.roi_settings if roi_id else {}
+        if not hasattr(self, "roi_settings"):
+            self.roi_settings = {}
+        if roi_id is None:
+            return self.roi_settings
+        if not isinstance(roi_id, str):
+            raise TypeError("roi_id must be a string")
+        
+        if roi_id == "":
+            logger.info(f"self.roi_settings: {self.roi_settings}")
+            return self.roi_settings
+        else:
+            logger.info(f"self.roi_settings[roi_id]: {self.roi_settings.get(roi_id, {})}")
+            return self.roi_settings.get(roi_id, {})             
+        # if roi_id in self.roi_settings:
+        #     logger.info(f"self.roi_settings[roi_id]: {self.roi_settings[roi_id]}")
+        #     return self.roi_settings[roi_id]
+        # else:
+        #     if roi_id == "":
+        #             logger.info(f"self.roi_settings: {self.roi_settings}")
+        #             return self.roi_settings
+        #     else:
+        #         return {}
 
     def set_roi_settings(self, roi_settings: dict) -> None:
         """Sets the ROI settings dictionary to the specified value.
@@ -212,8 +238,29 @@ class ROI:
         Args:
             roi_settings (dict): A dictionary of settings for the ROI.
         """
+        if roi_settings is None:
+            raise ValueError("roi_settings cannot be None")
+        if not isinstance(roi_settings, dict):
+            raise TypeError("roi_settings must be a dictionary")
+
         logger.info(f"Saving roi_settings {roi_settings}")
         self.roi_settings = roi_settings
+
+    def update_roi_settings(self, new_settings: dict) -> None:
+        """Updates the ROI settings dictionary with the specified values.
+
+        Args:
+            new_settings (dict): A dictionary of new settings for the ROI.
+        """
+        if new_settings is None:
+            raise ValueError("new_settings cannot be None")
+
+        logger.info(f"Updating roi_settings with {new_settings}")
+        if self.roi_settings is None:
+            self.roi_settings = new_settings
+        else:
+            self.roi_settings.update(new_settings)
+        return self.roi_settings
 
     def get_extracted_shoreline(self, roi_id: str) -> Union[None, dict]:
         """Returns the extracted shoreline for the specified ROI ID.
@@ -224,7 +271,7 @@ class ROI:
         Returns:
             Union[None, dict]: The extracted shoreline dictionary for the specified ROI ID, or None if it does not exist.
         """
-        return self.extracted_shorelines.get(roi_id)
+        return self.extracted_shorelines.get(roi_id,None)
 
     def get_ids(self) -> list:
         """Returns list of all roi ids"""
@@ -430,18 +477,7 @@ class ROI:
         Returns:
             "ipyleaflet.GeoJSON": ROIs as GeoJson layer styled with yellow dashes
         """
-        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": "#555555",
-                "fill_color": "#555555",
-                "fillOpacity": 0.1,
-                "weight": 1,
-            },
-            hover_style={"color": "red", "fillOpacity": 0.1, "color": "crimson"},
-        )
+        return super().style_layer(geojson, layer_name,hover_style={"color": "red", "fillOpacity": 0.1, "color": "crimson"})
 
     def fishnet_intersection(
         self, fishnet: gpd.GeoDataFrame, data: gpd.GeoDataFrame

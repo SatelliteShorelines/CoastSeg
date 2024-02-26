@@ -44,7 +44,7 @@ import numpy as np
 import pandas as pd
 import skimage.measure as measure
 import skimage.morphology as morphology
-from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
+
 from coastsat.SDS_download import get_metadata
 from coastsat.SDS_shoreline import extract_shorelines
 from coastsat.SDS_tools import (
@@ -474,7 +474,9 @@ def process_satellite(
 
 def get_cloud_cover_combined(cloud_mask: np.ndarray):
     """
-    Calculate the cloud cover percentage (ignoring no-data pixels) of a cloud_mask.
+    Calculate the cloud cover percentage of a cloud_mask.
+    Note: The way that cloud_mask is created in SDS_preprocess.preprocess_single() means that it will contain 1's where no data pixels were detected.
+    TLDR the cloud mask is combined with the no data mask. No idea why.
 
     Parameters:
     cloud_mask (numpy.ndarray): A 2D numpy array with 0s (clear) and 1s (cloudy) representing the cloud mask.
@@ -579,12 +581,15 @@ def process_satellite_image(
     if not check_percent_no_data_allowed(
         percent_no_data_allowed, cloud_mask, im_nodata
     ):
+        logger.info(
+            f"percent_no_data_allowed > {settings.get('percent_no_data', None)}: {filename}"
+        )
         return None
 
     # compute cloud_cover percentage (with no data pixels)
     cloud_cover_combined = get_cloud_cover_combined(cloud_mask)
     if cloud_cover_combined > 0.99:  # if 99% of cloudy pixels in image skip
-        logger.info(f"cloud_cover_combined > 0.99 for {filename}")
+        logger.info(f"cloud_cover_combined > 0.99 : {filename} ")
         return None
 
     # compute cloud cover percentage (without no data pixels)
@@ -1737,6 +1742,7 @@ class Extracted_Shoreline:
         self._validate_input_params(roi_id, shoreline, roi_settings, settings)
 
         logger.info(f"Extracting shorelines for ROI id{roi_id}")
+        # extract the shorelines using the settings doing so returns a dictionary with all the shorelines
         self.dictionary = self.extract_shorelines(
             shoreline,
             roi_settings,
@@ -1774,7 +1780,24 @@ class Extracted_Shoreline:
         - self: The object instance.
         - roi_id (str): The ID of the region of interest for which shorelines need to be extracted.
         - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
-        - roi_settings (dict): A dictionary of region of interest settings.
+        - roi_settings (dict): Dictionary containing settings for the ROI. It must have the following keys:
+            {
+                "dates": ["2018-12-01", "2019-03-01"],
+                "sat_list": ["L8", "L9", "S2"],
+                "roi_id": "lyw1",
+                "polygon": [
+                [
+                    [-73.94584118213996, 40.57245559853209],
+                    [-73.94584118213996, 40.52844804565595],
+                    [-73.87282173497694, 40.52844804565595],
+                    [-73.87282173497694, 40.57245559853209],
+                    [-73.94584118213996, 40.57245559853209]
+                ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_lyw1_datetime01-18-24__12_26_51",
+                "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            },
         - settings (dict): A dictionary of extraction settings.
         - session_path (str): The path of the saved session from which the shoreline extraction needs to be resumed.
         - new_session_path (str) :The path of the new session where the extreacted shorelines extraction will be saved
@@ -1968,16 +1991,46 @@ class Extracted_Shoreline:
             raise ValueError("settings cannot be empty.")
 
     def extract_shorelines(
-        self,
-        shoreline_gdf: gpd.geodataframe,
-        roi_settings: dict,
-        settings: dict,
-        session_path: str = None,
-        class_indices: list = None,
-        class_mapping: dict = None,
-    ) -> dict:
-        """Returns a dictionary containing the extracted shorelines for roi specified by rois_gdf"""
+            self,
+            shoreline_gdf: gpd.geodataframe,
+            roi_settings: dict,
+            settings: dict,
+            session_path: str = None,
+            class_indices: list = None,
+            class_mapping: dict = None,
+        ) -> dict:
+        """
+        Extracts shorelines for a specified region of interest (ROI).
+        Args:
+            shoreline_gdf (gpd.geodataframe): GeoDataFrame containing the shoreline data.
+            roi_settings (dict): Dictionary containing settings for the ROI. It must have the following keys:
+            {
+                "dates": ["2018-12-01", "2019-03-01"],
+                "sat_list": ["L8", "L9", "S2"],
+                "roi_id": "lyw1",
+                "polygon": [
+                [
+                    [-73.94584118213996, 40.57245559853209],
+                    [-73.94584118213996, 40.52844804565595],
+                    [-73.87282173497694, 40.52844804565595],
+                    [-73.87282173497694, 40.57245559853209],
+                    [-73.94584118213996, 40.57245559853209]
+                ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_lyw1_datetime01-18-24__12_26_51",
+                "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            },
+            settings (dict): Dictionary containing general settings.
+            
+            session_path (str, optional): Path to the session. Defaults to None.
+            class_indices (list, optional): List of class indices. Defaults to None.
+            class_mapping (dict, optional): Dictionary mapping class indices to class labels. Defaults to None.
+        Returns:
+            dict: Dictionary containing the extracted shorelines for the specified ROI.
+        """
         # project shorelines's crs from map's crs to output crs given in settings
+        # create a reference shoreline as a numpy array containing lat, lon, and mean sea level for each point
         reference_shoreline = get_reference_shoreline(
             shoreline_gdf, settings["output_epsg"]
         )
@@ -1992,10 +2045,12 @@ class Extracted_Shoreline:
 
         # filter out files that were removed from RGB directory
         try:
-            # logger.info(f"metadata before filter : {metadata}")
             metadata = common.filter_metadata(metadata, sitename, filepath_data)
         except FileNotFoundError as e:
             logger.warning(f"No RGB files existed so no metadata.")
+            print(
+                f"No shorelines were extracted because no RGB files were found at {os.path.join(filepath_data,sitename)}"
+            )
             return {}
 
         for satname in metadata.keys():
@@ -2051,10 +2106,44 @@ class Extracted_Shoreline:
         reference_shoreline: dict,
     ) -> None:
         """Create and return a dictionary containing settings for shoreline.
+        
 
         Args:
-            settings (dict): map settings
-            roi_settings (dict): settings of the roi. Must include 'dates'
+            settings (dict): settings used to control how shorelines are extracted
+            settings = {
+                
+            "cloud_thresh" (float): percentage of cloud cover allowed
+            "cloud_mask_issue" (bool): whether to apply coastsat fix for incorrect cloud masking
+            "min_beach_area" (float): minimum area of beach allowed
+            "min_length_sl" (int): minimum length (m) of shoreline allowed
+            "output_epsg" (int): coordinate reference system of output
+            "sand_color" (str): color of sand in RGB image
+            "pan_off" (bool): whether to use panchromatic band (always False)
+            "max_dist_ref" (int): maximum distance (m) from reference shoreline
+            "dist_clouds" (int): distance (m) from clouds to remove
+            "percent_no_data" (float): percentage of no data allowed
+            "model_session_path" (str): path to model session file
+            "apply_cloud_mask" (bool): whether to apply cloud mask
+            }
+            roi_settings (dict): Dictionary containing settings for the ROI. 
+            It must have the following keys:
+            {
+                "dates": ["2018-12-01", "2019-03-01"],
+                "sat_list": ["L8", "L9", "S2"],
+                "roi_id": "lyw1",
+                "polygon": [
+                [
+                    [-73.94584118213996, 40.57245559853209],
+                    [-73.94584118213996, 40.52844804565595],
+                    [-73.87282173497694, 40.52844804565595],
+                    [-73.87282173497694, 40.57245559853209],
+                    [-73.94584118213996, 40.57245559853209]
+                ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_lyw1_datetime01-18-24__12_26_51",
+                "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+            },
             reference_shoreline (dict): reference shoreline
 
         Example)

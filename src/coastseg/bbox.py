@@ -1,10 +1,10 @@
 # Standard library imports
-import logging
 from typing import Optional, Union
 
 # Internal dependencies imports
 from .exceptions import BboxTooLargeError, BboxTooSmallError
 from coastseg.common import preprocess_geodataframe, validate_geometry_types
+from coastseg.feature import Feature
 
 # External dependencies imports
 import geopandas as gpd
@@ -14,7 +14,7 @@ from ipyleaflet import GeoJSON
 __all__ = ["Bounding_Box"]
 
 
-class Bounding_Box:
+class Bounding_Box(Feature):
     """Bounding_Box
 
     A Bounding Box drawn by user.
@@ -103,19 +103,27 @@ class Bounding_Box:
         Returns:
             "ipyleaflet.GeoJSON": shoreline as GeoJSON layer styled with yellow dashes
         """
-        if geojson == {}:
-            raise Exception("ERROR.\n Empty geojson cannot be drawn onto map")
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": "#75b671",
-                "fill_color": "#75b671",
-                "opacity": 1,
-                "fillOpacity": 0.1,
-                "weight": 3,
-            },
-        )
+        style={
+            "color": "#75b671",
+            "fill_color": "#75b671",
+            "opacity": 1,
+            "fillOpacity": 0.1,
+            "weight": 3,
+        }
+        return super().style_layer(geojson, layer_name, style=style, hover_style=None)
+        # if geojson == {}:
+        #     raise Exception("ERROR.\n Empty geojson cannot be drawn onto map")
+        # return GeoJSON(
+        #     data=geojson,
+        #     name=layer_name,
+        #     style={
+        #         "color": "#75b671",
+        #         "fill_color": "#75b671",
+        #         "opacity": 1,
+        #         "fillOpacity": 0.1,
+        #         "weight": 3,
+        #     },
+        # )
 
     def check_bbox_size(bbox_area: float):
         """ "Raises an exception if the size of the bounding box is too large or small."""

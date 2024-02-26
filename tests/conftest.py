@@ -1,6 +1,7 @@
 # This file is meant to hold fixtures that can be used for testing
 # These fixtures set up data that can be used as inputs for the tests, so that no code is repeated
 import os
+import io
 import json
 import pytest
 import tempfile
@@ -16,12 +17,28 @@ from tempfile import TemporaryDirectory
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
+@pytest.fixture(scope="session")
+def box_no_shorelines_transects():
+    geojson = {
+        "type": "FeatureCollection",
+        "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+        "features": [
+            { "type": "Feature", "properties": { }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -82.823127, 44.023466 ], [ -82.823127, 44.041917 ], [ -82.802875, 44.041917 ], [ -82.802875, 44.023466 ], [ -82.823127, 44.023466 ] ] ] } }
+        ]
+    }
+
+    # Convert the GeoJSON into a string
+    geojson_str = json.dumps(geojson)
+    # Convert the string into a file-like object
+    geojson_file = io.StringIO(geojson_str)
+    # Read the GeoJSON file into a GeoDataFrame
+    return gpd.read_file(geojson_file)
 
 @pytest.fixture(scope="session")
 def config_json_no_sitename_dir():
     # create a temporary directory that will represent the downloaded ROI directory
     temp_dir = tempfile.mkdtemp()
-    # Create don't create the subdirectory in this temporary directory
+    # Don't create the subdirectory in this temporary directory with the sitename
 
     # The dictionary you want to write to the JSON file
     config_data = {
@@ -84,6 +101,77 @@ def config_json_no_sitename_dir():
     # Cleanup - delete the file after tests are done
     os.remove(tmpfile_path)
 
+@pytest.fixture()
+def config_json_temp_file():
+    # create a temporary directory that will represent the /data folder
+    with tempfile.TemporaryDirectory() as temp_dir:
+        roi_id = "zih2"
+        # The dictionary you want to write to the JSON file
+        config_data = {
+            "zih2": {
+                "dates": ["2018-12-01", "2019-03-01"],
+                "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+                "roi_id": "zih2",
+                "polygon": [
+                    [
+                        [-121.84020033533233, 36.74441575726833],
+                        [-121.83959312681607, 36.784722827004146],
+                        [-121.78948275983468, 36.78422337939962],
+                        [-121.79011617443447, 36.74391703739083],
+                        [-121.84020033533233, 36.74441575726833],
+                    ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+                "filepath": str(temp_dir),
+            },
+            "roi_ids": ["zih2"],
+            "settings": {
+                "landsat_collection": "C02",
+                "dates": ["2018-12-01", "2019-03-01"],
+                "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+                "cloud_thresh": 0.8,
+                "dist_clouds": 350,
+                "output_epsg": 32610,
+                "check_detection": False,
+                "adjust_detection": False,
+                "save_figure": True,
+                "min_beach_area": 1050,
+                "min_length_sl": 600,
+                "cloud_mask_issue": True,
+                "sand_color": "default",
+                "pan_off": "False",
+                "max_dist_ref": 200,
+                "along_dist": 28,
+                "min_points": 4,
+                "max_std": 16.0,
+                "max_range": 38.0,
+                "min_chainage": -105.0,
+                "multiple_inter": "auto",
+                "prc_multiple": 0.2,
+                "apply_cloud_mask": False,
+                "image_size_filter": False,
+            },
+        }
+
+        sitename = config_data[roi_id]['sitename']
+        subdir_path = os.path.join(temp_dir, sitename)
+        os.makedirs(subdir_path)
+        temp_file_path = os.path.join(subdir_path, "config.json")
+        with open(temp_file_path, 'w') as temp_file:
+            json.dump(config_data, temp_file)
+        # # Create a temporary file
+        # with tempfile.NamedTemporaryFile(
+        #     mode="w+", delete=False, suffix=".json"
+        # ) as tmpfile:
+        #     json.dump(config_data, tmpfile)
+        #     tmpfile_path = tmpfile.name  # Save the filepath
+
+        # Yield the filepath to the test
+        yield temp_file_path, temp_dir,config_data
+
+        # Cleanup - delete the file after tests are done
+        os.remove(temp_file_path)
 
 @pytest.fixture(scope="session")
 def config_json():
@@ -154,6 +242,178 @@ def config_json():
     # Cleanup - delete the file after tests are done
     os.remove(tmpfile_path)
 
+@pytest.fixture()
+def config_json_multiple_roi_temp_file():
+    # create a temporary directory that will represent the /data folder
+    with tempfile.TemporaryDirectory() as temp_dir:
+
+        # The dictionary you want to write to the JSON file
+        config_data = {
+            "zih2": {
+                "dates": ["2012-12-01", "2019-03-01"],
+                "sat_list": ["L7", "L8", "L9", "S2"],
+                "roi_id": "zih2",
+                "polygon": [
+                    [
+                        [-121.84020033533233, 36.74441575726833],
+                        [-124.83959312681607, 36.784722827004146],
+                        [-121.78948275983468, 36.78422337939962],
+                        [-121.79011617443447, 36.74391703739083],
+                        [-121.84020033533233, 36.74441575726833],
+                    ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+                "filepath": str(temp_dir),
+            },
+            "zih1": {
+                "dates": ["2012-12-01", "2019-03-01"],
+                "sat_list": ["L7", "L8", "L9", "S2"],
+                "roi_id": "zih1",
+                "polygon": [
+                    [
+                        [-124.84020033533233, 36.74441575726833],
+                        [-121.83959312681607, 36.784722827004146],
+                        [-121.78948275983468, 36.78422337939962],
+                        [-121.79011617443447, 36.74391703739083],
+                        [-124.84020033533233, 36.74441575726833],
+                    ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_zih1_datetime11-15-23__09_56_01",
+                "filepath": str(temp_dir),
+            },
+            "roi_ids": ["zih2","zih1"],
+            "settings": {
+                "landsat_collection": "C02",
+                "dates": ["2018-12-01", "2019-03-01"],
+                "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+                "cloud_thresh": 0.8,
+                "dist_clouds": 350,
+                "output_epsg": 32610,
+                "check_detection": False,
+                "adjust_detection": False,
+                "save_figure": True,
+                "min_beach_area": 1050,
+                "min_length_sl": 600,
+                "cloud_mask_issue": True,
+                "sand_color": "default",
+                "pan_off": "False",
+                "max_dist_ref": 200,
+                "along_dist": 28,
+                "min_points": 4,
+                "max_std": 16.0,
+                "max_range": 38.0,
+                "min_chainage": -105.0,
+                "multiple_inter": "auto",
+                "prc_multiple": 0.2,
+                "apply_cloud_mask": False,
+                "image_size_filter": False,
+            },
+        }
+
+        # create subdiretory for each ROI
+        for roi_id in config_data['roi_ids']:
+            sitename = config_data[roi_id]['sitename']
+            subdir_path = os.path.join(temp_dir, sitename)
+            # Create the subdirectory
+            os.makedirs(subdir_path)
+
+            # Create a temporary file
+            temp_file_path = os.path.join(subdir_path, "config.json")
+
+            with open(temp_file_path, 'w') as temp_file:
+                json.dump(config_data, temp_file)
+        # Yield the filepath to the test
+        yield  temp_dir,config_data
+
+
+
+@pytest.fixture()
+def config_json_multiple_shared_roi_temp_file():
+    # create a temporary directory that will represent the /data folder
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # The dictionary you want to write to the JSON file
+        config_data = {
+            "zih2": {
+                "dates": ["2012-12-01", "2019-03-01"],
+                "sat_list": ["L7", "L8", "L9", "S2"],
+                "roi_id": "zih2",
+                "polygon": [
+                    [
+                        [-121.84020033533233, 36.74441575726833],
+                        [-124.83959312681607, 36.784722827004146],
+                        [-121.78948275983468, 36.78422337939962],
+                        [-121.79011617443447, 36.74391703739083],
+                        [-121.84020033533233, 36.74441575726833],
+                    ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_zih2_datetime11-15-23__09_56_01",
+                "filepath": "fake/path",
+            },
+            "zih1": {
+                "dates": ["2012-12-01", "2019-03-01"],
+                "sat_list": ["L7", "L8", "L9", "S2"],
+                "roi_id": "zih1",
+                "polygon": [
+                    [
+                        [-124.84020033533233, 36.74441575726833],
+                        [-121.83959312681607, 36.784722827004146],
+                        [-121.78948275983468, 36.78422337939962],
+                        [-121.79011617443447, 36.74391703739083],
+                        [-124.84020033533233, 36.74441575726833],
+                    ]
+                ],
+                "landsat_collection": "C02",
+                "sitename": "ID_zih1_datetime11-15-23__09_56_01",
+                "filepath": "fake/path",
+            },
+            "roi_ids": ["zih2","zih1"],
+            "settings": {
+                "landsat_collection": "C02",
+                "dates": ["2018-12-01", "2019-03-01"],
+                "sat_list": ["L5", "L7", "L8", "L9", "S2"],
+                "cloud_thresh": 0.8,
+                "dist_clouds": 350,
+                "output_epsg": 32610,
+                "check_detection": False,
+                "adjust_detection": False,
+                "save_figure": True,
+                "min_beach_area": 1050,
+                "min_length_sl": 600,
+                "cloud_mask_issue": True,
+                "sand_color": "default",
+                "pan_off": "False",
+                "max_dist_ref": 200,
+                "along_dist": 28,
+                "min_points": 4,
+                "max_std": 16.0,
+                "max_range": 38.0,
+                "min_chainage": -105.0,
+                "multiple_inter": "auto",
+                "prc_multiple": 0.2,
+                "apply_cloud_mask": False,
+                "image_size_filter": False,
+            },
+        }
+
+        # create subdiretory for each ROI
+        for roi_id in config_data['roi_ids']:
+            sitename = config_data[roi_id]['sitename']
+            subdir_path = os.path.join(temp_dir, sitename)
+            # Create the subdirectory
+            os.makedirs(subdir_path)
+                    
+            # Create a temporary file
+            temp_file_path = os.path.join(subdir_path, "config.json")
+            
+            with open(temp_file_path, 'w') as temp_file:
+                json.dump(config_data, temp_file)
+
+        # Yield the filepath to the test
+        yield  temp_dir,config_data
+
 
 @pytest.fixture
 def temp_jpg_dir_structure():
@@ -210,70 +470,6 @@ def temp_src_files():
     for f in files:
         if os.path.exists(f):
             os.remove(f)
-
-
-# @pytest.fixture(scope="session")
-# def config_json():
-#     # The dictionary you want to write to the JSON file
-#     config_data = {
-#         "zih2": {
-#             "dates": ["2018-12-01", "2019-03-01"],
-#             "sat_list": ["L5", "L7", "L8", "L9", "S2"],
-#             "roi_id": "zih2",
-#             "polygon": [
-#                 [
-#                     [-121.84020033533233, 36.74441575726833],
-#                     [-121.83959312681607, 36.784722827004146],
-#                     [-121.78948275983468, 36.78422337939962],
-#                     [-121.79011617443447, 36.74391703739083],
-#                     [-121.84020033533233, 36.74441575726833],
-#                 ]
-#             ],
-#             "landsat_collection": "C02",
-#             "sitename": "ID_zih2_datetime11-15-23__09_56_01",
-#             "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-#         },
-#         "roi_ids": ["zih2"],
-#         "settings": {
-#             "landsat_collection": "C02",
-#             "dates": ["2018-12-01", "2019-03-01"],
-#             "sat_list": ["L5", "L7", "L8", "L9", "S2"],
-#             "cloud_thresh": 0.8,
-#             "dist_clouds": 350,
-#             "output_epsg": 32610,
-#             "check_detection": False,
-#             "adjust_detection": False,
-#             "save_figure": True,
-#             "min_beach_area": 1050,
-#             "min_length_sl": 600,
-#             "cloud_mask_issue": True,
-#             "sand_color": "default",
-#             "pan_off": "False",
-#             "max_dist_ref": 200,
-#             "along_dist": 28,
-#             "min_points": 4,
-#             "max_std": 16.0,
-#             "max_range": 38.0,
-#             "min_chainage": -105.0,
-#             "multiple_inter": "auto",
-#             "prc_multiple": 0.2,
-#             "apply_cloud_mask": False,
-#             "image_size_filter": False,
-#         },
-#     }
-
-#     # Create a temporary file
-#     with tempfile.NamedTemporaryFile(
-#         mode="w+", delete=False, suffix=".json"
-#     ) as tmpfile:
-#         json.dump(config_data, tmpfile)
-#         tmpfile_path = tmpfile.name  # Save the filepath
-
-#     # Yield the filepath to the test
-#     yield tmpfile_path
-
-#     # Cleanup - delete the file after tests are done
-#     os.remove(tmpfile_path)
 
 
 @pytest.fixture(scope="session")
@@ -462,7 +658,7 @@ def valid_coastseg_map_with_incomplete_settings() -> coastseg_map.CoastSeg_Map:
     # artifically set the settings to be invalid
     # don't use set_settings because it will add the missing keys to the dictionary
     # coastsegmap.set_settings(**pre_process_settings)
-    coastsegmap.settigns = pre_process_settings
+    coastsegmap.settings = pre_process_settings
     return coastsegmap
 
 
@@ -868,6 +1064,47 @@ def valid_ROI(transect_compatible_roi) -> gpd.GeoDataFrame:
     """returns a valid instance of ROI current espg code : 4326 ROIs with ids:[17,30,35]"""
     return roi.ROI(rois_gdf=transect_compatible_roi)
 
+
+@pytest.fixture
+def valid_ROI_with_settings(valid_ROI):
+    
+    roi_settings = {"13": {
+        "polygon": [
+        [
+            [-117.4684719510983, 33.265263693689256],
+            [-117.46868751642162, 33.30560084719839],
+            [-117.42064919876344, 33.30577275029851],
+            [-117.42045572621824, 33.26543533468434],
+            [-117.4684719510983, 33.265263693689256]
+        ]
+        ],
+        "sitename": "ID_13_datetime06-05-23__04_16_45",
+        "landsat_collection": "C02",
+        "roi_id": "13",
+        "sat_list": ["L8", "L9"],
+        "filepath": r"C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+        "dates": ["2018-12-01", "2023-03-01"]
+    },
+    "12": {
+        "polygon": [
+        [
+            [-117.4682568148693, 33.224926276845096],
+            [-117.4684719510983, 33.265263693689256],
+            [-117.42045572621824, 33.26543533468434],
+            [-117.42026263879279, 33.22509765597134],
+            [-117.4682568148693, 33.224926276845096]
+        ]
+        ],
+        "sitename": "ID_12_datetime06-05-23__04_16_45",
+        "landsat_collection": "C02",
+        "roi_id": "12",
+        "sat_list": ["L8", "L9"],
+        "filepath": r"C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+        "dates": ["2018-12-01", "2023-03-01"]
+    },
+    }
+    valid_ROI.roi_settings = roi_settings
+    return valid_ROI
 
 @pytest.fixture
 def valid_single_roi_settings() -> dict:

@@ -10,6 +10,7 @@ from coastseg.roi import ROI
 from coastseg import exception_handler
 from coastseg import coastseg_map
 from geopandas import GeoDataFrame
+from coastseg.exceptions import Object_Not_Found
 
 # from geopandas import GeoDataFrame,GeoSeries
 # from shapely.geometry import Polygon
@@ -69,12 +70,12 @@ def create_shoreline(
                 # merge ROI geometeries together and use that as the bbbox
                 merged_rois = merge_rectangles(coastsegmap.rois.gdf)
                 shoreline = Shoreline(merged_rois)
-                exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
+                exception_handler.check_if_default_feature_available(shoreline.gdf, "shoreline")
         else:
             exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
             exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
             shoreline = Shoreline(coastsegmap.bbox.gdf)
-            exception_handler.check_if_gdf_empty(shoreline.gdf, "shoreline")
+            exception_handler.check_if_default_feature_available(shoreline.gdf, "shoreline")
 
     logger.info("Shoreline were loaded on map")
     coastsegmap.shoreline = shoreline
@@ -94,22 +95,14 @@ def create_transects(
                 # merge ROI geometeries together and use that as the bbbox
                 merged_rois = merge_rectangles(coastsegmap.rois.gdf)
                 transects = Transects(merged_rois)
-                exception_handler.check_if_gdf_empty(
-                    transects.gdf,
-                    "transects",
-                    "Transects Not Found in this region. Draw a new bounding box",
-                )
+                exception_handler.check_if_default_feature_available(transects.gdf, "transects")
         else:
             # otherwise load the transects within a bbox in coastsegmap
             exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
             exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
 
             transects = Transects(coastsegmap.bbox.gdf)
-            exception_handler.check_if_gdf_empty(
-                transects.gdf,
-                "transects",
-                "Transects Not Found in this region. Draw a new bounding box",
-            )
+            exception_handler.check_if_default_feature_available(transects.gdf, "transects")
 
     logger.info("Transects were loaded on map")
     coastsegmap.transects = transects
@@ -122,12 +115,9 @@ def create_bbox(
     if gdf is not None:
         bbox = Bounding_Box(gdf)
         exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
-    else:
-        geometry = coastsegmap.draw_control.last_draw["geometry"]
-        bbox = Bounding_Box(geometry)
-        exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
     coastsegmap.remove_bbox()
-    coastsegmap.draw_control.clear()
+    if coastsegmap.draw_control is not None:
+        coastsegmap.draw_control.clear()
     logger.info("Bounding Box was loaded on map")
     coastsegmap.bbox = bbox
     return bbox
@@ -144,7 +134,11 @@ def create_rois(
         exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
         # generate a shoreline within the bounding box
         if coastsegmap.shoreline is None:
-            coastsegmap.load_feature_on_map("shoreline")
+            try:
+                coastsegmap.load_feature_on_map("shoreline")
+            except Object_Not_Found as e:
+                logger.error(e)
+                raise Object_Not_Found("shoreline", "Cannot create an ROI without a shoreline. No shorelines were available in this region. Please upload a shoreline from a file")
         logger.info(
             f"coastsegmap.shoreline:{coastsegmap.shoreline}\ncoastsegmap.bbox:{coastsegmap.bbox}"
         )

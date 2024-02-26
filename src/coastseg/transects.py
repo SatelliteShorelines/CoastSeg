@@ -1,6 +1,8 @@
 # Standard library imports
 import logging
 import os
+import math
+import json
 from typing import List, Optional
 
 # Internal dependencies imports
@@ -9,14 +11,126 @@ from coastseg.common import (
     create_unique_ids,
     validate_geometry_types,
 )
+from coastseg.feature import Feature
 
 # External dependencies imports
 import geopandas as gpd
 import pandas as pd
 from ipyleaflet import GeoJSON
+import pandas as pd
+from shapely.ops import unary_union
+from shapely.geometry import Polygon, linestring
 
 
 logger = logging.getLogger(__name__)
+
+
+def drop_columns(
+    gdf: gpd.GeoDataFrame, columns_to_drop: list = None
+) -> gpd.GeoDataFrame:
+    if columns_to_drop is None:
+        drop_columns = [
+            "MEAN_SIG_WAVEHEIGHT",
+            "TIDAL_RANGE",
+            "ERODIBILITY",
+            "river_label",
+            "sinuosity_label",
+            "slope_label",
+            "turbid_label",
+        ]
+    for col in drop_columns:
+        if col in gdf.columns:
+            gdf.drop(columns=[col], inplace=True)
+    return gdf
+
+
+def create_transects_with_arrowheads(
+    gdf: gpd.GeoDataFrame, arrow_length=0.0004, arrow_angle=30
+):
+    """
+    Creates transects with arrowheads by merging each transect with its corresponding arrowhead.
+
+    Args:
+        gdf (gpd.GeoDataFrame): GeoDataFrame containing the transects.
+        arrow_length (float, optional): Length of the arrowhead. Defaults to 0.0004. This is in CRS 4326.
+        arrow_angle (int, optional): Angle of the arrowhead in degrees. Defaults to 35.
+
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame containing the merged geometries of transects and arrowheads.
+    """
+    gdf_copy = gdf.to_crs("EPSG:4326")
+    # remove unneeded columns
+    gdf_copy = drop_columns(gdf_copy)
+
+    # Create arrowheads for each transect
+    gdf_copy["arrowheads"] = gdf_copy["geometry"].apply(
+        lambda x: create_arrowhead(
+            x, arrow_length=arrow_length, arrow_angle=arrow_angle
+        )
+    )
+    # Merge each transect with its arrowhead
+    gdf_copy["merged"] = gdf_copy.apply(
+        lambda row: unary_union([row["geometry"], row["arrowheads"]]), axis=1
+    )
+    gdf_copy.rename(
+        columns={"geometry": "transect_geometry", "merged": "geometry"}, inplace=True
+    )
+    if "arrowheads" in gdf_copy.columns:
+        gdf_copy.drop(columns=["arrowheads"], inplace=True)
+    if "transect_geometry" in gdf_copy.columns:
+        gdf_copy.drop(columns=["transect_geometry"], inplace=True)
+
+    # # Create a new GeoDataFrame for the merged geometries
+    # merged = gpd.GeoDataFrame(crs="EPSG:4326", geometry=[])
+    # # Merge each transect with its arrowhead
+    # for line in gdf_copy.geometry:
+    #     arrowhead = create_arrowhead(
+    #         line, arrow_length=arrow_length, arrow_angle=arrow_angle
+    #     )
+    #     merged_geometry = unary_union([line, arrowhead])
+    #     merged = pd.concat(
+    #         [merged, pd.DataFrame({"geometry": [merged_geometry]})], ignore_index=True
+    #     )
+    # # remove the copy of gdf from memory
+    return gdf_copy
+    # return merged
+
+
+# Function to create an arrowhead as a triangle polygon this works in crs 4326
+def create_arrowhead(
+    line: linestring.LineString, arrow_length: float = 0.0004, arrow_angle: float = 30
+) -> Polygon:
+    """
+    Create an arrowhead polygon at the end of a line. The Arrow length is in CRS 4326.
+
+    Parameters:
+    line (LineString): The line to create the arrowhead for.
+    arrow_length (float): The length of the arrowhead. Default is 0.0004.
+    arrow_angle (float): The angle of the arrowhead in degrees. Default is 30.
+
+    Returns:
+    Polygon: The arrowhead polygon.
+    """
+    # Get the last segment of the line
+    p1, p2 = line.coords[-2], line.coords[-1]
+    # Calculate the angle of the line
+    angle = math.atan2(p2[1] - p1[1], p2[0] - p1[0])
+
+    # Calculate the points of the arrowhead
+    arrow_angle_rad = math.radians(arrow_angle)
+    left_angle = angle - math.pi + arrow_angle_rad
+    right_angle = angle - math.pi - arrow_angle_rad
+
+    left_point = (
+        p2[0] + arrow_length * math.cos(left_angle),
+        p2[1] + arrow_length * math.sin(left_angle),
+    )
+    right_point = (
+        p2[0] + arrow_length * math.cos(right_angle),
+        p2[1] + arrow_length * math.sin(right_angle),
+    )
+
+    return Polygon([p2, left_point, right_point])
 
 
 def load_intersecting_transects(
@@ -65,6 +179,8 @@ def load_intersecting_transects(
         transects_name = os.path.splitext(transect_file)[0]
         transect_path = os.path.join(transect_dir, transect_file)
         transects = gpd.read_file(transect_path, bbox=bbox)
+        # keep only those transects that intersect with the rectangle
+        transects = transects[transects.intersects(rectangle.unary_union)]
         # drop any columns that are not in columns_to_keep
         columns_to_keep = set(col.lower() for col in columns_to_keep)
         transects = transects[
@@ -97,7 +213,7 @@ def load_intersecting_transects(
     return selected_transects
 
 
-class Transects:
+class Transects(Feature):
     """A class representing a collection of transects within a specified bounding box."""
 
     LAYER_NAME = "transects"
@@ -145,7 +261,13 @@ class Transects:
         # Get first 5 rows as a string
         first_rows = self.gdf.head().to_string()
         # Get CRS information
-        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if self.gdf.empty:
+            crs_info = "CRS: None"
+        else:
+            if self.gdf is not None and hasattr(self.gdf, 'crs'):
+                crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+            else:
+                crs_info = "CRS: None"
         ids = ""
         if "id" in self.gdf.columns:
             ids = self.gdf["id"].astype(str)
@@ -157,7 +279,13 @@ class Transects:
         # Get first 5 rows as a string
         first_rows = self.gdf.head().to_string()
         # Get CRS information
-        crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+        if self.gdf.empty:
+            crs_info = "CRS: None"
+        else:
+            if self.gdf is not None and hasattr(self.gdf, 'crs'):
+                crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
+            else:
+                crs_info = "CRS: None"
         ids = ""
         if "id" in self.gdf.columns:
             ids = self.gdf["id"].astype(str)
@@ -256,30 +384,76 @@ class Transects:
 
         return transects_in_bbox
 
-    def style_layer(self, geojson: dict, layer_name: str) -> dict:
+    # def style_layer(self, geojson: dict, layer_name: str) -> dict:
+    #     """Return styled GeoJson object with layer name
+
+    #     Args:
+    #         geojson (dict): geojson dictionary to be styled
+    #         layer_name(str): name of the GeoJSON layer
+
+    #     Returns:
+    #         "ipyleaflet.GeoJSON": transects as styled GeoJSON layer
+    #     """
+    #     assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
+    #     # Add style to each feature in the geojson
+    #     return GeoJSON(
+    #         data=geojson,
+    #         name=layer_name,
+    #         style={
+    #             "color": "grey",
+    #             "fill_color": "grey",
+    #             "opacity": 1,
+    #             "fillOpacity": 0.2,
+    #             "weight": 2,
+    #         },
+    #         hover_style={"color": "blue", "fillOpacity": 0.7},
+    #     )
+
+    def style_layer(self, data, layer_name: str = "transects") -> dict:
         """Return styled GeoJson object with layer name
 
         Args:
-            geojson (dict): geojson dictionary to be styled
-            layer_name(str): name of the GeoJSON layer
+            geojson (dict or geodataframe): The geojson dictionary or geodataframe to be styled.
+            If a geodataframe is passed then arrowheads will be added to the transects. These arrowheads will point
+            from the origin of the transect to the end of the transect.
+            layer_name(str): name of the GeoJSON layer defaults to "transects"
 
         Returns:
             "ipyleaflet.GeoJSON": transects as styled GeoJSON layer
         """
-        assert geojson != {}, "ERROR.\n Empty geojson cannot be drawn onto  map"
-        # Add style to each feature in the geojson
-        return GeoJSON(
-            data=geojson,
-            name=layer_name,
-            style={
-                "color": "grey",
-                "fill_color": "grey",
-                "opacity": 1,
-                "fillOpacity": 0.2,
-                "weight": 2,
-            },
-            hover_style={"color": "blue", "fillOpacity": 0.7},
-        )
+        geojson = data
+        if isinstance(data, dict):
+            geojson = data
+        elif isinstance(data,gpd.geodataframe.GeoDataFrame):
+            gdf = create_transects_with_arrowheads(data, arrow_angle=30)
+            geojson = json.loads(gdf.to_json())
+
+        style={
+            "color": "grey",
+            "fill_color": "grey",
+            "opacity": 1,
+            "fillOpacity": 0.2,
+            "weight": 2,
+        }
+        hover_style={"color": "blue", "fillOpacity": 0.7}
+        return super().style_layer(geojson, layer_name, style=style, hover_style=hover_style)
+        # assert (
+        #     geojson != {}
+        # ), f"ERROR.\n Empty {layer_name} geojson cannot be drawn onto map"
+
+        # # Add style to each feature in the geojson
+        # return GeoJSON(
+        #     data=geojson,
+        #     name=layer_name,
+        #     style={
+        #         "color": "grey",
+        #         "fill_color": "grey",
+        #         "opacity": 1,
+        #         "fillOpacity": 0.2,
+        #         "weight": 2,
+        #     },
+        #     hover_style={"color": "blue", "fillOpacity": 0.7},
+        # )
 
     def get_intersecting_files(self, bbox_gdf: gpd.geodataframe) -> list:
         """Returns a list of filenames that intersect with bbox_gdf
