@@ -599,6 +599,7 @@ def process_satellite_image(
         logger.info(f"Cloud thresh exceeded for {filename}")
         return None
     # calculate a buffer around the reference shoreline (if any has been digitised)
+    # buffer is dilated by 5 pixels
     ref_shoreline_buffer = SDS_shoreline.create_shoreline_buffer(
         cloud_mask.shape, georef, image_epsg, pixel_size, settings
     )
@@ -962,7 +963,7 @@ def plot_image_with_legend(
 
     # Plot original image
     ax1.imshow(original_image)
-    ax1.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
+    ax1.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
     ax1.set_title(titles[0])
     ax1.axis("off")
 
@@ -971,7 +972,7 @@ def plot_image_with_legend(
     # Plot the reference shoreline buffer
     if masked_array is not None:
         ax2.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
-    ax2.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
+    ax2.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
     ax2.set_title(titles[1])
     ax2.axis("off")
     if merged_legend:  # Check if the list is not empty
@@ -986,7 +987,7 @@ def plot_image_with_legend(
     ax3.imshow(all_overlay)
     if masked_array is not None:
         ax3.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
-    ax3.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=3)
+    ax3.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
     ax3.set_title(titles[2])
     ax3.axis("off")
     if all_legend:  # Check if the list is not empty
@@ -1226,11 +1227,9 @@ def simplified_find_contours(
     im_labels_masked = im_labels.copy().astype(float)
     # Apply the cloud mask by setting masked pixels to NaN
     im_labels_masked[cloud_mask] = np.NaN
-    # dilate the reference shoreline buffer by 5 pixels to mask out anything outside the reference shoreline buffer
-    se = morphology.disk(5)
-    im_ref_buffer_extra = morphology.binary_dilation(reference_shoreline_buffer, se)
-    im_labels_masked[~im_ref_buffer_extra] = np.NaN
-
+    # only keep the pixels inside the reference shoreline buffer
+    im_labels_masked[~reference_shoreline_buffer] = np.NaN
+    
     # 0 or 1 labels means 0.5 is the threshold
     contours = measure.find_contours(im_labels_masked, 0.5)
 
@@ -2292,6 +2291,7 @@ def get_reference_shoreline(
     shorelines = np.vstack(shorelines)
     # Add third column of 0s to represent mean sea level
     shorelines = np.insert(shorelines, 2, np.zeros(len(shorelines)), axis=1)
+    
     return shorelines
 
 
