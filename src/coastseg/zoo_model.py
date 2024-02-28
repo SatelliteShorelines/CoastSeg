@@ -675,6 +675,7 @@ class Zoo_Model:
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         return model_dict
 
+        # Rest of the code...
     def extract_shorelines_with_unet(
         self,
         settings: dict,
@@ -684,6 +685,20 @@ class Zoo_Model:
         transects_path: str = "",
         **kwargs: dict,
     ) -> None:
+        """
+        Extracts shorelines using the U-Net model.
+
+        Args:
+            settings (dict): Dictionary containing the model settings.
+            session_path (str): Path to the model session.
+            session_name (str): Name of the model session.
+            shoreline_path (str, optional): Path to the shoreline data. Defaults to "".
+            transects_path (str, optional): Path to the transects data. Defaults to "".
+            **kwargs (dict): Additional keyword arguments.
+
+        Returns:
+            None
+        """
         logger.info(f"extract_shoreline_settings: {settings}")
 
         # save the selected model session
@@ -924,57 +939,74 @@ class Zoo_Model:
         return classes
 
     def run_model(
-        self,
-        img_type: str,
-        model_implementation: str,
-        session_name: str,
-        src_directory: str,
-        model_name: str,
-        use_GPU: str,
-        use_otsu: bool,
-        use_tta: bool,
-        percent_no_data: float,
-    ):
-        logger.info(f"Selected directory of RGBs: {src_directory}")
-        logger.info(f"session name: {session_name}")
-        logger.info(f"model_name: {model_name}")
-        logger.info(f"model_implementation: {model_implementation}")
-        logger.info(f"use_GPU: {use_GPU}")
-        logger.info(f"use_otsu: {use_otsu}")
-        logger.info(f"use_tta: {use_tta}")
+            self,
+            img_type: str,
+            model_implementation: str,
+            session_name: str,
+            src_directory: str,
+            model_name: str,
+            use_GPU: str,
+            use_otsu: bool,
+            use_tta: bool,
+            percent_no_data: float,
+        ):
+            """
+            Runs the model for image segmentation.
 
-        print(f"Running model {model_name}")
-        self.prepare_model(model_implementation, model_name)
+            Args:
+                img_type (str): The type of image.
+                model_implementation (str): The implementation of the model.
+                session_name (str): The name of the session.
+                src_directory (str): The directory of RGB images.
+                model_name (str): The name of the model.
+                use_GPU (str): Whether to use GPU or not.
+                use_otsu (bool): Whether to use Otsu thresholding or not.
+                use_tta (bool): Whether to use test-time augmentation or not.
+                percent_no_data (float): The percentage of no data.
 
-        # create a session
-        session = sessions.Session()
-        sessions_path = file_utilities.create_directory(os.getcwd(), "sessions")
-        session_path = file_utilities.create_directory(sessions_path, session_name)
+            Returns:
+                None
+            """
+            logger.info(f"Selected directory of RGBs: {src_directory}")
+            logger.info(f"session name: {session_name}")
+            logger.info(f"model_name: {model_name}")
+            logger.info(f"model_implementation: {model_implementation}")
+            logger.info(f"use_GPU: {use_GPU}")
+            logger.info(f"use_otsu: {use_otsu}")
+            logger.info(f"use_tta: {use_tta}")
 
-        session.path = session_path
-        session.name = session_name
-        model_dict = {
-            "use_GPU": use_GPU,
-            "sample_direc": "",
-            "implementation": model_implementation,
-            "model_type": model_name,
-            "otsu": use_otsu,
-            "tta": use_tta,
-            "percent_no_data": percent_no_data,
-        }
-        # get parent roi_directory from the selected imagery directory
-        roi_directory = file_utilities.find_parent_directory(
-            src_directory, "ID_", "data"
-        )
+            print(f"Running model {model_name}")
+            self.prepare_model(model_implementation, model_name)
 
-        print(f"Preprocessing the data at {roi_directory}")
-        model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
-        logger.info(f"model_dict: {model_dict}")
+            # create a session
+            session = sessions.Session()
+            sessions_path = file_utilities.create_directory(os.getcwd(), "sessions")
+            session_path = file_utilities.create_directory(sessions_path, session_name)
 
-        self.compute_segmentation(model_dict, percent_no_data)
-        self.postprocess_data(model_dict, session, roi_directory)
-        session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
-        print(f"\n Model results saved to {session.path}")
+            session.path = session_path
+            session.name = session_name
+            model_dict = {
+                "use_GPU": use_GPU,
+                "sample_direc": "",
+                "implementation": model_implementation,
+                "model_type": model_name,
+                "otsu": use_otsu,
+                "tta": use_tta,
+                "percent_no_data": percent_no_data,
+            }
+            # get parent roi_directory from the selected imagery directory
+            roi_directory = file_utilities.find_parent_directory(
+                src_directory, "ID_", "data"
+            )
+
+            print(f"Preprocessing the data at {roi_directory}")
+            model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
+            logger.info(f"model_dict: {model_dict}")
+
+            self.compute_segmentation(model_dict, percent_no_data)
+            self.postprocess_data(model_dict, session, roi_directory)
+            session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
+            print(f"\n Model results saved to {session.path}")
 
     def get_model_directory(self, model_id: str):
         # Create a directory to hold the downloaded models

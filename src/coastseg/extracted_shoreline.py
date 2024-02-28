@@ -1832,7 +1832,7 @@ class Extracted_Shoreline:
         water_classes_indices = get_indices_of_classnames(
             model_card_path, ["water", "whitewater"]
         )
-        # Sample class mapping {0:'water',   1:'whitewater', 2:'sand', 3:'rock'}
+        # Sample class mapping {0:'water',  1:'whitewater', 2:'sand', 3:'rock'}
         class_mapping = get_class_mapping(model_card_path)
 
         # get the reference shoreline
@@ -2087,6 +2087,12 @@ class Extracted_Shoreline:
                 self.shoreline_settings,
                 class_indices=class_indices,
                 class_mapping=class_mapping,
+            )
+            #@todo should this be saved here?
+            common.save_extracted_shoreline_figures(self.shoreline_settings, session_path)
+            # move extracted shoreline reports to session directory
+            common.move_report_files(
+                self.shoreline_settings, session_path, "extract_shorelines*.txt"
             )
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
