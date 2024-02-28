@@ -1497,6 +1497,7 @@ class CoastSeg_Map:
         rois_gdf: gpd.GeoDataFrame,
         shoreline_gdf: gpd.GeoDataFrame,
         settings: dict,
+        session_path: str=None,
     ) -> Optional[extracted_shoreline.Extracted_Shoreline]:
         """
         Extracts the shoreline for a given ROI and returns the extracted shoreline object.
@@ -1545,6 +1546,14 @@ class CoastSeg_Map:
             print(
                 f"An error occurred while extracting shoreline for ROI {roi_id}. \n Skipping to next ROI \n {e} \n {traceback.format_exc()}"
             )
+        if session_path:
+            shoreline_settings = extracted_shorelines.shoreline_settings
+            common.save_extracted_shoreline_figures(shoreline_settings, session_path)
+            # move extracted shoreline reports to session directory
+            common.move_report_files(
+                shoreline_settings, session_path, "extract_shorelines*.txt"
+            ) 
+
         return None
 
     def update_settings_with_accurate_epsg(self,gdf:gpd.GeoDataFrame):
@@ -1751,23 +1760,13 @@ class CoastSeg_Map:
             single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
             self.update_settings_with_accurate_epsg(single_roi)
     
-        # @todo make this change official after finding a way to test it properly    
-        # save the updated configs
-        # session_name = self.get_session_name()
-        # for roi_id in roi_ids:
-        #     # name of the directory where the extracted shorelines will be saved under the session name
-        #     ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-        #     session_path = file_utilities.create_session_path(
-        #                     session_name, ROI_directory
-        #                 )
-        #     self.save_config(session_path)
-    
-        
         #3. get selected ROIs on map and extract shoreline for each of them
         for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
+            # Create the session for the selected ROIs
+            session_path = self.create_session(self.get_session_name(), roi_id, save_config=True)
             print(f"Extracting shorelines from ROI with the id:{roi_id}")
             extracted_shorelines = self.extract_shoreline_for_roi(
-                roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings()
+                roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings(),session_path
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
 
@@ -1789,7 +1788,6 @@ class CoastSeg_Map:
         #6. Get ROI ids that are selected on map and have had their shorelines extracted, and compute transects for them
         # roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
         roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
-        print(f"Selected ROIs with extracted shorelines: {roi_ids_with_extracted_shorelines}")
         # BUT when map is running how do we only get the selected ones??
         selected_roi_ids = list(set(roi_ids) & set(roi_ids_with_extracted_shorelines))
         print(f"Selected ROIs with extracted shorelines: {selected_roi_ids}")
@@ -1963,60 +1961,85 @@ class CoastSeg_Map:
                 else:
                     return False
             return False
+                
+    def create_session(self, session_name: str, roi_id:str = None, save_config: bool = False) -> None:
+        """
+        Creates a session for coastline segmentation.
 
-      
-    def save_session(self, roi_ids: list[str], save_transects: bool = True):
-        # Save extracted shoreline info to session directory
-        session_name = self.get_session_name()
-        for roi_id in roi_ids:
-            ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-            # create session directory
-            session_path = file_utilities.create_session_path(
-                session_name, ROI_directory
-            )
-            # save source data
+        Args:
+            session_name (str): The name of the session.
+            roi_ids (list[str], optional): The list of ROI IDs. Defaults to None.
+            save_config (bool, optional): Whether to save the configuration. Defaults to False.
+
+        Returns:
+            None
+        """
+        # name of the directory where the extracted shorelines will be saved under the session name
+        ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
+        session_path = file_utilities.create_session_path(session_name, ROI_directory)
+        if save_config:
             self.save_config(session_path)
-            # save extracted shorelines
-            extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
-            logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
-            if extracted_shoreline is None:
-                logger.info(f"No extracted shorelines for ROI: {roi_id}")
-                continue
-            # move extracted shoreline figures to session directory
-            shoreline_settings = extracted_shoreline.shoreline_settings
-            common.save_extracted_shoreline_figures(shoreline_settings, session_path)
-            # move extracted shoreline reports to session directory
-            common.move_report_files(
-                shoreline_settings, session_path, "extract_shorelines*.txt"
-            )
-            # save the geojson and json files for extracted shorelines
-            common.save_extracted_shorelines(extracted_shoreline, session_path)
+        return session_path
+        
+    def save_session(self, roi_ids: list[str], save_transects: bool = True):
+            """
+            Save the extracted shoreline information to the session directory.
 
-            # save transects to session folder
-            if save_transects:
-                # get extracted_shorelines from extracted shoreline object in rois
-                extracted_shorelines_dict = extracted_shoreline.dictionary
-                # if no shorelines were extracted then skip
-                if extracted_shorelines_dict == {}:
-                    logger.info(f"No extracted shorelines for roi: {roi_id}")
-                    continue
-                cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
-                # if no cross distance was 0 then skip
-                if cross_shore_distance == 0:
-                    print(
-                        f"ROI: {roi_id} had no time-series of shoreline change along transects"
-                    )
-                    logger.info(f"ROI: {roi_id} cross distance is 0")
-                    continue
-
-                common.save_transects(
-                    roi_id,
-                    session_path,
-                    cross_shore_distance,
-                    extracted_shorelines_dict,
-                    self.get_settings(),
-                    self.transects.gdf
+            Args:
+                roi_ids (list[str]): List of ROI IDs.
+                save_transects (bool, optional): Flag to save transects. Defaults to True.
+            """
+            # Save extracted shoreline info to session directory
+            session_name = self.get_session_name()
+            for roi_id in roi_ids:
+                ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
+                # create session directory
+                session_path = file_utilities.create_session_path(
+                    session_name, ROI_directory
                 )
+                # save source data
+                self.save_config(session_path)
+                # save extracted shorelines
+                extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
+                logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
+                if extracted_shoreline is None:
+                    logger.info(f"No extracted shorelines for ROI: {roi_id}")
+                    continue
+                # move extracted shoreline figures to session directory
+                shoreline_settings = extracted_shoreline.shoreline_settings
+                common.save_extracted_shoreline_figures(shoreline_settings, session_path)
+                # move extracted shoreline reports to session directory
+                common.move_report_files(
+                    shoreline_settings, session_path, "extract_shorelines*.txt"
+                )
+                # save the geojson and json files for extracted shorelines
+                common.save_extracted_shorelines(extracted_shoreline, session_path)
+
+                # save transects to session folder
+                if save_transects:
+                    # get extracted_shorelines from extracted shoreline object in rois
+                    extracted_shorelines_dict = extracted_shoreline.dictionary
+                    # if no shorelines were extracted then skip
+                    if extracted_shorelines_dict == {}:
+                        logger.info(f"No extracted shorelines for roi: {roi_id}")
+                        continue
+                    cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
+                    # if no cross distance was 0 then skip
+                    if cross_shore_distance == 0:
+                        print(
+                            f"ROI: {roi_id} had no time-series of shoreline change along transects"
+                        )
+                        logger.info(f"ROI: {roi_id} cross distance is 0")
+                        continue
+
+                    common.save_transects(
+                        roi_id,
+                        session_path,
+                        cross_shore_distance,
+                        extracted_shorelines_dict,
+                        self.get_settings(),
+                        self.transects.gdf
+                    )
 
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
