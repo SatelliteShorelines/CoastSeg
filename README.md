@@ -128,7 +128,7 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
    - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
    - Make sure to install both jupyterlab and geopandas from the conda forge channel to avoid dependency conflicts
      ```bash
-     conda install -c conda-forge geopandas jupyterlab -y
+     conda install -c conda-forge geopandas -y
      ```
 4. Install the CoastSeg from PyPi
    ```bash
