@@ -5,15 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "1.1.41" 
+version = "1.1.42.dev1" 
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
 # find` directive with `include` or `exclude`
 description = "An interactive jupyter notebook for downloading satellite imagery"
 dependencies = [
-  "gdal>=3.8.4",
-  "h5py>=3.10.0",
   "pyTMD",
   "coastsat-package>=0.1.43",
   "area",
