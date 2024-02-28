@@ -2357,7 +2357,10 @@ def save_extracted_shoreline_figures(settings: dict, save_path: str):
 
     Args:
         settings (dict): A dictionary containing the settings for the extraction process.
+        Settings must contain the 'filepath' and 'sitename' keys.
+        Where 'filepath' is the path to the ROI within /data and 'sitename' is the name of the ROI. 
         save_path (str): The path where the extracted shoreline figures will be saved.
+        This is the session path where the extracted shorelines are saved.
     """
     # Get the data_path and sitename from the settings
     data_path = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
