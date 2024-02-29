@@ -2426,6 +2426,9 @@ def save_extracted_shorelines(
     :param extracted_shorelines: An Extracted_Shoreline object containing the extracted shorelines, shoreline settings, and dictionary.
     :param save_path: The path where the output files will be saved.
     """
+    if extracted_shorelines is None:
+        logger.warning("No extracted shorelines to save.")
+        return
     # create a geodataframe of the extracted_shorelines as linestrings
     extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
         extracted_shorelines.shoreline_settings["output_epsg"],
