@@ -1528,6 +1528,7 @@ class CoastSeg_Map:
                 shoreline_in_roi,
                 roi_settings,
                 settings,
+                output_directory=session_path,
             )
             logger.info(f"extracted_shoreline_dict[{roi_id}]: {extracted_shorelines}")
             return extracted_shorelines
@@ -1546,13 +1547,13 @@ class CoastSeg_Map:
             print(
                 f"An error occurred while extracting shoreline for ROI {roi_id}. \n Skipping to next ROI \n {e} \n {traceback.format_exc()}"
             )
-        if session_path:
-            shoreline_settings = extracted_shorelines.shoreline_settings
-            common.save_extracted_shoreline_figures(shoreline_settings, session_path)
-            # move extracted shoreline reports to session directory
-            common.move_report_files(
-                shoreline_settings, session_path, "extract_shorelines*.txt"
-            ) 
+        # if session_path:
+        #     shoreline_settings = extracted_shorelines.shoreline_settings
+        #     common.save_extracted_shoreline_figures(shoreline_settings, session_path)
+        #     # move extracted shoreline reports to session directory
+        #     common.move_report_files(
+        #         shoreline_settings, session_path, "extract_shorelines*.txt"
+        #     ) 
 
         return None
 
@@ -1769,6 +1770,8 @@ class CoastSeg_Map:
                 roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings(),session_path
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+            # save the geojson and json files for extracted shorelines
+            common.save_extracted_shorelines(extracted_shorelines, session_path)
 
         #4. save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(
@@ -1924,22 +1927,8 @@ class CoastSeg_Map:
             cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
             self.save_session([roi_id],save_transects=True)
-        # for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
-        #     # get transects that intersect with ROI
-        #     single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
-        #     # save cross distances by ROI id
-        #     transects_in_roi_gdf = transects_gdf[
-        #         transects_gdf.intersects(single_roi.unary_union)
-        #     ]
-        #     cross_distance, failure_reason = self.get_cross_distance(
-        #         str(roi_id), transects_in_roi_gdf, settings, output_epsg
-        #     )
-        #     if cross_distance == 0:
-        #         logger.warning(f"{failure_reason} for ROI {roi_id}")
-        #         print(f"{failure_reason} for ROI {roi_id}")
-        #     self.rois.add_cross_shore_distances(cross_distance, roi_id)
-
-        self.save_session(roi_ids)
+        #@todo test if you can remove this safely
+        # self.save_session(roi_ids)
 
     def session_exists(self, session_name: str) -> bool:
             """
@@ -2006,12 +1995,12 @@ class CoastSeg_Map:
                     logger.info(f"No extracted shorelines for ROI: {roi_id}")
                     continue
                 # move extracted shoreline figures to session directory
-                shoreline_settings = extracted_shoreline.shoreline_settings
-                common.save_extracted_shoreline_figures(shoreline_settings, session_path)
-                # move extracted shoreline reports to session directory
-                common.move_report_files(
-                    shoreline_settings, session_path, "extract_shorelines*.txt"
-                )
+                # shoreline_settings = extracted_shoreline.shoreline_settings
+                # common.save_extracted_shoreline_figures(shoreline_settings, session_path)
+                # # move extracted shoreline reports to session directory
+                # common.move_report_files(
+                #     shoreline_settings, session_path, "extract_shorelines*.txt"
+                # )
                 # save the geojson and json files for extracted shorelines
                 common.save_extracted_shorelines(extracted_shoreline, session_path)
 
