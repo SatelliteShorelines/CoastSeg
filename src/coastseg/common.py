@@ -37,6 +37,147 @@ from coastseg.validation import find_satellite_in_filename
 # Logger setup
 logger = logging.getLogger(__name__)
 
+def delete_unmatched_rows(
+    data_dict: Dict[str, Union[List[Any], pd.Series]],
+    dates_list: List[Union[str, pd.Timestamp]],
+    sat_list: List[str],
+) -> Dict[str, Union[List[Any], pd.Series]]:
+    """
+    Delete rows in the data dictionary that do not match any of the specified dates and satellite names.
+
+    This function accepts a dictionary containing at least two keys: 'dates' and 'satname'.
+    It then deletes rows where the date and satellite name do not match any of those provided in
+    the dates_list and sat_list respectively, and returns the updated dictionary.
+
+    Parameters:
+    - data_dict (Dict[str, Union[List[Any], pd.Series]]): The dictionary containing data arrays.
+                                                          Expected keys are 'dates' and 'satname'.
+                                                          If the keys are absent, they will be set with empty lists.
+    - dates_list (List[Union[str, pd.Timestamp]]): A list containing dates to match against.
+    - sat_list (List[str]): A list containing satellite names to match against.
+
+    Returns:
+    - Dict[str, Union[List[Any], pd.Series]]: The updated dictionary where rows that do not match any of the provided lists
+                                              have been deleted. Returns the original dictionary if all rows match or if the data_dict is empty.
+
+    Examples:
+    >>> data = {'dates': ['2021-01-01', '2021-01-02'], 'satname': ['sat1', 'sat2']}
+    >>> delete_unmatched_rows(data, ['2021-01-01'], ['sat1'])
+    {'dates': ['2021-01-01'], 'satname': ['sat1']}
+    """
+    if not data_dict:
+        return data_dict
+    data_dict.setdefault("dates", [])
+    data_dict.setdefault("satname", [])
+    # Convert dictionary to DataFrame
+    df = pd.DataFrame(data_dict)
+
+    # Delete rows that do not match any of the dates or satellite names
+    df = df[df["dates"].isin(dates_list) & df["satname"].isin(sat_list)]
+
+    # Convert DataFrame back to dictionary
+    updated_dict = df.to_dict('list')
+
+    return updated_dict
+
+def filter_extract_dict(gdf, extracted_shorelines_dict):
+    sats = np.array(gdf.satname)
+    dates = np.array(pd.to_datetime(gdf['date']).dt.tz_localize('UTC'))
+    selected_indexes=get_selected_indexes(extracted_shorelines_dict,
+                                dates_list=dates,
+                                sat_list=sats)
+    print(f"selected_indexes: {selected_indexes}")
+
+    # convert gdf to the output epsg otherwise output dict will not be in correct crs
+    gdf.to_crs(32618, inplace=True)
+    # update the extracted_shorelines_dict with the selected indexes
+    for idx in selected_indexes:
+        extracted_shorelines_dict['shorelines'][idx] = np.array(gdf.iloc[idx].geometry.coords)
+
+    # Check if any shorelines were removed from the gdf that are still in the extracted_shorelines_dict
+    extracted_shorelines_dict = delete_unmatched_rows(extracted_shorelines_dict, dates_list=dates,
+                                sat_list=sats)
+    # return extracted_shorelines_dict
+    print(f"Mumber of shorelines: {len(extracted_shorelines_dict['shorelines'])}")
+    return extracted_shorelines_dict
+
+from shapely import geometry
+def arr_to_LineString(coords):
+    """
+    Makes a line feature from a list of xy tuples
+    inputs: coords
+    outputs: line
+    """
+    points = [None]*len(coords)
+    i=0
+    for xy in coords:
+        points[i] = shapely.geometry.Point(xy)
+        i=i+1
+    line = shapely.geometry.LineString(points)
+    return line
+
+def LineString_to_arr(line):
+    """
+    Makes an array from linestring
+    inputs: line
+    outputs: array of xy tuples
+    """
+    listarray = []
+    for pp in line.coords:
+        listarray.append(pp)
+    nparray = np.array(listarray)
+    return nparray
+
+
+
+def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDataFrame)->gpd.GeoDataFrame:
+    """
+    Filters shorelines that are within a reference polygon.
+    filters extracted shorelines that are not contained within a reference region/polygon
+
+    Args:
+        ref_poly_gdf (GeoDataFrame): A GeoDataFrame representing the reference polygon.
+        raw_shorelines_gdf (GeoDataFrame): A GeoDataFrame representing the raw shorelines.
+
+    Returns:
+        GeoDataFrame: A filtered GeoDataFrame containing shorelines that are within the reference polygon.
+    """
+    ##First need to get rid of lines that are completely outside of the ref polygon
+    ref_polygon = ref_poly_gdf.geometry
+    buffer_vals = [None]*len(raw_shorelines_gdf)
+    for i in range(len(raw_shorelines_gdf)):
+        line_entry = raw_shorelines_gdf.iloc[i]
+        line = line_entry.geometry
+        bool_val = ref_polygon.intersects(line).values[0]
+        buffer_vals[i] = bool_val
+    # add whether the line is within the buffer to the GeoDataFrame
+    raw_shorelines_gdf['buffer_vals'] = buffer_vals
+    # filter out lines that are not within the buffer
+    shorelines_gdf_filter = raw_shorelines_gdf[raw_shorelines_gdf['buffer_vals']]
+
+    ##Now get rid of points that lie outside ref polygon but preserve the rest of the shoreline
+    new_lines = [None]*len(shorelines_gdf_filter)
+    for i in range(len(shorelines_gdf_filter)):
+        line_entry = shorelines_gdf_filter.iloc[i]
+        line = line_entry.geometry
+        line_arr = LineString_to_arr(line)
+        bool_vals = [None]*len(line_arr)
+        j = 0
+        for point in line_arr:
+            point = geometry.Point(point)
+            bool_val = ref_polygon.contains(point)[0]
+            bool_vals[j] = bool_val
+            j=j+1
+        new_line_arr = line_arr[bool_vals]
+        new_line_LineString = arr_to_LineString(new_line_arr)
+        new_lines[i] = new_line_LineString
+
+    ##Assign the new geometries, save the output
+    shorelines_gdf_filter['geometry'] = new_lines
+    shorelines_gdf_filter = shorelines_gdf_filter.drop(columns=['buffer_vals'])
+
+    return shorelines_gdf_filter
+
 def merge_dataframes(df1, df2, columns_to_merge_on=set(["transect_id", "dates"])):
     """
     Merges two DataFrames based on column names provided in columns_to_merge_on by default
@@ -895,7 +1036,7 @@ def delete_jpg_files(
 
 
 def filter_partial_images(
-    roi_gdf: gpd.geodataframe,
+    roi_gdf: gpd.GeoDataFrame,
     directory: str,
     min_area_percentage: float = 0.40,
     max_area_percentage: float = 1.5,
@@ -932,7 +1073,7 @@ def filter_partial_images(
     )
 
 
-def get_roi_area(gdf: gpd.geodataframe) -> float:
+def get_roi_area(gdf: gpd.GeoDataFrame) -> float:
     """
     Calculates the area of the Region of Interest (ROI) from the given GeoDataFrame.
 
@@ -1602,7 +1743,7 @@ def get_most_accurate_epsg(epsg_code: int, polygon: gpd.GeoDataFrame):
     """Returns most accurate epsg code based on lat and lon if epsg code is 4326 or 4327. If not 4326 or 4327 returns unchanged epsg code
     Args:
         epsg_code(int or str): current epsg code
-        bbox (gpd.GeoDataFrame): geodataframe for bounding box on map
+        bbox (gpd.GeoDataFrame): GeoDataFrame for bounding box on map
     Returns:
         int: epsg code that is most accurate or unchanged if crs not 4326 or 4327
     """
@@ -1728,7 +1869,7 @@ def get_ids_with_invalid_area(
                     rows_drop.add(i)
             return rows_drop
     else:
-        raise TypeError("Must be geodataframe")
+        raise TypeError("Must be GeoDataFrame")
 
 
 def load_cross_distances_from_file(dir_path):
@@ -2031,24 +2172,24 @@ def convert_wgs_to_utm(lon: float, lat: float) -> str:
     return epsg_code
 
 
-def extract_roi_by_id(gdf: gpd.geodataframe, roi_id: int) -> gpd.geodataframe:
-    """Returns geodataframe with a single ROI whose id matches roi_id.
+def extract_roi_by_id(gdf: gpd.GeoDataFrame, roi_id: int) -> gpd.GeoDataFrame:
+    """Returns GeoDataFrame with a single ROI whose id matches roi_id.
        If roi_id is None returns gdf
 
     Args:
-        gdf (gpd.geodataframe): ROI geodataframe to extract ROI with roi_id from
+        gdf (gpd.GeoDataFrame): ROI GeoDataFrame to extract ROI with roi_id from
         roi_id (int): id of the ROI to extract
     Raises:
-        exceptions.Id_Not_Found: if id doesn't exist in ROI's geodataframe or self.rois.gdf is empty
+        exceptions.Id_Not_Found: if id doesn't exist in ROI's GeoDataFrame or self.rois.gdf is empty
     Returns:
-        gpd.geodataframe: ROI with id matching roi_id
+        gpd.GeoDataFrame: ROI with id matching roi_id
     """
     if roi_id is None:
         single_roi = gdf
     else:
         # Select a single roi by id
         single_roi = gdf[gdf["id"].astype(str) == str(roi_id)]
-        # if the id was not found in the geodataframe raise an exception
+        # if the id was not found in the GeoDataFrame raise an exception
     if single_roi.empty:
         logger.error(f"Id: {id} was not found in {gdf}")
         raise exceptions.Id_Not_Found(id)
@@ -2114,7 +2255,7 @@ def extract_fields(data: dict, key=None, fields_of_interest:list=None)->dict:
 
 def check_unique_ids(data: gpd.GeoDataFrame) -> bool:
     """
-    Checks if all the ids in the 'id' column of a geodataframe are unique. If the 'id' column does not exist returns False
+    Checks if all the ids in the 'id' column of a GeoDataFrame are unique. If the 'id' column does not exist returns False
 
     Args:
         data (gpd.GeoDataFrame): A GeoDataFrame with an 'id' column.
@@ -2176,7 +2317,7 @@ def preprocess_geodataframe(
     return data
 
 
-def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
+def get_transect_points_dict(feature: gpd.GeoDataFrame) -> dict:
     """Returns dict of np.arrays of transect start and end points
     Example
     {
@@ -2186,7 +2327,7 @@ def get_transect_points_dict(feature: gpd.geodataframe) -> dict:
         [-13820900.16320004,   4995862.31860808]])
     }
     Args:
-        feature (gpd.geodataframe): clipped transects within roi
+        feature (gpd.GeoDataFrame): clipped transects within roi
     Returns:
         dict: dict of np.arrays of transect start and end points
         of form {
@@ -2275,20 +2416,20 @@ def save_transect_intersections(
 
 
 def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """If the geodataframe has z coordinates in any rows, the z coordinates are dropped.
-    Otherwise the original geodataframe is returned.
+    """If the GeoDataFrame has z coordinates in any rows, the z coordinates are dropped.
+    Otherwise the original GeoDataFrame is returned.
 
     Additionally any multi part geometeries will be exploded into single geometeries.
     eg. MutliLineStrings will be converted into LineStrings.
     Args:
-        geodf (gpd.GeoDataFrame): geodataframe to check for z-axis
+        geodf (gpd.GeoDataFrame): GeoDataFrame to check for z-axis
 
     Returns:
         gpd.GeoDataFrame: original dataframe if there is no z axis. If a z axis is found
-        a new geodataframe is returned with z axis dropped.
+        a new GeoDataFrame is returned with z axis dropped.
     """
     if geodf.empty:
-        logger.warning(f"Empty geodataframe has no z-axis")
+        logger.warning(f"Empty GeoDataFrame has no z-axis")
         return geodf
 
     # if any row has a z coordinate then remove the z_coordinate
@@ -2423,7 +2564,7 @@ def save_extracted_shorelines(
     :param extracted_shorelines: An Extracted_Shoreline object containing the extracted shorelines, shoreline settings, and dictionary.
     :param save_path: The path where the output files will be saved.
     """
-    # create a geodataframe of the extracted_shorelines as linestrings
+    # create a GeoDataFrame of the extracted_shorelines as linestrings
     extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
         extracted_shorelines.shoreline_settings["output_epsg"],
         output_crs="EPSG:4326",
@@ -2643,7 +2784,7 @@ def save_config_files(
     # save config files
     config_json = create_json_config(roi_settings, shoreline_settings, roi_ids=roi_ids)
     file_utilities.config_to_file(config_json, save_location)
-    # save a config geodataframe with the rois, reference shoreline and transects
+    # save a config GeoDataFrame with the rois, reference shoreline and transects
     if roi_gdf is not None:
         if not roi_gdf.empty:
             epsg_code = roi_gdf.crs

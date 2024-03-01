@@ -434,7 +434,7 @@ class CoastSeg_Map:
         # load the extracted shorelines for the selected ROI ID
         if self.rois is not None:
             extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
-            # get the geodataframe for the extracted shorelines
+            # get the GeoDataFrame for the extracted shorelines
             if hasattr(extracted_shorelines, "gdf"):
                 selected_gdf = get_selected_shorelines(
                     extracted_shorelines.gdf, selected_shorelines
@@ -762,7 +762,7 @@ class CoastSeg_Map:
             exception_handler.check_if_dirs_missing(missing_directories,data_path)
 
     def load_gdf_config(self, filepath: str) -> None:
-        """Load features from geodataframe located in geojson file at filepath onto map.
+        """Load features from GeoDataFrame located in geojson file at filepath onto map.
 
         Features in config file should contain a column named "type" which contains one of the
         following possible feature types: "roi", "shoreline", "transect", "bbox".
@@ -1128,11 +1128,11 @@ class CoastSeg_Map:
         )
         transects_gdf = getattr(self.transects, "gdf", None) if self.transects else None
         bbox_gdf = getattr(self.bbox, "gdf", None) if self.bbox else None
-        # get the geodataframe containing all the selected rois
+        # get the GeoDataFrame containing all the selected rois
         selected_rois = self.rois.gdf[self.rois.gdf["id"].isin(roi_ids)]
         logger.info(f"selected_rois: {selected_rois}")
 
-        # save all selected rois, shorelines, transects and bbox to config geodataframe
+        # save all selected rois, shorelines, transects and bbox to config GeoDataFrame
         if selected_rois is not None:
             if not selected_rois.empty:
                 epsg_code = selected_rois.crs
@@ -1457,7 +1457,7 @@ class CoastSeg_Map:
             extracted_shoreline_dict = None
             for file in glob.glob(glob_str):
                 if file.endswith(".geojson"):
-                    # load geodataframe
+                    # load GeoDataFrame
                     extracted_sl_gdf = geodata_processing.read_gpd_file(file)
                 if file.endswith(".json"):
                     if "settings" in os.path.basename(file):
@@ -1788,6 +1788,67 @@ class CoastSeg_Map:
 
         #4. save a session for each ROI under one session name
         self.save_session(roi_ids, save_transects=False)
+    
+        # save filtered extracted shorelines to session directory
+        # if extracted_shorelines_gdf_lines is not None and self.ref_buffer_polygon is not None:
+        #     filtered_shorelines_gdf=common.ref_poly_filter(self.ref_buffer_polygon.gdf,extracted_shorelines_gdf_lines)
+            
+            # Save extracted shorelines to GeoJSON files
+            # extracted_shoreline.to_file(
+            #     session_path, "extracted_shorelines_filtered_lines.geojson",filtered_shorelines_gdf
+            # )
+            # points_gdf = common.convert_linestrings_to_multipoints(filtered_shorelines_gdf)
+            # projected_gdf = common.stringify_datetime_columns(points_gdf)
+            # # Save extracted shorelines as a GeoJSON file
+            # extracted_shoreline.to_file(
+            #     session_path, "extracted_shorelines_filtered_points.geojson", projected_gdf
+            # )
+    
+        # if a reference shoreline buffer polygon was drawn filter the extracted shorelines
+        if self.ref_buffer_polygon is not None:
+            # filter the gdfs to only include the extracted shorelines that intersect with the reference buffer polygon
+            roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
+            session_name = self.get_session_name()
+            for roi_id in roi_ids_with_extracted_shorelines:
+                ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
+                # create session directory
+                session_path = file_utilities.create_session_path(
+                    session_name, ROI_directory
+                )
+                extracted_shorelines = self.rois.get_extracted_shoreline(roi_id)
+                extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
+                    extracted_shorelines.shoreline_settings["output_epsg"],
+                    output_crs="EPSG:4326",
+                    geomtype="lines",
+                )
+                if extracted_shorelines_gdf_lines is not None and self.ref_buffer_polygon is not None:
+                    filtered_shorelines_gdf=common.ref_poly_filter(self.ref_buffer_polygon.gdf,extracted_shorelines_gdf_lines)
+                    # Save extracted shorelines to GeoJSON files
+                    extracted_shorelines.to_file(
+                        session_path, "extracted_shorelines_lines.geojson",filtered_shorelines_gdf
+                    )
+                    points_gdf = common.convert_linestrings_to_multipoints(extracted_shorelines.gdf)
+                    projected_gdf = common.stringify_datetime_columns(points_gdf)
+                    # Save extracted shorelines as a GeoJSON file
+                    extracted_shorelines.to_file(
+                        session_path, "extracted_shorelines_points.geojson", projected_gdf
+                    )
+                    extracted_shorelines.gdf = projected_gdf
+                    new_extracted_dict = common.filter_extract_dict(filtered_shorelines_gdf,extracted_shorelines.dictionary)
+                    print(f"New extracted dict: {new_extracted_dict}")
+                    extracted_shorelines.dictionary = new_extracted_dict
+                    extracted_shorelines.to_file(
+                        session_path,
+                        "extracted_shorelines_dict.json",
+                        extracted_shorelines.dictionary,
+                    )
+                    
+            # update the dictionary of extracted shorelines
+            # update the config_gdf files
+            # update extracted shorelines points gdf
+            # update extracted_shorelines_dict.json 
+              # make sure to convert the shorelines to array and to output crs in the settings
+            
 
         #6. Get ROI ids that are selected on map and have had their shorelines extracted, and compute transects for them
         # roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
@@ -1851,6 +1912,7 @@ class CoastSeg_Map:
             transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
             # Compute cross shore distance of transects and extracted shorelines
             extracted_shorelines_dict = roi_extracted_shoreline.dictionary
+            print(f"transects extracted_shorelines_dict: {extracted_shorelines_dict}")
             cross_distance = extracted_shoreline.compute_transects_from_roi(
                 extracted_shorelines_dict,
                 transects_in_roi_gdf,
@@ -2368,7 +2430,7 @@ class CoastSeg_Map:
     def load_feature_on_map(
         self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs
     ) -> None:
-        """Loads feature of type feature_name onto the map either from a file or from a geodataframe given by gdf
+        """Loads feature of type feature_name onto the map either from a file or from a GeoDataFrame given by gdf
 
         if feature_name given is not one "shoreline","transects","bbox", or "rois" throw exception
 
@@ -2376,7 +2438,7 @@ class CoastSeg_Map:
             feature_name (str): name of feature must be one of the following
             "shoreline","transects","bbox","rois"
             file (str, optional): geojson file containing feature. Defaults to "".
-            gdf (gpd.GeoDataFrame, optional): geodataframe containing feature geometry. Defaults to None.
+            gdf (gpd.GeoDataFrame, optional): GeoDataFrame containing feature geometry. Defaults to None.
         """
         new_feature = None
         
@@ -2402,13 +2464,13 @@ class CoastSeg_Map:
             )
         
     def make_feature(self, feature_name: str, gdf: gpd.GeoDataFrame=None, **kwargs) -> Feature:
-        """Creates a new feature of type feature_name from a given geodataframe.
+        """Creates a new feature of type feature_name from a given GeoDataFrame.
         If no gdf is provided then a default feature is created if the feature_name is "rois" "shoreline" or "transects"
 
         Args:
             feature_name (str): name of feature must be one of the following
             "shoreline","transects","bbox","rois"
-            gdf (gpd.GeoDataFrame): geodataframe containing feature geometry optional. Defaults to None.
+            gdf (gpd.GeoDataFrame): GeoDataFrame containing feature geometry optional. Defaults to None.
             
 
         Returns:
@@ -2448,14 +2510,14 @@ class CoastSeg_Map:
         return new_feature
     
     def load_feature_from_gdf(self, feature_name: str, gdf: gpd.GeoDataFrame, **kwargs) -> Feature:
-        """Loads feature of type feature_name from a geodataframe and creates it as a new feature.
+        """Loads feature of type feature_name from a GeoDataFrame and creates it as a new feature.
         Available feature types are "shoreline","transects","bbox", or "rois".
         Must be lowercase.
 
         Args:
             feature_name (str): name of feature must be one of the following
             "shoreline","transects","bbox","rois"
-            gdf (gpd.GeoDataFrame): geodataframe containing feature geometry
+            gdf (gpd.GeoDataFrame): GeoDataFrame containing feature geometry
         Returns:
             Feature: new feature created from gdf.
         """
@@ -2497,7 +2559,7 @@ class CoastSeg_Map:
         # if layer name is not given use the layer name of the feature
         if not layer_name and hasattr(new_feature, "LAYER_NAME"):
             layer_name = new_feature.LAYER_NAME
-        # if the feature has a geodataframe zoom the map to the bounds of the feature
+        # if the feature has a GeoDataFrame zoom the map to the bounds of the feature
         # if zoom_to_bounds and hasattr(new_feature, "gdf"):
         #     bounds = new_feature.gdf.total_bounds
         #     self.map.zoom_to_bounds(bounds)
@@ -2566,22 +2628,22 @@ class CoastSeg_Map:
         Creates a layer for the map using the given feature and layer name.
 
         Args:
-            feature (Feature): The feature containing the geodataframe for the layer.
+            feature (Feature): The feature containing the GeoDataFrame for the layer.
             layer_name (str): The name of the layer.
 
         Returns:
             GeoJSON: The styled layer in GeoJSON format.
         """
         if not hasattr(feature, "gdf"):
-            logger.warning("Cannot add an empty geodataframe layer to the map.")
+            logger.warning("Cannot add an empty GeoDataFrame layer to the map.")
             print("Cannot add an empty layer to the map.")
             return None
         if feature.gdf is None:
-            logger.warning("Cannot add an empty geodataframe layer to the map.")
+            logger.warning("Cannot add an empty GeoDataFrame layer to the map.")
             print("Cannot add an empty layer to the map.")
             return None
         if feature.gdf.empty:
-            logger.warning("Cannot add an empty geodataframe layer to the map.")
+            logger.warning("Cannot add an empty GeoDataFrame layer to the map.")
             print("Cannot add an empty layer to the map.")
             return None
         else:
