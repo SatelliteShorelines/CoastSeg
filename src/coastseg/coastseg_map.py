@@ -219,6 +219,9 @@ class CoastSeg_Map:
         self.roi_widget = None
         self.feature_html = None
         self.hover_box = None
+        # Assume that the user is not drawing a reference buffer
+        self.drawing_ref_buffer = False
+        self.ref_buffer_polygon = None
         
         
         self.set_settings()
@@ -2204,6 +2207,19 @@ class CoastSeg_Map:
         if (
             self.draw_control.last_action == "created"
         ):
+            if self.drawing_ref_buffer == True:
+                from coastseg.reference_shoreline_buffer import Reference_Shoreline_Buffer
+                # get the last drawn geometry
+                geom = [shape(self.draw_control.last_draw["geometry"])]
+                gdf = gpd.GeoDataFrame({"geometry": geom},crs="EPSG:4326")
+                self.ref_buffer_polygon = Reference_Shoreline_Buffer(gdf)
+                # add layer to the map
+                self.add_feature_on_map(self.ref_buffer_polygon,self.ref_buffer_polygon.LAYER_NAME,self.ref_buffer_polygon.LAYER_NAME)
+                self.drawing_ref_buffer = False
+                # clear draw control
+                self.draw_control.clear()
+                return
+            
             # validate the bbox size
             geometry = self.draw_control.last_draw["geometry"]
             bbox_area = common.get_area(geometry)
@@ -2570,13 +2586,6 @@ class CoastSeg_Map:
             return None
         else:
             styled_layer = feature.style_layer(feature.gdf, layer_name)
-        # if "transects" in layer_name.lower():
-        #     styled_layer = feature.style_layer(feature.gdf, layer_name)
-        # else:
-        #     # load the feature from the geodataframe into json
-        #     layer_geojson = json.loads(feature.gdf.to_json())
-        #     # convert layer to GeoJson and style it accordingly
-        #     styled_layer = feature.style_layer(layer_geojson, layer_name)
         return styled_layer
 
     def geojson_onclick_handler(
