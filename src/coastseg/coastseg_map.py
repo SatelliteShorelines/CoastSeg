@@ -1128,6 +1128,8 @@ class CoastSeg_Map:
         )
         transects_gdf = getattr(self.transects, "gdf", None) if self.transects else None
         bbox_gdf = getattr(self.bbox, "gdf", None) if self.bbox else None
+        ref_polygon_gdf = getattr(self.ref_buffer_polygon, "gdf", None) if self.ref_buffer_polygon else None
+        
         # get the GeoDataFrame containing all the selected rois
         selected_rois = self.rois.gdf[self.rois.gdf["id"].isin(roi_ids)]
         logger.info(f"selected_rois: {selected_rois}")
@@ -1822,18 +1824,20 @@ class CoastSeg_Map:
                     geomtype="lines",
                 )
                 if extracted_shorelines_gdf_lines is not None and self.ref_buffer_polygon is not None:
+                    # filter the extracted shorelines to only include the ones that intersect with the reference buffer polygon
                     filtered_shorelines_gdf=common.ref_poly_filter(self.ref_buffer_polygon.gdf,extracted_shorelines_gdf_lines)
                     # Save extracted shorelines to GeoJSON files
                     extracted_shorelines.to_file(
                         session_path, "extracted_shorelines_lines.geojson",filtered_shorelines_gdf
                     )
-                    points_gdf = common.convert_linestrings_to_multipoints(extracted_shorelines.gdf)
-                    projected_gdf = common.stringify_datetime_columns(points_gdf)
+                    filtered_points_gdf = common.convert_linestrings_to_multipoints(filtered_shorelines_gdf.copy())
+                    filtered_points_gdf = common.stringify_datetime_columns(filtered_points_gdf)
                     # Save extracted shorelines as a GeoJSON file
                     extracted_shorelines.to_file(
-                        session_path, "extracted_shorelines_points.geojson", projected_gdf
+                        session_path, "extracted_shorelines_points.geojson", filtered_points_gdf
                     )
-                    extracted_shorelines.gdf = projected_gdf
+                    extracted_shorelines.gdf = filtered_points_gdf
+                    # new_extracted_dict = common.filter_extract_dict(filtered_shorelines_gdf,extracted_shorelines.dictionary)
                     new_extracted_dict = common.filter_extract_dict(filtered_shorelines_gdf,extracted_shorelines.dictionary)
                     print(f"New extracted dict: {new_extracted_dict}")
                     extracted_shorelines.dictionary = new_extracted_dict

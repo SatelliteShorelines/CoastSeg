@@ -80,25 +80,41 @@ def delete_unmatched_rows(
 
     return updated_dict
 
-def filter_extract_dict(gdf, extracted_shorelines_dict):
+def filter_extract_dict(
+    gdf: gpd.GeoDataFrame,
+    extracted_shorelines_dict: Dict[str, Union[List[np.ndarray], np.ndarray]]
+) -> Dict[str, Union[List[np.ndarray], np.ndarray]]:
+    """
+    Filters and updates the extracted shorelines dictionary based on the selected indexes from a GeoDataFrame.
+
+    Args:
+        gdf (GeoDataFrame): The a GeoDataFrame containing  filtered shorelines.
+        - Gdf must have columns 'satname' and 'date' representing the satellite name and date of the shoreline data.
+        extracted_shorelines_dict (dict): The extracted shorelines dictionary to be updated. It contains the following:
+        - The dictionary must contain a key 'shorelines' with a list of NumPy arrays representing the shorelines.
+        - The dictionary must also contain a key 'dates' with a list of dates corresponding to the shorelines.
+        - The dictionary must also contain a key 'satname' with a list of satellite names corresponding to the shorelines.
+
+    Returns:
+        dict: The updated extracted shorelines dictionary. That has removed any shorelines that are not in the gdf.
+
+    """
     sats = np.array(gdf.satname)
     dates = np.array(pd.to_datetime(gdf['date']).dt.tz_localize('UTC'))
-    selected_indexes=get_selected_indexes(extracted_shorelines_dict,
-                                dates_list=dates,
-                                sat_list=sats)
+    selected_indexes = get_selected_indexes(extracted_shorelines_dict, dates_list=dates, sat_list=sats)
     print(f"selected_indexes: {selected_indexes}")
 
     # convert gdf to the output epsg otherwise output dict will not be in correct crs
     gdf.to_crs(32618, inplace=True)
+
     # update the extracted_shorelines_dict with the selected indexes
     for idx in selected_indexes:
         extracted_shorelines_dict['shorelines'][idx] = np.array(gdf.iloc[idx].geometry.coords)
 
     # Check if any shorelines were removed from the gdf that are still in the extracted_shorelines_dict
-    extracted_shorelines_dict = delete_unmatched_rows(extracted_shorelines_dict, dates_list=dates,
-                                sat_list=sats)
-    # return extracted_shorelines_dict
-    print(f"Mumber of shorelines: {len(extracted_shorelines_dict['shorelines'])}")
+    extracted_shorelines_dict = delete_unmatched_rows(extracted_shorelines_dict, dates_list=dates, sat_list=sats)
+
+    print(f"Number of shorelines: {len(extracted_shorelines_dict['shorelines'])}")
     return extracted_shorelines_dict
 
 from shapely import geometry
@@ -2685,6 +2701,7 @@ def create_config_gdf(
     transects_gdf: gpd.GeoDataFrame = None,
     bbox_gdf: gpd.GeoDataFrame = None,
     epsg_code: int = None,
+    reference_polygon_gdf: gpd.GeoDataFrame = None,
 ) -> gpd.GeoDataFrame:
     """
     Create a concatenated GeoDataFrame from provided GeoDataFrames with a consistent CRS.
@@ -2696,7 +2713,8 @@ def create_config_gdf(
     - bbox_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing bounding boxes. Defaults to None.
     - epsg_code (int, optional): The EPSG code for the desired CRS. If not provided and rois_gdf is non-empty,
       the CRS of rois_gdf will be used. If not provided and rois_gdf is empty, an error will be raised.
-
+    - reference_polygon (gpd.GeoDataFrame, optional): The GeoDataFrame containing a reference polygon used to only keep shoreline vector that intersect with this region.
+       Defaults to None.
     Returns:
     - gpd.GeoDataFrame: A concatenated GeoDataFrame with a consistent CRS, and a "type" column
       indicating the type of each geometry (either "roi", "shoreline", "transect", or "bbox").
@@ -2723,6 +2741,7 @@ def create_config_gdf(
         "shoreline": shorelines_gdf,
         "transect": transects_gdf,
         "bbox": bbox_gdf,
+        "reference_polygon": reference_polygon_gdf,
     }
 
     # initialize each gdf
