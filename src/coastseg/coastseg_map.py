@@ -1991,8 +1991,9 @@ class CoastSeg_Map:
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
             cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
-            self.save_session([roi_id],save_transects=True)
-        # self.save_session(roi_ids)
+
+        # save all the transects at the end (cannot save config files without specifying all ROI Ids otherwise not show all the ROIs will show in config)
+        self.save_session(roi_ids=roi_ids,save_transects=True)
 
     def session_exists(self, session_name: str) -> bool:
             """
