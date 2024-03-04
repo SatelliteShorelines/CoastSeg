@@ -17,6 +17,7 @@ from IPython.display import display
 from ipyfilechooser import FileChooser
 from google.auth import exceptions as google_auth_exceptions
 from ipywidgets import Button
+from ipywidgets import RadioButtons
 from ipywidgets import HBox
 from ipywidgets import VBox
 from ipywidgets import Layout
@@ -606,6 +607,31 @@ class UI:
         load_buttons = VBox([load_instr, self.load_radio, self.load_button])
         return load_buttons
 
+    def draw_control_section(self):
+        load_instr = HTML(
+            value="<h2>Draw Controls</h2>\
+                Select to draw either a bounding box or shoreline extraction area on the map.\
+                </br>Bounding boxes are green\
+               </br>Shoreline extraction area is purple.(optional)\
+                ",
+            layout=Layout(padding="0px"),
+        )
+        # Draw controls
+        self.draw_feature_controls = RadioButtons(
+            options=["Bounding Box","Shoreline Extraction Area",],
+            value="Bounding Box",
+            description="Draw Controls:",
+            disabled=False,
+            layout={'width': 'max-content'},
+            orientation="vertical",
+        )
+
+        self.draw_feature_controls.observe(self.on_draw_feature_controls_change, names="value")
+
+
+        load_buttons = VBox([load_instr,self.draw_feature_controls,])
+        return load_buttons
+
     def remove_buttons(self):
         # define remove feature radio box button
         remove_instr = HTML(
@@ -622,6 +648,7 @@ class UI:
                 "Selected ROIs",
                 "Selected Shorelines",
                 "Extracted Shorelines",
+                "Shoreline Extraction Area"
             ],
             value="Shoreline",
             description="",
@@ -791,6 +818,7 @@ class UI:
         """creates a dashboard containing all the buttons, instructions and widgets organized together."""
         # Buttons to load shoreline or transects in bbox on map
         load_buttons = self.load_feature_on_map_buttons()
+        draw_control_section = self.draw_control_section()
         remove_buttons = self.remove_buttons()
         save_to_file_buttons = self.save_to_file_buttons()
 
@@ -834,7 +862,7 @@ class UI:
         )
         ROI_btns_box = VBox([area_control_box, self.gen_button])
         roi_controls_box = VBox(
-            [self.instr_create_roi, ROI_btns_box, load_buttons],
+            [self.instr_create_roi, ROI_btns_box, load_buttons,draw_control_section],
             layout=Layout(margin="0px 5px 5px 0px"),
         )
         self.settings_row = HBox(
@@ -934,6 +962,15 @@ class UI:
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+
+    def on_draw_feature_controls_change(self, change):
+        if change["new"] == "Bounding Box":
+            self.coastseg_map.drawing_shoreline_extraction_area = False
+            self.coastseg_map.modify_draw_control_color("green")#purple
+        else:
+            self.coastseg_map.drawing_shoreline_extraction_area = True
+            self.coastseg_map.modify_draw_control_color("#cb42f5")#purple
+            
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):
@@ -1115,6 +1152,9 @@ class UI:
             elif "selected shorelines" in btn.description.lower():
                 print(f"Removing Selected Shorelines")
                 self.coastseg_map.remove_selected_shorelines()
+            elif "shoreline extraction area" in btn.description.lower():
+                print(f"Removing Shoreline Extraction Area")
+                self.coastseg_map.remove_shoreline_extraction_area()
             elif "selected rois" in btn.description.lower():
                 print(f"Removing Selected ROIs")
                 self.coastseg_map.remove_selected_rois()

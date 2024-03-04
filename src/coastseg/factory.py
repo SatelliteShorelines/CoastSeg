@@ -3,6 +3,7 @@ from math import sqrt
 from typing import Union, Optional, Callable, Dict
 from enum import Enum
 
+from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
 from coastseg.bbox import Bounding_Box
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
@@ -122,6 +123,20 @@ def create_bbox(
     coastsegmap.bbox = bbox
     return bbox
 
+def create_shoreline_extraction_area(
+    coastsegmap, gdf: Optional[GeoDataFrame] = None, **kwargs
+) -> Shoreline_Extraction_Area:
+    if gdf is not None:
+        shoreline_extraction_area = Shoreline_Extraction_Area(gdf)
+        exception_handler.check_if_gdf_empty(shoreline_extraction_area.gdf, "shoreline_extraction_area")
+    
+    coastsegmap.remove_shoreline_extraction_area()
+    if coastsegmap.draw_control is not None:
+        coastsegmap.draw_control.clear()
+    logger.info("Shoreline_Extraction_Area was loaded on map")
+    coastsegmap.shoreline_extraction_area = shoreline_extraction_area
+    return shoreline_extraction_area
+
 
 def create_rois(
     coastsegmap: coastseg_map, gdf: Optional[GeoDataFrame] = None, **kwargs
@@ -178,6 +193,7 @@ class FeatureType(Enum):
     TRANSECTS = "transects"
     BBOX = "bbox"
     ROIS = "rois"
+    SHORELINE_EXTRACTION_AREA = "shoreline_extraction_area"
 
 
 class Factory:
@@ -191,6 +207,8 @@ class Factory:
         "bbox": create_bbox,
         "rois": create_rois,
         "roi": create_rois,
+        "shoreline_extraction_area":create_shoreline_extraction_area,
+        "shoreline extraction area":create_shoreline_extraction_area,
     }
 
     @staticmethod

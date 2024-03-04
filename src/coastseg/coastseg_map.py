@@ -23,6 +23,7 @@ from shapely.geometry import shape
 
 # Internal/Local imports: specific classes/functions
 from coastseg.bbox import Bounding_Box
+from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
 from coastseg.feature import Feature
 from coastseg.shoreline import Shoreline
 from coastseg.transects import Transects
@@ -2096,6 +2097,7 @@ class CoastSeg_Map:
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()
+        self.remove_shoreline_extraction_area()
         self.remove_shoreline()
         self.remove_transects()
         self.remove_all_rois()
@@ -2137,6 +2139,28 @@ class CoastSeg_Map:
             if existing_layer is not None:
                 self.map.remove_layer(existing_layer)
         self.bbox = None
+        
+        
+    def remove_shoreline_extraction_area(self):
+        """
+        Removes the shoreline_extraction_area from the map and clears the draw control.
+
+        If a shoreline_extraction_area exists, it is deleted. The draw control is also cleared.
+        Additionally, if a layer with the name Shoreline_Extraction_Area.LAYER_NAME exists in the map,
+        it is removed.
+
+        """
+        if self.shoreline_extraction_area is not None:
+            del self.shoreline_extraction_area
+
+        if self.draw_control is not None:
+            self.draw_control.clear()
+
+        if self.map is not None:
+            existing_layer = self.map.find_layer(Shoreline_Extraction_Area.LAYER_NAME)
+            if existing_layer is not None:
+                self.map.remove_layer(existing_layer)
+        self.shoreline_extraction_area = None
 
     def remove_layer_by_name(self, layer_name: str):
             """
@@ -2247,8 +2271,8 @@ class CoastSeg_Map:
         draw_control.circlemarker = {}
         draw_control.polygon = {
             "shapeOptions": {
-                "fillColor": "green",
-                "color": "green",
+                "fillColor": "black",
+                "color": "black",
                 "fillOpacity": 0.1,
                 "Opacity": 0.1,
             },
@@ -2258,8 +2282,8 @@ class CoastSeg_Map:
         }
         draw_control.rectangle = {
             "shapeOptions": {
-                "fillColor": "green",
-                "color": "green",
+                "fillColor": "black",
+                "color": "black",
                 "fillOpacity": 0.1,
                 "Opacity": 0.1,
             },
@@ -2280,6 +2304,7 @@ class CoastSeg_Map:
             self.draw_control.last_action == "created"
         ):
             if self.drawing_shoreline_extraction_area == True:
+                # change the color of the draw control to purple
                 from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
                 # get the last drawn geometry
                 geom = [shape(self.draw_control.last_draw["geometry"])]
@@ -2287,9 +2312,10 @@ class CoastSeg_Map:
                 self.shoreline_extraction_area = Shoreline_Extraction_Area(gdf)
                 # add layer to the map
                 self.add_feature_on_map(self.shoreline_extraction_area,self.shoreline_extraction_area.LAYER_NAME,self.shoreline_extraction_area.LAYER_NAME)
-                self.drawing_shoreline_extraction_area = False
+
                 # clear draw control
                 self.draw_control.clear()
+                # reset to green color
                 return
             
             # validate the bbox size
