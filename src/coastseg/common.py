@@ -2715,6 +2715,7 @@ def create_config_gdf(
       the CRS of rois_gdf will be used. If not provided and rois_gdf is empty, an error will be raised.
     - reference_polygon (gpd.GeoDataFrame, optional): The GeoDataFrame containing a reference polygon used to only keep shoreline vector that intersect with this region.
        Defaults to None.
+    
     Returns:
     - gpd.GeoDataFrame: A concatenated GeoDataFrame with a consistent CRS, and a "type" column
       indicating the type of each geometry (either "roi", "shoreline", "transect", or "bbox").
@@ -2800,6 +2801,22 @@ def save_config_files(
     roi_gdf=None,
     epsg_code="epsg:4326",
 ):
+    """
+    Save configuration files.
+
+    Args:
+        save_location (str): The directory where the configuration files will be saved.
+        roi_ids (list[str]): List of ROI IDs.
+        roi_settings (dict): Dictionary containing ROI settings.
+        shoreline_settings (dict): Dictionary containing shoreline settings.
+        transects_gdf (GeoDataFrame): GeoDataFrame containing transects.
+        shorelines_gdf (GeoDataFrame): GeoDataFrame containing shorelines.
+        roi_gdf (GeoDataFrame): GeoDataFrame containing ROIs.
+        epsg_code (str): EPSG code for the coordinate reference system.
+
+    Returns:
+        None
+    """
     # save config files
     config_json = create_json_config(roi_settings, shoreline_settings, roi_ids=roi_ids)
     file_utilities.config_to_file(config_json, save_location)
