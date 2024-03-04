@@ -1721,6 +1721,7 @@ class Extracted_Shoreline:
         shoreline: gpd.GeoDataFrame = None,
         roi_settings: dict = None,
         settings: dict = None,
+        output_directory:str = None,
     ) -> "Extracted_Shoreline":
         """
         Extracts shorelines for a specified region of interest (ROI) and returns an Extracted_Shoreline class instance.
@@ -1731,6 +1732,9 @@ class Extracted_Shoreline:
         - shoreline (GeoDataFrame): A GeoDataFrame of shoreline features.
         - roi_settings (dict): A dictionary of region of interest settings.
         - settings (dict): A dictionary of extraction settings.
+        - output_directory (str): The path to the directory where the extracted shorelines will be saved.
+           - detection figures will be saved in a subfolder called 'jpg_files' within the output_directory.
+           - extract_shoreline reports will be saved within the output_directory.
 
         Returns:
         - object: The Extracted_Shoreline class instance.
@@ -1744,6 +1748,7 @@ class Extracted_Shoreline:
             shoreline,
             roi_settings,
             settings,
+            output_directory=output_directory
         )
         if self.dictionary == {}:
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
@@ -1830,7 +1835,7 @@ class Extracted_Shoreline:
         water_classes_indices = get_indices_of_classnames(
             model_card_path, ["water", "whitewater"]
         )
-        # Sample class mapping {0:'water',   1:'whitewater', 2:'sand', 3:'rock'}
+        # Sample class mapping {0:'water',  1:'whitewater', 2:'sand', 3:'rock'}
         class_mapping = get_class_mapping(model_card_path)
 
         # get the reference shoreline
@@ -1995,6 +2000,7 @@ class Extracted_Shoreline:
             session_path: str = None,
             class_indices: list = None,
             class_mapping: dict = None,
+            output_directory: str = None,            
         ) -> dict:
         """
         Extracts shorelines for a specified region of interest (ROI).
@@ -2023,6 +2029,9 @@ class Extracted_Shoreline:
             session_path (str, optional): Path to the session. Defaults to None.
             class_indices (list, optional): List of class indices. Defaults to None.
             class_mapping (dict, optional): Dictionary mapping class indices to class labels. Defaults to None.
+            output_directory (str): The path to the directory where the extracted shorelines will be saved.
+                - detection figures will be saved in a subfolder called 'jpg_files' within the output_directory.
+                - extract_shoreline reports will be saved within the output_directory.
         Returns:
             dict: Dictionary containing the extracted shorelines for the specified ROI.
         """
@@ -2076,7 +2085,7 @@ class Extracted_Shoreline:
         # extract shorelines from ROI
         if session_path is None:
             # extract shorelines with coastsat's models
-            extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings)
+            extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings,output_directory=output_directory)
         elif session_path is not None:
             # extract shorelines with our models
             extracted_shorelines = extract_shorelines_with_dask(
@@ -2085,6 +2094,12 @@ class Extracted_Shoreline:
                 self.shoreline_settings,
                 class_indices=class_indices,
                 class_mapping=class_mapping,
+            )
+            #@todo should this be saved here?
+            common.save_extracted_shoreline_figures(self.shoreline_settings, session_path)
+            # move extracted shoreline reports to session directory
+            common.move_report_files(
+                self.shoreline_settings, session_path, "extract_shorelines*.txt"
             )
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
