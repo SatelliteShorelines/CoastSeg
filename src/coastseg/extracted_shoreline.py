@@ -239,10 +239,8 @@ def compute_transects_from_roi(
                Not tidally corrected.
     """
     # create dict of numpy arrays of transect start and end points
-    # logger.info(f"transects.crs: {transects_gdf.crs} transects: {transects_gdf}")
+
     transects = common.get_transect_points_dict(transects_gdf)
-    # logger.info(f"transects as dictionary for coastsat: {transects}")
-    # print(f'settings to extract transects: {settings}')
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
     cross_distance = compute_intersection_QC(extracted_shorelines, transects, settings)
     return cross_distance

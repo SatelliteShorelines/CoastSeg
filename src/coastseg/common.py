@@ -2701,7 +2701,7 @@ def create_config_gdf(
     transects_gdf: gpd.GeoDataFrame = None,
     bbox_gdf: gpd.GeoDataFrame = None,
     epsg_code: int = None,
-    reference_polygon_gdf: gpd.GeoDataFrame = None,
+    shoreline_extraction_area_gdf: gpd.GeoDataFrame = None,
 ) -> gpd.GeoDataFrame:
     """
     Create a concatenated GeoDataFrame from provided GeoDataFrames with a consistent CRS.
@@ -2713,7 +2713,7 @@ def create_config_gdf(
     - bbox_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing bounding boxes. Defaults to None.
     - epsg_code (int, optional): The EPSG code for the desired CRS. If not provided and rois_gdf is non-empty,
       the CRS of rois_gdf will be used. If not provided and rois_gdf is empty, an error will be raised.
-    - reference_polygon (gpd.GeoDataFrame, optional): The GeoDataFrame containing a reference polygon used to only keep shoreline vector that intersect with this region.
+    - shoreline_extraction_area_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing a reference polygon used to only keep shoreline vector that intersect with this region.
        Defaults to None.
     
     Returns:
@@ -2742,7 +2742,7 @@ def create_config_gdf(
         "shoreline": shorelines_gdf,
         "transect": transects_gdf,
         "bbox": bbox_gdf,
-        "reference_polygon": reference_polygon_gdf,
+        "shoreline_extraction_area": shoreline_extraction_area_gdf,
     }
 
     # initialize each gdf

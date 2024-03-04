@@ -220,8 +220,9 @@ class CoastSeg_Map:
         self.feature_html = None
         self.hover_box = None
         # Assume that the user is not drawing a reference buffer
-        self.drawing_ref_buffer = False
-        self.ref_buffer_polygon = None
+        self.drawing_shoreline_extraction_area = False
+        # Optional: a user drawn polygon only keep extracted shorelines within this polygon
+        self.shoreline_extraction_area = None
         
         
         self.set_settings()
@@ -780,6 +781,7 @@ class CoastSeg_Map:
             "roi": ["id", "geometry"],
             "transect": list(Transects.COLUMNS_TO_KEEP),
             "shoreline": ["geometry"],
+            "shoreline_extraction_area": ["geometry"],
         }
 
         for feature_name, columns in feature_types.items():
@@ -1056,11 +1058,7 @@ class CoastSeg_Map:
         # Make sure each ROI has the specific settings for its save location, its ID, coordinates etc.
         if hasattr(self, "rois"):
             self.rois.update_roi_settings(roi_settings)
-            # self.rois.roi_settings.update(roi_settings)
-        # if hasattr(self, "rois"):
-        #     self.rois.roi_settings = roi_settings 
-     
-            
+
         logger.info(f"roi_settings: {roi_settings} loaded from {config_json_path}")
         
         # update the config.json files with the filepath of the data directory on this computer
@@ -1126,7 +1124,7 @@ class CoastSeg_Map:
         )
         transects_gdf = getattr(self.transects, "gdf", None) if self.transects else None
         bbox_gdf = getattr(self.bbox, "gdf", None) if self.bbox else None
-        ref_polygon_gdf = getattr(self.ref_buffer_polygon, "gdf", None) if self.ref_buffer_polygon else None
+        ref_polygon_gdf = getattr(self.shoreline_extraction_area, "gdf", None) if self.shoreline_extraction_area else None
         
         # get the GeoDataFrame containing all the selected rois
         selected_rois = self.rois.gdf[self.rois.gdf["id"].isin(roi_ids)]
@@ -1144,7 +1142,7 @@ class CoastSeg_Map:
             transects_gdf=transects_gdf,
             bbox_gdf=bbox_gdf,
             epsg_code=epsg_code,
-            reference_polygon_gdf = ref_polygon_gdf
+            shoreline_extraction_area_gdf = ref_polygon_gdf
         )
         logger.info(f"config_gdf: {config_gdf} ")
 
@@ -1791,8 +1789,8 @@ class CoastSeg_Map:
         self.save_session(roi_ids, save_transects=False)
     
         # save filtered extracted shorelines to session directory
-        # if extracted_shorelines_gdf_lines is not None and self.ref_buffer_polygon is not None:
-        #     filtered_shorelines_gdf=common.ref_poly_filter(self.ref_buffer_polygon.gdf,extracted_shorelines_gdf_lines)
+        # if extracted_shorelines_gdf_lines is not None and self.shoreline_extraction_area is not None:
+        #     filtered_shorelines_gdf=common.ref_poly_filter(self.shoreline_extraction_area.gdf,extracted_shorelines_gdf_lines)
             
             # Save extracted shorelines to GeoJSON files
             # extracted_shoreline.to_file(
@@ -1806,7 +1804,7 @@ class CoastSeg_Map:
             # )
     
         # if a reference shoreline buffer polygon was drawn filter the extracted shorelines
-        if self.ref_buffer_polygon is not None:
+        if self.shoreline_extraction_area is not None:
             # filter the gdfs to only include the extracted shorelines that intersect with the reference buffer polygon
             roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
             session_name = self.get_session_name()
@@ -1822,9 +1820,9 @@ class CoastSeg_Map:
                     output_crs="EPSG:4326",
                     geomtype="lines",
                 )
-                if extracted_shorelines_gdf_lines is not None and self.ref_buffer_polygon is not None:
+                if extracted_shorelines_gdf_lines is not None and self.shoreline_extraction_area is not None:
                     # filter the extracted shorelines to only include the ones that intersect with the reference buffer polygon
-                    filtered_shorelines_gdf=common.ref_poly_filter(self.ref_buffer_polygon.gdf,extracted_shorelines_gdf_lines)
+                    filtered_shorelines_gdf=common.ref_poly_filter(self.shoreline_extraction_area.gdf,extracted_shorelines_gdf_lines)
                     # Save extracted shorelines to GeoJSON files
                     extracted_shorelines.to_file(
                         session_path, "extracted_shorelines_lines.geojson",filtered_shorelines_gdf
@@ -1991,7 +1989,8 @@ class CoastSeg_Map:
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
             cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
-
+            self.save_session(roi_ids=[roi_id],save_transects=True)
+            
         # save all the transects at the end (cannot save config files without specifying all ROI Ids otherwise not show all the ROIs will show in config)
         self.save_session(roi_ids=roi_ids,save_transects=True)
 
@@ -2264,15 +2263,15 @@ class CoastSeg_Map:
         if (
             self.draw_control.last_action == "created"
         ):
-            if self.drawing_ref_buffer == True:
-                from coastseg.reference_shoreline_buffer import Reference_Shoreline_Buffer
+            if self.drawing_shoreline_extraction_area == True:
+                from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
                 # get the last drawn geometry
                 geom = [shape(self.draw_control.last_draw["geometry"])]
                 gdf = gpd.GeoDataFrame({"geometry": geom},crs="EPSG:4326")
-                self.ref_buffer_polygon = Reference_Shoreline_Buffer(gdf)
+                self.shoreline_extraction_area = Shoreline_Extraction_Area(gdf)
                 # add layer to the map
-                self.add_feature_on_map(self.ref_buffer_polygon,self.ref_buffer_polygon.LAYER_NAME,self.ref_buffer_polygon.LAYER_NAME)
-                self.drawing_ref_buffer = False
+                self.add_feature_on_map(self.shoreline_extraction_area,self.shoreline_extraction_area.LAYER_NAME,self.shoreline_extraction_area.LAYER_NAME)
+                self.drawing_shoreline_extraction_area = False
                 # clear draw control
                 self.draw_control.clear()
                 return
