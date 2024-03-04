@@ -1076,6 +1076,9 @@ class CoastSeg_Map:
             Saves the settings such as preprocess settings
         Args:
             file_path (str, optional): path to directory to save config files. Defaults to None.
+            selected_only (bool, optional): If True, only the selected ROIs will be saved. Defaults to True.
+            roi_ids (list, optional): A list of ROI IDs to save. Defaults to None.
+            
         Raises:
             Exception: raised if self.settings is missing
             ValueError: raised if any of "dates", "sat_list", "landsat_collection" is missing from self.settings
@@ -1086,13 +1089,8 @@ class CoastSeg_Map:
         
         # if no rois exist on the map do not allow configs to be saved
         exception_handler.config_check_if_none(self.rois, "ROIs")
-        # logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
-
-        # # selected_layer must contain selected ROI
-        # selected_layer = self.map.find_layer(ROI.SELECTED_LAYER_NAME)
-        # exception_handler.check_empty_roi_layer(selected_layer)
-        # logger.info(f"self.rois.roi_settings: {self.rois.roi_settings}")
         
+        # Only get the selected ROIs if selected_only is True
         if selected_only:
             if roi_ids is None:
                 roi_ids = self.get_roi_ids()
@@ -1146,6 +1144,7 @@ class CoastSeg_Map:
             transects_gdf=transects_gdf,
             bbox_gdf=bbox_gdf,
             epsg_code=epsg_code,
+            reference_polygon_gdf = ref_polygon_gdf
         )
         logger.info(f"config_gdf: {config_gdf} ")
 
@@ -1839,7 +1838,6 @@ class CoastSeg_Map:
                     extracted_shorelines.gdf = filtered_points_gdf
                     # new_extracted_dict = common.filter_extract_dict(filtered_shorelines_gdf,extracted_shorelines.dictionary)
                     new_extracted_dict = common.filter_extract_dict(filtered_shorelines_gdf,extracted_shorelines.dictionary)
-                    print(f"New extracted dict: {new_extracted_dict}")
                     extracted_shorelines.dictionary = new_extracted_dict
                     extracted_shorelines.to_file(
                         session_path,
@@ -1916,7 +1914,6 @@ class CoastSeg_Map:
             transects_in_roi_gdf = transects_in_roi_gdf.to_crs(output_epsg)
             # Compute cross shore distance of transects and extracted shorelines
             extracted_shorelines_dict = roi_extracted_shoreline.dictionary
-            print(f"transects extracted_shorelines_dict: {extracted_shorelines_dict}")
             cross_distance = extracted_shoreline.compute_transects_from_roi(
                 extracted_shorelines_dict,
                 transects_in_roi_gdf,
@@ -1995,22 +1992,7 @@ class CoastSeg_Map:
             cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
             self.save_session([roi_id],save_transects=True)
-        # for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
-        #     # get transects that intersect with ROI
-        #     single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
-        #     # save cross distances by ROI id
-        #     transects_in_roi_gdf = transects_gdf[
-        #         transects_gdf.intersects(single_roi.unary_union)
-        #     ]
-        #     cross_distance, failure_reason = self.get_cross_distance(
-        #         str(roi_id), transects_in_roi_gdf, settings, output_epsg
-        #     )
-        #     if cross_distance == 0:
-        #         logger.warning(f"{failure_reason} for ROI {roi_id}")
-        #         print(f"{failure_reason} for ROI {roi_id}")
-        #     self.rois.add_cross_shore_distances(cross_distance, roi_id)
-
-        self.save_session(roi_ids)
+        # self.save_session(roi_ids)
 
     def session_exists(self, session_name: str) -> bool:
             """
@@ -2034,7 +2016,15 @@ class CoastSeg_Map:
             return False
 
       
-    def save_session(self, roi_ids: list[str], save_transects: bool = True):
+    def save_session(self, roi_ids: list[str], save_transects: bool = True)->None:
+        """
+        Save extracted shoreline information to the session directory.
+
+        Args:
+            roi_ids (list[str]): List of ROI IDs for which shoreline information will be saved.
+            save_transects (bool, optional): Flag indicating whether to save transects to the session folder. 
+                Defaults to True.
+        """
         # Save extracted shoreline info to session directory
         session_name = self.get_session_name()
         for roi_id in roi_ids:
