@@ -1709,6 +1709,7 @@ class CoastSeg_Map:
         if is_selected:
             roi_ids = list(set(roi_ids) & self.selected_set)
         return roi_ids
+        
 
     def extract_all_shorelines(self,roi_ids:list=None) -> None:
         """
@@ -1773,6 +1774,9 @@ class CoastSeg_Map:
                 roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings(),session_path
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+            # (optional) filter extracted shorelines to only include the ones that intersect with the reference buffer polygon
+            if hasattr(self.shoreline_extraction_area, "gdf"):
+                common.filter_extracted_shorelines(extracted_shorelines,self.shoreline_extraction_area.gdf)
             # save the geojson and json files for extracted shorelines
             common.save_extracted_shorelines(extracted_shorelines, session_path)
 
@@ -1790,73 +1794,10 @@ class CoastSeg_Map:
 
         #4. save a session for each ROI under one session name
         self.save_session(roi_ids, save_transects=False)
-    
-        # save filtered extracted shorelines to session directory
-        # if extracted_shorelines_gdf_lines is not None and self.shoreline_extraction_area is not None:
-        #     filtered_shorelines_gdf=common.ref_poly_filter(self.shoreline_extraction_area.gdf,extracted_shorelines_gdf_lines)
             
-            # Save extracted shorelines to GeoJSON files
-            # extracted_shoreline.to_file(
-            #     session_path, "extracted_shorelines_filtered_lines.geojson",filtered_shorelines_gdf
-            # )
-            # points_gdf = common.convert_linestrings_to_multipoints(filtered_shorelines_gdf)
-            # projected_gdf = common.stringify_datetime_columns(points_gdf)
-            # # Save extracted shorelines as a GeoJSON file
-            # extracted_shoreline.to_file(
-            #     session_path, "extracted_shorelines_filtered_points.geojson", projected_gdf
-            # )
-    
-        # if a reference shoreline buffer polygon was drawn filter the extracted shorelines
-        if self.shoreline_extraction_area is not None:
-            # filter the gdfs to only include the extracted shorelines that intersect with the reference buffer polygon
-            roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
-            session_name = self.get_session_name()
-            for roi_id in roi_ids_with_extracted_shorelines:
-                ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-                # create session directory
-                session_path = file_utilities.create_session_path(
-                    session_name, ROI_directory
-                )
-                extracted_shorelines = self.rois.get_extracted_shoreline(roi_id)
-                extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
-                    extracted_shorelines.shoreline_settings["output_epsg"],
-                    output_crs="EPSG:4326",
-                    geomtype="lines",
-                )
-                if extracted_shorelines_gdf_lines is not None and self.shoreline_extraction_area is not None:
-                    # filter the extracted shorelines to only include the ones that intersect with the reference buffer polygon
-                    filtered_shorelines_gdf=common.ref_poly_filter(self.shoreline_extraction_area.gdf,extracted_shorelines_gdf_lines)
-                    # Save extracted shorelines to GeoJSON files
-                    extracted_shorelines.to_file(
-                        session_path, "extracted_shorelines_lines.geojson",filtered_shorelines_gdf
-                    )
-                    filtered_points_gdf = common.convert_linestrings_to_multipoints(filtered_shorelines_gdf.copy())
-                    filtered_points_gdf = common.stringify_datetime_columns(filtered_points_gdf)
-                    # Save extracted shorelines as a GeoJSON file
-                    extracted_shorelines.to_file(
-                        session_path, "extracted_shorelines_points.geojson", filtered_points_gdf
-                    )
-                    extracted_shorelines.gdf = filtered_points_gdf
-                    # new_extracted_dict = common.filter_extract_dict(filtered_shorelines_gdf,extracted_shorelines.dictionary)
-                    new_extracted_dict = common.filter_extract_dict(filtered_shorelines_gdf,extracted_shorelines.dictionary)
-                    extracted_shorelines.dictionary = new_extracted_dict
-                    extracted_shorelines.to_file(
-                        session_path,
-                        "extracted_shorelines_dict.json",
-                        extracted_shorelines.dictionary,
-                    )
-                    
-            # update the dictionary of extracted shorelines
-            # update the config_gdf files
-            # update extracted shorelines points gdf
-            # update extracted_shorelines_dict.json 
-              # make sure to convert the shorelines to array and to output crs in the settings
-            
-
-        #6. Get ROI ids that are selected on map and have had their shorelines extracted, and compute transects for them
-        # roi_ids = self.get_roi_ids(is_selected=True, has_shorelines=True)
+        #5. Get ROI ids with retrieved shorelines and compute the shoreline transect intersections
         roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
-        # BUT when map is running how do we only get the selected ones??
+        # get the transects for the selected ROIs with extracted shorelines
         selected_roi_ids = list(set(roi_ids) & set(roi_ids_with_extracted_shorelines))
         print(f"Selected ROIs with extracted shorelines: {selected_roi_ids}")
         if hasattr(self.transects, "gdf"):

@@ -2203,6 +2203,9 @@ class Extracted_Shoreline:
     ) -> gpd.GeoDataFrame:
         """Creates a geodataframe with the crs specified by input_crs. Converts geodataframe crs
         to output_crs if provided.
+        
+        Converts the internal dictionary of extracted shorelines to a geodataframe and returns it.
+        
         Args:
             input_crs (str ): coordinate reference system string. Format 'EPSG:4326'.
             output_crs (str, optional): coordinate reference system string. Defaults to None.

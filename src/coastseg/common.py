@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import requests
 import shapely
+from shapely import geometry
 from area import area
 from google.auth import exceptions as google_auth_exceptions
 from ipyfilechooser import FileChooser
@@ -36,6 +37,40 @@ from coastseg.validation import find_satellite_in_filename
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def filter_extracted_shorelines(extracted_shoreline, shoreline_extraction_area_gdf: gpd.GeoDataFrame = None):
+    """
+    Filters the extracted shorelines based on a reference polygon.
+    Args:
+        extracted_shoreline (object): The extracted shorelines object.
+        shoreline_extraction_area_gdf (gpd.GeoDataFrame, optional): The shoreline_extraction_area as a GeoDataFrame. Defaults to None.
+    Returns:
+        object: The filtered extracted shorelines object.
+    """
+    if shoreline_extraction_area_gdf is None:
+        return extracted_shoreline
+    if extracted_shoreline is None:
+        return None
+    # create a geodataframe of the extracted shorelines as linestring geometries
+    extracted_shorelines_gdf_lines = extracted_shoreline.create_geodataframe(
+        extracted_shoreline.shoreline_settings["output_epsg"],
+        output_crs="EPSG:4326",
+        geomtype="lines",
+    )
+    # convert the reference polygon to the same crs as the extracted shorelines
+    shoreline_extraction_area_gdf = shoreline_extraction_area_gdf.to_crs("EPSG:4326")
+    filtered_shorelines_gdf = ref_poly_filter(shoreline_extraction_area_gdf, extracted_shorelines_gdf_lines.copy())
+    # update the extracted shorelines object with filtered shoreline vectors
+    extracted_shoreline.gdf = filtered_shorelines_gdf
+    # convert to linestrings to multipoints geometries
+    filtered_points_gdf = convert_linestrings_to_multipoints(filtered_shorelines_gdf.copy())
+    filtered_points_gdf = stringify_datetime_columns(filtered_points_gdf)
+    new_extracted_dict = filter_extract_dict(filtered_shorelines_gdf, extracted_shoreline.dictionary,extracted_shoreline.shoreline_settings["output_epsg"])
+    # update the extracted shorelines object with the filtered dictionary
+    extracted_shoreline.dictionary = new_extracted_dict
+    # return the filtered extracted shorelines
+    return extracted_shoreline
 
 def delete_unmatched_rows(
     data_dict: Dict[str, Union[List[Any], pd.Series]],
@@ -82,7 +117,8 @@ def delete_unmatched_rows(
 
 def filter_extract_dict(
     gdf: gpd.GeoDataFrame,
-    extracted_shorelines_dict: Dict[str, Union[List[np.ndarray], np.ndarray]]
+    extracted_shorelines_dict: Dict[str, Union[List[np.ndarray], np.ndarray]],
+    output_crs:str
 ) -> Dict[str, Union[List[np.ndarray], np.ndarray]]:
     """
     Filters and updates the extracted shorelines dictionary based on the selected indexes from a GeoDataFrame.
@@ -94,7 +130,7 @@ def filter_extract_dict(
         - The dictionary must contain a key 'shorelines' with a list of NumPy arrays representing the shorelines.
         - The dictionary must also contain a key 'dates' with a list of dates corresponding to the shorelines.
         - The dictionary must also contain a key 'satname' with a list of satellite names corresponding to the shorelines.
-
+        output_crs (str): The output crs to convert the gdf to so its in the same crs as the shoreline arrays in extracted_shorelines_dict.
     Returns:
         dict: The updated extracted shorelines dictionary. That has removed any shorelines that are not in the gdf.
 
@@ -102,22 +138,18 @@ def filter_extract_dict(
     sats = np.array(gdf.satname)
     dates = np.array(pd.to_datetime(gdf['date']).dt.tz_localize('UTC'))
     selected_indexes = get_selected_indexes(extracted_shorelines_dict, dates_list=dates, sat_list=sats)
-    print(f"selected_indexes: {selected_indexes}")
-
     # convert gdf to the output epsg otherwise output dict will not be in correct crs
-    gdf.to_crs(32618, inplace=True)
+    projected_gdf = gdf.to_crs(output_crs)
 
     # update the extracted_shorelines_dict with the selected indexes
     for idx in selected_indexes:
-        extracted_shorelines_dict['shorelines'][idx] = np.array(gdf.iloc[idx].geometry.coords)
+        extracted_shorelines_dict['shorelines'][idx] = np.array(projected_gdf.iloc[idx].geometry.coords)
 
     # Check if any shorelines were removed from the gdf that are still in the extracted_shorelines_dict
     extracted_shorelines_dict = delete_unmatched_rows(extracted_shorelines_dict, dates_list=dates, sat_list=sats)
-
-    print(f"Number of shorelines: {len(extracted_shorelines_dict['shorelines'])}")
     return extracted_shorelines_dict
 
-from shapely import geometry
+
 def arr_to_LineString(coords):
     """
     Makes a line feature from a list of xy tuples
@@ -158,6 +190,9 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
     Returns:
         GeoDataFrame: A filtered GeoDataFrame containing shorelines that are within the reference polygon.
     """
+    if ref_poly_gdf.empty:
+        return raw_shorelines_gdf
+    
     ##First need to get rid of lines that are completely outside of the ref polygon
     ref_polygon = ref_poly_gdf.geometry
     buffer_vals = [None]*len(raw_shorelines_gdf)
@@ -181,7 +216,10 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
         j = 0
         for point in line_arr:
             point = geometry.Point(point)
-            bool_val = ref_polygon.contains(point)[0]
+            contains_series = ref_polygon.contains(point)
+            # bool_val = contains_series[0] if not contains_series.empty else False
+            bool_val = contains_series.iloc[0] if not contains_series.empty else False
+            # bool_val = ref_polygon.contains(point)[0]
             bool_vals[j] = bool_val
             j=j+1
         new_line_arr = line_arr[bool_vals]
@@ -2597,8 +2635,8 @@ def save_extracted_shorelines(
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
     )
-
-    points_gdf = convert_linestrings_to_multipoints(extracted_shorelines.gdf)
+    # convert linestrings to multipoints
+    points_gdf = convert_linestrings_to_multipoints(extracted_shorelines_gdf_lines)
     projected_gdf = stringify_datetime_columns(points_gdf)
     # Save extracted shorelines as a GeoJSON file
     extracted_shorelines.to_file(
