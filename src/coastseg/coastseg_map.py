@@ -2250,7 +2250,13 @@ class CoastSeg_Map:
                 # get the last drawn geometry
                 geom = [shape(self.draw_control.last_draw["geometry"])]
                 gdf = gpd.GeoDataFrame({"geometry": geom},crs="EPSG:4326")
-                self.shoreline_extraction_area = Shoreline_Extraction_Area(gdf)
+                # add the drawn geometry to the existing gdf
+                if self.shoreline_extraction_area is not None:
+                    # Concatenate the new DataFrame with the existing one
+                    self.shoreline_extraction_area.gdf = pd.concat([self.shoreline_extraction_area.gdf, gdf], ignore_index=True)
+                else:
+                    # if the shoreline_extraction_area does not exist, create a new one
+                    self.shoreline_extraction_area = Shoreline_Extraction_Area(gdf)
                 # add layer to the map
                 self.add_feature_on_map(self.shoreline_extraction_area,self.shoreline_extraction_area.LAYER_NAME,self.shoreline_extraction_area.LAYER_NAME)
 

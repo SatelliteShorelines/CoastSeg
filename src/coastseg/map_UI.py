@@ -961,15 +961,13 @@ class UI:
             self.settings_html.value = format_as_html(self.coastseg_map.get_settings())
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)   
 
     def on_draw_feature_controls_change(self, change):
         if change["new"] == "Bounding Box":
             self.coastseg_map.drawing_shoreline_extraction_area = False
-            self.coastseg_map.modify_draw_control_color("green")#purple
         else:
             self.coastseg_map.drawing_shoreline_extraction_area = True
-            self.coastseg_map.modify_draw_control_color("#cb42f5")#purple
             
 
     @debug_view.capture(clear_output=True)
