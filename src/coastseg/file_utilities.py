@@ -54,6 +54,29 @@ def progress_bar_context(
         # If not using a progress bar, just yield a no-op function
         yield lambda message: None
 
+def get_ROI_ID_from_session(session_name: str) -> str:
+    """
+    Retrieves the ROI ID from the config.json file in the extracted shoreline session directory.
+
+    Args:
+        session_name (str): The name of the session.
+
+    Returns:
+        str: The ROI ID.
+
+    Raises:
+        Exception: If the session directory does not exist.
+    """
+    # need to read the ROI ID from the config.json file found in the extracted shoreline session directory
+    session_directory = os.path.join(os.getcwd(), "sessions", session_name)
+    if not os.path.exists(session_directory):
+        raise Exception(f"The session directory {session_directory} does not exist")
+    config_json_location = find_file_recursively(
+        session_directory, "config.json"
+    )
+    config = load_data_from_json(config_json_location)
+    roi_id = config.get("roi_id", "")
+    return roi_id
 
 def load_package_resource(
     resource_name: str,
