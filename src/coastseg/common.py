@@ -199,7 +199,8 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
     for i in range(len(raw_shorelines_gdf)):
         line_entry = raw_shorelines_gdf.iloc[i]
         line = line_entry.geometry
-        bool_val = ref_polygon.intersects(line).values[0]
+        # if any of the polygons intersect with the line, then it is within the buffer
+        bool_val = np.any(ref_polygon.intersects(line).values)
         buffer_vals[i] = bool_val
     # add whether the line is within the buffer to the GeoDataFrame
     raw_shorelines_gdf['buffer_vals'] = buffer_vals
@@ -217,9 +218,8 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
         for point in line_arr:
             point = geometry.Point(point)
             contains_series = ref_polygon.contains(point)
-            # bool_val = contains_series[0] if not contains_series.empty else False
-            bool_val = contains_series.iloc[0] if not contains_series.empty else False
-            # bool_val = ref_polygon.contains(point)[0]
+            # if the point is within any of the polygons, then it is within the buffer
+            bool_val = contains_series.any()
             bool_vals[j] = bool_val
             j=j+1
         new_line_arr = line_arr[bool_vals]
