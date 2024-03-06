@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "coastseg"
 dynamic = ["readme"]
-version = "1.1.43dev1" 
+version = "1.1.43dev2" 
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
@@ -14,7 +14,7 @@ description = "An interactive jupyter notebook for downloading satellite imagery
 dependencies = [
   "h5py>=3.10.0",
   "pyTMD",
-  "coastsat-package>=0.1.51",
+  "coastsat-package>=0.1.52",
   "area",
   "aiohttp",
   "chardet",
