@@ -194,17 +194,49 @@ def filter_model_outputs(
         dest_folder_bad (str): Destination folder for 'bad' files.
     """
     valid_files = return_valid_files(files)
-    logger.info(f"Found {len(valid_files)} valid files for {satname}.")
+    print(f"Found {len(valid_files)} valid files for {satname}.")
     times, time_var = get_time_vectors(valid_files)
     da = xr.concat([load_xarray_data(f) for f in valid_files], dim=time_var)
     timeav = da.mean(dim="time")
 
+
     rmse, input_rmse = measure_rmse(da, times, timeav)
     labels, scores = get_kmeans_clusters(input_rmse, rmse)
     files_bad, files_good = get_good_bad_files(valid_files, labels, scores)
-    logger.info(f"Found {len(files_bad)} files_bad.")
-    logger.info(f"Found {len(files_good)} files_good.")
+    # print(files_good)
+    print(f"Found {len(files_bad)} files_bad.")
+    print(f"Found {len(files_good)} files_good.")
+    
+    # apply land mask to good files
+    # get the times from the good file names
+    times, time_var = get_time_vectors(files_good)
+    # create xarray from good files
+    da = xr.concat([load_xarray_data(f) for f in files_good], dim=time_var)
+    # create time average of good files
+    timeav = da.mean(dim="time")
+    # create land mask from the time averaged image
+    mask_land = np.array(np.round(timeav)==3).astype('int')
+    # apply land mask to each time in the good files
+    for time in times:
+        # select the time
+        frame = da.sel(time=time).to_numpy()
 
+        frame[mask_land==1] = 3
+
+        da.sel(time=time).values = frame
+
+    # save the masked files to npz
+    for f in files_good:
+        dest_path = os.path.join(dest_folder_good, os.path.basename(f))
+        if not os.path.exists(os.path.dirname(dest_path)):
+            os.makedirs(os.path.dirname(dest_path),exist_ok=True)
+        print(f"Saving {dest_path}")
+        np.savez_compressed(dest_path, grey_label=da.sel(time=time).to_numpy())
+    
+    files_good = []
+    print(files_good)
+    print("bad",files_bad)
     handle_files_and_directories(
         files_bad, files_good, dest_folder_bad, dest_folder_good
     )
+    
