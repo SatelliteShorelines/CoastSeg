@@ -176,9 +176,42 @@ def return_valid_files(files: list) -> list:
     Returns:
         list: File paths whose image shape matches the mode of all file shapes.
     """
-    # print(get_image_shapes(files))
     modal_shape = mode(get_image_shapes(files))
     return [f for f in files if load_data(f).shape == modal_shape]
+
+def apply_land_mask( directory_path: str) -> None:
+    """
+    Apply land mask to 'good' files and save them to the destination folder.
+
+    Args:
+        dest_folder_good (str): Destination folder for 'good' files
+    """
+    files_good = [os.path.join(directory_path, file) for file in os.listdir(directory_path)]
+    if len(files_good) == 0:
+        return directory_path
+    times, time_var = get_time_vectors(files_good)
+    # create xarray from good files
+    da = xr.concat([load_xarray_data(f) for f in files_good], dim=time_var)
+    # create time average of good files
+    timeav = da.mean(dim="time")
+    # create land mask from the time averaged image
+    mask_land = np.array(np.round(timeav)==3).astype('int')
+    # apply land mask to each time in the good files
+    for time in times:
+        # select the time
+        frame = da.sel(time=time).to_numpy()
+        frame[mask_land==1] = 3
+        da.sel(time=time).values = frame
+
+    # save the masked files to npz
+    for f in files_good:
+        dest_path = os.path.join(directory_path, os.path.basename(f))
+        if not os.path.exists(os.path.dirname(dest_path)):
+            os.makedirs(os.path.dirname(dest_path),exist_ok=True)
+        np.savez_compressed(dest_path, grey_label=da.sel(time=time).to_numpy())
+        
+    return directory_path
+
 
 
 def filter_model_outputs(
@@ -194,7 +227,13 @@ def filter_model_outputs(
         dest_folder_bad (str): Destination folder for 'bad' files.
     """
     valid_files = return_valid_files(files)
-    logger.info(f"Found {len(valid_files)} valid files for {satname}.")
+    if len(valid_files) <3:
+        # if there are not enough valid files to perform the analysis, move all files to the good folder
+        handle_files_and_directories(
+        [], valid_files, dest_folder_bad, dest_folder_good
+        ) 
+        return 
+    print(f"Found {len(valid_files)} valid files for {satname}.")
     times, time_var = get_time_vectors(valid_files)
     da = xr.concat([load_xarray_data(f) for f in valid_files], dim=time_var)
     timeav = da.mean(dim="time")
@@ -202,9 +241,9 @@ def filter_model_outputs(
     rmse, input_rmse = measure_rmse(da, times, timeav)
     labels, scores = get_kmeans_clusters(input_rmse, rmse)
     files_bad, files_good = get_good_bad_files(valid_files, labels, scores)
-    logger.info(f"Found {len(files_bad)} files_bad.")
-    logger.info(f"Found {len(files_good)} files_good.")
-
     handle_files_and_directories(
         files_bad, files_good, dest_folder_bad, dest_folder_good
-    )
+    ) 
+    
+    
+    
