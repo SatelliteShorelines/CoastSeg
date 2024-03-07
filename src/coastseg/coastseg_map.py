@@ -1089,6 +1089,9 @@ class CoastSeg_Map:
         # if no rois exist on the map do not allow configs to be saved
         exception_handler.config_check_if_none(self.rois, "ROIs")
         
+        if roi_ids == []:
+            roi_ids = None
+        
         # Only get the selected ROIs if selected_only is True
         if selected_only:
             if roi_ids is None:
@@ -1933,7 +1936,7 @@ class CoastSeg_Map:
             cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
             self.save_session([roi_id],save_transects=True)
-        # self.save_session(roi_ids)
+        self.save_session(roi_ids,save_transects=True)
 
     def session_exists(self, session_name: str) -> bool:
             """
@@ -1992,7 +1995,7 @@ class CoastSeg_Map:
                     session_name, ROI_directory
                 )
                 # save source data
-                self.save_config(session_path)
+                self.save_config(session_path,roi_ids=roi_ids)
                 # save extracted shorelines
                 extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
                 logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
