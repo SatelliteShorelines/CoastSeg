@@ -444,7 +444,7 @@ class CoastSeg_Map:
                         selected_gdf, layer_name, colormap
                     )
 
-    def on_roi_change(
+    def update_extracted_shorelines_display(
         self,
         selected_id: str,
     ) -> None:
@@ -744,6 +744,10 @@ class CoastSeg_Map:
 
         # update the list of roi's ids who have extracted shorelines
         ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
+        # update the loadable shorelines on the map
+        if self.map is not None:
+            for roi_id in ids_with_extracted_shorelines:
+                self.update_extracted_shorelines_display(roi_id)
         logger.info(
             f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
         )
@@ -1770,6 +1774,10 @@ class CoastSeg_Map:
                 roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings()
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
+            
+            # update the extracted shorelines on the map
+            if extracted_shorelines is not None and self.map is not None:
+                self.update_extracted_shorelines_display(roi_id)
 
         #4. save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(

@@ -222,14 +222,18 @@ class UI:
         )
 
         # add callbacks to the extract shorelines widget
+        # when the load button is clicked on the extract shorelines widget, load the selected shorelines on the map
         self.extract_shorelines_widget.add_load_callback(
             coastseg_map.load_selected_shorelines_on_map
         )
-        self.extract_shorelines_widget.add_ROI_callback(coastseg_map.on_roi_change)
+        # when the ROI is changed on the extract shorelines widget, update the map
+        self.extract_shorelines_widget.add_ROI_callback(coastseg_map.update_extracted_shorelines_display)
 
+        # when the delete button is clicked on the extract shorelines widget, remove the selected shorelines from the map
         self.extract_shorelines_widget.add_remove_all_callback(
             coastseg_map.delete_selected_shorelines
         )
+        # when the extract_shorelines_widget needs to remove a layer from the map it will call this callback
         self.extract_shorelines_widget.add_remove_callback(
             coastseg_map.remove_layer_by_name
         )
