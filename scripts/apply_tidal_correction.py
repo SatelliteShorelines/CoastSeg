@@ -4,7 +4,7 @@ import pathlib
 from pathlib import Path
 import time
 import argparse
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 # Third-party imports
 import geopandas as gpd
@@ -19,7 +19,193 @@ import pyTMD.spatial
 import pyTMD.time
 import pyTMD.utilities
 from shapely.geometry import Point
+import shapely
+def add_lat_lon_to_timeseries(timeseries_data: pd.DataFrame,
+                                 transects: gpd.GeoDataFrame,
+                                 save_path:str,
+                                 name:str="")->pd.DataFrame:
+    """
+    Edits the transect_timeseries_merged.csv or transect_timeseries_tidally_corrected.csv
+    so that there are additional columns with lat (shore_y) and lon (shore_x).
+    
+    - Saves the intersections_gdf_utm.geojson and intersections_gdf_wgs84.geojson as well.
+    These are new continuous shorelines that are created from the intersections of the transects.
+    
+    inputs:
+    timeseries_data (pd.DataFrame): dataframe containing the data from transect_timeseries_merged.csv
+    transects (gpd.GeoDataFrame): geodataframe containing the transects 
+    save_path (str): directory  to save the new csvs to
+    
+    returns:
+    pd.DataFrame: the new timeseries_data with the lat and lon columns
+    """
+    
+    ##Load in data, make some new paths
+    if name:
+        new_gdf_shorelines_wgs84_path = os.path.join(save_path, f'intersections_gdf_wgs84_{name}.geojson')
+        new_gdf_shorelines_utm_path = os.path.join(save_path, f'intersections_gdf_utm_{name}.geojson')
+    else:
+        new_gdf_shorelines_wgs84_path = os.path.join(save_path, 'intersections_gdf_wgs84.geojson')
+        new_gdf_shorelines_utm_path = os.path.join(save_path, 'intersections_gdf_utm.geojson')
+    
+    ##Gonna do this in UTM to keep the math simple...problems when we get to longer distances (10s of km)
+    org_crs = transects.crs
+    utm_crs = transects.estimate_utm_crs()
+    transects_utm = transects.to_crs(utm_crs)
 
+    ##need some placeholders
+    shore_x_vals = [None]*len(timeseries_data)
+    shore_y_vals = [None]*len(timeseries_data)
+    timeseries_data['shore_x'] = shore_x_vals
+    timeseries_data['shore_y'] = shore_y_vals
+
+    ##make an empty gdf to hold points
+    size = len(timeseries_data)
+    transect_ids = [None]*size
+    dates = [None]*size
+    points = [None]*size
+    points_gdf_utm = gpd.GeoDataFrame({'geometry':points,
+                                      'dates':dates,
+                                      'id':transect_ids},
+                                      crs=utm_crs)
+
+    ##loop over all transects
+    for i in range(len(transects_utm)):
+        transect = transects_utm.iloc[i]
+        transect_id = transect['id']
+        first = transect.geometry.coords[0]
+        last = transect.geometry.coords[1]
+        
+        idx = timeseries_data['transect_id'].str.contains(transect_id)
+        ##in case there is a transect in the config_gdf that doesn't have any intersections
+        ##skip that transect
+        if np.any(idx):
+            timeseries_data_filter = timeseries_data[idx]
+        else:
+            continue
+
+        idxes = timeseries_data_filter.index
+        distances = timeseries_data_filter['cross_distance']
+
+        angle = np.arctan2(last[1] - first[1], last[0] - first[0])
+
+        shore_x_utm = first[0]+distances*np.cos(angle)
+        shore_y_utm = first[1]+distances*np.sin(angle)
+        points_utm = [shapely.Point(xy) for xy in zip(shore_x_utm, shore_y_utm)]
+
+        #conversion from utm to wgs84, put them in the transect_timeseries csv and utm gdf
+        dummy_gdf_utm = gpd.GeoDataFrame({'geometry':points_utm},
+                                         crs=utm_crs)
+        dummy_gdf_wgs84 = dummy_gdf_utm.to_crs(org_crs)
+
+        points_wgs84 = [shapely.get_coordinates(p) for p in dummy_gdf_wgs84.geometry]
+        points_wgs84 = np.array(points_wgs84)
+        points_wgs84 = points_wgs84.reshape(len(points_wgs84),2)
+        x_wgs84 = points_wgs84[:,0]
+        y_wgs84 = points_wgs84[:,1]
+        timeseries_data.loc[idxes,'shore_x'] = x_wgs84
+        timeseries_data.loc[idxes,'shore_y'] = y_wgs84
+        dates = timeseries_data['dates'].loc[idxes]
+        points_gdf_utm.loc[idxes,'geometry'] = points_utm
+        points_gdf_utm.loc[idxes,'dates'] = dates
+        points_gdf_utm.loc[idxes,'id'] = [transect_id]*len(dates)
+        
+    ##get points as wgs84 gdf
+    points_gdf_wgs84 = points_gdf_utm.to_crs(org_crs)
+    
+    ##Need to loop over unique dates to make shoreline gdf from points
+    new_dates = np.unique([points_gdf_utm['dates']])
+    new_lines = [None]*len(np.unique(new_dates))
+    for i in range(len(new_lines)):
+        date = new_dates[i]
+        points_filter = points_gdf_wgs84[points_gdf_wgs84['dates']==date]
+
+        new_line = shapely.LineString(points_filter['geometry'])
+        new_lines[i] = new_line
+        new_dates[i] = date
+    
+    new_gdf_shorelines_wgs84 = gpd.GeoDataFrame({'dates':new_dates,
+                                                 'geometry':new_lines},
+                                                crs=org_crs)
+    new_gdf_shorelines_wgs84['dates'] = pd.to_datetime(new_gdf_shorelines_wgs84['dates']).dt.tz_convert(None) 
+    new_gdf_shorelines_wgs84 = stringify_datetime_columns(new_gdf_shorelines_wgs84)
+
+    
+    ##convert to utm, save wgs84 and utm geojsons
+    new_gdf_shorelines_utm = new_gdf_shorelines_wgs84.to_crs(utm_crs)
+    new_gdf_shorelines_utm.to_file(new_gdf_shorelines_utm_path)
+    new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
+
+    #dropping that extra index column and saving new csv
+    return timeseries_data
+
+def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Check if any of the columns in a GeoDataFrame have the type pandas timestamp and convert them to string.
+
+    Args:
+        gdf: A GeoDataFrame.
+
+    Returns:
+        A new GeoDataFrame with the same data as the original, but with any timestamp columns converted to string.
+    """
+    timestamp_cols = [
+        col for col in gdf.columns if pd.api.types.is_datetime64_any_dtype(gdf[col])
+    ]
+
+    if not timestamp_cols:
+        return gdf
+
+    gdf = gdf.copy()
+
+    for col in timestamp_cols:
+        gdf[col] = gdf[col].astype(str)
+
+    return gdf
+
+
+def export_dataframe_as_geojson(data:pd.DataFrame, output_file_path:str, x_col:str, y_col:str, id_col:str,columns_to_keep:List[str] = None)->str:
+    """
+    Export specified columns from a CSV file to a GeoJSON format, labeled by a unique identifier.
+    
+    Parameters:
+    - data: pd.DataFrame, the input data.
+    - output_file_path: str, path for the output GeoJSON file.
+    - x_col: str, column name for the x coordinates (longitude).
+    - y_col: str, column name for the y coordinates (latitude).
+    - id_col: str, column name for the unique identifier (transect id).
+    - columns_to_keep: List[str], list of columns to keep in the output GeoJSON file. Defaults to None.
+    
+    Returns:
+    - str, path for the created GeoJSON file.
+    """
+
+    # Convert to GeoDataFrame
+    gdf = gpd.GeoDataFrame(
+        data, 
+        geometry=[Point(xy) for xy in zip(data[x_col], data[y_col])], 
+        crs="EPSG:4326"
+    )
+    
+    if columns_to_keep:
+        columns_to_keep.append(id_col)
+        columns_to_keep.append('geometry')
+        gdf = gdf[columns_to_keep].copy()
+        if 'dates' in gdf.columns:
+            gdf['dates'] = pd.to_datetime(gdf['dates']).dt.tz_convert(None)
+        if 'date' in gdf.columns:
+            gdf['date'] = pd.to_datetime(gdf['date']).dt.tz_convert(None)
+        gdf = stringify_datetime_columns(gdf)
+    else:
+        # Keep only necessary columns
+        gdf = gdf[[id_col, 'geometry']].copy()
+        
+    
+    # Export to GeoJSON
+    gdf.to_file(output_file_path, driver='GeoJSON')
+    
+    # Return the path to the output file
+    return output_file_path
 
 def get_tide_predictions(
    x:float,y:float, timeseries_df: pd.DataFrame, model_region_directory: str,transect_id:str="",
@@ -781,6 +967,17 @@ def main():
         REFERENCE_ELEVATION,
         BEACH_SLOPE,
     )
+    
+    # Load the GeoJSON file containing transect data
+    transects_gdf = read_and_filter_geojson(CONFIG_FILE_PATH)
+    # Add lat lon to the timeseries data
+    tide_corrected_timeseries_df =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,os.getcwd(),'tidally_corrected')
+    # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
+    tide_corrected_timeseries_df.to_csv(
+        os.path.join(os.getcwd(), "transect_time_series_tidally_corrected.csv")
+    )
+    # Save the tidally corrected time series points as a geojson
+    export_dataframe_as_geojson(tide_corrected_timeseries_df, os.path.join(os.getcwd(), "transect_time_series_tidally_corrected.geojson"),'shore_x','shore_y', "transect_id",['dates'])
     # Tidally correct the raw time series
     print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_FILE_NAME)}")
     # Save the Tidally corrected time series

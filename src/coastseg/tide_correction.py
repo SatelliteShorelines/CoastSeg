@@ -7,7 +7,7 @@ from typing import Collection, Dict, Tuple, Union
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
-from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf
+from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf,add_lat_lon_to_timeseries,export_dataframe_as_geojson
 
 # Third-party imports
 import geopandas as gpd
@@ -216,10 +216,13 @@ def correct_tides(
             reference_elevation,
             beach_slope,
         )
+        # add columns shore_x and shore_y to the tide_corrected_timeseries_df. Also save shorelines as vectors
+        tide_corrected_timeseries_df =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,session_path,'tidally_corrected')
         # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
         tide_corrected_timeseries_df.to_csv(
             os.path.join(session_path, "transect_time_series_tidally_corrected.csv")
         )
+        export_dataframe_as_geojson(tide_corrected_timeseries_df, os.path.join(session_path, "transect_time_series_tidally_corrected.geojson"),'shore_x','shore_y', "transect_id",['dates'])
         
         # save the time series as a matrix of date vs transect id with the cross_distance as the values
         pivot_df = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')

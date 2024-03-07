@@ -1975,7 +1975,7 @@ class CoastSeg_Map:
                 session_name, ROI_directory
             )
             # save source data
-            self.save_config(session_path)
+            self.save_config(session_path,roi_ids=roi_ids)
             # save extracted shorelines
             extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
             logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
