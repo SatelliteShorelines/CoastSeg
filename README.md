@@ -95,7 +95,7 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
 2. Install coastseg 
 
    ```bash
-   conda install -c conda-forge coastseg==1.1.41
+   conda install -c conda-forge coastseg
    ```
 3. (Optional) Install Optional Dependencies
     - Only install these dependencies if you plan to use CoastSeg's zoo workflow notebook. 
