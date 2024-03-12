@@ -675,6 +675,61 @@ class Zoo_Model:
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         return model_dict
 
+    def run_model_and_extract_shorelines(self,
+                                         input_directory:str,
+                                         session_name:str,
+                                         shoreline_settings:dict,
+                                         img_type:str,
+                                         model_implementation:str,
+                                         model_name:str,
+                                         shoreline_path:str="",
+                                         transects_path:str="",
+                                         use_tta:bool =False,
+                                         use_otsu:bool = False,
+                                         percent_no_data:float = 50.0,
+                                         use_GPU:str="0",):
+        """
+        Runs the model and extracts shorelines using the segmented imagery.
+
+        Args:
+            input_directory (str): The directory containing the input images.
+            session_name (str): The name of the session.
+            shoreline_settings (dict): A dictionary containing shoreline extraction settings.
+            img_type (str): The type of input images.
+            model_implementation (str): The implementation of the model.
+            model_name (str): The name of the model.
+            shoreline_path (str, optional): The path to save the extracted shorelines. Defaults to "".
+            transects_path (str, optional): The path to save the extracted transects. Defaults to "".
+            use_tta (bool, optional): Whether to use test-time augmentation. Defaults to False.
+            use_otsu (bool, optional): Whether to use Otsu thresholding. Defaults to False.
+            percent_no_data (float, optional): The percentage of no-data pixels in the input images. Defaults to 50.0.
+            use_GPU (str, optional): The GPU device to use. Defaults to "0".
+        """
+        # run the model
+        self.run_model(
+            img_type,
+            model_implementation,
+            session_name,
+            input_directory,
+            model_name=model_name,
+            use_GPU=use_GPU,
+            use_otsu=use_otsu,
+            use_tta=use_tta,
+            percent_no_data=percent_no_data,
+        )
+        sessions_path = os.path.join(os.getcwd(), "sessions")
+        session_directory = file_utilities.create_directory(sessions_path, session_name)
+        print(f"session_directory: {session_directory}")
+        # extract shorelines using the segmented imagery
+        self.extract_shorelines_with_unet(
+            shoreline_settings,
+            session_directory,
+            session_name,
+            shoreline_path,
+            transects_path,
+        )
+
+
     def extract_shorelines_with_unet(
         self,
         settings: dict,
@@ -684,6 +739,22 @@ class Zoo_Model:
         transects_path: str = "",
         **kwargs: dict,
     ) -> None:
+        """
+        Extracts shorelines using the U-Net model.
+
+        Args:
+            settings (dict): A dictionary containing the settings for shoreline extraction.
+            session_path (str): The path to the model session directory containing the model outputs and configuration files.
+            session_name (str): The name of the session to save the extracted shorelines to.
+            shoreline_path (str, optional): The path to the shoreline data. Defaults to "".
+            - If a geojson file is not provided, the program will attempt to load default shorelines and if that fails it will raise an error.
+            transects_path (str, optional): The path to the transects data. Defaults to "".
+            - If a geojson file is not provided, the program will attempt to load default transects and if that fails it will raise an error.
+            **kwargs (dict): Additional keyword arguments.
+
+        Returns:
+            None
+        """
         logger.info(f"extract_shoreline_settings: {settings}")
 
         # save the selected model session
