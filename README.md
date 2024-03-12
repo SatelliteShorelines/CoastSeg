@@ -283,11 +283,13 @@ Once you’ve created the coastseg environment you’ll need to run `git clone` 
   jupyter lab SDS_coastsat_classifier.ipynb
   ```
 
-5. Use the `SDS_coastsat_classifier` to Download Imagery
+5. Use the `SDS_coastsat_classifier` to download imagery and extract shorelines from the imagery.
 
-Check out the wiki guide [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/2.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download.
+ - Check out the wiki guide [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/03.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download.
 
-5. Use the `add_new_transects_notebook` to Download Imagery
+ 6. (Optional) Download the tide model and apply tidal correction to extracted shorelines.
+- Check out the wiki guide [How to Download Tide Model](https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model) for comprehensive guides for how to use
+
 
 
 # Authors
