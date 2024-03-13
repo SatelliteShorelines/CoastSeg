@@ -56,6 +56,7 @@ class UI_Models:
             "model_type": "segformer_RGB_4class_8190958",
             "otsu": False,
             "tta": False,
+            "img_type": "RGB",
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
@@ -287,6 +288,7 @@ class UI_Models:
             self.warning_row1,
             self.line_widget,
             step_5,
+            self.tidal_correct_file_row,
             HBox([self.clear_tidal_correction_btn(), UI_Models.tidal_correction_view]),
             self.warning_row2,
         )
@@ -412,13 +414,6 @@ class UI_Models:
         )
         self.use_select_images_button.on_click(self.use_select_images_button_clicked)
 
-        # Select Model Session button: selects a directory of model outputs
-        # self.select_model_session_button = Button(
-        #     description="Select Model Session",
-        #     style=load_style,
-        # )
-        # self.select_model_session_button.on_click(self.select_model_session_clicked)
-
         self.select_extracted_shorelines_session_button = Button(
             description="Select Session",
             style=load_style,
@@ -473,7 +468,8 @@ class UI_Models:
         # step 5 : Tidal Correction
         self.step_5_instr = HTML(
             value="<h2>Step 5 : Tidal Correction</h2>\
-            Ensure shorelines are extracted prior to tidal correction. Not all imagery will contain extractable shorelines, thus, tidal correction may not be possible.\
+            - The tide model must have been downloaded to CoastSeg/tide_model for tidal correction to work. Follow the guide to download the tide model: https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model \
+            - Ensure shorelines are extracted prior to tidal correction. Not all imagery will contain extractable shorelines, thus, tidal correction may not be possible.\
             <br><b>1. Select a Session: </b> Choose a session from the 'sessions' directory containing extracted shorelines.\
             <br><b>2. Run Tidal Correction:</b> Runs the tide model and save tidally corrected CSV files in the selected session directory.\
             ",
@@ -543,6 +539,8 @@ class UI_Models:
             self.model_dropdown.options = self.MNDWI_models
         if change["new"] == "NDWI":
             self.model_dropdown.options = self.NDWI_models
+            
+        self.model_dict["img_type"] = change["new"]
         # if change["new"] == "RGB+MNDWI+NDWI":
         #     self.model_dropdown.options = self.five_band_models
 
@@ -573,41 +571,19 @@ class UI_Models:
                 position=1,
             )
             return
+        
         print("Running the model. Please wait.")
         zoo_model_instance = self.get_model_instance()
-        img_type = self.model_input_dropdown.value
-        self.model_dict["model_type"] = self.model_dropdown.value
-        self.model_dict["implementation"] = self.model_implementation.value
-        # get percent no data from settings
-        settings = self.settings_dashboard.get_settings()
-        percent_no_data = settings.get("percent_no_data", 50.0)
 
-        if self.otsu_radio.value == "Enabled":
-            self.model_dict["otsu"] = True
-        if self.otsu_radio.value == "Disabled":
-            self.model_dict["otsu"] = False
-        if self.otsu_radio.value == "Enabled":
-            self.model_dict["tta"] = True
-        if self.otsu_radio.value == "Disabled":
-            self.model_dict["tta"] = False
-
+        # get the transects and shorelines file paths that were uploaded
         transects_path = self.fileuploader.files_dict.get("transects", "")
         shoreline_path = self.fileuploader.files_dict.get("shorelines", "")
-
             
         zoo_model_instance.run_model_and_extract_shorelines(
             self.model_dict["sample_direc"],
-            session_name,
-            self.settings_dashboard.get_settings(),
-            img_type,
-            self.model_dict["implementation"],
-            model_name=self.model_dict["model_type"],
+            session_name=session_name,
             shoreline_path=shoreline_path,
             transects_path=transects_path,
-            use_GPU="0",
-            use_otsu=self.model_dict["otsu"],
-            use_tta=self.model_dict["tta"],
-            percent_no_data=percent_no_data,
         )
 
 
@@ -636,6 +612,8 @@ class UI_Models:
                 self.model_dict["sample_direc"] = ""
             else:
                 self.model_dict["sample_direc"] = str(sample_direc)
+                self.zoo_model_instance.set_settings(sample_direc=str(sample_direc))
+                self.save_updated_settings()
 
     @extract_shorelines_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
@@ -648,26 +626,14 @@ class UI_Models:
         # add instance of file_chooser to self.file_row
         self.file_row.children = [file_chooser]
         # udpate the settings in the model instance
-        self.update_displayed_settings()
+        # self.save_updated_settings()
+        # self.update_displayed_settings()
 
 
     @tidal_correction_view.capture(clear_output=True)
     def selected_shoreline_session_callback(self, filechooser: FileChooser) -> None:
         if filechooser.selected:
             self.shoreline_session_directory = os.path.abspath(filechooser.selected)
-
-    # @extract_shorelines_view.capture(clear_output=True)
-    # def select_model_session_clicked(self, button):
-    #     # Prompt the user to select a directory of model outputs
-    #     file_chooser = common.create_dir_chooser(
-    #         self.selected_model_session_callback,
-    #         title="Select model outputs",
-    #         starting_directory="sessions",
-    #     )
-    #     # clear row and close all widgets in self.extracted_shoreline_file_row before adding new file_chooser
-    #     common.clear_row(self.extracted_shoreline_file_row)
-    #     # add instance of file_chooser to self.extracted_shoreline_file_row
-    #     self.extracted_shoreline_file_row.children = [file_chooser]
 
     @tidal_correction_view.capture(clear_output=True)
     def select_extracted_shorelines_button_clicked(self, button):
@@ -691,6 +657,16 @@ class UI_Models:
         common.clear_row(self.get_warning_box(position))
         # add instance of warning_box to warning_row
         self.get_warning_box(position).children = [warning_box]
+
+    def save_updated_settings(self,):
+        # get the settings from the settings dashboard
+        settings = self.settings_dashboard.get_settings()
+        # get the model settings
+        settings.update(self.model_dict)
+        # save the settings to the model instance
+        self.zoo_model_instance.set_settings(**settings)
+        # update the settings in the view settings section
+        self.update_displayed_settings()
 
     @extract_shorelines_view.capture(clear_output=True)
     def save_settings_clicked(self, btn):
