@@ -73,7 +73,7 @@ Version 1 is now stable, and we have a lot of planned new features for version 2
 
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/Contribution-Guide)
+- [Contribution Guide](https://github.com/Doodleverse/CoastSeg/wiki/13.-%5BADVANCED%5D-Contribution-Guide)
 
 ## Installation Instructions
 
