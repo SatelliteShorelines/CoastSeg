@@ -19,18 +19,17 @@
 
 <img src="https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif" width="350" height="350">
 
+### Table of Contents
 
-## News
-We are thrilled to announce the official release of CoastSeg version 1.0.0! Please see the [release notes](https://github.com/Doodleverse/CoastSeg/releases/tag/v1.0.0). If you are an existing CoastSeg user, to upgrade to this latest version of CoastSeg:
+- [Installation Instructions](#installation-instructions)
+- [Getting Started](#getting-started)
+- [CoastSeg Update Guide](#coastseg-update-guide)
 
-```
-git pull origin main
-```
+### Useful Links
 
-then: 
-```
-pip install coastseg==1.0.0
-```
+- [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
+- [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
+- [Contribution Guide](https://github.com/Doodleverse/CoastSeg/wiki/13.-%5BADVANCED%5D-Contribution-Guide)
 
 ## What is CoastSeg?
 
@@ -64,16 +63,6 @@ Version 1 is now stable, and we have a lot of planned new features for version 2
 - Use Google Earth Engine to automatically download satellite imagery for each ROI clicked on the map.
 - Coastseg can automatically extract shorelines from downloaded satellite imagery.
 
-## Table of Contents
-
-- [Installation Instructions](#installation-instructions)
-- [Getting Started](#getting-started)
-
-## Useful Links
-
-- [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
-- [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Contribution Guide](https://github.com/Doodleverse/CoastSeg/wiki/13.-%5BADVANCED%5D-Contribution-Guide)
 
 ## Installation Instructions
 
@@ -139,6 +128,80 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
    pip uninstall h5py -y
    conda install -c conda-forge h5py -y
    ```
+## **Having Installation Errors?**
+
+Use the command `conda clean --all` to clean old packages from your anaconda base environment. Ensure you are not in your coastseg environment or any other environment by running `conda deactivate`, to deactivate any environment you're in before running `conda clean --all`. It is recommended that you have Anaconda prompt (terminal for Mac and Linux) open as an administrator before you attempt to install `coastseg` again.
+
+#### Conda Clean Steps
+
+```bash
+conda deactivate
+conda clean --all
+```
+
+# Getting Started
+Check out the rest of the [wiki](https://github.com/Doodleverse/CoastSeg/wiki) for more tutorials
+
+## Prerequisites
+1. Sign up to use Google Earth Engine Python API
+
+-Request access to Google Earth Engine at https://signup.earthengine.google.com/
+
+-It takes about 1 day for Google to approve requests.
+
+## Installation & SetUp
+1. Activate the coastseg conda environment
+   ```bash
+   conda activate coastseg
+   ```
+- If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
+
+<img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
+     alt="coastseg activated in anaconda prompt" width="350" height="150">
+
+2. Download CoastSeg from GitHub
+```
+git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
+```
+## Extract Shorelines
+1. Launch Jupyter Lab
+
+- Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
+  ```bash
+  conda activate coastseg
+  jupyter lab SDS_coastsat_classifier.ipynb
+  ```
+2. Authenticate with Google Earth Engine
+![auth_cell_cropped](https://github.com/Doodleverse/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
+4. Draw an Bounding Box
+6. Generate ROI (Region of Interest)
+7. Load Transects
+![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
+
+8. Modify the Settings
+   - Change the satellites to L8 and L9
+   - Change the dates to 12/01/2023 - 03/01/2024
+   - Change the size of the reference shoreline buffer
+   - Click `Save Settings`
+9. Name the Session
+10. Extract Shorelines
+![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
+
+## Apply Tidal Correction to Extracted Shorelines (Optional) 
+  1. Download the tide model
+      - Before tidal correction can be applied the tide model must be downloaded
+      - Follow the tutorial: [How to Download Tide Model](https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model)
+  2. Load the Session with Extracted Shorelines
+      - Re-open the jupyter notebook
+      - Under the Kernal menu Click 'restart and clear outputs of all cells'
+      - Click Load Session and load the same we made before ''
+  3. Click Correct Tides
+    - Click the ROI ID from the dropdown
+    - Enter Beach Slope
+    - Enter Beach Elevation relative to Mean Sea Level
+![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
+
+
 
 # CoastSeg Update Guide
 
@@ -241,80 +304,6 @@ git status
 
 </details>
 <br>
-
-## **Having Installation Errors?**
-
-Use the command `conda clean --all` to clean old packages from your anaconda base environment. Ensure you are not in your coastseg environment or any other environment by running `conda deactivate`, to deactivate any environment you're in before running `conda clean --all`. It is recommended that you have Anaconda prompt (terminal for Mac and Linux) open as an administrator before you attempt to install `coastseg` again.
-
-#### Conda Clean Steps
-
-```bash
-conda deactivate
-conda clean --all
-```
-
-# Getting Started
-Check out the rest of the [wiki](https://github.com/Doodleverse/CoastSeg/wiki) for more tutorials
-## Prerequisites
-1. Sign up to use Google Earth Engine Python API
-
--Request access to Google Earth Engine at https://signup.earthengine.google.com/
-
--It takes about 1 day for Google to approve requests.
-
-## Installation & SetUp
-1. Activate the coastseg conda environment
-   ```bash
-   conda activate coastseg
-   ```
-- If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
-
-<img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
-     alt="coastseg activated in anaconda prompt" width="350" height="150">
-
-2. Download CoastSeg from GitHub
-```
-git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
-```
-## Extract Shorelines
-1. Launch Jupyter Lab
-
-- Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
-  ```bash
-  conda activate coastseg
-  jupyter lab SDS_coastsat_classifier.ipynb
-  ```
-2. Authenticate with Google Earth Engine
-![auth_cell_cropped](https://github.com/Doodleverse/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
-4. Draw an Bounding Box
-6. Generate ROI (Region of Interest)
-7. Load Transects
-![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
-
-8. Modify the Settings
-   - Change the satellites to L8 and L9
-   - Change the dates to 12/01/2023 - 03/01/2024
-   - Change the size of the reference shoreline buffer
-   - Click `Save Settings`
-9. Name the Session
-10. Extract Shorelines
-![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
-
-## Apply Tidal Correction to Extracted Shorelines (Optional) 
-  1. Download the tide model
-      - Before tidal correction can be applied the tide model must be downloaded
-      - Follow the tutorial: [How to Download Tide Model](https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model)
-  2. Load the Session with Extracted Shorelines
-      - Re-open the jupyter notebook
-      - Under the Kernal menu Click 'restart and clear outputs of all cells'
-      - Click Load Session and load the same we made before ''
-  3. Click Correct Tides
-    - Click the ROI ID from the dropdown
-    - Enter Beach Slope
-    - Enter Beach Elevation relative to Mean Sea Level
-![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
-
-
 
 # Authors
 
