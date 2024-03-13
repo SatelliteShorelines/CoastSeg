@@ -16,7 +16,8 @@
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
 ![Keras](https://img.shields.io/badge/Keras-%23D00000.svg?style=for-the-badge&logo=Keras&logoColor=white)
 
-![official_coastseg](https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif)
+
+<img src="https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif" width="350" height="350">
 
 
 ## News
@@ -256,34 +257,50 @@ conda clean --all
 ```
 
 # Getting Started
-
+## Prerequisites
 1. Sign up to use Google Earth Engine Python API
 
-First, you need to request access to Google Earth Engine at https://signup.earthengine.google.com/. It takes about 1 day for Google to approve requests.
+-Request access to Google Earth Engine at https://signup.earthengine.google.com/
 
-2. Activate your conda environment
+-It takes about 1 day for Google to approve requests.
 
+## Installation & SetUp
+1. Activate the coastseg conda environment
    ```bash
    conda activate coastseg
    ```
-
 - If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
-
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
-
-3. Download CoastSeg from GitHub
-
-Once you’ve created the coastseg environment you’ll need to run `git clone` the coastseg code onto your computer. Follow the guide [How to Clone CoastSeg](https://github.com/Doodleverse/CoastSeg/wiki/How-to-Clone-Coastseg) in the wiki for how to perform a git clone to download the coastseg code onto your computer.
-
-4. Launch Jupyter Lab
+2. Download CoastSeg from GitHub
+```
+git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
+```
+## Running the Notebook
+1. Launch Jupyter Lab
 
 - Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
   ```bash
+  conda activate coastseg
   jupyter lab SDS_coastsat_classifier.ipynb
   ```
+2. Authenticate with Google Earth Engine
+![auth_cell_cropped](https://github.com/Doodleverse/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
+4. Draw an Bounding Box
+6. Generate ROI (Region of Interest)
+7. Load Transects
+![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
-5. Use the `SDS_coastsat_classifier` to download imagery and extract shorelines from the imagery.
+8. Modify the Settings
+   - Modify the dates & satellites
+   - Click `Save Settings`
+9. Extract Shorelines
+10. (Optional) Download the tide model
+11. Load the Session
+12. Click Correct Tides
+
+
+Use the `SDS_coastsat_classifier` to download imagery and extract shorelines from the imagery.
 
  - Check out the wiki guide [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/03.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download.
 
