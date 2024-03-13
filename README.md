@@ -276,7 +276,7 @@ conda clean --all
 ```
 git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
 ```
-## Running the Notebook
+## Extract Shorelines
 1. Launch Jupyter Lab
 
 - Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
@@ -300,17 +300,21 @@ git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
 10. Extract Shorelines
 ![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
 
-10. (Optional) Download the tide model
-11. Load the Session
-12. Click Correct Tides
+## Apply Tidal Correction to Extracted Shorelines (Optional) 
+  1. Download the tide model
+      - Before tidal correction can be applied the tide model must be downloaded
+      - Follow the tutorial: [How to Download Tide Model](https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model)
+  2. Load the Session with Extracted Shorelines
+      - Re-open the jupyter notebook
+      - Under the Kernal menu Click 'restart and clear outputs of all cells'
+      - Click Load Session and load the same we made before ''
+  3. Click Correct Tides
+    - Click the ROI ID from the dropdown
+    - Enter Beach Slope
+    - Enter Beach Elevation relative to Mean Sea Level
+![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
 
-
-Use the `SDS_coastsat_classifier` to download imagery and extract shorelines from the imagery.
-
- - Check out the wiki guide [How to Download Imagery](https://github.com/Doodleverse/CoastSeg/wiki/03.-How-to-Download-Imagery) for comprehensive guides for how to use coastseg to download imagery and apply image segmentation models to the imagery you download.
-
- 6. (Optional) Download the tide model and apply tidal correction to extracted shorelines.
-- Check out the wiki guide [How to Download Tide Model](https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model) for comprehensive guides for how to use
+11. Check out the rest of the [wiki](https://github.com/Doodleverse/CoastSeg/wiki) for more tutorials
 
 
 
