@@ -62,15 +62,12 @@ Version 1 is now stable, and we have a lot of planned new features for version 2
 
 - Create ROIs(regions of interest) along the coast and automatically load shorelines on the map.
 - Use Google Earth Engine to automatically download satellite imagery for each ROI clicked on the map.
-
-![gif of map with extracted shorelines on it](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/extract_shorelines_and_transects.gif)
-
 - Coastseg can automatically extract shorelines from downloaded satellite imagery.
 
 ## Table of Contents
 
 - [Installation Instructions](#installation-instructions)
-- [Getting Started](#getting-tarted)
+- [Getting Started](#getting-started)
 
 ## Useful Links
 
@@ -257,6 +254,7 @@ conda clean --all
 ```
 
 # Getting Started
+Check out the rest of the [wiki](https://github.com/Doodleverse/CoastSeg/wiki) for more tutorials
 ## Prerequisites
 1. Sign up to use Google Earth Engine Python API
 
@@ -270,8 +268,10 @@ conda clean --all
    conda activate coastseg
    ```
 - If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
+
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
+
 2. Download CoastSeg from GitHub
 ```
 git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
@@ -313,8 +313,6 @@ git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
     - Enter Beach Slope
     - Enter Beach Elevation relative to Mean Sea Level
 ![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
-
-11. Check out the rest of the [wiki](https://github.com/Doodleverse/CoastSeg/wiki) for more tutorials
 
 
 
