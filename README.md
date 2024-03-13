@@ -292,9 +292,14 @@ git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
 ![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
 8. Modify the Settings
-   - Modify the dates & satellites
+   - Change the satellites to L8 and L9
+   - Change the dates to 12/01/2023 - 03/01/2024
+   - Change the size of the reference shoreline buffer
    - Click `Save Settings`
-9. Extract Shorelines
+9. Name the Session
+10. Extract Shorelines
+![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
+
 10. (Optional) Download the tide model
 11. Load the Session
 12. Click Correct Tides
