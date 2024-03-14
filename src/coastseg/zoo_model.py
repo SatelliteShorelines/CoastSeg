@@ -857,7 +857,7 @@ class Zoo_Model:
         if not os.path.exists(outputs_path):
             logger.warning(f"No model outputs were generated")
             print(f"No model outputs were generated")
-            return
+            raise Exception(f"No model outputs were generated. Check if {roi_directory} contained enough data to run the model or try raising the percentage of no data allowed.")
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
         # if configs do not exist then raise an error and do not save the session
@@ -1044,7 +1044,11 @@ class Zoo_Model:
         model_ready_files = file_utilities.filter_files(
             model_ready_files, avoid_patterns
         )
+        # filter out files with no data pixels greater than percent_no_data
+        len_before = len(model_ready_files)
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
+        print(f"From {len_before} files {len_before - len(model_ready_files)} files were filtered out due to no data pixels percentage being greater than {percent_no_data}%.")
+        
         return model_ready_files
 
     def compute_segmentation(
@@ -1066,6 +1070,7 @@ class Zoo_Model:
 
             mixed_precision.set_global_policy("mixed_float16")
         # Compute the segmentation for each of the files
+        print(f"Found {len(files_to_segment)} files to run on model on")
         for file_to_seg in tqdm.auto.tqdm(files_to_segment, desc="Applying Model"):
             do_seg(
                 file_to_seg,

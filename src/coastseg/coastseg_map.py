@@ -449,7 +449,7 @@ class CoastSeg_Map:
                         selected_gdf, layer_name, colormap
                     )
 
-    def on_roi_change(
+    def update_extracted_shorelines_display(
         self,
         selected_id: str,
     ) -> None:
@@ -749,6 +749,10 @@ class CoastSeg_Map:
 
         # update the list of roi's ids who have extracted shorelines
         ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
+        # update the loadable shorelines on the map
+        if self.map is not None:
+            for roi_id in ids_with_extracted_shorelines:
+                self.update_extracted_shorelines_display(roi_id)
         logger.info(
             f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
         )
@@ -1777,11 +1781,10 @@ class CoastSeg_Map:
                 roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings(),session_path
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
-            # (optional) filter extracted shorelines to only include the ones that intersect with the reference buffer polygon
-            if hasattr(self.shoreline_extraction_area, "gdf"):
-                common.filter_extracted_shorelines(extracted_shorelines,self.shoreline_extraction_area.gdf)
-            # save the geojson and json files for extracted shorelines
-            common.save_extracted_shorelines(extracted_shorelines, session_path)
+            
+            # update the extracted shorelines on the map
+            if extracted_shorelines is not None and self.map is not None:
+                self.update_extracted_shorelines_display(roi_id)
 
         #4. save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(

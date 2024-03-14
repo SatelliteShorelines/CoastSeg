@@ -1,6 +1,7 @@
 # Standard library imports
 import colorsys
 import copy
+import shutil
 import fnmatch
 import json
 import json
@@ -65,7 +66,7 @@ from tqdm.auto import tqdm
 # Internal dependencies imports
 from coastseg import common, exceptions
 from coastseg.validation import get_satellites_in_directory
-from coastseg.filters import filter_model_outputs
+from coastseg.filters import filter_model_outputs, apply_land_mask
 from coastseg.common import get_filtered_files_dict, edit_metadata
 
 
@@ -1395,6 +1396,7 @@ def get_sorted_model_outputs_directory(
 ) -> str:
     """
     Sort model output files into "good" and "bad" folders based on the satellite name in the filename.
+    Applies the land mask to the model output files in the "good" folder.
 
     Args:
         session_path (str): The path to the session directory containing the model output files.
@@ -1405,21 +1407,40 @@ def get_sorted_model_outputs_directory(
     # for each satellite, sort the model outputs into good & bad
     good_folder = os.path.join(session_path, "good")
     bad_folder = os.path.join(session_path, "bad")
+    # empty the good and bad folders 
+    if os.path.exists(good_folder):
+        shutil.rmtree(good_folder)
+    if os.path.exists(bad_folder):
+        shutil.rmtree(bad_folder)
+        
+    os.makedirs(good_folder, exist_ok=True)  # Ensure good_folder exists.
+    os.makedirs(bad_folder, exist_ok=True)   # Ensure bad_folder exists.
+    
     satellites = get_satellites_in_directory(session_path)
+    print(f"Satellites in directory: {satellites}")
     for satname in satellites:
-        # get all the model_outputs that have the satellite in the filename
+        print(f"Filtering model outputs for {satname}")
+        # Define the pattern for matching files related to the current satellite.
+        pattern = f".*{re.escape(satname)}.*\\.npz$"  # Match files with the satellite name in the filename.
+        # search the session path for the satellite files
+        search_path = session_path
+        files = []
         try:
-            # get all the model_outputs that have the satellite in the filename
-            files = file_utilities.find_files_recursively(
-                session_path, f".*{re.escape(satname)}.*\\.npz$", raise_error=False
-            )
-            # logger.info(f"fetched files {files} for satellite {satname}")
+            # Retrieve the list of relevant .npz files.
+            files = file_utilities.find_files_in_directory(search_path, pattern, raise_error=False)
+            logger.info(f"{search_path} contains {len(files)} files for satellite {satname}")
         except Exception as e:
             logger.error(f"Error finding files for satellite {satname}: {e}")
-            continue
+            continue  # Skip to the next satellite if there's an issue.
+
         logger.info(f"{session_path} contained {satname} files: {len(files)} ")
-        if len(files) != 0:
-            filter_model_outputs(satname, files, good_folder, bad_folder)
+        
+        # If there are files sort the files into good and bad folders
+        filter_model_outputs(satname, files, good_folder, bad_folder)
+        # Apply the land mask if there are files in the good folder.
+        if os.listdir(good_folder):
+            apply_land_mask(good_folder)
+            
     return good_folder
 
 
