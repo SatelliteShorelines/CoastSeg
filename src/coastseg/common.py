@@ -39,38 +39,38 @@ from coastseg.validation import find_satellite_in_filename
 logger = logging.getLogger(__name__)
 
 
-def filter_extracted_shorelines(extracted_shoreline, shoreline_extraction_area_gdf: gpd.GeoDataFrame = None):
-    """
-    Filters the extracted shorelines based on a reference polygon.
-    Args:
-        extracted_shoreline (object): The extracted shorelines object.
-        shoreline_extraction_area_gdf (gpd.GeoDataFrame, optional): The shoreline_extraction_area as a GeoDataFrame. Defaults to None.
-    Returns:
-        object: The filtered extracted shorelines object.
-    """
-    if shoreline_extraction_area_gdf is None:
-        return extracted_shoreline
-    if extracted_shoreline is None:
-        return None
-    # create a geodataframe of the extracted shorelines as linestring geometries
-    extracted_shorelines_gdf_lines = extracted_shoreline.create_geodataframe(
-        extracted_shoreline.shoreline_settings["output_epsg"],
-        output_crs="EPSG:4326",
-        geomtype="lines",
-    )
-    # convert the reference polygon to the same crs as the extracted shorelines
-    shoreline_extraction_area_gdf = shoreline_extraction_area_gdf.to_crs("EPSG:4326")
-    filtered_shorelines_gdf = ref_poly_filter(shoreline_extraction_area_gdf, extracted_shorelines_gdf_lines.copy())
-    # update the extracted shorelines object with filtered shoreline vectors
-    extracted_shoreline.gdf = filtered_shorelines_gdf
-    # convert to linestrings to multipoints geometries
-    filtered_points_gdf = convert_linestrings_to_multipoints(filtered_shorelines_gdf.copy())
-    filtered_points_gdf = stringify_datetime_columns(filtered_points_gdf)
-    new_extracted_dict = filter_extract_dict(filtered_shorelines_gdf, extracted_shoreline.dictionary,extracted_shoreline.shoreline_settings["output_epsg"])
-    # update the extracted shorelines object with the filtered dictionary
-    extracted_shoreline.dictionary = new_extracted_dict
-    # return the filtered extracted shorelines
-    return extracted_shoreline
+# def filter_extracted_shorelines(extracted_shoreline, shoreline_extraction_area_gdf: gpd.GeoDataFrame = None):
+#     """
+#     Filters the extracted shorelines based on a reference polygon.
+#     Args:
+#         extracted_shoreline (object): The extracted shorelines object.
+#         shoreline_extraction_area_gdf (gpd.GeoDataFrame, optional): The shoreline_extraction_area as a GeoDataFrame. Defaults to None.
+#     Returns:
+#         object: The filtered extracted shorelines object.
+#     """
+#     if shoreline_extraction_area_gdf is None:
+#         return extracted_shoreline
+#     if extracted_shoreline is None:
+#         return None
+#     # create a geodataframe of the extracted shorelines as linestring geometries
+#     extracted_shorelines_gdf_lines = extracted_shoreline.create_geodataframe(
+#         extracted_shoreline.shoreline_settings["output_epsg"],
+#         output_crs="EPSG:4326",
+#         geomtype="lines",
+#     )
+#     # convert the reference polygon to the same crs as the extracted shorelines
+#     shoreline_extraction_area_gdf = shoreline_extraction_area_gdf.to_crs("EPSG:4326")
+#     filtered_shorelines_gdf = ref_poly_filter(shoreline_extraction_area_gdf, extracted_shorelines_gdf_lines.copy())
+#     # update the extracted shorelines object with filtered shoreline vectors
+#     extracted_shoreline.gdf = filtered_shorelines_gdf
+#     # convert to linestrings to multipoints geometries
+#     filtered_points_gdf = convert_linestrings_to_multipoints(filtered_shorelines_gdf.copy())
+#     filtered_points_gdf = stringify_datetime_columns(filtered_points_gdf)
+#     new_extracted_dict = filter_extract_dict(filtered_shorelines_gdf, extracted_shoreline.dictionary,extracted_shoreline.shoreline_settings["output_epsg"])
+#     # update the extracted shorelines object with the filtered dictionary
+#     extracted_shoreline.dictionary = new_extracted_dict
+#     # return the filtered extracted shorelines
+#     return extracted_shoreline
 
 def delete_unmatched_rows(
     data_dict: Dict[str, Union[List[Any], pd.Series]],

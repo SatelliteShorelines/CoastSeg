@@ -1743,6 +1743,7 @@ class Extracted_Shoreline:
         roi_settings: dict = None,
         settings: dict = None,
         output_directory:str = None,
+        shoreline_extraction_area: gpd.GeoDataFrame = None,
     ) -> "Extracted_Shoreline":
         """
         Extracts shorelines for a specified region of interest (ROI) and returns an Extracted_Shoreline class instance.
@@ -1769,7 +1770,8 @@ class Extracted_Shoreline:
             shoreline,
             roi_settings,
             settings,
-            output_directory=output_directory
+            output_directory=output_directory,
+            shoreline_extraction_area = shoreline_extraction_area
         )
         if self.dictionary == {}:
             logger.warning(f"No extracted shorelines for ROI {roi_id}")
@@ -2021,7 +2023,8 @@ class Extracted_Shoreline:
             session_path: str = None,
             class_indices: list = None,
             class_mapping: dict = None,
-            output_directory: str = None,            
+            output_directory: str = None, 
+            shoreline_extraction_area : gpd.geodataframe = None           
         ) -> dict:
         """
         Extracts shorelines for a specified region of interest (ROI).
@@ -2106,7 +2109,7 @@ class Extracted_Shoreline:
         # extract shorelines from ROI
         if session_path is None:
             # extract shorelines with coastsat's models
-            extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings,output_directory=output_directory)
+            extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings,output_directory=output_directory, shoreline_extraction_area=shoreline_extraction_area)
         elif session_path is not None:
             # extract shorelines with our models
             extracted_shorelines = extract_shorelines_with_dask(

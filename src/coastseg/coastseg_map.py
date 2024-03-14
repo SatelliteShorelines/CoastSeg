@@ -1508,6 +1508,7 @@ class CoastSeg_Map:
         shoreline_gdf: gpd.GeoDataFrame,
         settings: dict,
         session_path: str=None,
+        shoreline_extraction_area: gpd.GeoDataFrame = None,
     ) -> Optional[extracted_shoreline.Extracted_Shoreline]:
         """
         Extracts the shoreline for a given ROI and returns the extracted shoreline object.
@@ -1539,6 +1540,7 @@ class CoastSeg_Map:
                 roi_settings,
                 settings,
                 output_directory=session_path,
+                shoreline_extraction_area = shoreline_extraction_area
             )
             logger.info(f"extracted_shoreline_dict[{roi_id}]: {extracted_shorelines}")
             return extracted_shorelines
@@ -1771,18 +1773,20 @@ class CoastSeg_Map:
             roi_id = roi_ids[0]
             single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
             self.update_settings_with_accurate_epsg(single_roi)
-    
+            
+        shoreline_extraction_area_gdf = getattr(self.shoreline_extraction_area, "gdf", None) if self.shoreline_extraction_area else None
+
         #3. get selected ROIs on map and extract shoreline for each of them
         for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
             # Create the session for the selected ROIs
             session_path = self.create_session(self.get_session_name(), roi_id, save_config=True)
             print(f"Extracting shorelines from ROI with the id:{roi_id}")
             extracted_shorelines = self.extract_shoreline_for_roi(
-                roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings(),session_path
+                roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings(),session_path, shoreline_extraction_area_gdf
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
             
-            # update the extracted shorelines on the map
+            # update the extracted shorelines on the map if the map is available
             if extracted_shorelines is not None and self.map is not None:
                 self.update_extracted_shorelines_display(roi_id)
 
