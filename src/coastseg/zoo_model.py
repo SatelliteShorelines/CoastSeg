@@ -1,4 +1,5 @@
 import os
+
 from pathlib import Path
 import re
 import glob
@@ -9,7 +10,6 @@ import logging
 from itertools import islice
 from typing import List, Set, Tuple
 
-from coastsat import SDS_tools
 from coastseg import common
 from coastseg import downloads
 from coastseg import sessions
@@ -18,6 +18,7 @@ from coastseg import geodata_processing
 from coastseg import file_utilities
 
 import geopandas as gpd
+from osgeo import gdal
 import skimage
 import aiohttp
 import tqdm
@@ -26,7 +27,6 @@ import numpy as np
 from glob import glob
 import tqdm.asyncio
 import nest_asyncio
-import pytz
 
 from skimage.io import imread
 from tensorflow.keras import mixed_precision
@@ -41,6 +41,8 @@ from doodleverse_utils.model_imports import (
     segformer,
 )
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
+# suppress tensorflow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
@@ -569,6 +571,7 @@ def get_sorted_files_with_extension(
 
 class Zoo_Model:
     def __init__(self):
+        gdal.UseExceptions()
         self.weights_directory = None
         self.model_types = []
         self.model_list = []
@@ -583,8 +586,6 @@ class Zoo_Model:
         self.model_list = []
         self.metadata_dict = {}
         self.settings = {}
-        # create default settings
-        self.set_settings()
 
     def set_settings(self, **kwargs):
         """
@@ -602,6 +603,12 @@ class Zoo_Model:
         # Check if any of the keys are missing
         # if any keys are missing set the default value
         default_settings = {
+            "sample_direc": None,
+            "use_GPU": "0",
+            "implementation": "BEST",
+            "model_type": "segformer_RGB_4class_8190958",
+            "otsu": False,
+            "tta": False,
             "cloud_thresh": 0.5,  # threshold on maximum cloud cover
             "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
             "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
@@ -629,14 +636,19 @@ class Zoo_Model:
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
-        self.settings.update(
-            {
-                key: default_settings[key]
-                for key in default_settings
-                if key not in self.settings
-            }
-        )
+        
+        # self.settings.update(
+        #     {
+        #         key: default_settings[key]
+        #         for key in default_settings
+        #         if key not in self.settings
+        #     }
+        # )
+        for key, value in default_settings.items():
+            self.settings.setdefault(key, value)
+            
         logger.info(f"Settings: {self.settings}")
+        return self.settings.copy()
 
     def get_settings(self):
         SETTINGS_NOT_FOUND = (
@@ -675,7 +687,84 @@ class Zoo_Model:
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         return model_dict
 
-        # Rest of the code...
+    def run_model_and_extract_shorelines(self,
+                                         input_directory:str,
+                                         session_name:str,
+                                         shoreline_path:str="",
+                                         transects_path:str="",
+                                         use_tta:bool =False,
+                                         use_otsu:bool = False,
+                                         percent_no_data:float = 50.0,
+                                         use_GPU:str="0",):
+        """
+        Runs the model and extracts shorelines using the segmented imagery.
+
+        Args:
+            input_directory (str): The directory containing the input images.
+            session_name (str): The name of the session.
+            shoreline_settings (dict): A dictionary containing shoreline extraction settings.
+            img_type (str): The type of input images.
+            model_implementation (str): The implementation of the model.
+            model_name (str): The name of the model.
+            shoreline_path (str, optional): The path to save the extracted shorelines. Defaults to "".
+            transects_path (str, optional): The path to save the extracted transects. Defaults to "".
+            use_tta (bool, optional): Whether to use test-time augmentation. Defaults to False.
+            use_otsu (bool, optional): Whether to use Otsu thresholding. Defaults to False.
+            percent_no_data (float, optional): The percentage of no-data pixels in the input images. Defaults to 50.0.
+            use_GPU (str, optional): The GPU device to use. Defaults to "0".
+        """
+        settings = self.get_settings()
+        
+        model_name = settings.get('model_type', None)
+        if model_name is None:
+            raise ValueError("Please select a model type.")
+        
+        img_type = settings.get('img_type', None)
+        if img_type is None:
+            raise ValueError("Please select an input image type.")
+        model_implementation = settings.get('implementation', "BEST")
+        use_GPU = settings.get('use_GPU', "0")
+        use_otsu = settings.get('otsu', False)
+        use_tta = settings.get('tta', False)
+        percent_no_data = settings.get('percent_no_data', 50.0)
+        
+        # make a progress bar to show the progress of the model and shoreline extraction
+        prog_bar = tqdm.auto.tqdm(range(2),
+            desc=f"Running {model_name} model and extracting shorelines",
+            leave=True,
+        )
+        # run the model
+        self.run_model(
+            img_type,
+            model_implementation,
+            session_name,
+            input_directory,
+            model_name=model_name,
+            use_GPU=use_GPU,
+            use_otsu=use_otsu,
+            use_tta=use_tta,
+            percent_no_data=percent_no_data,
+        )
+        prog_bar.update(1)
+        prog_bar.set_description_str(
+                                desc=f"Ran model now extracting shorelines", refresh=True
+        )
+        sessions_path = os.path.join(os.getcwd(), "sessions")
+        session_directory = file_utilities.create_directory(sessions_path, session_name)
+        # extract shorelines using the segmented imagery
+        self.extract_shorelines_with_unet(
+            settings,
+            session_directory,
+            session_name,
+            shoreline_path,
+            transects_path,
+        )
+        prog_bar.update(1)
+        prog_bar.set_description_str(
+                                desc=f"Finished running model and extracting shorelines", refresh=True
+        )
+
+
     def extract_shorelines_with_unet(
         self,
         settings: dict,
@@ -689,11 +778,13 @@ class Zoo_Model:
         Extracts shorelines using the U-Net model.
 
         Args:
-            settings (dict): Dictionary containing the model settings.
-            session_path (str): Path to the model session.
-            session_name (str): Name of the model session.
-            shoreline_path (str, optional): Path to the shoreline data. Defaults to "".
-            transects_path (str, optional): Path to the transects data. Defaults to "".
+            settings (dict): A dictionary containing the settings for shoreline extraction.
+            session_path (str): The path to the model session directory containing the model outputs and configuration files.
+            session_name (str): The name of the session to save the extracted shorelines to.
+            shoreline_path (str, optional): The path to the shoreline data. Defaults to "".
+            - If a geojson file is not provided, the program will attempt to load default shorelines and if that fails it will raise an error.
+            transects_path (str, optional): The path to the transects data. Defaults to "".
+            - If a geojson file is not provided, the program will attempt to load default transects and if that fails it will raise an error.
             **kwargs (dict): Additional keyword arguments.
 
         Returns:
