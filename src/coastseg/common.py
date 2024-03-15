@@ -2842,6 +2842,7 @@ def save_config_files(
     shoreline_settings: dict = {},
     transects_gdf=None,
     shorelines_gdf=None,
+    shoreline_extraction_area_gdf=None,
     roi_gdf=None,
     epsg_code="epsg:4326",
 ):
@@ -2873,6 +2874,7 @@ def save_config_files(
         shorelines_gdf=shorelines_gdf,
         transects_gdf=transects_gdf,
         epsg_code=epsg_code,
+        shoreline_extraction_area_gdf = shoreline_extraction_area_gdf
     )
     file_utilities.config_to_file(config_gdf, save_location)
 

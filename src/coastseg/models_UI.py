@@ -44,7 +44,7 @@ class UI_Models:
             title="",
             instructions=instructions,
             filter_pattern="*geojson",
-            dropdown_options=["transects", "shorelines"],
+            dropdown_options=["transects", "shorelines","shoreline extraction area"],
             file_selection_title="Select a geojson file",
             max_width=400,
         )
@@ -578,12 +578,13 @@ class UI_Models:
         # get the transects and shorelines file paths that were uploaded
         transects_path = self.fileuploader.files_dict.get("transects", "")
         shoreline_path = self.fileuploader.files_dict.get("shorelines", "")
-            
+        shoreline_extraction_area_path = self.fileuploader.files_dict.get("shoreline extraction area", "")
         zoo_model_instance.run_model_and_extract_shorelines(
             self.model_dict["sample_direc"],
             session_name=session_name,
             shoreline_path=shoreline_path,
             transects_path=transects_path,
+            shoreline_extraction_area_path = shoreline_extraction_area_path
         )
 
 

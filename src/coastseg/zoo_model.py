@@ -692,10 +692,12 @@ class Zoo_Model:
                                          session_name:str,
                                          shoreline_path:str="",
                                          transects_path:str="",
+                                         shoreline_extraction_area_path:str="",
                                          use_tta:bool =False,
                                          use_otsu:bool = False,
                                          percent_no_data:float = 50.0,
-                                         use_GPU:str="0",):
+                                         use_GPU:str="0",
+                                         ):
         """
         Runs the model and extracts shorelines using the segmented imagery.
 
@@ -708,13 +710,13 @@ class Zoo_Model:
             model_name (str): The name of the model.
             shoreline_path (str, optional): The path to save the extracted shorelines. Defaults to "".
             transects_path (str, optional): The path to save the extracted transects. Defaults to "".
+            shoreline_extraction_area_path (str, optional): The path to the shoreline extraction area. Defaults to "".
             use_tta (bool, optional): Whether to use test-time augmentation. Defaults to False.
             use_otsu (bool, optional): Whether to use Otsu thresholding. Defaults to False.
             percent_no_data (float, optional): The percentage of no-data pixels in the input images. Defaults to 50.0.
             use_GPU (str, optional): The GPU device to use. Defaults to "0".
         """
         settings = self.get_settings()
-        
         model_name = settings.get('model_type', None)
         if model_name is None:
             raise ValueError("Please select a model type.")
@@ -758,6 +760,7 @@ class Zoo_Model:
             session_name,
             shoreline_path,
             transects_path,
+            shoreline_extraction_area_path,
         )
         prog_bar.update(1)
         prog_bar.set_description_str(
@@ -772,6 +775,7 @@ class Zoo_Model:
         session_name: str,
         shoreline_path: str = "",
         transects_path: str = "",
+        shoreline_extraction_area_path: str = "",
         **kwargs: dict,
     ) -> None:
         """
@@ -786,7 +790,7 @@ class Zoo_Model:
             transects_path (str, optional): The path to the transects data. Defaults to "".
             - If a geojson file is not provided, the program will attempt to load default transects and if that fails it will raise an error.
             **kwargs (dict): Additional keyword arguments.
-
+            shoreline_extraction_area_path (str, optional): The path to the shoreline extraction area. Defaults to "".
         Returns:
             None
         """
@@ -856,6 +860,10 @@ class Zoo_Model:
         shoreline_gdf = geodata_processing.create_geofeature_geodataframe(
             shoreline_path, roi_gdf, output_epsg, "shoreline"
         )
+        shoreline_extraction_area_gdf = None
+        # load the shoreline extraction area from the geojson file
+        if os.path.exists(shoreline_extraction_area_path):
+            shoreline_extraction_area_gdf = geodata_processing.load_feature_from_file(shoreline_extraction_area_path, "shoreline_extraction_area")
 
         # Update the CRS to the most accurate crs for the ROI this makes extracted shoreline more accurate
         new_espg = common.get_most_accurate_epsg(output_epsg, roi_gdf)
@@ -873,8 +881,10 @@ class Zoo_Model:
             transects_gdf=transects_gdf,
             shorelines_gdf=shoreline_gdf,
             roi_gdf=roi_gdf,
-            epsg_code="epsg:4326"
+            epsg_code="epsg:4326",
+            shoreline_extraction_area_gdf = shoreline_extraction_area_gdf,
         )
+        # shoreline_extraction_area_gdf.to_crs(output_epsg, inplace=True)
 
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
@@ -886,6 +896,7 @@ class Zoo_Model:
                 settings,
                 session_path,
                 new_session_path,
+                shoreline_extraction_area=shoreline_extraction_area_gdf,
                 **kwargs,
             )
         )

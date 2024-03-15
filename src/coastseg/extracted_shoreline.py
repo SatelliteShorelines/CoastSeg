@@ -56,6 +56,7 @@ from coastsat.SDS_tools import (
     remove_inaccurate_georef,
 )
 from coastsat.SDS_transects import compute_intersection_QC
+from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
 from ipyleaflet import GeoJSON
 from matplotlib import gridspec
 from matplotlib.colors import rgb2hex
@@ -333,6 +334,7 @@ def process_satellite(
     class_mapping: Dict[int, str] = None,
     save_location: str = "",
     batch_size: int = 10,
+    shoreline_extraction_area: gpd.GeoDataFrame = None,
     **kwargs: dict,
 ):
     """
@@ -369,6 +371,7 @@ def process_satellite(
         class_mapping (dict, optional): A dictionary mapping class indices to class names. Defaults to None.
         save_location (str, optional): The path to save the extracted shorelines. Defaults to "".
         batch_size (int, optional): The number of images to process in each batch. Defaults to 10.
+        shoreline_extraction_area (gpd.GeoDataFrame, optional): A GeoDataFrame containing the extraction area for the shorelines. Defaults to None.
     Returns:
         dict: A dictionary containing the extracted shorelines for the satellite.
     """
@@ -445,6 +448,7 @@ def process_satellite(
                     class_mapping,
                     save_location,
                     settings.get("apply_cloud_mask", True),
+                    shoreline_extraction_area,
                 )
             )
 
@@ -534,6 +538,7 @@ def process_satellite_image(
     class_mapping: Dict[int, str] = None,
     save_location: str = "",
     apply_cloud_mask: bool = True,
+    shoreline_extraction_area : gpd.GeoDataFrame = None,
 ) -> Dict[str, Union[np.ndarray, float]]:
     """
     Processes a single satellite image to extract the shoreline.
@@ -618,12 +623,6 @@ def process_satellite_image(
     min_beach_area = settings["min_beach_area"]
     land_mask = remove_small_objects_and_binarize(land_mask, min_beach_area)
 
-    # I think we remove this since we assume our models are better
-    # if sum(land_mask[ref_shoreline_buffer]) < 50:
-    #     logger.warning(
-    #         f"{fn} Not enough sand pixels within the beach buffer to detect shoreline"
-    #     )
-    #     return None
 
     # get the shoreline from the image
     shoreline = find_shoreline(
@@ -640,6 +639,16 @@ def process_satellite_image(
     if shoreline is None:
         logger.warning(f"\nShoreline not found for {fn}")
         return None
+    
+    # convert the polygon coordinates of ROI to gdf
+    height,width=im_ms.shape[:2]
+    output_epsg = settings["output_epsg"]
+    roi_gdf = SDS_preprocess.create_gdf_from_image_extent(height,width, georef,image_epsg,output_epsg)
+    # filter shorelines within the extraction area
+    
+    shoreline = SDS_shoreline.filter_shoreline( shoreline,shoreline_extraction_area,output_epsg)
+    shoreline_extraction_area_array = SDS_shoreline.get_extract_shoreline_extraction_area_array(shoreline_extraction_area, output_epsg, roi_gdf)
+    
     # plot the results
     shoreline_detection_figures(
         im_ms,
@@ -655,6 +664,7 @@ def process_satellite_image(
         class_mapping,
         save_location,
         ref_shoreline_buffer,
+        shoreline_extraction_area=shoreline_extraction_area_array,
     )
     # create dictionary of output
     output = {
@@ -907,6 +917,7 @@ def plot_image_with_legend(
     all_legend: list,
     im_ref_buffer: np.ndarray[float],
     titles: list[str] = [],
+    pixelated_shoreline_extraction_area: np.ndarray[float] = None,
 ):
     """
     Plots the original image, merged classes, and all classes with their corresponding legends.
@@ -924,6 +935,7 @@ def plot_image_with_legend(
     Returns:
     matplotlib.figure.Figure: The resulting figure.
     """
+    
     if not titles or len(titles) != 3:
         titles = ["Original Image", "Merged Classes", "All Classes"]
     fig = plt.figure()
@@ -963,6 +975,8 @@ def plot_image_with_legend(
     # Plot original image
     ax1.imshow(original_image)
     ax1.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
+    for idx in range(len(pixelated_shoreline_extraction_area)):
+        ax1.plot(pixelated_shoreline_extraction_area[idx][:, 0], pixelated_shoreline_extraction_area[idx][:, 1], color='#cb42f5', markersize=1)
     ax1.set_title(titles[0])
     ax1.axis("off")
 
@@ -972,6 +986,8 @@ def plot_image_with_legend(
     if masked_array is not None:
         ax2.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
     ax2.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
+    for idx in range(len(pixelated_shoreline_extraction_area)):
+        ax2.plot(pixelated_shoreline_extraction_area[idx][:, 0], pixelated_shoreline_extraction_area[idx][:, 1], color='#cb42f5', markersize=1)
     ax2.set_title(titles[1])
     ax2.axis("off")
     if merged_legend:  # Check if the list is not empty
@@ -987,6 +1003,8 @@ def plot_image_with_legend(
     if masked_array is not None:
         ax3.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
     ax3.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
+    for idx in range(len(pixelated_shoreline_extraction_area)):
+        ax3.plot(pixelated_shoreline_extraction_area[idx][:, 0], pixelated_shoreline_extraction_area[idx][:, 1], color='#cb42f5', markersize=1)
     ax3.set_title(titles[2])
     ax3.axis("off")
     if all_legend:  # Check if the list is not empty
@@ -1089,6 +1107,7 @@ def shoreline_detection_figures(
     class_mapping: dict,
     save_location: str = "",
     im_ref_buffer: np.ndarray = None,
+    shoreline_extraction_area:np.ndarray=None,
 ):
     """
     Creates shoreline detection figures with overlays and saves them as JPEG files.
@@ -1105,6 +1124,9 @@ def shoreline_detection_figures(
     date (str): The date of the image.
     satname (str): The satellite name.
     class_mapping (dict): A dictionary mapping class indices to class names.
+    save_location (str, optional): The directory path where the images will be saved. Defaults to "".
+    im_ref_buffer (numpy.ndarray, optional): The reference shoreline buffer. Defaults to None.
+    shoreline_extraction_area (numpy.ndarray, optional): The area where the shoreline was extracted. Defaults to None.
     """
     sitename = settings["inputs"]["sitename"]
     if save_location:
@@ -1112,25 +1134,19 @@ def shoreline_detection_figures(
     else:
         filepath_data = settings["inputs"]["filepath"]
         filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection")
+        
+        
     os.makedirs(filepath, exist_ok=True)
     # logger.info(f"shoreline_detection_figures filepath: {filepath}")
     logger.info(f"im_ref_buffer.shape: {im_ref_buffer.shape}")
 
     # increase the intensity of the image for visualization
     im_RGB = increase_image_intensity(im_ms, cloud_mask, prob_high=99.9)
-    # logger.info(
-    #     f"im_RGB.shape: {im_RGB.shape}\n im_RGB.dtype: {im_RGB.dtype}\n im_RGB: {np.unique(im_RGB)[:5]}\n"
-    # )
+
 
     im_merged = create_overlay(im_RGB, merged_labels, overlay_opacity=0.35)
     im_all = create_overlay(im_RGB, all_labels, overlay_opacity=0.35)
 
-    # logger.info(
-    #     f"im_merged.shape: {im_merged.shape}\n im_merged.dtype: {im_merged.dtype}\n im_merged.max: {im_merged.max()}\n im_merged.min: {im_merged.min()}\n"
-    # )
-    # logger.info(
-    #     f"im_all.shape: {im_all.shape}\n im_all.dtype: {im_all.dtype}\n im_all: {np.unique(im_all)[:5]}\n"
-    # )
 
     # Mask clouds in the images
     im_RGB, im_merged, im_all = mask_clouds_in_images(
@@ -1148,18 +1164,38 @@ def shoreline_detection_figures(
     except:
         pixelated_shoreline = np.array([[np.nan, np.nan], [np.nan, np.nan]])
 
+    # Convert shoreline extraction area to pixel coordinates
+    shoreline_extraction_area_pix = np.array([[np.nan, np.nan], [np.nan, np.nan]])
+    shoreline_extraction_area_pix  = []
+    if shoreline_extraction_area is not None:
+        if len(shoreline_extraction_area) == 0:
+            shoreline_extraction_area = None
+    
+    if shoreline_extraction_area is not None:
+        shoreline_extraction_area_pix  = []
+        for idx in range(len(shoreline_extraction_area)):
+            shoreline_extraction_area_pix.append(
+                SDS_preprocess.transform_world_coords_to_pixel_coords(shoreline_extraction_area[idx],settings["output_epsg"], georef, image_epsg)
+            )
     # Create legend for the shorelines
     black_line = mlines.Line2D([], [], color="k", linestyle="-", label="shoreline")
     buffer_patch = mpatches.Patch(
         color="#800000", alpha=0.80, label="Reference shoreline buffer"
     )
+    # The additional patches to be appended to the legend
+    additional_legend_items = [black_line, buffer_patch]
+    
+    if shoreline_extraction_area is not None:
+        shoreline_extraction_area_line = mlines.Line2D([], [], color="#cb42f5", linestyle="-", label="shoreline extraction area")
+        additional_legend_items.append(shoreline_extraction_area_line)
+
     # create a legend for the class colors and the shoreline
     all_classes_legend = create_legend(
-        class_mapping, additional_patches=[black_line, buffer_patch]
+        class_mapping, additional_patches=additional_legend_items
     )
     merged_classes_legend = create_legend(
         class_mapping={0: "other", 1: "water"},
-        additional_patches=[black_line, buffer_patch],
+        additional_patches=additional_legend_items,
     )
 
     # Plot images
@@ -1172,6 +1208,7 @@ def shoreline_detection_figures(
         all_classes_legend,
         im_ref_buffer,
         titles=[sitename, date, satname],
+        pixelated_shoreline_extraction_area=shoreline_extraction_area_pix,
     )
     # save a .jpg under /jpg_files/detection
     save_detection_figure(fig, filepath, date, satname)
@@ -1290,6 +1327,7 @@ def extract_shorelines_with_dask(
     class_indices: list = None,
     class_mapping: dict = None,
     save_location: str = "",
+    shoreline_extraction_area: gpd.GeoDataFrame = None,
     **kwargs: dict,
 ) -> dict:
     """
@@ -1302,6 +1340,7 @@ def extract_shorelines_with_dask(
         class_indices (list, optional): A list of class indices to extract. Defaults to None.
         class_mapping (dict, optional): A dictionary mapping class indices to class names. Defaults to None.
         save_location (str, optional): The path to save the extracted shorelines. Defaults to "".
+        shoreline_extraction_area (gpd.GeoDataFrame, optional): A GeoDataFrame containing the area where the shoreline was extracted. Defaults to None.
         **kwargs (dict): Additional keyword arguments.
 
     Returns:
@@ -1357,6 +1396,7 @@ def extract_shorelines_with_dask(
             class_mapping,
             save_location,
             batch_size=10,
+            shoreline_extraction_area=shoreline_extraction_area,
             **kwargs,
         )
         if not satellite_dict:
@@ -1438,8 +1478,8 @@ def get_sorted_model_outputs_directory(
         # If there are files sort the files into good and bad folders
         filter_model_outputs(satname, files, good_folder, bad_folder)
         # Apply the land mask if there are files in the good folder.
-        if os.listdir(good_folder):
-            apply_land_mask(good_folder)
+        # if os.listdir(good_folder):
+        #     apply_land_mask(good_folder)
             
     return good_folder
 
@@ -1796,6 +1836,8 @@ class Extracted_Shoreline:
         settings: dict = None,
         session_path: str = None,
         new_session_path: str = None,
+        output_directory: str = None, 
+        shoreline_extraction_area : gpd.geodataframe = None,  
         **kwargs: dict,
     ) -> "Extracted_Shoreline":
         """
@@ -1826,6 +1868,10 @@ class Extracted_Shoreline:
         - settings (dict): A dictionary of extraction settings.
         - session_path (str): The path of the saved session from which the shoreline extraction needs to be resumed.
         - new_session_path (str) :The path of the new session where the extreacted shorelines extraction will be saved
+        - output_directory (str): The path to the directory where the extracted shorelines will be saved.
+            - detection figures will be saved in a subfolder called 'jpg_files' within the output_directory.
+            - extract_shoreline reports will be saved within the output_directory.
+        - shoreline_extraction_area (gpd.geodataframe, optional): A GeoDataFrame containing the area to extract shorelines from. Defaults to None.
         Returns:
         - object: The Extracted_Shoreline class instance.
         """
@@ -1929,6 +1975,7 @@ class Extracted_Shoreline:
                 class_indices=water_classes_indices,
                 class_mapping=class_mapping,
                 save_location=new_session_path,
+                shoreline_extraction_area=shoreline_extraction_area,
             )
             if extracted_shorelines_dict == {}:
                 raise Exception(f"Failed to extract any shorelines.")
@@ -2056,6 +2103,7 @@ class Extracted_Shoreline:
             output_directory (str): The path to the directory where the extracted shorelines will be saved.
                 - detection figures will be saved in a subfolder called 'jpg_files' within the output_directory.
                 - extract_shoreline reports will be saved within the output_directory.
+            shoreline_extraction_area (gpd.geodataframe, optional): A GeoDataFrame containing the area to extract shorelines from. Defaults to None.
         Returns:
             dict: Dictionary containing the extracted shorelines for the specified ROI.
         """
@@ -2118,6 +2166,7 @@ class Extracted_Shoreline:
                 self.shoreline_settings,
                 class_indices=class_indices,
                 class_mapping=class_mapping,
+                shoreline_extraction_area=shoreline_extraction_area,
             )
             #@todo should this be saved here?
             common.save_extracted_shoreline_figures(self.shoreline_settings, session_path)
