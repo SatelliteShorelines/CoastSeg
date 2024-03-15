@@ -7,6 +7,17 @@ from coastseg import file_utilities
 # The Zoo Model is a machine learning model that can be used to extract shorelines from satellite imagery.
 # This script will only run a single ROI at a time. If you want to run multiple ROIs, you will need to run this script multiple times.
 
+# Extract Shoreline Settings
+settings ={
+    'min_length_sl': 500,       # minimum length (m) of shoreline perimeter to be valid
+    'max_dist_ref':300,         # maximum distance (m) from reference shoreline to search for valid shorelines. This detrmines the width of the buffer around the reference shoreline  
+    'cloud_thresh': 0.5,        # threshold on maximum cloud cover (0-1). If the cloud cover is above this threshold, no shorelines will be extracted from that image
+    'dist_clouds': 300,         # distance(m) around clouds where shoreline will not be mapped
+    'min_beach_area': 500,      # minimum area (m^2) for an object to be labelled as a beach
+    'sand_color': 'default',    # 'default', 'latest', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+    "apply_cloud_mask": True,   # apply cloud mask to the imagery. If False, the cloud mask will not be applied.
+}
+
 # The model can be run using the following settings:
 model_setting = {
             "sample_direc": None, # directory of jpgs  ex. C:/Users/username/CoastSeg/data/ID_lla12_datetime11-07-23__08_14_11/jpg_files/preprocessed/RGB/",
@@ -30,58 +41,36 @@ model_session_name = "sample_session_demo1"
 sample_directory = "C:\development\doodleverse\coastseg\CoastSeg\data\ID_wra5_datetime03-04-24__03_43_01\jpg_files\preprocessed\RGB"
 
 
-# 2. Run the zoo model
+# 2. Save the settings to the model instance 
 # -----------------
 # Create an instance of the zoo model to run the model predictions
 zoo_model_instance = zoo_model.Zoo_Model()
 # Set the model settings to read the input images from the sample directory
 model_setting["sample_direc"] = sample_directory
+model_setting["img_type"] = img_type
 
-# run the zoo model with the settings
-zoo_model_instance.run_model(
-    img_type,
-    model_setting["implementation"],
-    model_session_name,
-    model_setting["sample_direc"],
-    model_name=model_setting["model_type"],
-    use_GPU="0",
-    use_otsu=model_setting["otsu"],
-    use_tta=model_setting["tta"],
-    percent_no_data=percent_no_data,
-)
+# save settings to the zoo model instance
+settings.update(model_setting)
+# save the settings to the model instance
+zoo_model_instance.set_settings(**settings)
 
-# 2. extract shorelines from running zoo model
-# ------------------------------------------
-# ENTER THE SESSION NAME TO STORE THE EXTRACTED SHORELINES SESSION
-session_name = "sample_session_demo1_extracted_shorelines"
+
 # OPTIONAL: If you have a transects and shoreline file, you can extract shorelines from the zoo model outputs
-transects_path = "" # path to the transects geojson file
-shoreline_path = "" # path to the shoreline geojson file
+transects_path = "" # path to the transects geojson file (optional, default will be loaded if not provided)
+shoreline_path = "" # path to the shoreline geojson file (optional, default will be loaded if not provided)
+shoreline_extraction_area_path= "" # path to the shoreline extraction area geojson file (optional)
 
-shoreline_settings = { 
-    'min_length_sl': 500,       # minimum length (m) of shoreline perimeter to be valid
-    'max_dist_ref':300,         # maximum distance (m) from reference shoreline to search for valid shorelines. This detrmines the width of the buffer around the reference shoreline  
-    'cloud_thresh': 0.5,        # threshold on maximum cloud cover (0-1). If the cloud cover is above this threshold, no shorelines will be extracted from that image
-    'dist_clouds': 300,         # distance(m) around clouds where shoreline will not be mapped
-    'min_beach_area': 500,      # minimum area (m^2) for an object to be labelled as a beach
-    'sand_color': 'default',    # 'default', 'latest', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
-    "apply_cloud_mask": True,   # apply cloud mask to the imagery. If False, the cloud mask will not be applied.
-}
+# 3. Run the model and extract shorelines
+# -------------------------------------
+zoo_model_instance.run_model_and_extract_shorelines(
+            model_setting["sample_direc"],
+            session_name=model_session_name,
+            shoreline_path=shoreline_path,
+            transects_path=transects_path,
+            shoreline_extraction_area_path = shoreline_extraction_area_path
+        )
 
-# get session directory location
-model_session_directory = os.path.join(os.getcwd(), "sessions", model_session_name)
-
-# load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-zoo_model_instance.extract_shorelines_with_unet(
-    shoreline_settings,
-    model_session_directory,
-    session_name,
-    shoreline_path,
-    transects_path,
-)
-
-
-# 3. OPTIONAL: Run Tide Correction
+# 4. OPTIONAL: Run Tide Correction
 # ------------------------------------------
 # Tide Correction (optional)
 # Before running this snippet, you must download the tide model to the CoastSeg/tide_model folder
