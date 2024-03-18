@@ -19,10 +19,11 @@ recursive-exclude src/coastseg/downloaded_models *
 prune src/coastseg/__pycache__
 recursive-exclude * *.py[co]
 
-# don't include the tests, docs or scripts
+# don't include the tests, docs, scripts or paper
 prune tests
 prune docs
 prune scripts
+prune paper
 
 
 exclude .gitignore
