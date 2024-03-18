@@ -3,7 +3,7 @@
 import ipywidgets
 import datetime
 from typing import List, Union, Optional, Tuple
-
+from ipywidgets import Layout, Box
 
 class ButtonColors:
     REMOVE = "red"
@@ -429,22 +429,15 @@ class Settings_UI:
     def render(self) -> None:
         # Display the settings UI
         # Create the settings UI
+        # Define a layout with a maximum height
+        layout = Layout(max_height='320px', overflow='auto')
         settings_tabs = ipywidgets.Tab(
             children=[self.basic_settings_tab, self.advanced_settings_tab]
         )
-        # self.settings_ui = ipywidgets.Tab(
-        #     children=[self.basic_settings_tab, self.advanced_settings_tab]
-        # )
-        # self.settings_ui = ipywidgets.Accordion(
-        #     children=[self.basic_settings_tab, self.advanced_settings_tab]
-        # )
-        # self.settings_ui.set_title(0, "Basic Settings")
-        # self.settings_ui.set_title(1, "Advanced Settings")
         settings_tabs.set_title(0, "Basic Settings")
         settings_tabs.set_title(1, "Advanced Settings")
-
-        self.settings_ui = ipywidgets.Accordion(
-            children=[settings_tabs], selected_index=0
-        )
+        # Wrap each child widget in a Box with the defined layout
+        children = [Box([settings_tabs], layout=layout)]
+        self.settings_ui = ipywidgets.Accordion(children=children, selected_index=0)
         self.settings_ui.set_title(0, "Settings")
         return self.settings_ui

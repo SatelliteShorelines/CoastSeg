@@ -43,7 +43,7 @@ class FileUploader:
         ) if instructions else None
 
         self.dropdown = widgets.Dropdown(
-            options=list(dropdown_options) if dropdown_options else ["transects", "shorelines"]
+            options=list(dropdown_options) if dropdown_options else ["transects", "shorelines","shoreline extraction area"]
         )
 
         self.files_dict = {}

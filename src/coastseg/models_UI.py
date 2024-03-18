@@ -23,13 +23,16 @@ from ipywidgets import (
 
 logger = logging.getLogger(__name__)
 
+# syle standards
+MAX_HEIGHT='max-height: 300px;'
+OVERFLOW_Y='overflow-y: auto;'
+OVERFLOW_X='overflow-x: auto;'
+TEXT_ALIGN='text-align: center;'
 
 class UI_Models:
     # all instances of UI will share the same debug_view
-    model_view = Output(layout={"border": "1px solid black"})
     extract_shorelines_view = Output(layout={"border": "1px solid black"})
     tidal_correction_view = Output(layout={"border": "1px solid black"})
-    run_model_view = Output(layout={"border": "1px solid black"})
 
     def __init__(self):
         self.settings_dashboard = settings_UI.Settings_UI()
@@ -41,7 +44,7 @@ class UI_Models:
             title="",
             instructions=instructions,
             filter_pattern="*geojson",
-            dropdown_options=["transects", "shorelines"],
+            dropdown_options=["transects", "shorelines","shoreline extraction area"],
             file_selection_title="Select a geojson file",
             max_width=400,
         )
@@ -53,6 +56,7 @@ class UI_Models:
             "model_type": "segformer_RGB_4class_8190958",
             "otsu": False,
             "tta": False,
+            "img_type": "RGB",
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
@@ -80,15 +84,12 @@ class UI_Models:
         self.create_tidal_correction_widget()
         self.warning_row1 = HBox([])
         self.warning_row2 = HBox([])
-        self.warning_row3 = HBox([])
 
     def get_warning_box(self, position: int = 1):
         if position == 1:
             return self.warning_row1
         if position == 2:
             return self.warning_row2
-        if position == 3:
-            return self.warning_row3
 
     def clear_extract_shorelines_btn(
         self,
@@ -99,14 +100,6 @@ class UI_Models:
         clear_button.on_click(self.clear_extract_shorelines_view)
         return clear_button
 
-    def clear_run_model_btn(
-        self,
-    ):
-        clear_button = Button(
-            description="Clear TextBox", style=dict(button_color="#a3adac")
-        )
-        clear_button.on_click(self.clear_run_model_view)
-        return clear_button
 
     def clear_tidal_correction_btn(
         self,
@@ -117,8 +110,6 @@ class UI_Models:
         clear_button.on_click(self.clear_tidal_correction_view)
         return clear_button
 
-    def clear_run_model_view(self, btn):
-        UI_Models.run_model_view.clear_output()
 
     def clear_extract_shorelines_view(self, btn):
         UI_Models.extract_shorelines_view.clear_output()
@@ -201,6 +192,13 @@ class UI_Models:
         return VBox([session_name_controls, output])
 
     def get_adv_model_settings_section(self):
+        """
+        Returns a VBox containing the advanced model settings widgets.
+        The advanced model settings include the model implementation, Otsu threshold, and Test Time Augmentation.
+
+        Returns:
+            VBox: A VBox widget containing the advanced model settings widgets.
+        """
         # declare settings widgets
         settings = {
             "model_implementation": self.model_implementation,
@@ -210,6 +208,15 @@ class UI_Models:
         return VBox([widget for widget_name, widget in settings.items()])
 
     def get_basic_model_settings_section(self):
+        """
+        Returns a VBox containing the basic model settings widgets.
+
+        This method creates and returns a VBox widget that contains the basic model settings widgets.
+        The settings include the model input dropdown and the model dropdown.
+
+        Returns:
+            VBox: A VBox widget containing the basic model settings widgets.
+        """
         # declare settings widgets
         settings = {
             "model_input": self.model_input_dropdown,
@@ -219,72 +226,71 @@ class UI_Models:
         return VBox([widget for widget_name, widget in settings.items()])
 
     def get_model_settings_accordion(self):
-        # create settings accordion widget
-        settings_accordion = Accordion(
-            children=[
-                self.get_basic_model_settings_section(),
-                self.get_adv_model_settings_section(),
-            ]
-        )
-        # settings_accordion.set_title(0, "Settings")
-        settings_accordion.set_title(0, "Basic Model Settings")
-        settings_accordion.set_title(1, "Advanced Model Settings")
-        settings_accordion.selected_index = 0
+            """
+            Returns an Accordion widget containing the basic and advanced model settings sections.
 
-        return settings_accordion
+            Returns:
+                Accordion: An Accordion widget with the basic and advanced model settings sections.
+            """
+            # create settings accordion widget
+            settings_accordion = Accordion(
+                children=[
+                    self.get_basic_model_settings_section(),
+                    self.get_adv_model_settings_section(),
+                ]
+            )
+            settings_accordion.set_title(0, "Basic Model Settings")
+            settings_accordion.set_title(1, "Advanced Model Settings")
+            settings_accordion.selected_index = 0
+
+            return settings_accordion
 
     def create_dashboard(self):
-        # run model controls
-        run_model_buttons = VBox(
-            [
-                self.run_model_instr,
-                self.get_session_selection(),
-                self.use_select_images_button,
-                self.run_model_button,
-            ]
-        )
-
-        # extract shorelines controls
-        extract_shorelines_controls = VBox(
-            [
-                self.extract_shorelines_instr,
-                self.get_shoreline_session_selection(),
-                self.fileuploader.get_FileUploader_widget(),
-                self.select_model_session_button,
-                self.extract_shorelines_button,
-            ]
-        )
-        # tidal correction controls
-        tidal_correction_controls = VBox(
-            [
-                self.tidally_correct_instr,
-                self.select_extracted_shorelines_session_button,
-                self.create_tidal_correction_widget(),
-            ]
-        )
-
+        layout = Layout(max_width='270px', overflow='auto',padding='0px 10px 0px 0px')
+        # step 1: Select a Model
+        step_1 = HBox([HBox([self.step_1_instr],layout = layout), self.get_model_settings_accordion()])
+        # step 2: Select Settings
+        step_2 = HBox(
+                    [
+                        VBox(
+                            [
+                                self.step_2_instr,
+                                self.save_settings_btn,
+                            ],
+                            layout = layout
+                        ),
+                        self.settings_dashboard.render(),
+                        self.get_view_settings_vbox(),
+                    ]
+                )
+        
+        # step 3 : Upload Files
+        step_3 = HBox([HBox([self.step_3_instr],layout=layout), self.fileuploader.get_FileUploader_widget()])
+        
+        # step 4 : Extract Shorelines with Model
+        step_4 = VBox([self.step_4_instr, self.get_session_selection(), self.use_select_images_button,self.extract_shorelines_button])
+        
+        # step 5 : Tidal Correction
+        step_5 = VBox([self.step_5_instr, self.select_extracted_shorelines_session_button, self.create_tidal_correction_widget()])
+        
         self.file_row = HBox([])
         self.extracted_shoreline_file_row = HBox([])
         self.tidal_correct_file_row = HBox([])
         display(
-            self.settings_dashboard.render(),
-            self.get_model_settings_accordion(),
-            run_model_buttons,
-            HBox([self.clear_run_model_btn(), UI_Models.run_model_view]),
+            step_1,
+            step_2,
+            step_3,
+            step_4,
+           HBox(
+                [self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]
+            ),
             self.file_row,
             self.warning_row1,
             self.line_widget,
-            extract_shorelines_controls,
-            self.extracted_shoreline_file_row,
-            HBox(
-                [self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]
-            ),
-            self.warning_row2,
-            self.line_widget,
-            tidal_correction_controls,
+            step_5,
             self.tidal_correct_file_row,
             HBox([self.clear_tidal_correction_btn(), UI_Models.tidal_correction_view]),
-            self.warning_row3,
+            self.warning_row2,
         )
 
     def create_tidal_correction_widget(self):
@@ -316,7 +322,7 @@ class UI_Models:
             self.launch_error_box(
                 "Cannot correct tides",
                 "Must click select session first",
-                position=3,
+                position=2,
             )
             return
         # get session directory location
@@ -366,7 +372,7 @@ class UI_Models:
         )
         self.tta_radio.observe(self.handle_tta, "value")
         self.model_input_dropdown = Dropdown(
-            options=["RGB", "MNDWI", "NDWI", "RGB+MNDWI+NDWI"],
+            options=["RGB", "MNDWI", "NDWI",],
             value="RGB",
             description="Model Input:",
             disabled=False,
@@ -386,30 +392,27 @@ class UI_Models:
         load_style = dict(button_color="#69add1", description_width="initial")
         action_style = dict(button_color="#ae3cf0")
 
-        self.run_model_button = Button(
-            description="Run Model",
+        # Save settings button: saves both the model and extract shoreline settings
+        self.save_settings_btn = Button(
+            description="Save Settings",
             style=action_style,
-            icon="fa-bolt",
+            icon="floppy-o",
         )
-        self.run_model_button.on_click(self.run_model_button_clicked)
-
+        self.save_settings_btn.on_click(self.save_settings_clicked)
+        
+        # Extract Shorelines button: extracts shorelines from model outputs
         self.extract_shorelines_button = Button(
-            description="Extract Shorelines", style=action_style
+            description="Extract Shorelines", style=action_style,icon="fa-bolt",
         )
-        self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
+        self.extract_shorelines_button.on_click(self.run_model_button_clicked)
 
+        # Select Images button: selects a directory of images to run the model on
         self.use_select_images_button = Button(
             description="Select Images",
             style=load_style,
             icon="fa-file-image-o",
         )
         self.use_select_images_button.on_click(self.use_select_images_button_clicked)
-
-        self.select_model_session_button = Button(
-            description="Select Model Session",
-            style=load_style,
-        )
-        self.select_model_session_button.on_click(self.select_model_session_clicked)
 
         self.select_extracted_shorelines_session_button = Button(
             description="Select Session",
@@ -427,11 +430,57 @@ class UI_Models:
         self.line_widget = HTML(
             value="____________________________________________________"
         )
+        # step 1: Select a Model
+        self.step_1_instr = HTML(
+            value="<h2>Step 1: Select a Model</h2>\
+            <b>1.</b> Select the Model Input: RGB, MNDWI or NDWI\
+            <br> - The NDWI and MNDWI will be automatically created using available RGB imagery\
+            <br><b>2.</b> Select a model.\
+            ",
+            layout=Layout(margin="0px 0px 0px 0px"),
+        )
+        # step 2: Select Settings
+        self.step_2_instr = HTML(
+            value="<h2>Step 2: Select Settings</h2>\
+            <b>1.</b> Adjust the settings used to extract shorelines from the satellite imagery\
+            <br><b>2.</b> Click save to save the settings\
+            ",
+            layout=Layout(margin="0px 0px 0px 0px"),
+        ) 
+        # step 3 : Upload Files
+        self.step_3_instr = HTML(
+            value="<h2>Step 3: Upload Files</h2>\
+            - If both the transects and shorelines are in the same 'config_gdf.geojson' you will need to upload it for both reference shoreline and transects   \
+            <br>1. <b>Upload a Reference Shoreline (Optional): </b> Upload GeoJSON file containing a reference shoreline\
+            <br>2. <b>Upload a Transects (Optional): </b>Upload GeoJSON file containing transects\
+            ",
+            layout=Layout(margin="0px 0px 0px 0px"),
+        )
+        # step 4 : Extract Shorelines with Model
+        self.step_4_instr = HTML(
+            value="<h2>Step 4: Extract Shorelines with Model</h2>\
+            <b>1. Session Name:</b> Enter a name.A folder with this name will be created in the 'sessions' directory.\
+            <br><b>2. Select Images:</b> Select the RGB directory from a ROI directory with downloaded imagery from the 'data' directory.\
+            <br><b>3. Run Model:</b> Click this button to apply the model on imagery. Outputs are saved under your session name in the 'sessions' directory.\
+            ",
+            layout=Layout(margin="0px 0px 0px 0px"),
+        )
+        # step 5 : Tidal Correction
+        self.step_5_instr = HTML(
+            value="<h2>Step 5 : Tidal Correction</h2>\
+            - The tide model must have been downloaded to CoastSeg/tide_model for tidal correction to work. Follow the guide to download the tide model: https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model \
+            - Ensure shorelines are extracted prior to tidal correction. Not all imagery will contain extractable shorelines, thus, tidal correction may not be possible.\
+            <br><b>1. Select a Session: </b> Choose a session from the 'sessions' directory containing extracted shorelines.\
+            <br><b>2. Run Tidal Correction:</b> Runs the tide model and save tidally corrected CSV files in the selected session directory.\
+            ",
+            layout=Layout(margin="0px 0px 0px 0px"),
+        )     
+        
         self.run_model_instr = HTML(
             value="<h2>Run a Model</h2>\
             <b>1. Session Name:</b> Enter a name.This creates a folder in the 'sessions' directory for model outputs.\
             <br><b>2. Select Images:</b> Choose an ROI directory with downloaded imagery from the 'data' directory.\
-            <br><b>3. Run Model:</b> Click this button to apply the model on imagery. Outputs are saved under your session name in the 'sessions' directory.\
+            <br><b>3. Run Model:</b> Click this button to apply the model on imagery. Extract Shorelines will be saved in the 'sessions' directory under the session name entered.\
             ",
             layout=Layout(margin="0px 0px 0px 0px"),
         )
@@ -490,10 +539,13 @@ class UI_Models:
             self.model_dropdown.options = self.MNDWI_models
         if change["new"] == "NDWI":
             self.model_dropdown.options = self.NDWI_models
+            
+        self.model_dict["img_type"] = change["new"]
         # if change["new"] == "RGB+MNDWI+NDWI":
         #     self.model_dropdown.options = self.five_band_models
 
-    @run_model_view.capture(clear_output=True)
+        
+    @extract_shorelines_view.capture(clear_output=True)
     def run_model_button_clicked(self, button):
         # user must have selected imagery first
         if self.model_dict["sample_direc"] is None:
@@ -519,73 +571,24 @@ class UI_Models:
                 position=1,
             )
             return
+        
         print("Running the model. Please wait.")
         zoo_model_instance = self.get_model_instance()
-        img_type = self.model_input_dropdown.value
-        self.model_dict["model_type"] = self.model_dropdown.value
-        self.model_dict["implementation"] = self.model_implementation.value
-        # get percent no data from settings
-        settings = self.settings_dashboard.get_settings()
-        percent_no_data = settings.get("percent_no_data", 50.0)
 
-        if self.otsu_radio.value == "Enabled":
-            self.model_dict["otsu"] = True
-        if self.otsu_radio.value == "Disabled":
-            self.model_dict["otsu"] = False
-        if self.otsu_radio.value == "Enabled":
-            self.model_dict["tta"] = True
-        if self.otsu_radio.value == "Disabled":
-            self.model_dict["tta"] = False
-        zoo_model_instance.run_model(
-            img_type,
-            self.model_dict["implementation"],
-            session_name,
-            self.model_dict["sample_direc"],
-            model_name=self.model_dict["model_type"],
-            use_GPU="0",
-            use_otsu=self.model_dict["otsu"],
-            use_tta=self.model_dict["tta"],
-            percent_no_data=percent_no_data,
-        )
-
-    @extract_shorelines_view.capture(clear_output=True)
-    def extract_shorelines_button_clicked(self, button):
-        # user must have selected imagery first
-        session_name = self.get_shoreline_session_name()
-        if session_name == "":
-            self.launch_error_box(
-                "Cannot Extract Shorelines",
-                "Must enter a session name first",
-                position=2,
-            )
-            return
-        # must select a directory of model outputs
-        if self.model_session_directory == "":
-            self.launch_error_box(
-                "Cannot Extract Shorelines",
-                "Must click select model session first",
-                position=2,
-            )
-            return
-
-        print("Extracting shorelines. Please wait.")
+        # get the transects and shorelines file paths that were uploaded
         transects_path = self.fileuploader.files_dict.get("transects", "")
         shoreline_path = self.fileuploader.files_dict.get("shorelines", "")
-
-        shoreline_settings = self.settings_dashboard.get_settings()
-        # get session directory location
-        session_directory = self.model_session_directory
-        zoo_model_instance = self.get_model_instance()
-        # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
-        zoo_model_instance.extract_shorelines_with_unet(
-            shoreline_settings,
-            session_directory,
-            session_name,
-            shoreline_path,
-            transects_path,
+        shoreline_extraction_area_path = self.fileuploader.files_dict.get("shoreline extraction area", "")
+        zoo_model_instance.run_model_and_extract_shorelines(
+            self.model_dict["sample_direc"],
+            session_name=session_name,
+            shoreline_path=shoreline_path,
+            transects_path=transects_path,
+            shoreline_extraction_area_path = shoreline_extraction_area_path
         )
 
-    @run_model_view.capture(clear_output=True)
+
+    @extract_shorelines_view.capture(clear_output=True)
     def select_RGB_callback(self, filechooser: FileChooser) -> None:
         """Handle the selection of a directory and check for the presence of JPG files.
 
@@ -610,8 +613,10 @@ class UI_Models:
                 self.model_dict["sample_direc"] = ""
             else:
                 self.model_dict["sample_direc"] = str(sample_direc)
+                self.zoo_model_instance.set_settings(sample_direc=str(sample_direc))
+                self.save_updated_settings()
 
-    @run_model_view.capture(clear_output=True)
+    @extract_shorelines_view.capture(clear_output=True)
     def use_select_images_button_clicked(self, button):
         # Prompt the user to select a directory of images
         file_chooser = common.create_dir_chooser(
@@ -621,29 +626,15 @@ class UI_Models:
         common.clear_row(self.file_row)
         # add instance of file_chooser to self.file_row
         self.file_row.children = [file_chooser]
+        # udpate the settings in the model instance
+        # self.save_updated_settings()
+        # self.update_displayed_settings()
 
-    @extract_shorelines_view.capture(clear_output=True)
-    def selected_model_session_callback(self, filechooser: FileChooser) -> None:
-        if filechooser.selected:
-            self.model_session_directory = os.path.abspath(filechooser.selected)
 
     @tidal_correction_view.capture(clear_output=True)
     def selected_shoreline_session_callback(self, filechooser: FileChooser) -> None:
         if filechooser.selected:
             self.shoreline_session_directory = os.path.abspath(filechooser.selected)
-
-    @extract_shorelines_view.capture(clear_output=True)
-    def select_model_session_clicked(self, button):
-        # Prompt the user to select a directory of model outputs
-        file_chooser = common.create_dir_chooser(
-            self.selected_model_session_callback,
-            title="Select model outputs",
-            starting_directory="sessions",
-        )
-        # clear row and close all widgets in self.extracted_shoreline_file_row before adding new file_chooser
-        common.clear_row(self.extracted_shoreline_file_row)
-        # add instance of file_chooser to self.extracted_shoreline_file_row
-        self.extracted_shoreline_file_row.children = [file_chooser]
 
     @tidal_correction_view.capture(clear_output=True)
     def select_extracted_shorelines_button_clicked(self, button):
@@ -667,3 +658,115 @@ class UI_Models:
         common.clear_row(self.get_warning_box(position))
         # add instance of warning_box to warning_row
         self.get_warning_box(position).children = [warning_box]
+
+    def save_updated_settings(self,):
+        # get the settings from the settings dashboard
+        settings = self.settings_dashboard.get_settings()
+        # get the model settings
+        settings.update(self.model_dict)
+        # save the settings to the model instance
+        self.zoo_model_instance.set_settings(**settings)
+        # update the settings in the view settings section
+        self.update_displayed_settings()
+
+    @extract_shorelines_view.capture(clear_output=True)
+    def save_settings_clicked(self, btn):
+        try:
+            # get the settings from the settings dashboard
+            settings = self.settings_dashboard.get_settings()
+            # get the model settings
+            settings.update(self.model_dict)
+            # save the settings to the model instance
+            self.zoo_model_instance.set_settings(**settings)
+            # update the settings in the view settings section
+            self.update_displayed_settings()
+        
+        except Exception as error:
+            self.launch_error_box(
+                "Error saving settings",
+                f"An error occurred while saving settings: {error}",
+                position=1,
+            )
+            
+    def get_view_settings_vbox(self) -> VBox:
+        # update settings button
+        action_style = dict(button_color="#ae3cf0")
+        refresh_settings_btn = Button(
+            description="Refresh Settings", icon="refresh", style=action_style
+        )
+        refresh_settings_btn.on_click(self.refresh_settings_btn_clicked)
+        # get the settings from the model instance
+        settings = self.zoo_model_instance.get_settings()
+        setting_content = format_as_html(settings)
+        self.settings_html = HTML(
+             f"<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>"
+            f"{setting_content}"
+            f"</div>"
+        )
+        # The view settings section: contains the settings and a button to refresh the settings
+        view_settings_vbox = VBox([self.settings_html, refresh_settings_btn])
+        html_settings_accordion = Accordion(children=[view_settings_vbox],selected_index=0)
+        html_settings_accordion.set_title(0, "View Settings")
+        return html_settings_accordion
+
+    @extract_shorelines_view.capture(clear_output=True)
+    def refresh_settings_btn_clicked(self, btn):
+        UI_Models.extract_shorelines_view.clear_output(wait=True)
+        # refresh settings in view settings section
+        try:
+            self.update_displayed_settings()
+        except Exception as error:
+            self.launch_error_box(
+                "Error saving settings",
+                f"An error occurred while saving settings: {error}",
+                position=1,
+            )
+            
+    def update_displayed_settings(self):
+        """
+        Updates the displayed settings in the UI.
+
+        Retrieves the settings from the `zoo_model_instance` and formats them as HTML.
+        The formatted settings are then assigned to the `settings_html` widget.
+
+        Returns:
+            None
+        """
+        setting_content = format_as_html(self.zoo_model_instance.get_settings())
+        self.settings_html.value = f"""<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>{setting_content}</div>"""
+
+def format_as_html(settings: dict):
+    """
+    Generates HTML content displaying the settings.
+    Args:
+        settings (dict): The dictionary containing the settings.
+    Returns:
+        str: The HTML content representing the settings.
+    """
+    return f"""
+    <h3>Model Settings</h3>
+    <p>sample_direc: {settings.get("sample_direc", "unknown")}</p>
+    <p>model_type: {settings.get("model_type", "unknown")}</p>
+    <p>implementation: {settings.get("implementation", "unknown")}</p>
+    <p>otsu enabled: {settings.get("otsu", "unknown")}</p>
+    <p>tta enabled: {settings.get("tta", "unknown")}</p>
+    <h3>Extract Shorelines Settings</h3>
+    <p>cloud_thresh: {settings.get("cloud_thresh", "unknown")}</p>
+    <p>dist_clouds: {settings.get("dist_clouds", "unknown")}</p>
+    <p>output_epsg: {settings.get("output_epsg", "unknown")}</p>
+    <p>save_figure: {settings.get("save_figure", "unknown")}</p>
+    <p>min_beach_area: {settings.get("min_beach_area", "unknown")}</p>
+    <p>min_length_sl: {settings.get("min_length_sl", "unknown")}</p>
+    <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
+    <p>sand_color: {settings.get("sand_color", "unknown")}</p>
+    <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
+    <h3>Advanced Settings</h3>
+    <p>along_dist: {settings.get("along_dist", "unknown")}</p>
+    <p>min_points: {settings.get("min_points", "unknown")}</p>
+    <p>max_std: {settings.get("max_std", "unknown")}</p>
+    <p>max_range: {settings.get("max_range", "unknown")}</p>
+    <p>min_chainage: {settings.get("min_chainage", "unknown")}</p>
+    <p>multiple_inter: {settings.get("multiple_inter", "unknown")}</p>
+    <p>prc_multiple: {settings.get("prc_multiple", "unknown")}</p>
+    """
+    

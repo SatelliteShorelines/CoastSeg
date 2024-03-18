@@ -7,6 +7,7 @@ from typing import Union
 # Internal dependencies imports
 from coastseg import shoreline
 from coastseg import transects
+from coastseg import shoreline_extraction_area
 import geopandas as gpd
 import pandas as pd
 from typing import List, Callable, Any
@@ -206,6 +207,8 @@ def create_feature(feature_type: str, gdf):
         feature_object = transects.Transects(transects=gdf)
     elif feature_type == "shoreline" or feature_type == "shorelines":
         feature_object = shoreline.Shoreline(shoreline=gdf)
+    elif feature_type == "shoreline_extraction_area":
+        feature_object = shoreline_extraction_area.Shoreline_Extraction_Area(gdf)
     else:
         raise ValueError(f"Unsupported feature_type: {feature_type}")
 

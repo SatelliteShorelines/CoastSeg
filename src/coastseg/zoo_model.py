@@ -1,4 +1,5 @@
 import os
+
 from pathlib import Path
 import re
 import glob
@@ -9,7 +10,6 @@ import logging
 from itertools import islice
 from typing import List, Set, Tuple
 
-from coastsat import SDS_tools
 from coastseg import common
 from coastseg import downloads
 from coastseg import sessions
@@ -18,6 +18,7 @@ from coastseg import geodata_processing
 from coastseg import file_utilities
 
 import geopandas as gpd
+from osgeo import gdal
 import skimage
 import aiohttp
 import tqdm
@@ -26,7 +27,6 @@ import numpy as np
 from glob import glob
 import tqdm.asyncio
 import nest_asyncio
-import pytz
 
 from skimage.io import imread
 from tensorflow.keras import mixed_precision
@@ -41,6 +41,8 @@ from doodleverse_utils.model_imports import (
     segformer,
 )
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
+# suppress tensorflow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
@@ -569,6 +571,7 @@ def get_sorted_files_with_extension(
 
 class Zoo_Model:
     def __init__(self):
+        gdal.UseExceptions()
         self.weights_directory = None
         self.model_types = []
         self.model_list = []
@@ -583,8 +586,6 @@ class Zoo_Model:
         self.model_list = []
         self.metadata_dict = {}
         self.settings = {}
-        # create default settings
-        self.set_settings()
 
     def set_settings(self, **kwargs):
         """
@@ -602,6 +603,12 @@ class Zoo_Model:
         # Check if any of the keys are missing
         # if any keys are missing set the default value
         default_settings = {
+            "sample_direc": None,
+            "use_GPU": "0",
+            "implementation": "BEST",
+            "model_type": "segformer_RGB_4class_8190958",
+            "otsu": False,
+            "tta": False,
             "cloud_thresh": 0.5,  # threshold on maximum cloud cover
             "dist_clouds": 300,  # ditance around clouds where shoreline can't be mapped
             "output_epsg": 4326,  # epsg code of spatial reference system desired for the output
@@ -629,14 +636,19 @@ class Zoo_Model:
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
-        self.settings.update(
-            {
-                key: default_settings[key]
-                for key in default_settings
-                if key not in self.settings
-            }
-        )
+        
+        # self.settings.update(
+        #     {
+        #         key: default_settings[key]
+        #         for key in default_settings
+        #         if key not in self.settings
+        #     }
+        # )
+        for key, value in default_settings.items():
+            self.settings.setdefault(key, value)
+            
         logger.info(f"Settings: {self.settings}")
+        return self.settings.copy()
 
     def get_settings(self):
         SETTINGS_NOT_FOUND = (
@@ -675,6 +687,87 @@ class Zoo_Model:
         model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
         return model_dict
 
+    def run_model_and_extract_shorelines(self,
+                                         input_directory:str,
+                                         session_name:str,
+                                         shoreline_path:str="",
+                                         transects_path:str="",
+                                         shoreline_extraction_area_path:str="",
+                                         use_tta:bool =False,
+                                         use_otsu:bool = False,
+                                         percent_no_data:float = 50.0,
+                                         use_GPU:str="0",
+                                         ):
+        """
+        Runs the model and extracts shorelines using the segmented imagery.
+
+        Args:
+            input_directory (str): The directory containing the input images.
+            session_name (str): The name of the session.
+            shoreline_settings (dict): A dictionary containing shoreline extraction settings.
+            img_type (str): The type of input images.
+            model_implementation (str): The implementation of the model.
+            model_name (str): The name of the model.
+            shoreline_path (str, optional): The path to save the extracted shorelines. Defaults to "".
+            transects_path (str, optional): The path to save the extracted transects. Defaults to "".
+            shoreline_extraction_area_path (str, optional): The path to the shoreline extraction area. Defaults to "".
+            use_tta (bool, optional): Whether to use test-time augmentation. Defaults to False.
+            use_otsu (bool, optional): Whether to use Otsu thresholding. Defaults to False.
+            percent_no_data (float, optional): The percentage of no-data pixels in the input images. Defaults to 50.0.
+            use_GPU (str, optional): The GPU device to use. Defaults to "0".
+        """
+        settings = self.get_settings()
+        model_name = settings.get('model_type', None)
+        if model_name is None:
+            raise ValueError("Please select a model type.")
+        
+        img_type = settings.get('img_type', None)
+        if img_type is None:
+            raise ValueError("Please select an input image type.")
+        model_implementation = settings.get('implementation', "BEST")
+        use_GPU = settings.get('use_GPU', "0")
+        use_otsu = settings.get('otsu', False)
+        use_tta = settings.get('tta', False)
+        percent_no_data = settings.get('percent_no_data', 50.0)
+        
+        # make a progress bar to show the progress of the model and shoreline extraction
+        prog_bar = tqdm.auto.tqdm(range(2),
+            desc=f"Running {model_name} model and extracting shorelines",
+            leave=True,
+        )
+        # run the model
+        self.run_model(
+            img_type,
+            model_implementation,
+            session_name,
+            input_directory,
+            model_name=model_name,
+            use_GPU=use_GPU,
+            use_otsu=use_otsu,
+            use_tta=use_tta,
+            percent_no_data=percent_no_data,
+        )
+        prog_bar.update(1)
+        prog_bar.set_description_str(
+                                desc=f"Ran model now extracting shorelines", refresh=True
+        )
+        sessions_path = os.path.join(os.getcwd(), "sessions")
+        session_directory = file_utilities.create_directory(sessions_path, session_name)
+        # extract shorelines using the segmented imagery
+        self.extract_shorelines_with_unet(
+            settings,
+            session_directory,
+            session_name,
+            shoreline_path,
+            transects_path,
+            shoreline_extraction_area_path,
+        )
+        prog_bar.update(1)
+        prog_bar.set_description_str(
+                                desc=f"Finished running model and extracting shorelines", refresh=True
+        )
+
+
     def extract_shorelines_with_unet(
         self,
         settings: dict,
@@ -682,8 +775,25 @@ class Zoo_Model:
         session_name: str,
         shoreline_path: str = "",
         transects_path: str = "",
+        shoreline_extraction_area_path: str = "",
         **kwargs: dict,
     ) -> None:
+        """
+        Extracts shorelines using the U-Net model.
+
+        Args:
+            settings (dict): A dictionary containing the settings for shoreline extraction.
+            session_path (str): The path to the model session directory containing the model outputs and configuration files.
+            session_name (str): The name of the session to save the extracted shorelines to.
+            shoreline_path (str, optional): The path to the shoreline data. Defaults to "".
+            - If a geojson file is not provided, the program will attempt to load default shorelines and if that fails it will raise an error.
+            transects_path (str, optional): The path to the transects data. Defaults to "".
+            - If a geojson file is not provided, the program will attempt to load default transects and if that fails it will raise an error.
+            **kwargs (dict): Additional keyword arguments.
+            shoreline_extraction_area_path (str, optional): The path to the shoreline extraction area. Defaults to "".
+        Returns:
+            None
+        """
         logger.info(f"extract_shoreline_settings: {settings}")
 
         # save the selected model session
@@ -750,6 +860,10 @@ class Zoo_Model:
         shoreline_gdf = geodata_processing.create_geofeature_geodataframe(
             shoreline_path, roi_gdf, output_epsg, "shoreline"
         )
+        shoreline_extraction_area_gdf = None
+        # load the shoreline extraction area from the geojson file
+        if os.path.exists(shoreline_extraction_area_path):
+            shoreline_extraction_area_gdf = geodata_processing.load_feature_from_file(shoreline_extraction_area_path, "shoreline_extraction_area")
 
         # Update the CRS to the most accurate crs for the ROI this makes extracted shoreline more accurate
         new_espg = common.get_most_accurate_epsg(output_epsg, roi_gdf)
@@ -767,8 +881,10 @@ class Zoo_Model:
             transects_gdf=transects_gdf,
             shorelines_gdf=shoreline_gdf,
             roi_gdf=roi_gdf,
-            epsg_code="epsg:4326"
+            epsg_code="epsg:4326",
+            shoreline_extraction_area_gdf = shoreline_extraction_area_gdf,
         )
+        # shoreline_extraction_area_gdf.to_crs(output_epsg, inplace=True)
 
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
@@ -780,6 +896,7 @@ class Zoo_Model:
                 settings,
                 session_path,
                 new_session_path,
+                shoreline_extraction_area=shoreline_extraction_area_gdf,
                 **kwargs,
             )
         )
@@ -842,7 +959,7 @@ class Zoo_Model:
         if not os.path.exists(outputs_path):
             logger.warning(f"No model outputs were generated")
             print(f"No model outputs were generated")
-            return
+            raise Exception(f"No model outputs were generated. Check if {roi_directory} contained enough data to run the model or try raising the percentage of no data allowed.")
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
         # if configs do not exist then raise an error and do not save the session
@@ -924,57 +1041,74 @@ class Zoo_Model:
         return classes
 
     def run_model(
-        self,
-        img_type: str,
-        model_implementation: str,
-        session_name: str,
-        src_directory: str,
-        model_name: str,
-        use_GPU: str,
-        use_otsu: bool,
-        use_tta: bool,
-        percent_no_data: float,
-    ):
-        logger.info(f"Selected directory of RGBs: {src_directory}")
-        logger.info(f"session name: {session_name}")
-        logger.info(f"model_name: {model_name}")
-        logger.info(f"model_implementation: {model_implementation}")
-        logger.info(f"use_GPU: {use_GPU}")
-        logger.info(f"use_otsu: {use_otsu}")
-        logger.info(f"use_tta: {use_tta}")
+            self,
+            img_type: str,
+            model_implementation: str,
+            session_name: str,
+            src_directory: str,
+            model_name: str,
+            use_GPU: str,
+            use_otsu: bool,
+            use_tta: bool,
+            percent_no_data: float,
+        ):
+            """
+            Runs the model for image segmentation.
 
-        print(f"Running model {model_name}")
-        self.prepare_model(model_implementation, model_name)
+            Args:
+                img_type (str): The type of image.
+                model_implementation (str): The implementation of the model.
+                session_name (str): The name of the session.
+                src_directory (str): The directory of RGB images.
+                model_name (str): The name of the model.
+                use_GPU (str): Whether to use GPU or not.
+                use_otsu (bool): Whether to use Otsu thresholding or not.
+                use_tta (bool): Whether to use test-time augmentation or not.
+                percent_no_data (float): The percentage of no data.
 
-        # create a session
-        session = sessions.Session()
-        sessions_path = file_utilities.create_directory(os.getcwd(), "sessions")
-        session_path = file_utilities.create_directory(sessions_path, session_name)
+            Returns:
+                None
+            """
+            logger.info(f"Selected directory of RGBs: {src_directory}")
+            logger.info(f"session name: {session_name}")
+            logger.info(f"model_name: {model_name}")
+            logger.info(f"model_implementation: {model_implementation}")
+            logger.info(f"use_GPU: {use_GPU}")
+            logger.info(f"use_otsu: {use_otsu}")
+            logger.info(f"use_tta: {use_tta}")
 
-        session.path = session_path
-        session.name = session_name
-        model_dict = {
-            "use_GPU": use_GPU,
-            "sample_direc": "",
-            "implementation": model_implementation,
-            "model_type": model_name,
-            "otsu": use_otsu,
-            "tta": use_tta,
-            "percent_no_data": percent_no_data,
-        }
-        # get parent roi_directory from the selected imagery directory
-        roi_directory = file_utilities.find_parent_directory(
-            src_directory, "ID_", "data"
-        )
+            print(f"Running model {model_name}")
+            self.prepare_model(model_implementation, model_name)
 
-        print(f"Preprocessing the data at {roi_directory}")
-        model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
-        logger.info(f"model_dict: {model_dict}")
+            # create a session
+            session = sessions.Session()
+            sessions_path = file_utilities.create_directory(os.getcwd(), "sessions")
+            session_path = file_utilities.create_directory(sessions_path, session_name)
 
-        self.compute_segmentation(model_dict, percent_no_data)
-        self.postprocess_data(model_dict, session, roi_directory)
-        session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
-        print(f"\n Model results saved to {session.path}")
+            session.path = session_path
+            session.name = session_name
+            model_dict = {
+                "use_GPU": use_GPU,
+                "sample_direc": "",
+                "implementation": model_implementation,
+                "model_type": model_name,
+                "otsu": use_otsu,
+                "tta": use_tta,
+                "percent_no_data": percent_no_data,
+            }
+            # get parent roi_directory from the selected imagery directory
+            roi_directory = file_utilities.find_parent_directory(
+                src_directory, "ID_", "data"
+            )
+
+            print(f"Preprocessing the data at {roi_directory}")
+            model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
+            logger.info(f"model_dict: {model_dict}")
+
+            self.compute_segmentation(model_dict, percent_no_data)
+            self.postprocess_data(model_dict, session, roi_directory)
+            session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
+            print(f"\n Model results saved to {session.path}")
 
     def get_model_directory(self, model_id: str):
         # Create a directory to hold the downloaded models
@@ -1012,7 +1146,11 @@ class Zoo_Model:
         model_ready_files = file_utilities.filter_files(
             model_ready_files, avoid_patterns
         )
+        # filter out files with no data pixels greater than percent_no_data
+        len_before = len(model_ready_files)
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
+        print(f"From {len_before} files {len_before - len(model_ready_files)} files were filtered out due to no data pixels percentage being greater than {percent_no_data}%.")
+        
         return model_ready_files
 
     def compute_segmentation(
@@ -1034,6 +1172,7 @@ class Zoo_Model:
 
             mixed_precision.set_global_policy("mixed_float16")
         # Compute the segmentation for each of the files
+        print(f"Found {len(files_to_segment)} files to run on model on")
         for file_to_seg in tqdm.auto.tqdm(files_to_segment, desc="Applying Model"):
             do_seg(
                 file_to_seg,
