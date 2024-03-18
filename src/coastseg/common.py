@@ -1659,6 +1659,78 @@ def export_dataframe_as_geojson(data:pd.DataFrame, output_file_path:str, x_col:s
     # Return the path to the output file
     return output_file_path
 
+
+def create_complete_line_string(points):
+    """
+    Create a complete LineString from a list of points.
+
+    Args:
+        points (numpy.ndarray): An array of points representing the coordinates.
+
+    Returns:
+        LineString: A LineString object representing the complete line.
+
+    Raises:
+        None.
+
+    """
+    # Ensure all points are unique to avoid redundant looping
+    unique_points = np.unique(points, axis=0)
+    
+    # Start with the first point in the list
+    if len(unique_points) == 0:
+        return None  # Return None if there are no points
+    
+    starting_point = unique_points[0]
+    current_point = starting_point
+    sorted_points = [starting_point]
+    visited_points = {tuple(starting_point)}
+
+    # Repeat until all points are visited
+    while len(visited_points) < len(unique_points):
+        nearest_distance = np.inf
+        nearest_point = None
+        for point in unique_points:
+            if tuple(point) in visited_points:
+                continue  # Skip already visited points
+            # Calculate the distance to the current point
+            distance = np.linalg.norm(point - current_point)
+            if distance < nearest_distance:
+                nearest_distance = distance
+                nearest_point = point
+
+        # Break if no unvisited nearest point was found (should not happen if all points are unique)
+        if nearest_point is None:
+            break
+
+        sorted_points.append(nearest_point)
+        visited_points.add(tuple(nearest_point))
+        current_point = nearest_point
+
+    # Convert the sorted list of points to a LineString
+    return LineString(sorted_points)
+
+def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
+    """
+    Orders the linestrings in a GeoDataFrame by creating complete line strings from the given points.
+
+    Args:
+        gdf (GeoDataFrame): The input GeoDataFrame containing linestrings.
+        dates (list): The list of dates corresponding to the linestrings.
+        output_crs (str): The output coordinate reference system (CRS) for the GeoDataFrame. Default is 'epsg:4326'.
+
+    Returns:
+        GeoDataFrame: The ordered GeoDataFrame with linestrings.
+
+    """
+    all_points = [shapely.get_coordinates(p) for p in gdf.geometry]
+    lines = []
+    for points in all_points:
+        line_string = create_complete_line_string(points)
+        lines.append(line_string)
+    gdf = gpd.GeoDataFrame({'geometry': lines,'dates': dates},crs=output_crs)
+    return gdf
+
 def add_lat_lon_to_timeseries(timeseries_data: pd.DataFrame,
                                  transects: gpd.GeoDataFrame,
                                  save_path:str,
@@ -1691,6 +1763,9 @@ def add_lat_lon_to_timeseries(timeseries_data: pd.DataFrame,
     org_crs = transects.crs
     utm_crs = transects.estimate_utm_crs()
     transects_utm = transects.to_crs(utm_crs)
+    
+    # sort the transects by the start_lon
+    transects_utm = sort_transects(transects_utm)
 
     ##need some placeholders
     shore_x_vals = [None]*len(timeseries_data)
@@ -1766,8 +1841,12 @@ def add_lat_lon_to_timeseries(timeseries_data: pd.DataFrame,
     new_gdf_shorelines_wgs84 = gpd.GeoDataFrame({'dates':new_dates,
                                                  'geometry':new_lines},
                                                 crs=org_crs)
+    
+    # re-order the shoreline vectors so that they are continuous
+    
     new_gdf_shorelines_wgs84['dates'] = pd.to_datetime(new_gdf_shorelines_wgs84['dates']).dt.tz_convert(None) 
     new_gdf_shorelines_wgs84 = stringify_datetime_columns(new_gdf_shorelines_wgs84)
+    new_gdf_shorelines_wgs84 = order_linestrings_gdf(new_gdf_shorelines_wgs84,new_gdf_shorelines_wgs84['dates'],output_crs=org_crs)
 
     
     ##convert to utm, save wgs84 and utm geojsons
@@ -1777,6 +1856,31 @@ def add_lat_lon_to_timeseries(timeseries_data: pd.DataFrame,
 
     #dropping that extra index column and saving new csv
     return timeseries_data
+
+def sort_transects(gdf, sort_by='start_lon'):
+    """
+    Sorts a GeoDataFrame of transects based on the starting points.
+
+    Args:
+        gdf (GeoDataFrame): The GeoDataFrame containing the transects.
+        sort_by (str, optional): The attribute to sort the transects by. 
+            Defaults to 'start_lon'. Can be either 'start_lon' for west to east sorting 
+            or 'start_lat' for south to north sorting.
+
+    Returns:
+        GeoDataFrame: The sorted GeoDataFrame.
+
+    """
+    gdf['start_lon'] = gdf.geometry.apply(lambda x: x.coords[0][0])  # Longitude of the starting point
+    gdf['start_lat'] = gdf.geometry.apply(lambda x: x.coords[0][1])  # Latitude of the starting point
+
+    # Now, sort the GeoDataFrame by these starting points
+    # For west to east, sort by 'start_lon'; for south to north, sort by 'start_lat'
+    if sort_by == 'start_lon':
+        gdf_sorted = gdf.sort_values(by='start_lon')  # or 'start_lat' for south to north
+    else:
+        gdf_sorted = gdf.sort_values(by='start_lat')
+    return gdf_sorted
 
 def save_transects(
     roi_id: str,
