@@ -224,6 +224,9 @@ def correct_tides(
             beach_slope,
         )
         
+        pivot_df = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')
+        # Reset index if you want 'dates' back as a column
+        pivot_df.reset_index(inplace=True)
         # add columns shore_x and shore_y to the tide_corrected_timeseries_df. Also save shorelines as vectors
         # keep_points_on_transects
         tide_corrected_timeseries_df,timeseries_df  = add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf,pivot_df,

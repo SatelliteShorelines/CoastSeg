@@ -1789,6 +1789,7 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
     Args:
         merged_timeseries_df (pandas.DataFrame): The timeseries dataframe to add latitude and longitude coordinates to.
         transects_gdf (geopandas.GeoDataFrame): The geodataframe containing transect information.
+        timeseries_df (pandas.DataFrame): The original timeseries dataframe.This is a matrix of dates x transect id with the cross shore distance as the values.
         save_location (str): The directory path to save the output files.
         keep_points_on_transects (bool, optional): Whether to keep only the points that fall on the transects. 
                                                   Defaults to True.
@@ -1832,12 +1833,20 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
     # save the merged time series that includes the shore_x and shore_y columns to a csv
     merged_timeseries_gdf.to_file(os.path.join(save_location, f"transect_time_series_merged{extension}.geojson"), driver='GeoJSON')
     merged_timeseries_df = pd.DataFrame(merged_timeseries_gdf.drop(columns=['geometry']))
-    # filepath = os.path.join(save_location, f"transect_time_series_merged{extension}.csv")
-    # merged_timeseries_df.to_csv(filepath, sep=",") 
+
     return merged_timeseries_df,timeseries_df
     
     
 def convert_date_gdf(gdf):
+    """
+    Convert date columns in a GeoDataFrame to datetime format.
+
+    Args:
+        gdf (GeoDataFrame): The input GeoDataFrame.
+
+    Returns:
+        GeoDataFrame: The converted GeoDataFrame with date columns in datetime format.
+    """
     gdf = gdf.copy()
     if 'dates' in gdf.columns:
         gdf['dates'] = pd.to_datetime(gdf['dates']).dt.tz_convert(None)
@@ -1960,14 +1969,28 @@ def save_transects(
     file_utilities.to_file(transect_settings, transect_settings_path)
     file_utilities.to_file(cross_distance_transects, save_path)
 
-def filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location:str,name:str=""):
-    extension = "" if name=="" else f'_{name}'
+def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, transects_gdf:gpd.GeoDataFrame, save_location: str, name: str = ""):
+    """
+    Filters points outside of transects from a merged timeseries GeoDataFrame.
+
+    Args:
+        merged_timeseries_gdf (GeoDataFrame): The merged timeseries GeoDataFrame containing the shore x and shore y columns that indicated where the shoreline point was along the transect
+        transects_gdf (GeoDataFrame): The transects GeoDataFrame used for filtering.
+        save_location (str): The directory where the filtered points will be saved.
+        name (str, optional): The name to be appended to the saved file. Defaults to "".
+
+    Returns:
+        tuple: A tuple containing the filtered merged timeseries GeoDataFrame and a DataFrame of dropped points.
+
+    """
+    extension = "" if name == "" else f'_{name}'
     timeseries_df = pd.DataFrame(merged_timeseries_gdf)
     timeseries_df.drop(columns=['geometry'], inplace=True)
     # estimate crs of transects
     utm_crs = merged_timeseries_gdf.estimate_utm_crs()
     # intersect the points with the transects
-    filtered_merged_timeseries_gdf_utm,dropped_points_df = intersect_with_buffered_transects(merged_timeseries_gdf.to_crs(utm_crs),transects_gdf.to_crs(utm_crs))
+    filtered_merged_timeseries_gdf_utm, dropped_points_df = intersect_with_buffered_transects(
+        merged_timeseries_gdf.to_crs(utm_crs), transects_gdf.to_crs(utm_crs))
     # Get a dataframe containing the points that were filtered out from the time series because they were not on the transects
     dropped_points_df.to_csv(os.path.join(save_location, f"dropped_points_time_series{extension}.csv"), index=False)
     # convert back to same crs as original merged_timeseries_gdf
@@ -1975,7 +1998,7 @@ def filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_loc
     return merged_timeseries_gdf, dropped_points_df
 
 
-def filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df):
+def filter_dropped_points_out_of_timeseries(timeseries_df:pd.DataFrame, dropped_points_df:pd.DataFrame)->pd.DataFrame:
     """
     Filter out dropped points from a timeseries dataframe.
 
@@ -1992,12 +2015,6 @@ def filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df):
     for t_id in dropped_points_df['transect_id'].unique():
         # Find all the dates associated with this transect_id in dropped_points_df
         dates_to_drop = dropped_points_df.loc[dropped_points_df['transect_id'] == t_id, 'dates']
-        # print(f"dates_to_drop: {dates_to_drop}")
-        # # Set the corresponding entries in transect_csv to NaN
-        # print(f"timeseries_df.loc[timeseries_df['dates'].isin(dates_to_drop), t_id] : {timeseries_df.loc[timeseries_df['dates'].isin(dates_to_drop), t_id]}")
-        # print(f"t_id in timeseries_df.columns: {t_id in timeseries_df.columns}")
-        # if t_id in timeseries_df.columns:
-        #     timeseries_df.loc[timeseries_df['dates'].isin(dates_to_drop), t_id] = np.nan
         timeseries_df.loc[timeseries_df['dates'].isin(dates_to_drop), t_id] = np.nan
     return timeseries_df
 
