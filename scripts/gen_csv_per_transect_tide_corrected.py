@@ -16,7 +16,7 @@ def save_csv_per_id(
 
 # 1. Enter the path to the csv file that contains the tide corrected time series
 # - replace the path below with the path to the csv file
-input_file = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\rym1_model_extract_shorelines\transect_time_series_tidally_corrected.csv"
+input_file = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\rym1_model_extract_shorelines\tidally_corrected_transect_time_series_merged.csv"
 # 2. The output file will be saved in the same directory as the input file
 save_location = os.path.dirname(os.path.abspath(input_file))
 

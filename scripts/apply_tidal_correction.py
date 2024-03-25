@@ -1105,10 +1105,10 @@ def main():
     # CONFIG_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\config_gdf.geojson"
     RAW_TIMESERIES_FILE_PATH = args.timeseries
     # Set this manually for testing only
-    # RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\transect_time_series.csv"
+    # RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\raw_transect_time_series.csv"
     TIDE_PREDICTIONS_FILE_NAME = args.predictions
     TIDALLY_CORRECTED_FILE_NAME = args.output
-    TIDALLY_CORRECTED_MATRIX_FILE_NAME = 'transect_time_series_tidally_corrected_matrix.csv'
+    TIDALLY_CORRECTED_MATRIX_FILE_NAME = 'tidally_corrected_transect_time_series.csv'
     MODEL_REGIONS_GEOJSON_PATH = args.regions
     FES_2014_MODEL_PATH = args.model
 
@@ -1159,7 +1159,7 @@ def main():
     tide_corrected_timeseries_df,tide_corrected_timeseries_df_matrix =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,tide_corrected_timeseries_df_matrix,os.getcwd(),'tidally_corrected')
     # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
     tide_corrected_timeseries_df.to_csv(
-        os.path.join(os.getcwd(), "transect_time_series_tidally_corrected.csv")
+        os.path.join(os.getcwd(), "tidally_corrected_transect_time_series_merged.csv")
     )
     # Tidally correct the raw time series
     print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_FILE_NAME)}")

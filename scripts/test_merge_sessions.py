@@ -58,7 +58,7 @@ def assert_all_files_exist(dest: str):
     assert os.path.exists(os.path.join(dest, "extracted_shorelines_lines.geojson"))
     assert os.path.exists(os.path.join(dest, "extracted_shorelines_points.geojson"))
     assert os.path.exists(os.path.join(dest, "merged_config.geojson"))
-    assert os.path.exists(os.path.join(dest, "transect_time_series.csv"))
+    assert os.path.exists(os.path.join(dest, "raw_transect_time_series.csv"))
 
 
 def verify_merged_session(dest: str):
@@ -104,7 +104,7 @@ def verify_merged_session(dest: str):
                 .all()
             )
     # 6. Read in the transects_time_series.csv from merged session
-    transect_time_series = pd.read_csv(os.path.join(dest, "transect_time_series.csv"))
+    transect_time_series = pd.read_csv(os.path.join(dest, "raw_transect_time_series.csv"))
     # 8. Check if all the dates in the geojson files are present in the csv file
     assert shoreline_points_gdf["date"].isin(transect_time_series["dates"]).all()
     # 9. Check if the length of dates in the dictionary is the same as the number of dates in the csv file

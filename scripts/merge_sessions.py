@@ -133,7 +133,7 @@ def main(args):
     # use coastseg.common to get the cross_distance_df
     transects_df = get_cross_distance_df(shoreline_dict, cross_distance)
     # 3. save the timeseries of where all the transects and shorelines intersected to a csv file
-    filepath = os.path.join(merged_session_location, "transect_time_series.csv")
+    filepath = os.path.join(merged_session_location, "raw_transect_time_series.csv")
     transects_df.to_csv(filepath, sep=",")
 
     # 4. Save a CSV file for each transect

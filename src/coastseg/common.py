@@ -1924,8 +1924,8 @@ def save_transects(
         extracted_shorelines (dict): Dictionary containing extracted shorelines data.
         keep_points_on_transects (bool): If True, keep only the shoreline points that are on the transects. Default is True.
         - This will generated a file called "dropped_points_time_series.csv" that contains the points that were filtered out. If keep_points_on_transects is True.
-        - Any shoreline points that were not on the transects will be removed from "transect_time_series.csv" by setting those values to NaN.v If keep_points_on_transects is True.
-        - The "transect_time_series_merged.csv" will not contain any points that were not on the transects. If keep_points_on_transects is True.
+        - Any shoreline points that were not on the transects will be removed from "raw_transect_time_series.csv" by setting those values to NaN.v If keep_points_on_transects is True.
+        - The "raw_transect_time_series_merged.csv" will not contain any points that were not on the transects. If keep_points_on_transects is True.
 
     Returns:
         None.
@@ -1934,8 +1934,6 @@ def save_transects(
         extracted_shorelines, cross_distance_transects
     )
     cross_distance_df.dropna(axis="columns", how="all", inplace=True)
-    filepath = os.path.join(save_location, "transect_time_series.csv")
-    cross_distance_df.to_csv(filepath, sep=",")
     
     # get the last point (aka the seaward point) from each transect
     seaward_points = get_seaward_points_gdf(transects_gdf)
@@ -1951,17 +1949,17 @@ def save_transects(
     merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,cross_distance_df,
                               save_location,
                               keep_points_on_transects)
-    filepath = os.path.join(save_location, f"transect_time_series_merged.csv")
+    # save the raw transect time series which contains the columns ['dates', 'x', 'y', 'transect_id', 'cross_distance','shore_x','shore_y']  to file
+    filepath = os.path.join(save_location, f"raw_transect_time_series_merged.csv")
     merged_timeseries_df.to_csv(filepath, sep=",") 
     
-    filepath = os.path.join(save_location, f"transect_time_series.csv")
+    filepath = os.path.join(save_location, f"raw_transect_time_series.csv")
     timeseries_df.to_csv(filepath, sep=",")
-
-    save_path = os.path.join(save_location, "transects_cross_distances.json")
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
     transect_settings_path = os.path.join(save_location, "transects_settings.json")
     file_utilities.to_file(transect_settings, transect_settings_path)
+    save_path = os.path.join(save_location, "transects_cross_distances.json")
     file_utilities.to_file(cross_distance_transects, save_path)
 
 def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, transects_gdf:gpd.GeoDataFrame, save_location: str, name: str = ""):
@@ -2812,41 +2810,6 @@ def get_cross_distance_df(
     # this would add the satellite the image was captured on to the timeseries
     # df['satname'] = extracted_shorelines["satname"]
     return pd.DataFrame(transects_csv)
-
-
-def save_transect_intersections(
-    save_path: str,
-    extracted_shorelines: dict,
-    cross_distance_transects: dict,
-    filename: str = "transect_time_series.csv",
-) -> str:
-    """
-    Saves the saves the dates from the extracted shorelines to the dictionart containing the cross distance transect intersections to a CSV file.
-
-    This function processes intersection data between shorelines and transects, removing columns with all NaN values.
-    It then saves the processed data to a CSV file at the specified path.
-
-    Args:
-    - save_path (str): The directory path where the CSV file will be saved.
-    - extracted_shorelines (dict): A dictionary containing shoreline data.
-    - cross_distance_transects (dict): A dictionary containing transect data with cross-distance measurements.
-    - filename (str, optional): The name of the CSV file to be saved. Default is "transect_time_series.csv".
-
-    Returns:
-    - str: The full file path of the saved CSV file.
-
-    The function first combines the shoreline and transect data into a DataFrame and then removes any columns
-    that contain only NaN values before saving to CSV.
-    """
-    cross_distance_df =get_cross_distance_df(
-        extracted_shorelines, cross_distance_transects
-    )
-    
-    cross_distance_df.dropna(axis="columns", how="all", inplace=True)
-    filepath = os.path.join(save_path, filename)
-    cross_distance_df.to_csv(filepath, sep=",")
-    return cross_distance_df
-
 
 def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """If the GeoDataFrame has z coordinates in any rows, the z coordinates are dropped.

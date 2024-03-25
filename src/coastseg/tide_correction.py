@@ -163,8 +163,8 @@ def correct_tides(
     keep_points_on_transects : bool
     If True, keep only the shoreline points that are on the transects. Default is True.
         - This will generated a file called "dropped_points_time_series.csv" that contains the points that were filtered out. If keep_points_on_transects is True.
-        - Any shoreline points that were not on the transects will be removed from "transect_time_series.csv" by setting those values to NaN.v If keep_points_on_transects is True.
-        - The "transect_time_series_merged.csv" will not contain any points that were not on the transects. If keep_points_on_transects is True.
+        - Any shoreline points that were not on the transects will be removed from "raw_transect_time_series.csv" by setting those values to NaN.v If keep_points_on_transects is True.
+        - The "raw_transect_time_series_merged.csv" will not contain any points that were not on the transects. If keep_points_on_transects is True.
 
     use_progress_bar : bool, optional
         If True, a tqdm progress bar will be displayed. Default is True.
@@ -236,11 +236,11 @@ def correct_tides(
         # tide_corrected_timeseries_df =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,session_path,'tidally_corrected')
         
         # Save the Tidally corrected time series
-        timeseries_df.to_csv(os.path.join(session_path, 'transect_time_series_tidally_corrected_matrix.csv'))
+        timeseries_df.to_csv(os.path.join(session_path, 'tidally_corrected_transect_time_series.csv'))
         
         # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
         tide_corrected_timeseries_df.to_csv(
-            os.path.join(session_path, "transect_time_series_tidally_corrected.csv")
+            os.path.join(session_path, "tidally_corrected_transect_time_series_merged.csv")
         )
         export_dataframe_as_geojson(tide_corrected_timeseries_df, os.path.join(session_path, "transect_time_series_tidally_corrected.geojson"),'shore_x','shore_y', "transect_id",['dates'])
         
