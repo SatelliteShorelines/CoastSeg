@@ -310,12 +310,8 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
     # Create 2D vector of shorelines from where each shoreline intersected the transect
     
     new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'intersections_gdf_wgs84{extension}.geojson')
-    new_gdf_shorelines_utm_path = os.path.join(save_location, f'intersections_gdf_utm{extension}.geojson')
     new_gdf_shorelines_wgs84=convert_points_to_linestrings(cross_shore_pts, group_col='dates', output_crs='epsg:4326')
     new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
-    utm_crs = merged_timeseries_gdf.estimate_utm_crs()
-    new_gdf_shorelines_utm = new_gdf_shorelines_wgs84.to_crs(utm_crs)
-    new_gdf_shorelines_utm.to_file(new_gdf_shorelines_utm_path)
     
     # save the merged time series that includes the shore_x and shore_y columns to a csv
     merged_timeseries_gdf.to_file(os.path.join(save_location, f"transect_time_series_merged{extension}.geojson"), driver='GeoJSON')
