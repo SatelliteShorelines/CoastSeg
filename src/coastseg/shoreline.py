@@ -17,6 +17,7 @@ from coastseg.feature import Feature
 
 # External dependencies imports
 import geopandas as gpd
+import pandas as pd
 from pandas import concat
 
 # from fiona.errors import DriverError
@@ -301,7 +302,12 @@ class Shoreline(Feature):
             self.get_clipped_shoreline(file, bbox, columns_to_keep)
             for file in shoreline_files
         ]
-        shorelines_gdf = concat(shorelines, ignore_index=True)
+        # shorelines_gdf = concat(shorelines, ignore_index=True)
+        # Drop columns where all values are NA
+        shorelines = [df.dropna(axis=1, how='all') for df in shorelines]
+
+        # Concatenate the DataFrames
+        shorelines_gdf = pd.concat(shorelines, ignore_index=True)
         # clean the shoreline geodataframe
         shorelines_gdf = self.preprocess_service(shorelines_gdf, columns_to_keep)
         validate_geometry_types(
