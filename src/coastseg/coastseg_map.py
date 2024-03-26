@@ -165,17 +165,21 @@ def delete_extracted_shorelines_files(session_path: str, selected_items: List):
     # Extract dates and satellite names from the selected items
     dates_list, sat_list = common.extract_dates_and_sats(selected_items)
 
-    # formatted_dates = [datetime.datetime.strptime(datestr, "%Y-%m-%d %H:%M:%S") for datestr in dates_list],
-    # delete the extracted shorelines from both geojson files
+    # delete the extracted shorelines from all extracted shoreline geojson files
     filenames = [
         "extracted_shorelines_lines.geojson",
         "extracted_shorelines_points.geojson",
+        "raw_transect_time_series_vectors.geojson",
+        "tidally_corrected_transect_time_series_vectors.geojson",
+        "raw_transect_time_series_points.geojson",
+        "tidally_corrected_transect_time_series_points.geojson",
     ]
     filepaths = [
         os.path.join(session_path, filename)
         for filename in filenames
         if os.path.isfile(os.path.join(session_path, filename))
     ]
+
     # the date column must be a dateime formatted in "%Y-%m-%d %H:%M:%S" without a timezone
     formatted_dates = [date.replace(tzinfo=None) for date in dates_list]
     # edit the shoreline geojson files and remove the selected shorelines that having matching date and satname
@@ -191,9 +195,12 @@ def delete_extracted_shorelines_files(session_path: str, selected_items: List):
     # delete the extracted shorelines from the transect_time_series.csv files
     filenames = [
         "transect_time_series.csv", # old name for  raw_transect_time_series.csv
-        "raw_transect_time_series.csv",
+        "raw_transect_time_series.csv", # time series as matrix of dates x transects
+        "transect_time_series_merged.csv",  # old name for  raw_transect_time_series_merged.csv
+        "raw_transect_time_series_merged.csv",  # timeseries with columns dates, transect_id, x,y, shore_x, shore_y,cross_distance, along_distance
         "transect_time_series_tidally_corrected.csv", # old name for tidally_corrected_transect_time_series_merged.csv
-        "tidally_corrected_transect_time_series_merged.csv",
+        "tidally_corrected_transect_time_series_merged.csv", # tidally corrected timeseries with columns dates, transect_id, x,y, shore_x, shore_y,cross_distance, along_distance
+        "tidally_corrected_transect_time_series.csv", # tidally corrected time series as matrix of dates x transects
     ]
     filepaths = [
         os.path.join(session_path, filename)
@@ -201,10 +208,6 @@ def delete_extracted_shorelines_files(session_path: str, selected_items: List):
         if os.path.isfile(os.path.join(session_path, filename))
     ]
     common.update_transect_time_series(filepaths, dates_list)
-    # delete the selected shorelines from all the individual csv files
-    file_patterns = ["_timeseries_tidally_corrected", "_timeseries_raw.csv"]
-    for file_pattern in file_patterns:
-        common.drop_dates_from_csv(file_pattern, session_path, dates_list)
     # delete the extracted shorelines from the jpg detection files
     jpg_path = os.path.join(session_path, "jpg_files", "detection")
     if os.path.exists(jpg_path) and os.path.isdir(jpg_path):

@@ -810,10 +810,10 @@ def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
     combined_mask = pd.Series([True] * len(gdf))
 
     for column_name, items_list in kwargs.items():
+        print(f"column namme : {column_name} \n items_list : {items_list}")
         # Ensure the column exists in the DataFrame
         if column_name not in gdf.columns:
-            raise ValueError(f"Column '{column_name}' not found in GeoDataFrame")
-
+            continue
         # Create a mask for each condition and combine them using logical AND
         condition_mask = pd.Series([False] * len(gdf))
         # Iterate over the items in the list
@@ -967,53 +967,6 @@ def filter_images_by_roi(roi_settings: list[dict]):
         roi_gdf = gpd.GeoDataFrame(index=[0], geometry=[polygon], crs="EPSG:4326")
         bad_images = filter_partial_images(roi_gdf, ROI_jpg_location)
         logger.info(f"Partial images filtered out: {bad_images}")
-
-
-def drop_dates_from_csv(
-    file_pattern: str,
-    session_path: str,
-    dates_list: list[datetime],
-    column_name: str = "dates",
-):
-    """
-    Drops rows from CSV files that match a given file pattern and have dates in a specified list.
-
-    Args:
-        file_pattern (str): The pattern to match for the CSV files.
-        session_path (str): The path to the directory containing the CSV files.
-        dates_list (list[datetime]): The list of datetime objects representing the dates to drop.
-        column_name (str, optional): The name of the column containing the dates. Defaults to "dates".
-
-    Raises:
-        AssertionError: If any element in the dates_list is not a datetime object.
-
-    Returns:
-        None
-    """
-    # assert that datetime objects are passed
-    assert all(
-        isinstance(date, datetime) for date in dates_list
-    ), "dates_list must contain datetime objects"
-    formatted_dates = [date.strftime("%Y-%m-%d %H:%M:%S+00:00") for date in dates_list]
-
-    # Get a list of files that match the file pattern in the directory
-    # Compile the regex pattern
-    # Filter files based on the regex pattern
-    matched_files = glob.glob(session_path + f"/*{file_pattern}*")
-    # Loop through each file in the matched files list
-    for file in matched_files:
-        # Read the CSV file into a DataFrame
-        df = pd.read_csv(file)
-
-        # Convert the column to datetime objects
-        df[column_name] = pd.to_datetime(df[column_name])
-
-        # Drop rows where the column is in the list of formatted dates
-        df = df[~df[column_name].isin(formatted_dates)]
-
-        # Write the updated DataFrame to the same CSV file
-        df.to_csv(file, index=False)
-
 
 def delete_jpg_files(
     dates_list: List[datetime], sat_list: List[str], jpg_path: str
@@ -1694,7 +1647,7 @@ def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
     for points in all_points:
         line_string = create_complete_line_string(points)
         lines.append(line_string)
-    gdf = gpd.GeoDataFrame({'geometry': lines,'dates': dates},crs=output_crs)
+    gdf = gpd.GeoDataFrame({'geometry': lines,'date': dates},crs=output_crs)
     return gdf
 
 
@@ -1723,16 +1676,6 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
     shore_y_vals = [None]*len(timeseries_data)
     timeseries_data['shore_x'] = shore_x_vals
     timeseries_data['shore_y'] = shore_y_vals
-
-    ##make an empty gdf to hold points
-    size = len(timeseries_data)
-    transect_ids = [None]*size
-    dates = [None]*size
-    points = [None]*size
-    points_gdf_utm = gpd.GeoDataFrame({'geometry':points,
-                                      'dates':dates,
-                                      'id':transect_ids},
-                                      crs=utm_crs)
 
     ##loop over all transects
     for i in range(len(transects_utm)):
@@ -1770,19 +1713,13 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
         y_wgs84 = points_wgs84[:,1]
         timeseries_data.loc[idxes,'shore_x'] = x_wgs84
         timeseries_data.loc[idxes,'shore_y'] = y_wgs84
-        dates = timeseries_data['dates'].loc[idxes]
-        points_gdf_utm.loc[idxes,'geometry'] = points_utm
-        points_gdf_utm.loc[idxes,'dates'] = dates
-        points_gdf_utm.loc[idxes,'id'] = [transect_id]*len(dates)
 
-
-    #dropping that extra index column and saving new csv
     return timeseries_data
 
 def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
                               save_location:str,
                               keep_points_on_transects:bool=True,
-                              name:str=""):
+                              extension:str=""):
     """
     Adds latitude and longitude coordinates to a timeseries dataframe based on shoreline positions.
 
@@ -1793,12 +1730,14 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         save_location (str): The directory path to save the output files.
         keep_points_on_transects (bool, optional): Whether to keep only the points that fall on the transects. 
                                                   Defaults to True.
+        extension (str, optional): An extension to add to the output filenames. Defaults to "".
+        
 
     Returns:
         pandas.DataFrame: The updated timeseries dataframe with latitude and longitude coordinates.
 
     """
-    extension = "" if name=="" else f'_{name}'
+    ext = "" if extension=="" else f'{extension}'
     
     # add the shoreline position as an x and y coordinate to the csv called shore_x and shore_y
     merged_timeseries_df = add_shore_points_to_timeseries(merged_timeseries_df, transects_gdf)
@@ -1815,18 +1754,18 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
     
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
-    filename= f'transect_time_series_merged{extension}.geojson'
-    # gdf1 = export_dataframe_as_geojson(df, 'dummy','shore_x','shore_y', "transect_id",['dates',])
     cross_shore_pts = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
-    cross_shore_pts.to_file(filename, driver='GeoJSON',index=False)
+    # rename the dates column to date
+    cross_shore_pts.rename(columns={'dates':'date'},inplace=True)
     
     # Create 2D vector of shorelines from where each shoreline intersected the transect
-    new_gdf_shorelines_wgs84=convert_points_to_linestrings(cross_shore_pts, group_col='dates', output_crs='epsg:4326')
-    new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'intersections_gdf_wgs84{extension}.geojson')
+    new_gdf_shorelines_wgs84=convert_points_to_linestrings(cross_shore_pts, group_col='date', output_crs='epsg:4326')
+    new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
     new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
     
-    # save the merged time series that includes the shore_x and shore_y columns to a csv
-    merged_timeseries_gdf.to_file(os.path.join(save_location, f"transect_time_series_merged{extension}.geojson"), driver='GeoJSON')
+    # save the merged time series that includes the shore_x and shore_y columns to a geojson file and a  csv file
+    merged_timeseries_gdf_cleaned = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).rename(columns={'dates':'date'}).to_crs('epsg:4326'))
+    merged_timeseries_gdf_cleaned.to_file(os.path.join(save_location, f"{ext}_transect_time_series_points.geojson"), driver='GeoJSON')
     merged_timeseries_df = pd.DataFrame(merged_timeseries_gdf.drop(columns=['geometry']))
 
     return merged_timeseries_df,timeseries_df
@@ -1948,7 +1887,8 @@ def save_transects(
     merged_timeseries_df = merged_timeseries_df[['dates', 'x', 'y', 'transect_id', 'cross_distance']]
     merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,cross_distance_df,
                               save_location,
-                              keep_points_on_transects)
+                              keep_points_on_transects,
+                              "raw")
     # save the raw transect time series which contains the columns ['dates', 'x', 'y', 'transect_id', 'cross_distance','shore_x','shore_y']  to file
     filepath = os.path.join(save_location, f"raw_transect_time_series_merged.csv")
     merged_timeseries_df.to_csv(filepath, sep=",") 
@@ -2002,8 +1942,6 @@ def filter_dropped_points_out_of_timeseries(timeseries_df:pd.DataFrame, dropped_
     Returns:
         pandas.DataFrame: The filtered timeseries dataframe with dropped points set to NaN.
     """
-    print(f"timeseries_df.head(): {timeseries_df.head()}")
-    
     # Iterate through unique transect ids from drop_df to avoid setting the same column multiple times
     for t_id in dropped_points_df['transect_id'].unique():
         # Find all the dates associated with this transect_id in dropped_points_df
@@ -2023,13 +1961,13 @@ def get_dropped_rows_csv(points_gdf, original_df):
     dropped_rows = dropped_rows.drop(columns=['_merge'])
     return dropped_rows
 
-def convert_points_to_linestrings(gdf, group_col='dates', output_crs='epsg:4326') -> gpd.GeoDataFrame:
+def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326') -> gpd.GeoDataFrame:
     """
     Convert points to LineStrings.
 
     Args:
         gdf (gpd.GeoDataFrame): The input GeoDataFrame containing points.
-        group_col (str): The column to group the GeoDataFrame by (default is 'dates').
+        group_col (str): The column to group the GeoDataFrame by (default is 'date').
         output_crs (str): The coordinate reference system for the output GeoDataFrame (default is 'epsg:4326').
 
     Returns:
@@ -2046,7 +1984,7 @@ def convert_points_to_linestrings(gdf, group_col='dates', output_crs='epsg:4326'
     linestrings_gdf.reset_index(inplace=True)
     
     # order the linestrings so that they are continuous
-    linestrings_gdf = order_linestrings_gdf(linestrings_gdf,linestrings_gdf['dates'],output_crs=output_crs)
+    linestrings_gdf = order_linestrings_gdf(linestrings_gdf,linestrings_gdf['date'],output_crs=output_crs)
     
     return linestrings_gdf
 
