@@ -98,6 +98,7 @@ class Settings_UI:
                 "apply_cloud_mask",
                 "cloud_thresh",
                 "percent_no_data",
+                "drop_intersection_pts",
             ]
         if advanced_settings is None:
             advanced_settings = [
@@ -373,6 +374,15 @@ class Settings_UI:
             )
             instructions = ipywidgets.HTML(
                 value="<b>Percentage Bad Pixels</b><br>Percentage of bad pixels allowed."
+            )
+        elif setting_name == "drop_intersection_pts":
+            widget = ipywidgets.Checkbox(
+                value=False,
+                description="Drop intersection points not on transects",
+                indent=False,  # To align the description with the label
+            )
+            instructions = ipywidgets.HTML(
+                value="<b>Drop Intersection Points Not On Transect</b><br>Activate to filter out shoreline intersection points that are not located on the transect they were detected on"
             )
         elif setting_name == "dates":
             widget = DateBox()

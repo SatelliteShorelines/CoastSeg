@@ -67,27 +67,28 @@ def format_as_html(settings: dict):
     """
     return f"""
     <h2>Settings</h2>
-    <p>sat_list: {settings.get("sat_list", "unknown")}</p>
+    <p>Satellites (sat_list): {settings.get("sat_list", "unknown")}</p>
     <p>dates: {settings.get("dates", "unknown")}</p>
     <p>landsat_collection: {settings.get("landsat_collection", "unknown")}</p>
-    <p>cloud_thresh: {settings.get("cloud_thresh", "unknown")}</p>
-    <p>dist_clouds: {settings.get("dist_clouds", "unknown")}</p>
+    <p>Maximum percentage of cloud pixels (cloud_thresh): {settings.get("cloud_thresh", "unknown")}</p>
+    <p>Distance from clouds (dist_clouds): {settings.get("dist_clouds", "unknown")}</p>
     <p>output_epsg: {settings.get("output_epsg", "unknown")}</p>
     <p>save_figure: {settings.get("save_figure", "unknown")}</p>
-    <p>min_beach_area: {settings.get("min_beach_area", "unknown")}</p>
-    <p>min_length_sl: {settings.get("min_length_sl", "unknown")}</p>
-    <p>apply_cloud_mask: {settings.get("apply_cloud_mask", "unknown")}</p>
+    <p>Min beach area (min_beach_area): {settings.get("min_beach_area", "unknown")}</p>
+    <p>Min Length of Shoreline (min_length_sl): {settings.get("min_length_sl", "unknown")}</p>
+    <p>Apply cloud mask to images (apply_cloud_mask): {settings.get("apply_cloud_mask", "unknown")}</p>
     <p>image_size_filter: {settings.get("image_size_filter", "unknown")}</p>
+    <p>Drop intersection points not on transects (drop_intersection_pts): {settings.get("drop_intersection_pts", "unknown")}</p>
     <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
     <p>sand_color: {settings.get("sand_color", "unknown")}</p>
-    <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
-    <p>along_dist: {settings.get("along_dist", "unknown")}</p>
-    <p>min_points: {settings.get("min_points", "unknown")}</p>
-    <p>max_std: {settings.get("max_std", "unknown")}</p>
-    <p>max_range: {settings.get("max_range", "unknown")}</p>
-    <p>min_chainage: {settings.get("min_chainage", "unknown")}</p>
-    <p>multiple_inter: {settings.get("multiple_inter", "unknown")}</p>
-    <p>prc_multiple: {settings.get("prc_multiple", "unknown")}</p>
+    <p>Max distance from reference shoreline (max_dist_ref): {settings.get("max_dist_ref", "unknown")}</p>
+    <p>Alongshore Distance (along_dist): {settings.get("along_dist", "unknown")}</p>
+    <p>Minimum Number of Shoreline Points (min_points): {settings.get("min_points", "unknown")}</p>
+    <p>Maximum STD of intersections (max_std): {settings.get("max_std", "unknown")}</p>
+    <p>Max range of intersections (max_range): {settings.get("max_range", "unknown")}</p>
+    <p>Minimum chainage (min_chainage): {settings.get("min_chainage", "unknown")}</p>
+    <p>Multiple Intersections (multiple_inter): {settings.get("multiple_inter", "unknown")}</p>
+    <p>Percentage Multiple (prc_multiple): {settings.get("prc_multiple", "unknown")}</p>
     """
 
 
@@ -111,6 +112,7 @@ class UI:
                 "apply_cloud_mask",
                 "cloud_thresh",
                 "percent_no_data",
+                "drop_intersection_pts",
             ]
         if not self.settings_dashboard:
             self.settings_dashboard = Settings_UI(basic_settings)
@@ -135,7 +137,7 @@ class UI:
         # create checkbox to control image size filter
         image_size_filter_checkbox = ipywidgets.Checkbox(
             value=True,
-            description="Enable Image Size Filter",
+            description="Enable image size filter",
             indent=False,  # To align the description with the label
         )
         # create toggle to select cloud mask issue
@@ -471,6 +473,7 @@ class UI:
         print("Correcting tides... please wait")
         beach_slope = self.beach_slope_text.value
         reference_elevation = self.reference_elevation_text.value
+        
         self.coastseg_map.compute_tidal_corrections(
             selected_rois, beach_slope, reference_elevation
         )
@@ -539,8 +542,13 @@ class UI:
             description="Refresh Settings", icon="refresh", style=self.action_style
         )
         update_settings_btn.on_click(self.update_settings_btn_clicked)
-        self.settings_html = HTML()
-        self.settings_html.value = format_as_html(self.coastseg_map.get_settings())
+        setting_content = format_as_html(self.coastseg_map.get_settings())
+        self.settings_html = HTML(
+             f"<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>"
+            f"{setting_content}"
+            f"</div>"
+        )
+        
         view_settings_vbox = VBox([self.settings_html, update_settings_btn])
         html_settings_accordion = Accordion(children=[view_settings_vbox])
         html_settings_accordion.set_title(0, "View Settings")
@@ -749,43 +757,6 @@ class UI:
         if "min_points" in settings:
             self.min_points_text.value = settings.get("min_points", 3)
 
-    def format_as_html(self, settings: dict):
-        """
-        Generates HTML content displaying the settings.
-
-        Args:
-            settings (dict): The dictionary containing the settings.
-
-        Returns:
-            str: The HTML content representing the settings.
-
-        """
-
-        return f"""
-        <h2>Settings</h2>
-        <p>sat_list: {settings.get("sat_list", "unknown")}</p>
-        <p>dates: {settings.get("dates", "unknown")}</p>
-        <p>landsat_collection: {settings.get("landsat_collection", "unknown")}</p>
-        <p>cloud_thresh: {settings.get("cloud_thresh", "unknown")}</p>
-        <p>dist_clouds: {settings.get("dist_clouds", "unknown")}</p>
-        <p>output_epsg: {settings.get("output_epsg", "unknown")}</p>
-        <p>save_figure: {settings.get("save_figure", "unknown")}</p>
-        <p>min_beach_area: {settings.get("min_beach_area", "unknown")}</p>
-        <p>min_length_sl: {settings.get("min_length_sl", "unknown")}</p>
-        <p>apply_cloud_mask: {settings.get("apply_cloud_mask", "unknown")}</p>
-        <p>image_size_filter: {settings.get("image_size_filter", "unknown")}</p>
-        <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
-        <p>sand_color: {settings.get("sand_color", "unknown")}</p>
-        <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
-        <p>along_dist: {settings.get("along_dist", "unknown")}</p>
-        <p>min_points: {settings.get("min_points", "unknown")}</p>
-        <p>max_std: {settings.get("max_std", "unknown")}</p>
-        <p>max_range: {settings.get("max_range", "unknown")}</p>
-        <p>min_chainage: {settings.get("min_chainage", "unknown")}</p>
-        <p>multiple_inter: {settings.get("multiple_inter", "unknown")}</p>
-        <p>prc_multiple: {settings.get("prc_multiple", "unknown")}</p>
-        """
-
     def _create_HTML_widgets(self):
         """create HTML widgets that display the instructions.
         widgets created: instr_create_ro, instr_save_roi, instr_load_btns
@@ -903,7 +874,8 @@ class UI:
         UI.debug_view.clear_output(wait=True)
         # Update settings in view settings section
         try:
-            self.settings_html.value = format_as_html(self.coastseg_map.get_settings())
+            setting_content = format_as_html(self.coastseg_map.get_settings())
+            self.settings_html.value = f"""<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>{setting_content}</div>"""
         except Exception as error:
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
@@ -962,7 +934,9 @@ class UI:
         # save the settings to coastseg_map
         try:
             self.coastseg_map.set_settings(**settings)
-            self.settings_html.value = format_as_html(self.coastseg_map.get_settings())
+            self.update_displayed_settings()
+            # self.settings_html.value = format_as_html(self.coastseg_map.get_settings())
+            
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)   
@@ -1060,7 +1034,9 @@ class UI:
                     # update the settings dashboard with the settings from the loaded session
                     settings = self.coastseg_map.get_settings()
                     self.settings_dashboard.set_settings(settings)
-                    self.settings_html.value = format_as_html(settings)
+                    self.update_displayed_settings()
+                    # self.settings_html.value = format_as_html(settings)
+                    
                     # self.update_settings_selection(self.coastseg_map.get_settings())
                     self.coastseg_map.map.default_style = {"cursor": "default"}
             except Exception as error:
@@ -1078,6 +1054,20 @@ class UI:
         # add instance of file_chooser to row 4
         self.file_chooser_row.children = [dir_chooser]
         self.coastseg_map.map.default_style = {"cursor": "default"}
+
+    def update_displayed_settings(self):
+        """
+        Updates the displayed settings in the UI.
+
+        Retrieves the settings from the `coastseg_map` and formats them as HTML.
+        The formatted settings are then assigned to the `settings_html` widget.
+
+        Returns:
+            None
+        """
+        setting_content = format_as_html(self.coastseg_map.get_settings())
+        self.settings_html.value = f"""<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>{setting_content}</div>"""
+
 
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):

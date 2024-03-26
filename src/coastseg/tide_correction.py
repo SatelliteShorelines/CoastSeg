@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def compute_tidal_corrections(
-    session_name, roi_ids: Collection, beach_slope: float, reference_elevation: float
+    session_name, roi_ids: Collection, beach_slope: float, reference_elevation: float,only_keep_points_on_transects:bool=False
 ):
     logger.info(
         f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
@@ -39,6 +39,7 @@ def compute_tidal_corrections(
             session_name,
             reference_elevation,
             beach_slope,
+            only_keep_points_on_transects=only_keep_points_on_transects,
         )
     except Exception as e:
         print(f"Tide Model Not Found Error \n {e}")
@@ -50,6 +51,7 @@ def correct_all_tides(
     session_name: str,
     reference_elevation: float,
     beach_slope: float,
+    only_keep_points_on_transects:bool=False,
     use_progress_bar: bool = True,
 ):
     """
@@ -84,7 +86,8 @@ def correct_all_tides(
                 beach_slope,
                 model_location,
                 tide_regions_file,
-                use_progress_bar,
+                only_keep_points_on_transects = only_keep_points_on_transects,
+                use_progress_bar = use_progress_bar,
             )
             logger.info(f"{roi_id} was tidally corrected")
             update(f"{roi_id} was tidally corrected")
@@ -140,7 +143,7 @@ def correct_tides(
     beach_slope: float,
     model_location: str,
     tide_regions_file: str,
-    keep_points_on_transects = True,
+    only_keep_points_on_transects:bool = False,
     use_progress_bar: bool = True,
 ) -> pd.DataFrame:
     """
@@ -160,8 +163,8 @@ def correct_tides(
         Path to the tide model.
     tide_regions_file : str
         Path to the file containing the regions the tide model was clipped to.
-    keep_points_on_transects : bool
-    If True, keep only the shoreline points that are on the transects. Default is True.
+    only_keep_points_on_transects : bool
+    If True, keeps only the shoreline points that are on the transects. Default is True.
         - This will generated a file called "dropped_points_time_series.csv" that contains the points that were filtered out. If keep_points_on_transects is True.
         - Any shoreline points that were not on the transects will be removed from "raw_transect_time_series.csv" by setting those values to NaN.v If keep_points_on_transects is True.
         - The "raw_transect_time_series_merged.csv" will not contain any points that were not on the transects. If keep_points_on_transects is True.
@@ -228,24 +231,23 @@ def correct_tides(
         # Reset index if you want 'dates' back as a column
         pivot_df.reset_index(inplace=True)
         # add columns shore_x and shore_y to the tide_corrected_timeseries_df. Also save shorelines as vectors
-        # keep_points_on_transects
-        tide_corrected_timeseries_df,timeseries_df  = add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf,pivot_df,
+
+        tide_corrected_timeseries_merged_df,timeseries_df  = add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf.to_crs('epsg:4326'),pivot_df,
                                 session_path,
-                                keep_points_on_transects,
+                                only_keep_points_on_transects,
                                 'tidally_corrected')
-        # tide_corrected_timeseries_df =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,session_path,'tidally_corrected')
         
         # Save the Tidally corrected time series
         timeseries_df.to_csv(os.path.join(session_path, 'tidally_corrected_transect_time_series.csv'))
+
         
         # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
-        tide_corrected_timeseries_df.to_csv(
+        tide_corrected_timeseries_merged_df.to_csv(
             os.path.join(session_path, "tidally_corrected_transect_time_series_merged.csv")
         )
-        export_dataframe_as_geojson(tide_corrected_timeseries_df, os.path.join(session_path, "transect_time_series_tidally_corrected.geojson"),'shore_x','shore_y', "transect_id",['dates'])
         
         update(f"{roi_id} was tidally corrected")
-    return tide_corrected_timeseries_df
+    return tide_corrected_timeseries_merged_df
 
 
 def get_timeseries_location(ROI_ID: str, session_name: str) -> str:
@@ -264,9 +266,15 @@ def get_timeseries_location(ROI_ID: str, session_name: str) -> str:
     """
     # get the contents of the session directory containing the data for the ROI id
     session_path = file_utilities.get_session_contents_location(session_name, ROI_ID)
-    time_series_location = file_utilities.find_file_by_regex(
-        session_path, r"^transect_time_series\.csv$"
-    )
+    try:
+        time_series_location = file_utilities.find_file_by_regex(
+            session_path, r"^raw_transect_time_series\.csv$"
+        )
+    except FileNotFoundError:
+        # if the new file name is not found try the old file name format
+        time_series_location = file_utilities.find_file_by_regex(
+            session_path, r"^transect_time_series\.csv$"
+        )
     return time_series_location
 
 

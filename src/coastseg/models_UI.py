@@ -760,6 +760,7 @@ def format_as_html(settings: dict):
     <p>cloud_mask_issue: {settings.get("cloud_mask_issue", "unknown")}</p>
     <p>sand_color: {settings.get("sand_color", "unknown")}</p>
     <p>max_dist_ref: {settings.get("max_dist_ref", "unknown")}</p>
+    <p>Drop intersection points not on transects (drop_intersection_pts): {settings.get("drop_intersection_pts", "unknown")}</p>
     <h3>Advanced Settings</h3>
     <p>along_dist: {settings.get("along_dist", "unknown")}</p>
     <p>min_points: {settings.get("min_points", "unknown")}</p>

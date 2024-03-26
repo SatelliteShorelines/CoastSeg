@@ -1718,7 +1718,7 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
 
 def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
                               save_location:str,
-                              keep_points_on_transects:bool=True,
+                              only_keep_points_on_transects:bool=False,
                               extension:str=""):
     """
     Adds latitude and longitude coordinates to a timeseries dataframe based on shoreline positions.
@@ -1728,8 +1728,8 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         transects_gdf (geopandas.GeoDataFrame): The geodataframe containing transect information.
         timeseries_df (pandas.DataFrame): The original timeseries dataframe.This is a matrix of dates x transect id with the cross shore distance as the values.
         save_location (str): The directory path to save the output files.
-        keep_points_on_transects (bool, optional): Whether to keep only the points that fall on the transects. 
-                                                  Defaults to True.
+        only_keep_points_on_transects (bool, optional): Whether to keep only the points that fall on the transects. 
+                                                  Defaults to False.
         extension (str, optional): An extension to add to the output filenames. Defaults to "".
         
 
@@ -1747,11 +1747,10 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         geometry=[Point(xy) for xy in zip(merged_timeseries_df['shore_x'], merged_timeseries_df['shore_y'])], 
         crs="EPSG:4326"
     )
-    if keep_points_on_transects:
+    if only_keep_points_on_transects:
         merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,)
-    
-    if not dropped_points_df.empty:
-        timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
+        if not dropped_points_df.empty:
+            timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
     
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
     cross_shore_pts = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
@@ -1851,7 +1850,7 @@ def save_transects(
     extracted_shorelines: dict,
     settings: dict,
     transects_gdf:gpd.GeoDataFrame,
-    keep_points_on_transects = True,
+    drop_intersection_pts = False,
 ) -> None:
     """
     Save transect data, including raw timeseries, intersection data, and cross distances.
@@ -1861,14 +1860,14 @@ def save_transects(
         save_location (str): The directory path to save the transect data.
         cross_distance_transects (dict): Dictionary containing cross distance transects data.
         extracted_shorelines (dict): Dictionary containing extracted shorelines data.
-        keep_points_on_transects (bool): If True, keep only the shoreline points that are on the transects. Default is True.
-        - This will generated a file called "dropped_points_time_series.csv" that contains the points that were filtered out. If keep_points_on_transects is True.
-        - Any shoreline points that were not on the transects will be removed from "raw_transect_time_series.csv" by setting those values to NaN.v If keep_points_on_transects is True.
-        - The "raw_transect_time_series_merged.csv" will not contain any points that were not on the transects. If keep_points_on_transects is True.
+        drop_intersection_pts (bool): If True, keep only the shoreline points that are on the transects. Default is False.
+        - This will generated a file called "dropped_points_time_series.csv" that contains the points that were filtered out. If only_keep_points_on_transects is True.
+        - Any shoreline points that were not on the transects will be removed from "raw_transect_time_series.csv" by setting those values to NaN.v If only_keep_points_on_transects is True.
+        - The "raw_transect_time_series_merged.csv" will not contain any points that were not on the transects. If only_keep_points_on_transects is True.
 
     Returns:
         None.
-    """
+    """    
     cross_distance_df =get_cross_distance_df(
         extracted_shorelines, cross_distance_transects
     )
@@ -1885,9 +1884,9 @@ def save_transects(
 
     # re-order columns
     merged_timeseries_df = merged_timeseries_df[['dates', 'x', 'y', 'transect_id', 'cross_distance']]
-    merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,cross_distance_df,
+    merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf.to_crs('epsg:4326'),cross_distance_df,
                               save_location,
-                              keep_points_on_transects,
+                              drop_intersection_pts,
                               "raw")
     # save the raw transect time series which contains the columns ['dates', 'x', 'y', 'transect_id', 'cross_distance','shore_x','shore_y']  to file
     filepath = os.path.join(save_location, f"raw_transect_time_series_merged.csv")

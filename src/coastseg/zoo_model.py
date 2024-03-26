@@ -633,17 +633,11 @@ class Zoo_Model:
             "percent_no_data": 50.0,  # percentage of no data pixels allowed in an image (doesn't work for npz)
             "model_session_path": "",  # path to model session file
             "apply_cloud_mask": True,  # whether to apply cloud mask to images or not
+            "drop_intersection_pts": False, # whether to drop intersection points not on the transect
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
-        
-        # self.settings.update(
-        #     {
-        #         key: default_settings[key]
-        #         for key in default_settings
-        #         if key not in self.settings
-        #     }
-        # )
+    
         for key, value in default_settings.items():
             self.settings.setdefault(key, value)
             
@@ -884,7 +878,6 @@ class Zoo_Model:
             epsg_code="epsg:4326",
             shoreline_extraction_area_gdf = shoreline_extraction_area_gdf,
         )
-        # shoreline_extraction_area_gdf.to_crs(output_epsg, inplace=True)
 
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
@@ -931,6 +924,7 @@ class Zoo_Model:
         else:
             transect_settings = self.get_settings()
             transect_settings["output_epsg"] = new_espg
+            drop_intersection_pts=self.get_settings().get('drop_intersection_pts', False)
             common.save_transects(
                 roi_id,
                 new_session_path,
@@ -938,6 +932,7 @@ class Zoo_Model:
                 extracted_shorelines.dictionary,
                 transect_settings,
                 transects_gdf,
+                drop_intersection_pts
             )
 
     def postprocess_data(

@@ -2168,7 +2168,6 @@ class Extracted_Shoreline:
                 class_mapping=class_mapping,
                 shoreline_extraction_area=shoreline_extraction_area,
             )
-            #@todo should this be saved here?
             common.save_extracted_shoreline_figures(self.shoreline_settings, session_path)
             # move extracted shoreline reports to session directory
             common.move_report_files(

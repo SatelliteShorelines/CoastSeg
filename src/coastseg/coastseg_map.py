@@ -511,12 +511,15 @@ class CoastSeg_Map:
         )
 
         session_name = self.get_session_name()
+        # if True then only the intersection point ON the transect are kept. If False all intersection points are kept.
+        only_keep_points_on_transects = self.get_settings().get('drop_intersection_pts',False)
         try:
             tide_correction.correct_all_tides(
                 roi_ids,
                 session_name,
                 reference_elevation,
                 beach_slope,
+                only_keep_points_on_transects=only_keep_points_on_transects
             )
         except Exception as e:
             if self.map is not None:
@@ -1230,6 +1233,7 @@ class CoastSeg_Map:
             "prc_multiple": 0.1,
             "apply_cloud_mask": True,
             "image_size_filter": True,
+            "drop_intersection_pts": False,
         }
 
         # Function to parse dates with flexibility for different formats
@@ -1565,13 +1569,6 @@ class CoastSeg_Map:
             print(
                 f"An error occurred while extracting shoreline for ROI {roi_id}. \n Skipping to next ROI \n {e} \n {traceback.format_exc()}"
             )
-        # if session_path:
-        #     shoreline_settings = extracted_shorelines.shoreline_settings
-        #     common.save_extracted_shoreline_figures(shoreline_settings, session_path)
-        #     # move extracted shoreline reports to session directory
-        #     common.move_report_files(
-        #         shoreline_settings, session_path, "extract_shorelines*.txt"
-        #     ) 
 
         return None
 
@@ -1913,7 +1910,7 @@ class CoastSeg_Map:
     def compute_transects(
         self, transects_gdf: gpd.GeoDataFrame, settings: dict, roi_ids: list[str]
     ) -> dict:
-        """Returns a dict of cross distances for each roi's transects
+        """Returns a dictionary that contains the intersection of each transect with the extracted shorelines for each ROI.
         Args:
             selected_rois (dict): rois selected by the user. Must contain the following fields:
                 {'features': [
@@ -2015,13 +2012,6 @@ class CoastSeg_Map:
                 if extracted_shoreline is None:
                     logger.info(f"No extracted shorelines for ROI: {roi_id}")
                     continue
-                # move extracted shoreline figures to session directory
-                # shoreline_settings = extracted_shoreline.shoreline_settings
-                # common.save_extracted_shoreline_figures(shoreline_settings, session_path)
-                # # move extracted shoreline reports to session directory
-                # common.move_report_files(
-                #     shoreline_settings, session_path, "extract_shorelines*.txt"
-                # )
                 # save the geojson and json files for extracted shorelines
                 common.save_extracted_shorelines(extracted_shoreline, session_path)
 
@@ -2042,13 +2032,17 @@ class CoastSeg_Map:
                         logger.info(f"ROI: {roi_id} cross distance is 0")
                         continue
 
+                    # get the setting that control whether shoreline intersection points that are not on the transects are kept
+                    drop_intersection_pts=self.get_settings().get('drop_intersection_pts', False)
+
                     common.save_transects(
                         roi_id,
                         session_path,
                         cross_shore_distance,
                         extracted_shorelines_dict,
                         self.get_settings(),
-                        self.transects.gdf
+                        self.transects.gdf,
+                        drop_intersection_pts,
                     )
 
     def remove_all(self):
