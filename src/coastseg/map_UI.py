@@ -1075,6 +1075,7 @@ class UI:
         def load_callback(filechooser: FileChooser) -> None:
             try:
                 if filechooser.selected:
+                    print(f"Loading {btn.description.lower()} this might take a few seconds...")
                     if "shoreline" in btn.description.lower():
                         logger.info(
                             f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}"

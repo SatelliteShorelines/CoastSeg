@@ -43,7 +43,7 @@ def main(input_file, output_file):
 
     # STEP 2: Save the reversed transects GeoDataFrame to a GeoJSON file
     reversed_transects_gdf.to_file(output_file, driver="GeoJSON")
-    print(f"Reversed transects saved to {output_file}!")
+    print(f"Reversed transects saved to {os.path.abspath(output_file)}!")
 
 
 if __name__ == "__main__":
