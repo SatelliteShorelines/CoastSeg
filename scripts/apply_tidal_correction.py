@@ -1073,7 +1073,7 @@ def parse_arguments() -> argparse.Namespace:
         "-o",
         dest="output",
         type=str,
-        default="tidally_corrected_time_series.csv",
+        default="tidally_corrected_transect_time_series.csv",
         help="Set the TIDALLY_CORRECTED_FILE_NAME.",
     )
     parser.add_argument(
@@ -1096,9 +1096,9 @@ def parse_arguments() -> argparse.Namespace:
         "-D",
         "-d",
         dest="drop",
-        type=str,
-        default=FES_2014_MODEL_PATH,
-        help="Drop shoreline transect intersections from the csv files",
+        action="store_true",
+        default=False,
+        help="Add -d to drop any shoreline transect intersections points that are not on the transect from the csv files",
     )
 
     return parser.parse_args()
@@ -1185,7 +1185,8 @@ def main():
     tide_corrected_timeseries_df_matrix.reset_index(inplace=True)      
 
     # Add lat lon to the timeseries data
-    tide_corrected_timeseries_df,tide_corrected_timeseries_df_matrix =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,tide_corrected_timeseries_df_matrix,os.getcwd(),'tidally_corrected')
+    tide_corrected_timeseries_df,tide_corrected_timeseries_df_matrix =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,tide_corrected_timeseries_df_matrix,os.getcwd(),
+                                                                                                only_keep_points_on_transects=DROP_INTERSECTIONS,extension='tidally_corrected')
     # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
     tide_corrected_timeseries_df.to_csv(
         os.path.join(os.getcwd(), "tidally_corrected_transect_time_series_merged.csv")
