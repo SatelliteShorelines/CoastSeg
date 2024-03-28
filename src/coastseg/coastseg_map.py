@@ -1938,6 +1938,7 @@ class CoastSeg_Map:
             { roi_id :  dict
                 time-series of cross-shore distance along each of the transects. Not tidally corrected. }
         """
+        
         self.validate_transect_inputs(settings,roi_ids)
         # user selected output projection
         output_epsg = "epsg:" + str(settings["output_epsg"])
@@ -1945,8 +1946,10 @@ class CoastSeg_Map:
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
             cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
-            self.save_session([roi_id],save_transects=True)
-        self.save_session(roi_ids,save_transects=True)
+            # save all the files that use the cross distance (aka the timeseries of shoreline intersections along transects)
+            session_path = self.create_session(self.get_session_name(), roi_id, save_config=False)
+            self.save_transect_timeseries(session_path,self.rois.get_extracted_shoreline(roi_id),roi_id)
+
 
     def session_exists(self, session_name: str) -> bool:
             """
@@ -2017,34 +2020,50 @@ class CoastSeg_Map:
 
                 # save transects to session folder
                 if save_transects:
-                    # get extracted_shorelines from extracted shoreline object in rois
-                    extracted_shorelines_dict = extracted_shoreline.dictionary
-                    # if no shorelines were extracted then skip
-                    if extracted_shorelines_dict == {}:
-                        logger.info(f"No extracted shorelines for roi: {roi_id}")
-                        continue
-                    cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
-                    # if no cross distance was 0 then skip
-                    if cross_shore_distance == 0:
-                        print(
-                            f"ROI: {roi_id} had no time-series of shoreline change along transects"
-                        )
-                        logger.info(f"ROI: {roi_id} cross distance is 0")
-                        continue
+                    self.save_transect_timeseries(session_path,extracted_shoreline,roi_id)
 
-                    # get the setting that control whether shoreline intersection points that are not on the transects are kept
-                    drop_intersection_pts=self.get_settings().get('drop_intersection_pts', False)
+    def save_transect_timeseries(self, session_path: str, extracted_shoreline: extracted_shoreline.Extracted_Shoreline, roi_id: str = ""):
+        """
+        Save transects to session folder.
 
-                    common.save_transects(
-                        roi_id,
-                        session_path,
-                        cross_shore_distance,
-                        extracted_shorelines_dict,
-                        self.get_settings(),
-                        self.transects.gdf,
-                        drop_intersection_pts,
-                    )
+        Args:
+            session_path (str): The path to the session folder.
+            extracted_shoreline (extracted_shoreline.Extracted_Shoreline): The extracted shoreline object.
+            roi_id (str, optional): The ID of the region of interest. Defaults to "".
 
+        Returns:
+            None
+        """
+        # save transects to session folder
+        if extracted_shoreline is None:
+            logger.info(f"No extracted shorelines for roi {roi_id}")
+            return
+        # get extracted_shorelines from extracted shoreline object in rois
+        extracted_shorelines_dict = extracted_shoreline.dictionary
+        # if no shorelines were extracted then skip
+        if extracted_shorelines_dict == {}:
+            logger.info(f"No extracted shorelines for roi {roi_id}")
+            return
+        cross_shore_distance = self.rois.get_cross_shore_distances(roi_id)
+        # if no cross distance was 0 then skip
+        if cross_shore_distance == 0:
+            print(
+                f"ROI: {roi_id} had no time-series of shoreline change along transects"
+            )
+            logger.info(f"ROI: {roi_id} cross distance is 0")
+            return
+        # get the setting that control whether shoreline intersection points that are not on the transects are kept
+        drop_intersection_pts = self.get_settings().get('drop_intersection_pts', False)
+        common.save_transects(
+            session_path,
+            cross_shore_distance,
+            extracted_shorelines_dict,
+            self.get_settings(),
+            self.transects.gdf,
+            drop_intersection_pts,
+        )
+            
+            
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()

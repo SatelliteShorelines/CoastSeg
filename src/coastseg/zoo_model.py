@@ -926,7 +926,6 @@ class Zoo_Model:
             transect_settings["output_epsg"] = new_espg
             drop_intersection_pts=self.get_settings().get('drop_intersection_pts', False)
             common.save_transects(
-                roi_id,
                 new_session_path,
                 cross_distance_transects,
                 extracted_shorelines.dictionary,

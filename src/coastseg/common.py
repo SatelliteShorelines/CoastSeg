@@ -1848,7 +1848,6 @@ def sort_transects(gdf, sort_by='start_lon'):
     return gdf_sorted
 
 def save_transects(
-    roi_id: str,
     save_location: str,
     cross_distance_transects: dict,
     extracted_shorelines: dict,
@@ -1952,17 +1951,6 @@ def filter_dropped_points_out_of_timeseries(timeseries_df:pd.DataFrame, dropped_
         timeseries_df.loc[timeseries_df['dates'].isin(dates_to_drop), t_id] = np.nan
     return timeseries_df
 
-def get_dropped_rows_csv(points_gdf, original_df):
-    # convert the geodataframe containing the points that were filtered to a csv
-    points = points_gdf.drop(columns=['geometry'])
-    df = pd.DataFrame(points)
-    # save the dropped rows
-    # Identify the rows that were dropped to create the new CSV
-    dropped_rows = original_df.merge(df, how='outer', indicator=True).loc[lambda x : x['_merge']=='left_only']
-
-    # Drop the merge indicator column as it's no longer needed
-    dropped_rows = dropped_rows.drop(columns=['_merge'])
-    return dropped_rows
 
 def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326') -> gpd.GeoDataFrame:
     """
