@@ -1748,7 +1748,7 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         crs="EPSG:4326"
     )
     if only_keep_points_on_transects:
-        merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,)
+        merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
         if not dropped_points_df.empty:
             timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
     
@@ -1758,6 +1758,10 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
     cross_shore_pts.rename(columns={'dates':'date'},inplace=True)
     
     # Create 2D vector of shorelines from where each shoreline intersected the transect
+    if cross_shore_pts.empty:
+        logger.warning("No points were found on the transects. Skipping the creation of the transect_time_series_points.geojson and transect_time_series_vectors.geojson files")
+        return merged_timeseries_df,timeseries_df
+    
     new_gdf_shorelines_wgs84=convert_points_to_linestrings(cross_shore_pts, group_col='date', output_crs='epsg:4326')
     new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
     new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
@@ -1915,7 +1919,7 @@ def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, tran
         tuple: A tuple containing the filtered merged timeseries GeoDataFrame and a DataFrame of dropped points.
 
     """
-    extension = "" if name == "" else f'_{name}'
+    extension = "" if name == "" else f'{name}_'
     timeseries_df = pd.DataFrame(merged_timeseries_gdf)
     timeseries_df.drop(columns=['geometry'], inplace=True)
     # estimate crs of transects
@@ -1924,7 +1928,7 @@ def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, tran
     filtered_merged_timeseries_gdf_utm, dropped_points_df = intersect_with_buffered_transects(
         merged_timeseries_gdf.to_crs(utm_crs), transects_gdf.to_crs(utm_crs))
     # Get a dataframe containing the points that were filtered out from the time series because they were not on the transects
-    dropped_points_df.to_csv(os.path.join(save_location, f"dropped_points_time_series{extension}.csv"), index=False)
+    dropped_points_df.drop(columns=['geometry']).to_csv(os.path.join(save_location, f"{extension}dropped_points_time_series.csv"), index=False)
     # convert back to same crs as original merged_timeseries_gdf
     merged_timeseries_gdf = filtered_merged_timeseries_gdf_utm.to_crs(merged_timeseries_gdf.crs)
     return merged_timeseries_gdf, dropped_points_df
@@ -1974,9 +1978,11 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326')
     """
     # Group the GeoDataFrame by date
     grouped = gdf.groupby(group_col)
-
-    # For each group, create a LineString from the points
-    linestrings = grouped.apply(lambda g: LineString(g.geometry.tolist()))
+    # For each group, ensure there are at least two points so that a LineString can be created
+    filtered_groups = grouped.filter(lambda g: g[group_col].count() > 1)
+    # Recreate the groups as a geodataframe
+    grouped_gdf = gpd.GeoDataFrame(filtered_groups, geometry='geometry')
+    linestrings = grouped_gdf.groupby(group_col).apply(lambda g: LineString(g.geometry.tolist()))
 
     # Create a new GeoDataFrame from the LineStrings
     linestrings_gdf = gpd.GeoDataFrame(linestrings, columns=['geometry'], crs=output_crs)

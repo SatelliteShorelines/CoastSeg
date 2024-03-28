@@ -7,7 +7,7 @@ from typing import Collection, Dict, Tuple, Union
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
-from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf,add_lat_lon_to_timeseries,export_dataframe_as_geojson
+from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf,add_lat_lon_to_timeseries
 
 # Third-party imports
 import geopandas as gpd
