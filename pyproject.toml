@@ -14,7 +14,7 @@ description = "An interactive jupyter notebook for downloading satellite imagery
 dependencies = [
   "h5py>=3.10.0",
   "pyTMD",
-  "coastsat-package>=0.1.56",
+  "coastsat-package>=0.1.57",
   "area",
   "aiohttp",
   "chardet",

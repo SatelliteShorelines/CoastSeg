@@ -919,7 +919,7 @@ class CoastSeg_Map:
 
                 print("\n".join(satellite_messages))
 
-    def download_imagery(self,rois:gpd.GeoDataFrame=None, settings:dict={},selected_ids:set=None,file_path:str=None) -> None:
+    def download_imagery(self,rois:gpd.GeoDataFrame=None, settings:dict={},selected_ids:set=None,file_path:str=None,incomplete_download:bool=True) -> None:
         """
         Downloads all images for the selected ROIs  from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2  covering the area of interest and acquired between the specified dates.
         The downloaded imagery for each ROI is stored in a directory that follows the convention
@@ -959,19 +959,19 @@ class CoastSeg_Map:
         if isinstance(selected_ids,set):
             selected_ids = list(selected_ids)
             
-        # if no ROis were passed in then use the ROIs from the map
-        if rois is None:
-            rois = self.rois.gdf
-        else: # if rois were passed in then update the rois
-            self.rois = ROI(rois_gdf=rois)
+       
+        if incomplete_download:
+            # check if ROIs were loaded from the session and if so use the loaded in ROIs
+            if not hasattr(self, "rois"):
+                raise Exception("No ROIs have been loaded.Cannot finish incomplete download without ROIs")
+        else:
+            # if no ROis were passed in then use the ROIs from the map
+            if rois is None:
+                rois = self.rois.gdf
+            else: # if rois were passed in then update the rois
+                self.rois = ROI(rois_gdf=rois)
+                rois = self.rois.gdf
 
-        # # If the map object exists, get the selected ROIs and settings
-        # if getattr(self,"map",None) is not None:
-        #     selected_ids = list(getattr(self, "selected_set", []))
-        #     rois = self.rois.gdf
-        #     settings = self.get_settings()
-            
-            
         self.validate_download_imagery_inputs(settings,selected_ids,rois)
         
         # get only the ROIs whose IDs are in the selected_ids
@@ -979,13 +979,19 @@ class CoastSeg_Map:
         geojson_str = filtered_gdf.to_json()
         geojson_dict = json.loads(geojson_str)
 
-        # Create a list of download settings for each ROI
-        roi_settings = common.create_roi_settings(
-            settings, geojson_dict, file_path, date_str
-        )
-
-        # Save the ROI settings
-        self.rois.set_roi_settings(roi_settings)
+        if incomplete_download:
+            # user would have a session loaded and the ROI settings would have been saved to the loaded in ROIs
+            roi_settings = self.rois.get_roi_settings()
+            print(f"roi_settings {roi_settings}")
+            # filter the ROI settings to only include the selected ROIs
+            roi_settings = {roi_id: roi_settings[roi_id] for roi_id in selected_ids}
+        else:
+            # Create a list of download settings for each ROI
+            roi_settings = common.create_roi_settings(
+                settings, geojson_dict, file_path, date_str
+            )
+            # Save the ROI settings
+            self.rois.set_roi_settings(roi_settings)
 
         # create a list of settings for each ROI
         inputs_list = list(roi_settings.values())
