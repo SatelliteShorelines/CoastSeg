@@ -9,8 +9,12 @@ version = "1.2.0"
 authors = [
   { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
 ]
+keywords = [
+    "coastseg",
+    "coastsat",
+]
 # find` directive with `include` or `exclude`
-description = "An interactive jupyter notebook for downloading satellite imagery"
+description = "An interactive python package for satellite derived shoreline workflows"
 dependencies = [
   "h5py>=3.10.0",
   "pyTMD",
@@ -30,11 +34,13 @@ dependencies = [
 license = { file="LICENSE" }
 requires-python = ">=3.10"
 classifiers = [
-    "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: GIS",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 
 # tells setup tools to include the code in the coastseg directory within the src directory
@@ -43,5 +49,7 @@ where = ["src"]
 
 
 [project.urls]
-"Homepage" = "https://github.com/SatelliteShorelines/CoastSeg"
+homepage = "https://github.com/SatelliteShorelines/CoastSeg"
+repository = "https://github.com/SatelliteShorelines/CoastSeg"
+documentation = "https://github.com/SatelliteShorelines/CoastSeg/wiki"
 "Bug Tracker" = "https://github.com/SatelliteShorelines/CoastSeg/issues"
