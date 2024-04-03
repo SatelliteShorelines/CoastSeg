@@ -2,3 +2,4 @@ pytest
 build
 twine
 black
+tensorflow
