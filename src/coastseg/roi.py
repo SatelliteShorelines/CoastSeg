@@ -1,6 +1,7 @@
 # Standard library imports
+import collections
 import logging
-from typing import Union, List
+from typing import Iterable, Union, List
 import datetime
 
 # Internal dependencies imports
@@ -196,41 +197,40 @@ class ROI(Feature):
             bbox, shoreline, square_len_lg, square_len_sm
         )
 
-    def get_roi_settings(self, roi_id: str = "") -> dict:
+    def get_roi_settings(self, roi_id: Union[str, Iterable[str]] = "") -> dict:
         """
         Retrieve the settings for a specific ROI or all ROI settings.
         If roi_id is not provided, all ROI settings will be returned.
         If the ROI ID is not found, an empty dictionary will be returned.
 
         Args:
-            roi_id (str, optional): The ID of the ROI to retrieve settings for. 
+            roi_id (Union[str, Iterable[str]], optional): The ID of the ROI to retrieve settings for, or a collection of ROI IDs. 
                 If not provided, all ROI settings will be returned. Defaults to "".
 
         Returns:
-            dict: The settings for the specified ROI, or all ROI settings if no ROI ID is provided.
+            dict: The settings for the specified ROI(s), or all ROI settings if no ROI ID is provided.
         """
         if not hasattr(self, "roi_settings"):
             self.roi_settings = {}
         if roi_id is None:
             return self.roi_settings
-        if not isinstance(roi_id, str):
-            raise TypeError("roi_id must be a string")
-        
-        if roi_id == "":
-            logger.info(f"self.roi_settings: {self.roi_settings}")
-            return self.roi_settings
+        if isinstance(roi_id, str):
+            if roi_id == "":
+                logger.info(f"self.roi_settings: {self.roi_settings}")
+                return self.roi_settings
+            else:
+                logger.info(f"self.roi_settings[roi_id]: {self.roi_settings.get(roi_id, {})}")
+                return self.roi_settings.get(roi_id, {})   
+        elif isinstance(roi_id, collections.abc.Iterable) and not isinstance(roi_id, (str, bytes)):
+            roi_settings = {}
+            for id in roi_id:
+                if not isinstance(id, str):
+                    raise TypeError("Each ROI ID must be a string")
+                if id in self.roi_settings:
+                    roi_settings[id] = self.roi_settings.get(id, {})
+            return roi_settings
         else:
-            logger.info(f"self.roi_settings[roi_id]: {self.roi_settings.get(roi_id, {})}")
-            return self.roi_settings.get(roi_id, {})             
-        # if roi_id in self.roi_settings:
-        #     logger.info(f"self.roi_settings[roi_id]: {self.roi_settings[roi_id]}")
-        #     return self.roi_settings[roi_id]
-        # else:
-        #     if roi_id == "":
-        #             logger.info(f"self.roi_settings: {self.roi_settings}")
-        #             return self.roi_settings
-        #     else:
-        #         return {}
+            raise TypeError("roi_id must be a string or a collection of strings")         
 
     def set_roi_settings(self, roi_settings: dict) -> None:
         """Sets the ROI settings dictionary to the specified value.
