@@ -71,6 +71,9 @@ We recommend that you use Windows 10, Windows 11, or Ubuntu Linux. Mac users, pl
 In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) to install the python packages in an environment for Coastseg. 
 
 After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
+
+We highly recommend you install CoastSeg using `conda` following the instructions in [Install from conda-forge](#install-from-conda-forge).
+
 ## Install from conda-forge
 1. Create an miniconda/Anaconda environment and Activate it
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
@@ -85,7 +88,7 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
    conda install -c conda-forge coastseg
    ```
 3. (Optional) Install Optional Dependencies
-    - Only install these dependencies if you plan to use CoastSeg's zoo workflow notebook. 
+    - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook. 
     ```bash
    pip install tensorflow
    pip install transformers
