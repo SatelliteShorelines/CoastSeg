@@ -790,6 +790,24 @@ def load_settings(
     filtered_settings.update(**nested_settings)
     return filtered_settings
 
+def update_roi_settings_with_global_settings(roi_settings: dict, global_settings: dict) -> dict:
+    """
+    Update the ROI settings with the global settings.
+
+    Args:
+        roi_settings (dict): A dictionary containing the ROI settings.
+        global_settings (dict): A dictionary containing the global settings.
+
+    Returns:
+        dict: The updated ROI settings dictionary.
+    """
+    # get the sat_list and dates from the global settings
+    sat_list = global_settings.get("sat_list", [])
+    dates = global_settings.get("dates", [])
+    # update the roi_settings with the global settings
+    updated_roi_settings = update_roi_settings(roi_settings, "sat_list", sat_list)
+    updated_roi_settings = update_roi_settings(updated_roi_settings, "dates", dates)
+    return updated_roi_settings
 
 def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
     """

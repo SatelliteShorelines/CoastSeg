@@ -919,17 +919,30 @@ class CoastSeg_Map:
 
                 print("\n".join(satellite_messages))
 
-    def get_selected_ids(self,selected_ids:set=None):
-        if isinstance(selected_ids,str):
+    def get_selected_ids(self, selected_ids: set = None) -> set:
+        """
+        If selected_ids is not provided, return the selected_set from the map.
+        If selected_ids is provided, update the selected_set with the new selected_ids.
+
+        Args:
+            selected_ids (set, optional): A set of selected IDs. Defaults to None.
+
+        Returns:
+            set: The selected IDs.
+
+        Raises:
+            Exception: If selected_ids is not a set or list of ROI IDs.
+        """
+        if isinstance(selected_ids, str):
             selected_ids = [selected_ids]
-            
+
         # if no selected_ids were passed in then use the selected_set from the map
         if not selected_ids:
             selected_ids = list(getattr(self, "selected_set", []))
-        else: # if selected_ids were passed in then update the selected_set
-            if isinstance(selected_ids,list):
+        else:  # if selected_ids were passed in then update the selected_set
+            if isinstance(selected_ids, list):
                 selected_ids = set(selected_ids)
-            if isinstance(selected_ids,set):
+            if isinstance(selected_ids, set):
                 self.selected_set = selected_ids
             else:
                 raise Exception("selected_ids must be a set or list of ROI IDs")
