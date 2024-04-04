@@ -27,6 +27,8 @@ from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import FloatText
 from ipywidgets import Accordion
+from ipywidgets import Checkbox
+
 
 from coastseg.settings_UI import Settings_UI
 
@@ -44,6 +46,13 @@ BOX_LAYOUT = Layout(
     flex_grow=1,  # Allows the box to grow based on content
 )
 
+GRID_LAYOUT = Layout(
+  display= 'grid',
+  grid_template_rows='20px 30px',
+  grid_auto_flow= 'column', 
+  grid_auto_columns = '87px',
+  width="550px",
+)
 
 def str_to_bool(var: str) -> bool:
     return var == "True"
@@ -69,6 +78,7 @@ def format_as_html(settings: dict):
     <h2>Settings</h2>
     <p>Satellites (sat_list): {settings.get("sat_list", "unknown")}</p>
     <p>dates: {settings.get("dates", "unknown")}</p>
+    <p>Months to download (months_list): {settings.get("months_list", "unknown")}</p>
     <p>landsat_collection: {settings.get("landsat_collection", "unknown")}</p>
     <p>Maximum percentage of cloud pixels (cloud_thresh): {settings.get("cloud_thresh", "unknown")}</p>
     <p>Distance from clouds (dist_clouds): {settings.get("dist_clouds", "unknown")}</p>
@@ -105,6 +115,7 @@ class UI:
         if not basic_settings:
             basic_settings = [
                 "dates",
+                "months_list",
                 "max_dist_ref",
                 "min_length_sl",
                 "min_beach_area",
@@ -120,7 +131,6 @@ class UI:
 
     def add_custom_widgets(self, settings_dashboard: Settings_UI):
         # create dropdown to select sand color
-        instructions = "Sand color on beach for model to detect 'dark' (grey/black) 'bright' (white)"
         sand_dropdown = ipywidgets.Dropdown(
             options=["default", "latest", "dark", "bright"],
             value="default",
@@ -152,10 +162,19 @@ class UI:
             ],
         )
         settings_dashboard.add_custom_widget(
+            satellite_selection,
+            "sat_list",
+            "Select Satellites",
+            "Pick multiple satellites by holding the control key",
+            advanced=False,
+            index=2,
+        )
+         
+        settings_dashboard.add_custom_widget(
             sand_dropdown,
             "sand_color",
             "Select Sand Color",
-            instructions,
+            "Sand color on beach for model to detect 'dark' (grey/black) 'bright' (white)",
             advanced=True,
             index=0,
         )
@@ -168,14 +187,6 @@ class UI:
             index=-1,
         )
 
-        settings_dashboard.add_custom_widget(
-            satellite_selection,
-            "sat_list",
-            "Select Satellites",
-            "Pick multiple satellites by holding the control key",
-            advanced=False,
-            index=1,
-        )
         settings_dashboard.add_custom_widget(
             image_size_filter_checkbox,
             "image_size_filter",
@@ -693,70 +704,6 @@ class UI:
         )
         return remove_buttons
 
-    def update_settings_selection(
-        self,
-        settings: dict,
-    ):
-        if "dates" in settings:
-            start_date_str, end_date_str = settings["dates"]
-            self.start_date.value = convert_date(start_date_str)
-            self.end_date.value = convert_date(end_date_str)
-
-        if "apply_cloud_mask" in settings:
-            self.apply_cloud_mask_toggle.value = str(
-                settings.get("apply_cloud_mask", True)
-            )
-
-        if "image_size_filter" in settings:
-            self.image_size_filter_checkbox.value = settings.get(
-                "image_size_filter", True
-            )
-
-        if "cloud_thresh" in settings:
-            self.cloud_threshold_slider.value = settings.get("cloud_thresh", 0.5)
-
-        if "sat_list" in settings:
-            self.satellite_selection.value = settings.get("sat_list", ["L8"])
-
-        if "sand_color" in settings:
-            self.sand_dropdown.value = settings.get("sand_color", "default")
-
-        if "cloud_mask_issue" in settings:
-            self.cloud_issue_toggle.value = str(settings.get("cloud_mask_issue", False))
-
-        if "min_length_sl" in settings:
-            self.min_length_sl_slider.value = settings.get("min_length_sl", 1000)
-
-        if "dist_clouds" in settings:
-            self.cloud_slider.value = settings.get("dist_clouds", 300)
-
-        if "min_beach_area" in settings:
-            self.beach_area_slider.value = settings.get("min_beach_area", 100)
-
-        if "max_dist_ref" in settings:
-            self.shoreline_buffer_slider.value = settings.get("max_dist_ref", 25)
-
-        if "along_dist" in settings:
-            self.alongshore_distance_slider.value = settings.get("along_dist", 25)
-
-        if "max_std" in settings:
-            self.max_std_text.value = settings.get("max_std", 15)
-
-        if "max_range" in settings:
-            self.max_range_text.value = settings.get("max_range", 30)
-
-        if "min_chainage" in settings:
-            self.min_chainage_text.value = settings.get("min_chainage", -100)
-
-        if "multiple_inter" in settings:
-            self.outliers_mode.value = settings.get("multiple_inter", "auto")
-
-        if "prc_multiple" in settings:
-            self.prc_multiple_text.value = settings.get("prc_multiple", 0.1)
-
-        if "min_points" in settings:
-            self.min_points_text.value = settings.get("min_points", 3)
-
     def _create_HTML_widgets(self):
         """create HTML widgets that display the instructions.
         widgets created: instr_create_ro, instr_save_roi, instr_load_btns
@@ -1035,9 +982,6 @@ class UI:
                     settings = self.coastseg_map.get_settings()
                     self.settings_dashboard.set_settings(settings)
                     self.update_displayed_settings()
-                    # self.settings_html.value = format_as_html(settings)
-                    
-                    # self.update_settings_selection(self.coastseg_map.get_settings())
                     self.coastseg_map.map.default_style = {"cursor": "default"}
             except Exception as error:
                 # renders error message as a box on map

@@ -2067,9 +2067,6 @@ class Extracted_Shoreline:
             shoreline_gdf: gpd.geodataframe,
             roi_settings: dict,
             settings: dict,
-            session_path: str = None,
-            class_indices: list = None,
-            class_mapping: dict = None,
             output_directory: str = None, 
             shoreline_extraction_area : gpd.geodataframe = None           
         ) -> dict:
@@ -2154,25 +2151,8 @@ class Extracted_Shoreline:
                     f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_quality',[]))} of im_quality: {np.unique(metadata[satname].get('im_quality',[]))}"
                 )
 
-        # extract shorelines from ROI
-        if session_path is None:
-            # extract shorelines with coastsat's models
-            extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings,output_directory=output_directory, shoreline_extraction_area=shoreline_extraction_area)
-        elif session_path is not None:
-            # extract shorelines with our models
-            extracted_shorelines = extract_shorelines_with_dask(
-                session_path,
-                metadata,
-                self.shoreline_settings,
-                class_indices=class_indices,
-                class_mapping=class_mapping,
-                shoreline_extraction_area=shoreline_extraction_area,
-            )
-            common.save_extracted_shoreline_figures(self.shoreline_settings, session_path)
-            # move extracted shoreline reports to session directory
-            common.move_report_files(
-                self.shoreline_settings, session_path, "extract_shorelines*.txt"
-            )
+        # extract shorelines with coastsat's models
+        extracted_shorelines = extract_shorelines(metadata, self.shoreline_settings,output_directory=output_directory, shoreline_extraction_area=shoreline_extraction_area)
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
         extracted_shorelines = remove_duplicates(

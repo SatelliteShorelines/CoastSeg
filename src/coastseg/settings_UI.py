@@ -3,7 +3,15 @@
 import ipywidgets
 import datetime
 from typing import List, Union, Optional, Tuple
-from ipywidgets import Layout, Box
+from ipywidgets import Layout, Box,VBox
+
+GRID_LAYOUT = Layout(
+    display='grid',
+    grid_template_rows='20px 30px',
+    grid_auto_flow='column',
+    grid_auto_columns='87px',
+    width="520px",
+)
 
 class ButtonColors:
     REMOVE = "red"
@@ -22,6 +30,43 @@ def convert_date(date_str):
         return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError as e:
         raise ValueError(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
+
+class CustomMonthSelector(VBox):
+    month_to_num = {
+        "January": 1,
+        "February": 2,
+        "March": 3,
+        "April": 4,
+        "May": 5,
+        "June": 6,
+        "July": 7,
+        "August": 8,
+        "September": 9,
+        "October": 10,
+        "November": 11,
+        "December": 12
+    }
+    def __init__(self, checkboxes, layout):
+        super().__init__(children=checkboxes, layout=layout)
+        # Observe changes in each checkbox and update the value property accordingly
+        for checkbox in checkboxes:
+            checkbox.observe(self._update_value, names='value')
+        self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
+    
+    @property
+    def value(self):
+        return self._value
+    def _update_value(self, change):
+        self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
+
+    @value.setter
+    def value(self, values):
+        for val in values:
+            for checkbox in self.children:
+                if CustomMonthSelector.month_to_num[checkbox.description] == val:
+                    checkbox.value = True
+                    break 
+        self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
 
 
 class DateBox(ipywidgets.HBox):
@@ -137,9 +182,12 @@ class Settings_UI:
         for setting_name in settings:
             # Create the widget for the setting
             widget, instructions = self.create_setting_widget(setting_name)
-
+            
             # Add the widget and instructions to the tab contents
-            tab_contents.append(ipywidgets.VBox([instructions, widget]))
+            if setting_name == 'cloud_thresh':
+                tab_contents.insert(2, ipywidgets.VBox([instructions, widget]))
+            else:
+                tab_contents.append(ipywidgets.VBox([instructions, widget]))
 
             # Add the widget to the settings_widgets dictionary
             self.settings_widgets[setting_name] = widget
@@ -292,7 +340,7 @@ class Settings_UI:
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Cloud Threshold</b><br>Maximum percentage of cloud pixels allowed."
+                value="<b>Cloud Threshold</b><br>Maximum percentage of cloud pixels in an image."
             )
         elif setting_name == "min_points":
             widget = ipywidgets.BoundedIntText(
@@ -389,6 +437,16 @@ class Settings_UI:
             instructions = ipywidgets.HTML(
                 value="<b>Pick a date:</b>",
             )
+        elif setting_name == "months_list":
+            # Create a list of checkboxes for each month
+            months = ["January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"]
+            checkboxes = [ipywidgets.Checkbox(description=month, value=True, indent=False) for month in months]
+            widget = CustomMonthSelector(checkboxes, GRID_LAYOUT)
+            instructions = ipywidgets.HTML(
+                value="<b>(Optional) Choose months within the date range to download imagery within</b>",
+            )            
+            
         else:
             raise ValueError(f"Invalid setting name: {setting_name}")
 

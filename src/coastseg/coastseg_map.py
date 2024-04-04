@@ -231,7 +231,6 @@ class CoastSeg_Map:
         # Optional: a user drawn polygon only keep extracted shorelines within this polygon
         self.shoreline_extraction_area = None
         
-        
         self.set_settings()
         self.session_name = ""
 
@@ -895,6 +894,9 @@ class CoastSeg_Map:
         L9: 5 images
         S2: 11 images
         """
+        prc_cloud_cover = self.get_settings().get("cloud_thresh",95)
+        if prc_cloud_cover < 1 :
+            prc_cloud_cover = prc_cloud_cover * 100
         # check that ROIs exist and one has been clicked
         exception_handler.check_if_None(self.rois, "ROI")
         exception_handler.check_if_gdf_empty(self.rois.gdf, "ROI")
@@ -911,6 +913,7 @@ class CoastSeg_Map:
                     start_date,
                     end_date,
                     satellites=set(self.settings["sat_list"]),
+                    max_cloud_cover=prc_cloud_cover,
                     tiers=[1],
                 )
                 satellite_messages = [f"\nROI ID: {roi_id}"]
@@ -964,14 +967,7 @@ class CoastSeg_Map:
             rois = self.rois.gdf
         else: # if rois were passed in then update the rois
             self.rois = ROI(rois_gdf=rois)
-
-        # # If the map object exists, get the selected ROIs and settings
-        # if getattr(self,"map",None) is not None:
-        #     selected_ids = list(getattr(self, "selected_set", []))
-        #     rois = self.rois.gdf
-        #     settings = self.get_settings()
-            
-            
+                
         self.validate_download_imagery_inputs(settings,selected_ids,rois)
         
         # get only the ROIs whose IDs are in the selected_ids
@@ -994,6 +990,11 @@ class CoastSeg_Map:
         # Save settings used to download rois and the objects on map to config files
         self.save_config()
 
+        # 1. Get the cloud cover percentage from the settings and convert to an int if it is less than 1
+        prc_cloud_cover = settings.get("cloud_thresh",95)
+        if prc_cloud_cover < 1 :
+            prc_cloud_cover = prc_cloud_cover * 100
+        
         # 2. For each ROI use download settings to download imagery and save to jpg
         print("Download in progress")
         # for each ROI use the ROI settings to download imagery and save to jpg
@@ -1004,6 +1005,8 @@ class CoastSeg_Map:
                 cloud_mask_issue=settings.get("cloud_mask_issue"),
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
+                months_list = settings.get("months_list",[1,2,3,4,5,6,7,8,9,10,11,12]),
+                prc_cloud_cover = prc_cloud_cover,
             )
         if settings.get("image_size_filter", True):
             common.filter_images_by_roi(roi_settings)
@@ -1211,6 +1214,7 @@ class CoastSeg_Map:
         self.default_settings = {
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
+            "months_list":[1,2,3,4,5,6,7,8,9,10,11,12],
             "sat_list": ["L8"],
             "cloud_thresh": 0.5,
             "dist_clouds": 300,
@@ -1584,10 +1588,6 @@ class CoastSeg_Map:
             self.set_settings(output_epsg=new_espg)
         else:
             raise Exception("The GeoDataFrame does not have a crs attribute")
-        # new_espg = common.get_most_accurate_epsg(
-        #     settings.get("output_epsg", 4326), self.bbox.gdf
-        # )
-        # self.set_settings(output_epsg=new_espg)
         return self.get_settings()
         
 
