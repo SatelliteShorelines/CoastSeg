@@ -926,6 +926,71 @@ class CoastSeg_Map:
 
                 print("\n".join(satellite_messages))
 
+    def get_selected_ids(self, selected_ids: set = None) -> set:
+        """
+        If selected_ids is not provided, return the selected_set from the map.
+        If selected_ids is provided, update the selected_set with the new selected_ids.
+
+        Args:
+            selected_ids (set, optional): A set of selected IDs. Defaults to None.
+
+        Returns:
+            set: The selected IDs.
+
+        Raises:
+            Exception: If selected_ids is not a set or list of ROI IDs.
+        """
+        if isinstance(selected_ids, str):
+            selected_ids = [selected_ids]
+
+        # if no selected_ids were passed in then use the selected_set from the map
+        if not selected_ids:
+            selected_ids = list(getattr(self, "selected_set", []))
+        else:  # if selected_ids were passed in then update the selected_set
+            if isinstance(selected_ids, list):
+                selected_ids = set(selected_ids)
+            if isinstance(selected_ids, set):
+                self.selected_set = selected_ids
+            else:
+                raise Exception("selected_ids must be a set or list of ROI IDs")
+        return selected_ids
+
+    def make_roi_settings(self,
+                          rois: gpd.GeoDataFrame=gpd.GeoDataFrame(), 
+                          settings: dict = {},
+                          selected_ids: set = None,
+                          file_path: str = None) -> None:
+        """
+        Create ROI settings for downloading imagery based on the provided inputs.
+
+        Args:
+            rois (gpd.GeoDataFrame): A GeoDataFrame containing the ROIs.
+            settings (dict, optional): Additional settings for creating ROI settings. Defaults to an empty dictionary.
+            selected_ids (set, optional): A set of selected ROI IDs. Defaults to None.
+            file_path (str, optional): The file path where the downloaded imagery will be saved. Defaults to None.
+
+        Returns:
+            None: This function does not return any value.
+
+        """
+        # Get the location where the downloaded imagery will be saved
+        if not file_path:
+            file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
+        # used to uniquely identify the folder where the imagery will be saved
+        # example  ID_12_datetime06-05-23__04_16_45
+        date_str = file_utilities.generate_datestring()
+        # get only the ROIs whose IDs are in the selected_ids
+        filtered_gdf = rois[rois['id'].isin(selected_ids)]
+        geojson_str = filtered_gdf.to_json()
+        geojson_dict = json.loads(geojson_str)
+        # Create a list of download settings for each ROI
+        roi_settings = common.create_roi_settings(
+            settings, geojson_dict, file_path, date_str
+        )
+        return roi_settings
+       
+
+
     def download_imagery(self,rois:gpd.GeoDataFrame=None, settings:dict={},selected_ids:set=None,file_path:str=None) -> None:
         """
         Downloads all images for the selected ROIs  from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2  covering the area of interest and acquired between the specified dates.
@@ -939,55 +1004,43 @@ class CoastSeg_Map:
             Exception: raised if 'dates','sat_list', and 'landsat_collection' are not in settings
             Exception: raised if no ROIs have been selected
         """
-        # Get the location where the downloaded imagery will be saved
-        if not file_path:
-            file_path = os.path.abspath(os.path.join(os.getcwd(), "data"))
-        # used to uniquely identify the folder where the imagery will be saved
-        # example  ID_12_datetime06-05-23__04_16_45
-        date_str = file_utilities.generate_datestring()
-
         # if the map does not exist and the settings are not provided, raise an error
         if not settings:
             settings = self.get_settings()
         else: # if settings were provided then update the settings
             settings =self.set_settings(**settings)
-            
-        if isinstance(selected_ids,str):
-            selected_ids = [selected_ids]
-            
-        # if no selected_ids were passed in then use the selected_set from the map
-        if not selected_ids:
-            selected_ids = list(getattr(self, "selected_set", []))
-        else: # if selected_ids were passed in then update the selected_set
-            if isinstance(selected_ids,list):
-                selected_ids = set(selected_ids)
-            self.selected_set = selected_ids
+        
+        # get the selected_ids from the map or the selected_ids passed in
+        selected_ids = self.get_selected_ids(selected_ids)
+        # should the selected ids be a set or a list?
 
-        if isinstance(selected_ids,set):
-            selected_ids = list(selected_ids)
-            
-        # if no ROis were passed in then use the ROIs from the map
-        if rois is None:
-            rois = self.rois.gdf
-        else: # if rois were passed in then update the rois
+        # Create an ROI object from the ROI geodataframe passed in
+        if rois is not None:
             self.rois = ROI(rois_gdf=rois)
-                
+        
+        # get the ROIs geodataframe from the ROI object
+        rois = self.rois.gdf    
+        # check if the settings have the necessary keys, and that the selected_ids are in the ROIs
         self.validate_download_imagery_inputs(settings,selected_ids,rois)
         
-        # get only the ROIs whose IDs are in the selected_ids
-        filtered_gdf = rois[rois['id'].isin(selected_ids)]
-        geojson_str = filtered_gdf.to_json()
-        geojson_dict = json.loads(geojson_str)
-
-        # Create a list of download settings for each ROI
-        roi_settings = common.create_roi_settings(
-            settings, geojson_dict, file_path, date_str
-        )
-
-        # Save the ROI settings
+        # Does the ROI loaded in have the settings for the selected ROIs?
+        roi_settings = self.rois.get_roi_settings(selected_ids)
+        # if the roi id is missing from the ROI settings then it will contain {roi_id:{}}
+        if roi_settings:
+            # Its possible not all the ROIs selected on the map have been downloaded before so it may be necessary to add their settings to the ROI settings so they get downloaded
+            missing_ids = set(selected_ids) - set(roi_settings.keys())
+            missing_roi_settings = self.make_roi_settings(rois=rois,settings=settings,selected_ids=missing_ids,file_path=file_path)
+            roi_settings.update(missing_roi_settings)
+            # the user might have updated the date range or other settings so update the ROI settings
+            roi_settings = common.update_roi_settings_with_global_settings(roi_settings,settings)
+        if not roi_settings:
+            # if ROI settings is empty it means the ROIs have ALL not been download before and weren't loaded in from a download session
+            # create the ROI settings for the selected ROIs
+            roi_settings = self.make_roi_settings(rois,settings,selected_ids,file_path)
+            
+        # update the ROI settings with the settings for the selected ROIs
         self.rois.set_roi_settings(roi_settings)
-
-        # create a list of settings for each ROI
+        # create a list of settings for each ROI, which will be used to download the imagery
         inputs_list = list(roi_settings.values())
         logger.info(f"inputs_list {inputs_list}")
 
@@ -1692,7 +1745,7 @@ class CoastSeg_Map:
         if settings.get("landsat_collection", "") == "CO2":
             raise Exception("Error CO2 is not a valid collection. Did you mean to use the landsat collection 'C02'?")
         
-        if selected_ids == []:
+        if not selected_ids:
              raise Exception("No ROIs have been selected. Please enter the IDs of the ROIs you want to download imagery for")
         
         if roi_gdf is None:
@@ -1758,6 +1811,9 @@ class CoastSeg_Map:
         # get the ROIs and check if they have settings 
         if self.rois is not None:
             roi_settings = self.rois.get_roi_settings()
+            # the user might have updated the date range or satellite list to extract shorelines from so update the ROI settings
+            roi_settings = common.update_roi_settings_with_global_settings(roi_settings,self.get_settings())
+            self.rois.set_roi_settings(roi_settings)
             logger.info(f"Checking roi_settings for missing ROIs: {roi_settings}")
             # check if any of the ROIs were missing in in the data directory
             missing_directories = common.get_missing_roi_dirs(roi_settings)
