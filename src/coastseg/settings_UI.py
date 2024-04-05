@@ -7,11 +7,14 @@ from ipywidgets import Layout, Box,VBox
 
 GRID_LAYOUT = Layout(
     display='grid',
-    grid_template_rows='20px 30px',
-    grid_auto_flow='column',
-    grid_auto_columns='87px',
-    width="520px",
+    width='100%',  # Use 100% of the container width
+    grid_template_columns='repeat(6, 90px)',  # Create 6 flexible columns
+    grid_template_rows='repeat(2, auto)',  # Create 2 rows, size to content
+    grid_gap='5px',  # Adjust the gap as needed
+    overflow='auto'  # Allow scrollbar if content overflows
 )
+checkbox_layout = Layout(width='auto')  # This sets the width of each checkbox to be only as wide as necessary
+
 
 class ButtonColors:
     REMOVE = "red"
@@ -61,11 +64,13 @@ class CustomMonthSelector(VBox):
 
     @value.setter
     def value(self, values):
+        # set all the checkboxes to False
+        for checkbox in self.children:
+            checkbox.value = False
+        # set the checkboxes to True for the values in the list
         for val in values:
-            for checkbox in self.children:
-                if CustomMonthSelector.month_to_num[checkbox.description] == val:
-                    checkbox.value = True
-                    break 
+            self.children[val-1].value = True 
+                
         self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
 
 
@@ -441,7 +446,7 @@ class Settings_UI:
             # Create a list of checkboxes for each month
             months = ["January", "February", "March", "April", "May", "June",
                     "July", "August", "September", "October", "November", "December"]
-            checkboxes = [ipywidgets.Checkbox(description=month, value=True, indent=False) for month in months]
+            checkboxes = [ipywidgets.Checkbox(description=month, value=True, indent=False,layout=checkbox_layout,) for month in months]
             widget = CustomMonthSelector(checkboxes, GRID_LAYOUT)
             instructions = ipywidgets.HTML(
                 value="<b>(Optional) Choose months within the date range to download imagery within</b>",
