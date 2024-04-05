@@ -18,7 +18,7 @@ description = "An interactive python package for satellite derived shoreline wor
 dependencies = [
   "h5py>=3.10.0",
   "pyTMD",
-  "coastsat-package>=0.1.56",
+  "coastsat-package>=0.1.61",
   "area",
   "aiohttp",
   "chardet",
