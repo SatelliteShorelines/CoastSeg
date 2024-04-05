@@ -35,6 +35,7 @@ def get_collection_by_tier(
     satellite: str,
     tier: int,
     max_cloud_cover: float = 95,
+    months_list = None
 ) -> Union[ee.ImageCollection, None]:
     """
     This function takes the required parameters and returns an ImageCollection from
@@ -51,6 +52,8 @@ def get_collection_by_tier(
     Returns:
     ee.ImageCollection or None: The filtered ImageCollection or None if the inputs are invalid.
     """
+    if months_list is None:
+        months_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
     # Converting datetime objects to string if passed as datetime
     if isinstance(start_date, datetime):
@@ -93,12 +96,21 @@ def get_collection_by_tier(
     }
     cloud_property = cloud_properties.get(satellite)
 
+    # Create a filter to select images with system:time_start month in the monthsToKeep list
+    def filter_by_month(month):
+        return ee.Filter.calendarRange(month, month, 'month')
+
+    month_filters = [filter_by_month(month) for month in months_list]
+    month_filter = ee.Filter.Or(month_filters)
+
     collection = (
         ee.ImageCollection(collection_name)
         .filterBounds(ee.Geometry.Polygon(polygon))
         .filterDate(ee.Date(start_date), ee.Date(end_date))
         .filterMetadata(cloud_property, "less_than", max_cloud_cover)
     )
+    # apply the month filter to only include images from the months in the months_list
+    collection = collection.filter(month_filter)
     return collection
 
 
@@ -109,6 +121,7 @@ def count_images_in_ee_collection(
     max_cloud_cover: float = 95,
     satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2"),
     tiers: list[str] = None,
+    months_list:list[int] = None
 ) -> dict:
     """
     Count the number of images in specified satellite collections over a certain area and time period.
@@ -120,6 +133,7 @@ def count_images_in_ee_collection(
     max_cloud_cover (float, optional): The maximum cloud cover percentage. Images with a cloud cover percentage higher than this will be excluded. Defaults to 99.
     satellites (Collection[str], optional): A collection of satellite names. The function will return image counts for these satellites. Defaults to ("L5","L7","L8","L9","S2").
     tiers (list[str], optional): A list of tiers. The function will return image counts for these tiers. Defaults to [1,2]
+    months_list (list[int], optional): A list of months to filter the images by. Defaults to None meaning all the months will be included.
     Returns:
     dict: A dictionary where the keys are the satellite names and the values are the image counts.
 
@@ -136,6 +150,8 @@ def count_images_in_ee_collection(
     >>> end_date = '2018-01-01'
     >>> count_images(polygon, start_date, end_date)
     """
+    if months_list is None:
+        months_list = [1,2,3,4,5,6,7,8,9,10,11,12]
     # Check types of start_date and end_date
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, "%Y-%m-%d")
@@ -162,7 +178,7 @@ def count_images_in_ee_collection(
         images_in_tier_count = 0
         for tier in tiers:
             collection = get_collection_by_tier(
-                polygon, start_date, end_date, satellite, tier, max_cloud_cover
+                polygon, start_date, end_date, satellite, tier, max_cloud_cover,months_list=months_list
             )
             if collection:
                 images_in_tier_count += collection.size().getInfo()

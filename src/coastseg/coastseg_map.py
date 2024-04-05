@@ -894,6 +894,9 @@ class CoastSeg_Map:
         L9: 5 images
         S2: 11 images
         """
+        # Get the months list from the settings or use the default list
+        months_list = self.settings.get("months_list", [1,2,3,4,5,6,7,8,9,10,11,12])
+        # Get the cloud cover percentage from the settings and convert to an int if it is less than 1
         prc_cloud_cover = self.get_settings().get("cloud_thresh",95)
         if prc_cloud_cover < 1 :
             prc_cloud_cover = prc_cloud_cover * 100
@@ -915,6 +918,7 @@ class CoastSeg_Map:
                     satellites=set(self.settings["sat_list"]),
                     max_cloud_cover=prc_cloud_cover,
                     tiers=[1],
+                    months_list=months_list,
                 )
                 satellite_messages = [f"\nROI ID: {roi_id}"]
                 for sat in self.settings["sat_list"]:
