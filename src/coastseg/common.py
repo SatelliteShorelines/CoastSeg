@@ -706,6 +706,7 @@ def delete_selected_indexes(input_dict, selected_indexes):
 def load_settings(
     filepath: str = "",
     keys: set = (
+        "months_list",
         "model_session_path",
         "apply_cloud_mask",
         "image_size_filter",
@@ -783,6 +784,9 @@ def load_settings(
     # read the nested settings located in the sub dictionary "settings" and keep only the keys passed
     nested_settings = new_settings.get("settings", {})
     nested_settings = {k: nested_settings[k] for k in keys if k in nested_settings}
+    if 'months_list'  not in nested_settings:
+        nested_settings['months_list'] = [1,2,3,4,5,6,7,8,9,10,11,12]
+    # if the months list is not in the nested settings then add it
     logger.info(
         f"all of new nested settings read from file : {filepath} \n {new_settings.keys()}"
     )
