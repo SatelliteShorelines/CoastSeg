@@ -65,13 +65,11 @@ class CustomMonthSelector(VBox):
 
     @value.setter
     def value(self, values):
-        print(f"value setter called with {values}")
         # set all the checkboxes to False
         for checkbox in self.children:
             checkbox.value = False
         # set the checkboxes to True for the values in the list
         for val in values:
-            print(f"setting {self.children[val-1]} {val} to True")
             self.children[val-1].value = True 
                 
         self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
