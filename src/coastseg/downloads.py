@@ -102,7 +102,6 @@ def get_collection_by_tier(
 
     month_filters = [filter_by_month(month) for month in months_list]
     month_filter = ee.Filter.Or(month_filters)
-
     collection = (
         ee.ImageCollection(collection_name)
         .filterBounds(ee.Geometry.Polygon(polygon))
@@ -111,6 +110,7 @@ def get_collection_by_tier(
     )
     # apply the month filter to only include images from the months in the months_list
     collection = collection.filter(month_filter)
+    
     return collection
 
 
@@ -162,6 +162,10 @@ def count_images_in_ee_collection(
         end_date = datetime.strptime(end_date, "%Y-%m-%d")
     elif not isinstance(end_date, datetime):
         raise ValueError("end_date must be a string or datetime object")
+    
+    # Check that end_date is after start_date
+    if end_date <= start_date:
+        raise ValueError(f"End date: {end_date.strftime('%Y-%m-%d')} must be after start date: {start_date.strftime('%Y-%m-%d')}")
 
     # Check if EE was initialized or not
     try:
