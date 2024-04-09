@@ -1,8 +1,16 @@
 site_name: CoastSeg
 site_url: https://SatelliteShorelines.github.io/CoastSeg/
+site_description: An interactive toolbox for downloading satellite imagery, applying image segmentation models, mapping shoreline positions and more. The mapping extension for CoastSat and Zoo.
+site_author: Sharon Fitzpatrick
+
+repo_url: https://github.com/SatelliteShorelines/CoastSeg
 
 theme:
   name: material
+  icon:
+    logo: material/surfing
+    favicon: material/surfing
+
   palette:
     # Palette toggle for light mode
     - scheme: default
@@ -16,6 +24,24 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
 
+markdown_extensions:
+  - admonition
+  - abbr
+  - attr_list
+  - def_list
+  - footnotes
+  - meta
+  - md_in_html
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      linenums: true
+  - toc:
+      permalink: true
+
 nav:
   - Home: index.md
-  - About: about.md
+  - Install: install.md
+  - Getting Started: getting-started.md
+  - Tutorials:
+      - How to authenticate with Google Earth Engine: how-to-auth.md
+      - How to Download Imagery: how-to-download.md
