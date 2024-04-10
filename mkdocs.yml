@@ -45,3 +45,4 @@ nav:
   - Tutorials:
       - How to authenticate with Google Earth Engine: how-to-auth.md
       - How to Download Imagery: how-to-download.md
+      - How to Use Sessions: sessions.md

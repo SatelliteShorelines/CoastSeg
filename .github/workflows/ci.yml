@@ -21,10 +21,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_docs.txt
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        # Using the depol
-        if: github.ref == 'refs/heads/deploy_site'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
+      - name: Build and Deploy to GitHub Pages
+        run: mkdocs gh-deploy --force
+
+      # - name: Deploy to GitHub Pages
+      #   uses: peaceiris/actions-gh-pages@v4
+      #   # Using the depol
+      #   if: github.ref == 'refs/heads/deploy_site'
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_dir: ./docs
