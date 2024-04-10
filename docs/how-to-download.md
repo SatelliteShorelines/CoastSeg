@@ -23,7 +23,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
   - ⚠️ If no shorelines are detected, ROIs can't be created. Consider uploading your shorelines using a geojson file.
   - Additionally, check for any transects within your bounding box. If none are present, upload your transects via a geojson file.
 
-![how to draw a bbox](assets\how-to-draw-bbox.png)
+![how to draw a bbox](assets/how-to-draw-bbox.png)
 
 4. Generate ROIs:
 
