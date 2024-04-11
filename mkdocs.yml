@@ -4,6 +4,8 @@ site_description: An interactive toolbox for downloading satellite imagery, appl
 site_author: Sharon Fitzpatrick
 
 repo_url: https://github.com/SatelliteShorelines/CoastSeg
+repo_name: CoastSeg
+edit_uri: edit/main/docs/
 
 theme:
   name: material
@@ -12,17 +14,17 @@ theme:
     favicon: material/surfing
 
   palette:
-    # Palette toggle for light mode
-    - scheme: default
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-
     # Palette toggle for dark mode
     - scheme: slate
       toggle:
-        icon: material/brightness-4
+        icon: material/brightness-7
         name: Switch to light mode
+
+    # Palette toggle for light mode
+    - scheme: default
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
 
 markdown_extensions:
   - admonition
@@ -46,3 +48,5 @@ nav:
       - How to authenticate with Google Earth Engine: how-to-auth.md
       - How to Download Imagery: how-to-download.md
       - How to Use Sessions: sessions.md
+      - How to Use Extract Shoreline Area: how-to-extract-shoreline-area.md
+      - How to Extract Shorelines: extract_shorelines.md
