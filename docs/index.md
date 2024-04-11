@@ -18,8 +18,6 @@
 
 <img src="https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif" width="350" height="350">
 
-### THIS IS NEW
-
 ### Useful Links
 
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
