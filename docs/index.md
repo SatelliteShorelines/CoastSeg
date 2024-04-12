@@ -1,7 +1,5 @@
 # CoastSeg
 
-<!--  [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb) -->
-
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
 </br>
 [![image](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/pip_install_e.yml/badge.svg)](https://github.com/SatelliteShorelines/CoastSeg/actions)
@@ -22,7 +20,7 @@
 
 - [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Contribution Guide](https://github.com/Doodleverse/CoastSeg/wiki/13.-%5BADVANCED%5D-Contribution-Guide)
+- [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/13.-%5BADVANCED%5D-Contribution-Guide)
 
 ## What is CoastSeg?
 
@@ -49,7 +47,7 @@ In more detail, CoastSeg represents the following advances in satellite-derived 
 
 Version 1 is now stable, and we have a lot of planned new features for version 2.
 
-![coastseg_main_flow_updated](https://github.com/Doodleverse/CoastSeg/assets/61564689/ac9076bd-bf40-44c5-a686-0fdc1acf8656)
+![coastseg_main_flow_updated](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/ac9076bd-bf40-44c5-a686-0fdc1acf8656)
 
 - Create ROIs(regions of interest) along the coast and automatically load shorelines on the map.
 - Use Google Earth Engine to automatically download satellite imagery for each ROI clicked on the map.
@@ -57,7 +55,7 @@ Version 1 is now stable, and we have a lot of planned new features for version 2
 
 ## Installation Instructions
 
-We recommend that you use Windows 10, Windows 11, or Ubuntu Linux. Mac users, please see [here](https://github.com/Doodleverse/CoastSeg/wiki/01.-How-to-Install-CoastSeg#mac-users)
+We recommend that you use Windows 10, Windows 11, or Ubuntu Linux. Mac users, please see [here](https://github.com/SatelliteShorelines/CoastSeg/wiki/01.-How-to-Install-CoastSeg#mac-users)
 
 In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) to install the python packages in an environment for Coastseg.
 
@@ -212,7 +210,7 @@ cd <coastseg location>
 ```
 git remote -v
 ```
-![git remote output](https://github.com/Doodleverse/CoastSeg/assets/61564689/adbb9783-0f0e-4081-ad3f-cbfb00964a9d)
+![git remote output](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/adbb9783-0f0e-4081-ad3f-cbfb00964a9d)
 - If you don't see this output, then run the following command
   ```bash
    git remote add origin  https://github.com/Doodleverse/CoastSeg.git
@@ -230,7 +228,7 @@ git remote -v
            Aborting
        ```
        
-      <img width="437" alt="git_pull_fail" src="https://github.com/Doodleverse/CoastSeg/assets/61564689/fd7ebceb-11f4-4c68-8aad-19f4d5f85030">
+      <img width="437" alt="git_pull_fail" src="https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/fd7ebceb-11f4-4c68-8aad-19f4d5f85030">
 
 3.  Run the command below:
 

@@ -17,7 +17,7 @@ CoastSeg requires Tensorflow (TF), which doesn't play nicely with Mac. We advise
 First, some notes:
 
 - ⚠️ The CoastSeg team is aware of issues with installing CoastSeg's conda dependencies ⚠️
-- ⚠️The following instructions are valid as of 2023-09-12. If this proposed solution fails for you, please create a new [Issue](https://github.com/Doodleverse/CoastSeg/issues) ⚠️)
+- ⚠️The following instructions are valid as of 2023-09-12. If this proposed solution fails for you, please create a new [Issue](https://github.com/SatelliteShorelines/CoastSeg/issues) ⚠️)
 - ⚠️ Where possible, we advise you install the initial Coastseg conda environment not over a secure network. If and _ONLY_ if that is not possible, please follow the instructions posted below carefully
 - If you are running these commands on a secure network verify you are connected to your VPN before running the following commands
 - if you get an SSL error while running any of the `conda install` commands try the following command
@@ -202,7 +202,7 @@ To use coastseg on a secure network you need to add the location of the certific
 
 ```
 
-![configuation_json](https://github.com/Doodleverse/CoastSeg/assets/61564689/fedfa2f7-8c83-4080-b55b-481514d4e40a)
+![configuation_json](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/fedfa2f7-8c83-4080-b55b-481514d4e40a)
 
 2. Modify `cert_path` to have the full path to your cert file.
 
@@ -210,7 +210,7 @@ To use coastseg on a secure network you need to add the location of the certific
 
 Here is an example of the full path to a cert file.
 
-<img width="700" alt="image" src="https://github.com/Doodleverse/CoastSeg/assets/61564689/fdd61b34-b3a4-4105-be93-1284c9ec56da">
+<img width="700" alt="image" src="https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/fdd61b34-b3a4-4105-be93-1284c9ec56da">
 
 3. That's it. You're done! 🎊
 
