@@ -1,5 +1,5 @@
-site_name: CoastSeg
 site_url: https://SatelliteShorelines.github.io/CoastSeg/
+site_name: CoastSeg
 site_description: An interactive toolbox for downloading satellite imagery, applying image segmentation models, mapping shoreline positions and more. The mapping extension for CoastSat and Zoo.
 site_author: Sharon Fitzpatrick
 
@@ -42,11 +42,34 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Install: install.md
+  - Installation:
+      - Basic Installation Guide: basic-install-guide.md
+      - Secure Installation Guide: secure-install-guide.md
   - Getting Started: getting-started.md
+  - Contributing:
+      - Contribution Guide: Contribution-Guide.md
+      - How to Run Test Scripts: contributing-run-tests.md
+      - How to Add a New Workflow: contribute-a-workflow.md
+      - Getting Started to Contribute: Getting-Started_to_contribute.md
+      # - Technical Documentation: technical-documentation.md
   - Tutorials:
       - How to authenticate with Google Earth Engine: how-to-auth.md
+      - How to Use the Map: map_guide.md
+      - How to use the ROI: roi.md
       - How to Download Imagery: how-to-download.md
       - How to Use Sessions: sessions.md
       - How to Use Extract Shoreline Area: how-to-extract-shoreline-area.md
       - How to Extract Shorelines: extract_shorelines.md
+      - How to Download the Tide Model: How-to-Download-Tide-Model.md
+      - How to Create Reference Shorelines & Transects: How-to-Create-Reference-Shorelines-&-Transects.md
+      - How to Filter Bad Imagery: How-to-Filter-Out-Bad-Imagery.md
+      - Settings Guide: settings.md
+      - How to Use the Config Files: config.md
+  - API Reference:
+      - How to use CoastSeg API: CoastSeg-API-Guide.md
+  - Zoo: models.md
+  - Scripts:
+      - How to Use Scripts: How-to-Use-Scripts.md
+      # - CoastSeg: scripts-coastseg.md
+      # - CoastSat: scripts-coastsat.md
+      # - Zoo: model.md
