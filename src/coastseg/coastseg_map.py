@@ -896,10 +896,6 @@ class CoastSeg_Map:
         """
         # Get the months list from the settings or use the default list
         months_list = self.settings.get("months_list", [1,2,3,4,5,6,7,8,9,10,11,12])
-        # Get the cloud cover percentage from the settings and convert to an int if it is less than 1
-        prc_cloud_cover = self.get_settings().get("cloud_thresh",95)
-        if prc_cloud_cover < 1 :
-            prc_cloud_cover = prc_cloud_cover * 100
         # check that ROIs exist and one has been clicked
         exception_handler.check_if_None(self.rois, "ROI")
         exception_handler.check_if_gdf_empty(self.rois.gdf, "ROI")
@@ -916,7 +912,7 @@ class CoastSeg_Map:
                     start_date,
                     end_date,
                     satellites=set(self.settings["sat_list"]),
-                    max_cloud_cover=prc_cloud_cover,
+                    max_cloud_cover=95,
                     tiers=[1],
                     months_list=months_list,
                 )
@@ -1047,10 +1043,7 @@ class CoastSeg_Map:
         # Save settings used to download rois and the objects on map to config files
         self.save_config()
 
-        # 1. Get the cloud cover percentage from the settings and convert to an int if it is less than 1
-        prc_cloud_cover = settings.get("cloud_thresh",95)
-        if prc_cloud_cover < 1 :
-            prc_cloud_cover = prc_cloud_cover * 100
+        #
         
         # 2. For each ROI use download settings to download imagery and save to jpg
         print("Download in progress")
@@ -1058,12 +1051,12 @@ class CoastSeg_Map:
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
             SDS_download.retrieve_images(
                 inputs_for_roi,
-                cloud_threshold=settings.get("cloud_thresh"),
+                cloud_threshold=settings.get("cloud_thresh"), # no more than cloud threshold % of the image cloud 
                 cloud_mask_issue=settings.get("cloud_mask_issue"),
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
                 months_list = settings.get("months_list",[1,2,3,4,5,6,7,8,9,10,11,12]),
-                prc_cloud_cover = prc_cloud_cover,
+                max_cloud_no_data_cover=settings.get('percent_no_data',0.90), # no more than 900% of the image cloud or no data
             )
         if settings.get("image_size_filter", True):
             common.filter_images_by_roi(roi_settings)
@@ -1265,7 +1258,6 @@ class CoastSeg_Map:
         None
         """
         logger.info(f"New Settings: {kwargs}")
-        # logger.info(f"OLD Settings: {self.settings}")
         # Check if any of the keys are missing
         # if any keys are missing set the default value
         self.default_settings = {
@@ -1274,6 +1266,7 @@ class CoastSeg_Map:
             "months_list":[1,2,3,4,5,6,7,8,9,10,11,12],
             "sat_list": ["L8"],
             "cloud_thresh": 0.5,
+            "percent_no_data": 0.5,
             "dist_clouds": 300,
             "output_epsg": 4326,
             "check_detection": False,
@@ -1661,15 +1654,6 @@ class CoastSeg_Map:
         exception_handler.check_if_subset(
             set(["along_dist"]), set(list(settings.keys())), "settings"
         )
-        # if no rois are selected throw an error
-        # exception_handler.check_selected_set(self.selected_set)
-        # # ids of ROIs that have had their shorelines extracted
-        # extracted_shoreline_ids = set(
-        #     list(self.rois.get_all_extracted_shorelines().keys())
-        # )
-        # # Get ROI ids that are selected on map and have had their shorelines extracted
-        # roi_ids = list(extracted_shoreline_ids & self.selected_set)
-        # if none of the selected ROIs on the map have had their shorelines extracted throw an error
         exception_handler.check_if_list_empty(roi_ids)
 
 
@@ -1699,7 +1683,6 @@ class CoastSeg_Map:
         exception_handler.check_if_subset(
             set(["dates", "sat_list", "landsat_collection"]), superset, "settings"
         )
-
 
         # roi_settings must contain roi ids in selected set
         superset = set(list(self.rois.roi_settings.keys()))

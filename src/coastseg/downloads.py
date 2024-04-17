@@ -47,7 +47,7 @@ def get_collection_by_tier(
     end_date (Union[str, datetime]): The end date to filter the ImageCollection by.
     satellite (str): The satellite to select the ImageCollection from.
     tier (int): The tier of the satellite data.
-    max_cloud_cover (float): The maximum cloud cover percentage to filter the ImageCollection by.
+    max_cloud_cover (float): The maximum cloud cover percentage for the entire scene (not just the roi) to filter the ImageCollection by.
 
     Returns:
     ee.ImageCollection or None: The filtered ImageCollection or None if the inputs are invalid.
