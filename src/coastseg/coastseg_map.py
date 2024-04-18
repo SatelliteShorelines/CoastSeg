@@ -1043,20 +1043,18 @@ class CoastSeg_Map:
         # Save settings used to download rois and the objects on map to config files
         self.save_config()
 
-        #
-        
         # 2. For each ROI use download settings to download imagery and save to jpg
         print("Download in progress")
         # for each ROI use the ROI settings to download imagery and save to jpg
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
             SDS_download.retrieve_images(
                 inputs_for_roi,
-                cloud_threshold=settings.get("cloud_thresh"), # no more than cloud threshold % of the image cloud 
-                cloud_mask_issue=settings.get("cloud_mask_issue"),
+                cloud_threshold=settings.get("cloud_thresh",0.80), # no more than 80% of valid portion the image can be cloud
+                cloud_mask_issue=settings.get("cloud_mask_issue",False),
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
                 months_list = settings.get("months_list",[1,2,3,4,5,6,7,8,9,10,11,12]),
-                max_cloud_no_data_cover=settings.get('percent_no_data',0.90), # no more than 900% of the image cloud or no data
+                max_cloud_no_data_cover=settings.get('percent_no_data',0.80), # no more than 80% of the image cloud or no data
             )
         if settings.get("image_size_filter", True):
             common.filter_images_by_roi(roi_settings)
@@ -1265,8 +1263,8 @@ class CoastSeg_Map:
             "dates": ["2017-12-01", "2018-01-01"],
             "months_list":[1,2,3,4,5,6,7,8,9,10,11,12],
             "sat_list": ["L8"],
-            "cloud_thresh": 0.5,
-            "percent_no_data": 0.5,
+            "cloud_thresh": 0.8,
+            "percent_no_data": 0.8,
             "dist_clouds": 300,
             "output_epsg": 4326,
             "check_detection": False,
@@ -2620,8 +2618,9 @@ class CoastSeg_Map:
         #     self.map.zoom_to_bounds(bounds)
         if self.map is not None:
             if hasattr(new_feature, "gdf"):
-                bounds = new_feature.gdf.total_bounds
-                self.map.zoom_to_bounds(bounds)
+                if hasattr(new_feature.gdf, "total_bounds"):
+                    bounds = new_feature.gdf.total_bounds
+                    self.map.zoom_to_bounds(bounds)
         self.load_on_map(new_feature, layer_name, on_hover, on_click)
 
     def get_on_click_handler(self, feature_name: str) -> callable:

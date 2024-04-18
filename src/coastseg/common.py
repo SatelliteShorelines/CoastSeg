@@ -1212,10 +1212,12 @@ def validate_geometry_types(
     Raises:
         ValueError: If any geometry in the GeoDataFrame is not of a type in valid_types.
     """
-
-    # Extract the geometry types of the GeoDataFrame
+    # if the geodataframe is empty or does not contain a geometry column, return
+    if not hasattr(gdf, 'geometry'):
+        return
+    # Get the unique geometry types in the GeoDataFrame
     geometry_types = gdf.geometry.geom_type.unique()
-
+    # Extract the geometry types of the GeoDataFrame
     for geom_type in geometry_types:
         if geom_type not in valid_types:
             raise InvalidGeometryType(

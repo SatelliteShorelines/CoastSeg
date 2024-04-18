@@ -183,6 +183,17 @@ class Settings_UI:
         self.advanced_settings_tab = self.create_settings_tab(self.advanced_settings)
 
     def create_settings_tab(self, settings: List[str]) -> ipywidgets.VBox:
+        """
+        Create a settings tab with widgets for each setting.
+        
+        Places the cloud_thresh setting at the second position in the tab.
+
+        Args:
+            settings (List[str]): A list of setting names.
+
+        Returns:
+            ipywidgets.VBox: The settings tab containing the widgets for each setting.
+        """
         # Create the settings tab
         tab_contents = []
         for setting_name in settings:
@@ -262,6 +273,19 @@ class Settings_UI:
         Union[ipywidgets.ToggleButton, ipywidgets.FloatSlider, ipywidgets.IntText],
         ipywidgets.HTML,
     ]:
+        """
+        Create a setting widget based on the given setting name.
+
+        Parameters:
+            setting_name (str): The name of the setting.
+
+        Returns:
+            Tuple[Union[ipywidgets.ToggleButton, ipywidgets.FloatSlider, ipywidgets.IntText], ipywidgets.HTML]:
+                A tuple containing the widget for the setting and the corresponding instructions HTML widget.
+
+        Raises:
+            ValueError: If the setting name is invalid.
+        """
         # Create the widget for the setting
         if setting_name == "apply_cloud_mask":
             widget = ipywidgets.ToggleButtons(
@@ -338,7 +362,7 @@ class Settings_UI:
         elif setting_name == "cloud_thresh":
             widget = ipywidgets.FloatSlider(
                 description="Cloud Threshold",
-                value=0.5,
+                value=0.8,
                 min=0,
                 max=1,
                 step=0.01,
@@ -420,14 +444,14 @@ class Settings_UI:
         elif setting_name == "percent_no_data":
             widget = ipywidgets.FloatSlider(
                 description="% Bad Pixels",
-                value=50.0,
+                value=0.80,
                 min=0.0,
-                max=100.0,
-                step=1.0,
+                max=1.0,
+                step=0.01,
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Percentage Bad Pixels</b><br>Percentage of bad pixels allowed."
+                value="<b>Percentage Bad Pixels</b><br>Max percentage of bad pixels allowed in the requested images. Bad pixels are no data or cloud pixels."
             )
         elif setting_name == "drop_intersection_pts":
             widget = ipywidgets.Checkbox(
@@ -483,6 +507,14 @@ class Settings_UI:
                     widget.value = settings[setting_name]
 
     def get_settings(self) -> dict:
+        """
+        Retrieves the current settings from the settings widgets and returns them as a dictionary.
+        
+        For certain settings, the value is converted to the appropriate type before being added to the dictionary.
+
+        Returns:
+            dict: A dictionary containing the current settings.
+        """
         for setting_name, widget in self.settings_widgets.items():
             self.settings[setting_name] = widget.value
 
@@ -501,6 +533,14 @@ class Settings_UI:
         return self.settings.copy()
 
     def render(self) -> None:
+        """
+        Renders the settings UI.
+
+        This method displays the settings UI and returns the UI widget.
+
+        Returns:
+            ipywidgets.Accordion: The settings UI widget.
+        """
         # Display the settings UI
         # Create the settings UI
         # Define a layout with a maximum height

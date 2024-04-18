@@ -80,7 +80,7 @@ def format_as_html(settings: dict):
     <p>dates: {settings.get("dates", "unknown")}</p>
     <p>Months to download (months_list): {settings.get("months_list", "unknown")}</p>
     <p>landsat_collection: {settings.get("landsat_collection", "unknown")}</p>
-    <p>Maximum percentage of bad pixels eg. clouds and no data pixels (percent_no_data): {settings.get("percent_no_data", "unknown")}</p>
+    <p>Maximum percentage of bad pixels (percent_no_data): {settings.get("percent_no_data", "unknown")}</p>
     <p>Maximum percentage of cloud pixels (cloud_thresh): {settings.get("cloud_thresh", "unknown")}</p>
     <p>Distance from clouds (dist_clouds): {settings.get("dist_clouds", "unknown")}</p>
     <p>output_epsg: {settings.get("output_epsg", "unknown")}</p>
