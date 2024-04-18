@@ -1,5 +1,3 @@
-# Settings Explained
-
 ## Basic Settings
 
 **1.Reference Shoreline Buffer: `max_dist_ref`**
