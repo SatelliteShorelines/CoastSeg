@@ -12,6 +12,19 @@ import argparse
 def get_roi_polygon(
     roi_gdf: gpd.GeoDataFrame, roi_id: Optional[int] = None, index: Optional[int] = None
 ) -> Optional[List[List[float]]]:
+    """
+    Get the polygon coordinates for a region of interest (ROI) in a GeoDataFrame.
+
+    Args:
+        roi_gdf (gpd.GeoDataFrame): The GeoDataFrame containing the ROI data.
+        roi_id (Optional[int], optional): The ID of the ROI to retrieve. Defaults to None.
+        index (Optional[int], optional): The index of the ROI to retrieve. Defaults to None.
+
+    Returns:
+        Optional[List[List[float]]]: The polygon coordinates of the ROI as a list of lists of floats,
+        or None if the ROI is not found.
+
+    """
     if roi_id is not None:
         geoseries = roi_gdf[roi_gdf["id"] == roi_id]["geometry"]
     elif index is not None:
@@ -157,7 +170,29 @@ def count_images_in_ee_collection(
     return image_counts
 
 
-def process_roi(polygon, identifier, settings):
+def get_image_counts_for_roi(polygon:list, identifier:str, settings:dict):
+    """
+    Retrieves the image counts for a given region of interest (ROI) within a specified date range.
+    Prints the image counts for each satellite in the specified date ranges for the ROI in the format:
+    
+        ROI ID: <ROI ID>
+        L7: 0 images
+        L8: 1 images
+        L9: 3 images
+        S2: 9 images
+
+    Args:
+        polygon (list): The coordinates of the polygon representing the ROI.
+        identifier (str): The ID for the ROI.
+        settings (dict): A dictionary containing the settings for image retrieval.
+            The settings should contain the following keys:
+            - dates: A list of date ranges to query.
+            - sat_list: A list of satellite names to query.
+            
+    Returns:
+        list: A list of dictionaries, where each dictionary contains the ROI ID, date range, image count, and polygon.
+
+    """
     results = []
     for start_date, end_date in tqdm(
         settings["dates"],
@@ -184,6 +219,20 @@ def process_roi(polygon, identifier, settings):
 def preview_images_for_rois(
     rois_gdf: gpd.GeoDataFrame, selected_ids: Set[int], settings: Dict
 ):
+    """
+    Preview the number images available for the given regions of interest (ROIs).
+    
+    Provides the number of images availabe for each satellite in the specified date ranges for each ROI.
+
+    Args:
+        rois_gdf (gpd.GeoDataFrame): A GeoDataFrame containing the ROIs.
+        selected_ids (Set[int]): A set of selected ROI IDs. If empty, all ROI IDs will be used.
+        settings (Dict): A dictionary containing the processing settings.
+
+    Returns:
+        results: The results of processing the ROIs.
+
+    """
     if "id" in rois_gdf.columns:
         if selected_ids:
             roi_ids = selected_ids
@@ -195,7 +244,7 @@ def preview_images_for_rois(
             pbar.set_description(f"Querying API for ROI: {roi_id}")
             polygon = get_roi_polygon(rois_gdf, roi_id=roi_id)
             if polygon:
-                results = process_roi(polygon, roi_id, settings)
+                results = get_image_counts_for_roi(polygon, roi_id, settings)
     else:
         pbar = tqdm(range(len(rois_gdf)), desc="Querying API", leave=False, unit="roi")
         for index in pbar:
@@ -203,7 +252,7 @@ def preview_images_for_rois(
             # for index in tqdm(range(len(rois_gdf)), desc="Querying API", leave=False):
             polygon = get_roi_polygon(rois_gdf, index=index)
             if polygon:
-                results = process_roi(polygon, index, settings)
+                results = get_image_counts_for_roi(polygon, index, settings)
 
     return results
 
