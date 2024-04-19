@@ -63,3 +63,4 @@ In this example we will be creating a reference Shoreline for Fire Island in New
 **2.Save the transects to a geoJSON file**
 
 ![save geojson transects](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9a9ccfae-96cd-49e9-b2fa-a53c48debfdb)
+
