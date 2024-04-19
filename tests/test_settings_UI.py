@@ -268,6 +268,7 @@ def test_get_settings_custom_widgets(settings_dashboard):
         "max_dist_ref": 30,
         "apply_cloud_mask": True,  # custom widget added with add_custom_widget
         "cloud_thresh": 0.8,
+        "percent_no_data": 0.8,
         "image_size_filter": "False",
         "sand_color": "dark",  # custom widget added with add_custom_widget
         "sat_list": ["L9", "S2"],  # custom widget added with add_custom_widget
@@ -350,7 +351,7 @@ def test_get_settings_custom_widgets(settings_dashboard):
         "dist_clouds": 300,
         "apply_cloud_mask": True,
         "cloud_thresh": 0.8,
-        "percent_no_data": 50.0,
+        "percent_no_data": 0.8,
         "along_dist": 25,
         "min_points": 3,
         "max_std": 15.0,
