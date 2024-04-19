@@ -45,6 +45,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 **5.Load Transects**
 ![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
+- Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
+
 **6.Modify the Settings**
 
 - Change the satellites to L8 and L9
@@ -57,11 +59,15 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **7.Name the Session**
 
+- Let's call this 'sample_session'
+
+- This is the name of the folder that will be saved in `CoastSeg/sessions`
+
+- It will contain a subdirectory for each ROI that shorelines will be extracted for
+
 **8.Download the ROIs**
 
 - Click the ROIs you want to download on the map ( they will turn blue when selected)
-
-- Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
 
 - If no transects or reference shorelines are available for the region you have uploaded follow the guide here
 
@@ -70,28 +76,42 @@ jupyter lab SDS_coastsat_classifier.ipynb
 **9.Extract Shorelines**
 ![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
 
+- Extracting shorelines works by finding the land water interface in the image and drawing a line along it
+
+- A time series of shoreline position along each transect is generated as well
+
+![shoreline_transect_intersection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e87b8d34-d9a4-4b1e-b3de-8e0be1c16ecd)
+
 ## Apply Tidal Correction to Extracted Shorelines (Optional)
 
 **1.Download the tide model**
 
 - Before tidal correction can be applied the tide model must be downloaded
 
-- Follow the tutorial: [How to Download Tide Model](https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model)
+- Follow the tutorial: [How to Download Tide Model](https://satelliteshorelines.github.io/CoastSeg/How-to-Download-Tide-Model/)
 
 **2.Load the Session with Extracted Shorelines**
 
 - Re-open the jupyter notebook
 
-- Under the Kernal menu Click 'restart and clear outputs of all cells'
+- Under the 'Kernel' menu Click 'restart and clear outputs of all cells'
 
-- Click Load Session and load the same we made before ''
+![restart kernel and clear outputs of all cells](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a7d09bcb-6c35-48b2-b28a-a6821881e503)
+
+- Click 'Load Session' and load 'sample_session'
+
+![select load session and tide correct](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/581f8b4a-062e-4326-9ae8-0145026fb9ad)
 
 **3.Click Correct Tides**
 
 - Click the ROI ID from the dropdown
 
+       -- You should see some extracted shorelines on the map if you don't then the ROI ID won't appear in the dropdown
+
 - Enter Beach Slope
 
 - Enter Beach Elevation relative to Mean Sea Level
+
+![select roi id for tide correction](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9e212590-1f1e-4c51-b223-2e49a329a524)
 
 ![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
