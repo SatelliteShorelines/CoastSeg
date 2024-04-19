@@ -1,12 +1,8 @@
-# ⚠️ Before you begin ⚠️
+![shoreline_transect_intersection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e87b8d34-d9a4-4b1e-b3de-8e0be1c16ecd)
 
-Make sure you have downloaded the FES2014 tide model following the guide 'How to Download the Tide Model'
+⚠️<b>Make sure you have downloaded the FES2014 tide model following the guide 'How to Download the Tide Model'<b>⚠️
 
-## ⚠️ Important: Read Before Using Tide Correction Button
-
-If the tide model was NOT downloaded to `CoastSeg/tide_model` then the tide correction button will NOT work. The tide correction button will try to load the tide model from `<CoastSeg location>/tide_model` and an error will occur. Instead follow the instructions in at [Option 2: Tide Correction Script](#option-2-tide-correction-script) to use the script `apply_tidal_correction.py`
-
-## Option 1: Tide Correction Button Method
+## Option 1: Tide Correction Button Method (Recommended)
 
 Ever since coastseg 1.1.0 released you can now use the `correct tides` button in coastseg to automatically correct the timeseries. This button will automatically find which files need to be tidally corrected and apply the tidal correction for you.
 
@@ -19,11 +15,22 @@ If the tide model was NOT downloaded to `CoastSeg/tide_model` then the tide corr
 **WARNING**
 You must have downloaded the tide model to the `tide_model` folder within coastseg for this button to work correctly.
 
-1.**Enter the beach slope**
+1.**Load a Session**
+
+- Load a session containing extracted shorelines.
+- The following files will be saved to each ROI in the session (any existing files will be overwritten)
+
+  -- `predicted_tides.csv`: contains the tide prediction from the tide model for each transect end point for each date a shoreline was detected on it.
+
+  -- `tidally_corrected_transect_time_series_points.geojson` : contains the tidally_corrected shoreline transect intersections points from `raw_transect_time_series_merged.csv`.
+
+  -- `tidally_corrected_raw_transect_time_series_vectors.geojson` : contains the tidally_corrected shoreline transect intersections from `raw_transect_time_series_merged.csv`. as vectors by connecting points that occurred on the same date together.
+
+  2.**Enter the beach slope**
 
 - This is the beach slope in meters for the ROI you have selected.
 
-  2.**Enter the beach elevation**
+  3.**Enter the beach elevation**
 
 - This is the beach elevation in meters relative to MSL(Mean Sea Level) for the ROI you have selected.
 
