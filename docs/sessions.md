@@ -9,6 +9,13 @@ Config files are used to save the current state of the map and all the data down
 Under the `data` directory where all the downloaded ROIs are stored. Within each ROI's directory you will find a `config.geojson` file and a `config.json` file.
 
 - `config.geojson` file that contains contains a geodataframe ( crs `espg 4326`) with all the ROIs, shorelines, transects, and the bounding box that were loaded on the map at the time the ROI was downloaded.
+
+**Example: Loading the config.geojson into QGIS**
+
+- You can see the Bounding Box, ROI, reference shorelines and transects for this session
+
+![config_gdf_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/0fab574b-3714-46d2-bf78-c3bc9cb0622f)
+
 - `config.json` file contains the settings that were used to download the imagery from Google Earth Engine(GEE).
 
 # How to Save a New Session
@@ -40,7 +47,7 @@ To load config files for ROIs that have been downloaded before go to the `data` 
 2. Select a directory from the sessions directory
    ![load_extracted_shorelines_session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4d3ba936-3d86-48e1-9d2d-ea67a355c71d)
 
-## Understanding config.json
+## Config.json
 
 config.json files can be found in session directories as well as within ROI directories within the data directory.
 
@@ -52,6 +59,8 @@ The config files are organized into 2 sections:
 2. Settings that were saved when the ROI was downloaded under the 'settings' section
 
 a. Settings used to download each ROI organized by each ROI's id
+
+- One setting to pay attention to is the `output epsg` this is the CRS the ROI and all its features are re-projected features into and these re-projected features are the ones used to calculate the shoreline transect intersections.
 
 - The following settings are associated with ROI 0:
   - ROI 0 has imagery for dates "2018-01-01" - "2019-01-01" and it was saved to the `ID_0_datetime03-22-23__07_29_15` directory at
