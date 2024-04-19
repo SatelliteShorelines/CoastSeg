@@ -1915,10 +1915,10 @@ def save_transects(
                               "raw")
     # save the raw transect time series which contains the columns ['dates', 'x', 'y', 'transect_id', 'cross_distance','shore_x','shore_y']  to file
     filepath = os.path.join(save_location, f"raw_transect_time_series_merged.csv")
-    merged_timeseries_df.to_csv(filepath, sep=",") 
+    merged_timeseries_df.to_csv(filepath, sep=",",index=False) 
     
     filepath = os.path.join(save_location, f"raw_transect_time_series.csv")
-    timeseries_df.to_csv(filepath, sep=",")
+    timeseries_df.to_csv(filepath, sep=",",index=False)
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
     transect_settings_path = os.path.join(save_location, "transects_settings.json")
