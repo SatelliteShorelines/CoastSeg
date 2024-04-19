@@ -1,6 +1,48 @@
 ## Basic Settings
 
-**1.Reference Shoreline Buffer: `max_dist_ref`**
+**1.Apply Cloud Mask**
+
+- You can switch off cloud masking so that the images saved in 'CoastSeg/session/<YOUR SESSION NAME>/<ROI ID>/jpg_files/detection' won't have the clouds masked out
+
+- Sometimes you need to turn this off because the cloud mask mistakenly identifies white sandy beaches as cloud
+
+**Example of Masked Out Clouds**
+
+![masked out clouds](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/461723b9-a4bc-41ec-a5b0-9ecc4eb318f7)
+
+**Example of Masked Out Clouds in Extract Shoreline Detection Images**
+
+- In the screenshot below see the shoreline is being broken up because the setting`dist_clouds` is removing any shorelines too close to the masked out clouds.
+
+- Lowering `dist_clouds` or turning off the cloud mask would fix this.
+
+- Fair warning that clouds commonly get mistaken as shorelines so generally they should be masked out
+
+| Cloud Mask On                                                                                                          | Cloud Mask Off                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| ![Cloud Mask On](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/b9bae1d4-6146-49b3-b7da-e5d93b262514) | ![Cloud Mask Off](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/101e3fe1-14d3-45d7-ac3c-ab02b7fe70e8) |
+
+**Example of Apply Cloud Mask in Settings**
+
+![apply cloud mask](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/74ee86b6-1fd4-40d6-b237-2bca4a7da074)
+
+**2.Dates**
+
+- Select the start and end date to extract shorelines from
+
+![download settings dates](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/d61a83a4-1d5e-4a23-81f0-118fb62831d9)
+
+**3. Cloud Threshold `cloud_thresh`**
+
+- This controls the maximum percentage of clouds allowed in the images that shorelines will be extracted from
+
+- If an image's cloud cover exceeds this threshold a shoreline will NOT be extracted from this image
+
+- Fair warning that clouds commonly get mistaken as shorelines so generally they should be masked out
+
+![image](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/609f223f-c7e8-420a-9b3d-eb75421f0bbc)
+
+**4.Reference Shoreline Buffer: `max_dist_ref`**
 
 The `max_dist_ref` parameter defines a buffer (in meters) around the reference shoreline, limiting the extraction of shorelines to this region. Shorelines detected outside this buffer are automatically excluded.
 
@@ -12,15 +54,15 @@ The `max_dist_ref` parameter defines a buffer (in meters) around the reference s
 |                                           Recommend increasing buffer to 150m                                           |                                 Buffer captures entire shoreline no change needed                                  |
 | ![Increased max_dist_ref](https://github.com/Doodleverse/CoastSeg/assets/61564689/62fefaac-c0c9-40c3-89b8-e433e0555f52) | ![Good max_dist_ref](https://github.com/Doodleverse/CoastSeg/assets/61564689/3ccaf660-cb22-4530-bde0-58d6f6932fa3) |
 
-**2.Minimum Shoreline Length (min_length_sl)**
+**5.Minimum Shoreline Length (min_length_sl)**
 Defines the shortest length (in meters) of detected shoreline segments. Adjust this setting to filter out noise or small, irrelevant shoreline fragments.
 
-**3.Distance from Clouds (dist_clouds)**
+**6.Distance from Clouds (dist_clouds)**
 Specifies the minimum distance (in meters) from cloud-covered areas to avoid false shoreline detections due to cloud interference.
 
 ![dist_clouds example](https://github.com/Doodleverse/CoastSeg/assets/61564689/9fe35a16-72b1-4414-bf1a-82898d103fba)
 
-**4.Minimum Beach Area (min_beach_area)**
+**7.Minimum Beach Area (min_beach_area)**
 Sets the smallest area (in meters²) that can be classified as shoreline, helping to distinguish between true shoreline and scattered noise.
 
 <details>
@@ -32,10 +74,7 @@ During the image classification, some features (for example, building roofs) may
 
 ![min_beach_area_coastsat_setting](https://github.com/Doodleverse/CoastSeg/assets/61564689/88f6bc9d-9ee9-42ce-98e3-e4693e8046d4)
 
-**5.Cloud Percentage Threshold (cloud_thresh)**
-This threshold sets the maximum allowed percentage of cloud cover in imagery considered for analysis. Any images that have cloud coverage above this percentage will NOT be considered for shoreline extraction
-
-**6.Sand Color `sand_color`**
+**8.Sand Color `sand_color`**
 The 'sand_color' setting is used to select the best model for classifying sand. You can choose one of the following options `default` to use the default model, `dark` for grey/black sand beaches or 'bright' for white sand beaches. This setting is only used by the coastsat shoreline extraction model not the one's used by coastseg in the `unet` notebook.
 
 - Only change the `sand_color` parameter if you are seeing that with the default the sand pixels are not being classified as sand (in orange).
@@ -104,17 +143,18 @@ Manages scenarios where multiple potential shoreline intersections occur along a
 
 This is quite common, for example when there is a lagoon behind the beach and the transect crosses two water bodies. The function will analyze transect by transect to identify these kinds of cases and depending on the selected mode choose to:
 
-**'nan':**
+- **'nan':**
 
-Always assign a NaN when there are multiple intersections.
+  -- Always assign a NaN when there are multiple intersections.
 
-**'max':**
+- **'max':**
 
-Always take the max (intersection the furthest seaward).
+  -- Always take the max (intersection the furthest seaward).
 
-**'auto':**
+- **'auto':**
 
-Switch from returning NaN to returning the maximum intersection if a certain percentage of data points have a standard deviation larger than `max_std`.
+  -- Switch from returning NaN to returning the maximum intersection if a certain percentage of data points have a standard deviation larger than `max_std`.
 
 - If your shoreline is complex, which means the intersections have high dispersion (i.e., large standard deviation or range) `auto` mode should be beneficial as it automatically decides whether to use NaN or the maximum intersection based on the percentage of points exceeding `max_std`.
+
 - If 'auto' is chosen, the `prc_multiple` parameter will define when to use the max, by default it is set to 0.1, which means that if 10% of the time-series show multiple intersections, then the function thinks there are two water bodies.

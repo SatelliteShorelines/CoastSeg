@@ -49,6 +49,14 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![create_rois_demo](https://user-images.githubusercontent.com/61564689/213065873-753a8b8c-eda7-45a6-96fb-d81b81cb54d2.gif)
 
+**8.Examine the Download Report (Optional)**
+
+- Inside of Coastseg/data for each ROI you download there is a 'download_report.txt' file for each time the ROI was downloaded
+
+- When you open the file it will list which files downloaded successfully as well as any interruptions to the download process
+
+![Roi directory contents](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/f4f9f9f1-dc5d-429b-96f7-9400cc9905d1)
+
 ## Understanding ROI (Region of Interest)
 
 **ROI** stands for **Region of Interest**. It represents a specified rectangular area for downloading satellite imagery from GEE (Google Earth Engine). Due to GEE's area limitations, multiple ROIs are created along the coastline within the user-defined bounding box. If data for an ROI is downloaded, it is stored in a dedicated directory named using the format, `ID_<ROI_ID>_datetime<timestamp>`, e.g., `ID_3_datetime11-22-22__11_15_15`.
