@@ -26,7 +26,9 @@ You must have downloaded the tide model to the `tide_model` folder within coasts
 
   -- `tidally_corrected_raw_transect_time_series_vectors.geojson` : contains the tidally_corrected shoreline transect intersections from `raw_transect_time_series_merged.csv`. as vectors by connecting points that occurred on the same date together.
 
-  2.**Enter the beach slope**
+![select load session and tide correct](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/581f8b4a-062e-4326-9ae8-0145026fb9ad)
+
+2.**Enter the beach slope**
 
 - This is the beach slope in meters for the ROI you have selected.
 
@@ -36,11 +38,15 @@ You must have downloaded the tide model to the `tide_model` folder within coasts
 
   3.**Select the ROIs' ids to tidally correct**
 
-  4.**Click compute tides and wait a few minutes.**
+  -- You should see some extracted shorelines on the map if you don't then the ROI ID won't appear in the dropdown
+
+![select roi id for tide correction](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9e212590-1f1e-4c51-b223-2e49a329a524)
+
+4.**Click 'Correct Tides' and wait a few minutes.**
 
 If you encounter any issues or have any questions please submit an issue at [CoastSeg Issues](https://github.com/Doodleverse/CoastSeg/issues/new/choose)
 
-![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/c72ee626-86fd-46ae-98d0-0921b0082d8b)
+![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
 
 ## Option 2: Tide Correction Script
 
