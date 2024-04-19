@@ -31,7 +31,7 @@ To load config files for ROIs that have been downloaded before go to the `data` 
 `ID_3_datetime10-20-22__07_09_07` directory, there should be `geojson` file named `config_gdf_id_3.geojson`. You should notice the `ID_<ROI ID NUMBER>` in the directory name and the geojson file match, in this case this is ROI id 3. Upload the `config_gdf_id_<roi id number>.geojson`.
 This will load the ROI in that directory and all the other selected ROIs,shorelines, transects, and the bounding box that were on the map when it was saved.
 
-![Alt text](https://github.com/SatelliteShorelines/CoastSeg/blob/main/docs/gifs/load_config_demo.gif)
+![load_config_demo](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/cfa5a0a5-457d-4015-87c8-fff1c7415a46)
 
 ### Steps to Load Config File
 
