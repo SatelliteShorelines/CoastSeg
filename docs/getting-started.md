@@ -1,26 +1,25 @@
-Check out the rest of the [wiki](https://github.com/Doodleverse/CoastSeg/wiki) for more tutorials
-
 ## Prerequisites
 
-1. Sign up to use Google Earth Engine Python API
+**1.Sign up to use Google Earth Engine Python API**
 
--Request access to Google Earth Engine at https://signup.earthengine.google.com/
+- Request access to Google Earth Engine at https://signup.earthengine.google.com/
 
--It takes about 1 day for Google to approve requests.
+- It takes about 1 day for Google to approve requests.
 
 ## Installation & SetUp
 
-1. Activate the coastseg conda environment
-   ```bash
-   conda activate coastseg
-   ```
+**1.Activate the coastseg conda environment**
+
+```bash
+conda activate coastseg
+```
 
 - If you have successfully activated coastseg you should see that your terminal's command line prompt should now start with `(coastseg)`.
 
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
-2. Download CoastSeg from GitHub
+**2.Download CoastSeg from GitHub**
 
 ```
 git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
@@ -46,6 +45,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 ![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
 - Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
+
+- If there isn't a reference shoreline or any transects available for your site check out the guide on how to upload your own [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
 
 **6.Modify the Settings**
 
