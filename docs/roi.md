@@ -42,15 +42,15 @@ The jpgs for all satellite imagery downloaded for a given ROI are in subdirector
 Use the sliders `Small ROI Length` and `Large ROI Length`
 to control the side length of the ROI squares you want to generate. Click the button `Generate ROIs` to create a grid of overlapping ROIs on the map. You can then click each ROI on the map to indicated that satellite imagery for this ROI should be downloaded when the button `Download Imagery` is clicked.
 
+- ROIs can only be created along a shoreline this is because CoastSeg is meant to extract shorelines from satellite imagery
+
+- If there is not a reference shoreline available for your site upload your own by following the guide [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
+
 ![generate_rois_and_display_area](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/d1971795-fbed-484f-8123-87567058ec3a)
 
 ## How to Change the Size of the ROI
 
 The size of the side lengths of the ROI can be controlled using the two sliders `Small ROI Length` and `Large ROI Length`. These sliders control the side lengths of the ROI squares. You can control the amount of overlap between ROIs by changing the side lengths of each ROI or have 0 overlap by setting `Small ROI Length` to 0.
-
-## How to View the Area of an ROI
-
-Hover over any ROI on the map and look under the `ROI Data` section on right side of the map to view its area and the ROI ID.
 
 ## How to View the ID of an ROI
 
