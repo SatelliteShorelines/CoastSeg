@@ -2,20 +2,20 @@
 
 ## Steps to Download Imagery
 
-1. Activate the Notebook:
+**1.Activate the Notebook:**
 
 ```
 conda activate coastseg
 jupyter lab SDS_coastsat_classifier.ipynb
 ```
 
-2. Set the ROI Area
+**2.Set the ROI Area**
 
 - Recommend ROI area: 20km² - 30km²
 - **For Non-overlapping ROIs**: Set `Small ROI Area` to 0 and `Large ROI Area` to the desired ROI area.
 - **For Overlapping ROIs**: Assign a value to `Small ROI Area` and set `Large ROI Area` to the desired ROI area.
 
-3. Define the Bounding Box:
+**3.Define the Bounding Box:**
 
 - Use the rectangle tool (located on the map's right-hand corner) to draw a bounding box around your desired area.
 - Ensure the bounding box isn't excessively large, or it will be removed.
@@ -25,17 +25,23 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![how to draw a bbox](assets/how-to-draw-bbox.png)
 
-4. Generate ROIs:
+**4.Generate ROIs:**
 
 - Click the `Generate ROIs` button. This action creates a grid of ROIs along the shoreline within the bounding box.
 
-- If you want to use your own custom ROIs follow the tutorial [How to Upload Features](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
+- If you want to use your own custom ROIs follow the tutorial [How to Create ROIs](https://satelliteshorelines.github.io/CoastSeg/How-to-Create-Reference-Shorelines-%26-Transects%26ROIs/) and [How to Upload Features](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
 
-  5.Select Desired ROIs:
+**5.Select Desired ROIs:**
 
 - After the ROIs appear on the map, select those for which you want to download satellite imagery.
 
-  6.Download Imagery:
+**6.Preview the Imagery Available**
+
+- This will show the number of images available for each ROI for each satellite selected across the selected date range
+
+![preview_images](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/bc820d6e-e56b-429b-9f1c-ca30b1c0d996)
+
+**7.Download Imagery:**
 
 - Click `Download Imagery`. The imagery for the chosen ROIs (highlighted in blue) will be downloaded.
 
