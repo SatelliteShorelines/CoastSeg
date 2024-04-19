@@ -11,7 +11,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyproj
-import pyTMD.constants
 import pyTMD.io
 import pyTMD.io.model
 import pyTMD.predict
@@ -1167,7 +1166,7 @@ def main():
     # Reset index if you want 'dates' back as a column
     pivot_df.reset_index(inplace=True)    
 
-    pivot_df.to_csv(TIDE_PREDICTIONS_FILE_NAME)
+    pivot_df.to_csv(TIDE_PREDICTIONS_FILE_NAME,index=False)
 
     print(f"Applying tide corrections to {RAW_TIMESERIES_FILE_PATH}")
     tide_corrected_timeseries_df = tidally_correct_timeseries(
@@ -1189,12 +1188,12 @@ def main():
                                                                                                 only_keep_points_on_transects=DROP_INTERSECTIONS,extension='tidally_corrected')
     # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
     tide_corrected_timeseries_df.to_csv(
-        os.path.join(os.getcwd(), "tidally_corrected_transect_time_series_merged.csv")
+        os.path.join(os.getcwd(), "tidally_corrected_transect_time_series_merged.csv"),index=False
     )
     # Tidally correct the raw time series
     print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_FILE_NAME)}")
     # Save the Tidally corrected time series
-    tide_corrected_timeseries_df.to_csv(TIDALLY_CORRECTED_FILE_NAME)
+    tide_corrected_timeseries_df.to_csv(TIDALLY_CORRECTED_FILE_NAME,index=False)
     
     # save the time series as a matrix of date vs transect id with the cross_distance as the values
     pivot_df = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')
@@ -1204,7 +1203,7 @@ def main():
     # Tidally correct the raw time series
     print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_MATRIX_FILE_NAME)}")
     # Save the Tidally corrected time series
-    pivot_df.to_csv(TIDALLY_CORRECTED_MATRIX_FILE_NAME)
+    pivot_df.to_csv(TIDALLY_CORRECTED_MATRIX_FILE_NAME,index=False)
 
 if __name__ == "__main__":
     main()

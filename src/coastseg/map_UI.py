@@ -80,6 +80,7 @@ def format_as_html(settings: dict):
     <p>dates: {settings.get("dates", "unknown")}</p>
     <p>Months to download (months_list): {settings.get("months_list", "unknown")}</p>
     <p>landsat_collection: {settings.get("landsat_collection", "unknown")}</p>
+    <p>Maximum percentage of bad pixels (percent_no_data): {settings.get("percent_no_data", "unknown")}</p>
     <p>Maximum percentage of cloud pixels (cloud_thresh): {settings.get("cloud_thresh", "unknown")}</p>
     <p>Distance from clouds (dist_clouds): {settings.get("dist_clouds", "unknown")}</p>
     <p>output_epsg: {settings.get("output_epsg", "unknown")}</p>
@@ -116,13 +117,13 @@ class UI:
             basic_settings = [
                 "dates",
                 "months_list",
+                "percent_no_data",
                 "max_dist_ref",
                 "min_length_sl",
                 "min_beach_area",
                 "dist_clouds",
                 "apply_cloud_mask",
                 "cloud_thresh",
-                "percent_no_data",
                 "drop_intersection_pts",
             ]
         if not self.settings_dashboard:

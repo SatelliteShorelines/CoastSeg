@@ -48,7 +48,7 @@ import tensorflow as tf
 logger = logging.getLogger(__name__)
 
 
-def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> list[str]:
+def filter_no_data_pixels(files: list[str], percent_no_data: float = 0.50) -> list[str]:
     def percentage_of_black_pixels(img: "PIL.Image") -> float:
         # Calculate the total number of pixels in the image
         num_total_pixels = img.size[0] * img.size[1]
@@ -56,7 +56,7 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 50.0) -> li
         # Count the number of black pixels in the image
         black_pixels = np.count_nonzero(np.all(img_array == 0, axis=-1))
         # Calculate the percentage of black pixels
-        percentage = (black_pixels / num_total_pixels) * 100
+        percentage = (black_pixels / num_total_pixels) 
         return percentage
 
     valid_images = []
@@ -1116,7 +1116,7 @@ class Zoo_Model:
         self,
         sample_direc: str,
         avoid_patterns: List[str] = [],
-        percent_no_data: float = 50.0,
+        percent_no_data: float = 0.50,
     ) -> list:
         """
         Returns a list of files to be segmented.
@@ -1127,7 +1127,7 @@ class Zoo_Model:
         Args:
         - sample_direc (str): The directory containing files to be segmented.
         - avoid_patterns (List[str], optional): A list of file names to be avoided.Don't include any file extensions. Default is [].
-
+        - percent_no_data (float, optional): The percentage of no data pixels allowed in an image. Default is 0.50.
         Returns:
         - list: A list of full pathes files to be segmented.
         """
@@ -1148,40 +1148,55 @@ class Zoo_Model:
         return model_ready_files
 
     def compute_segmentation(
-        self,
-        preprocessed_data: dict,
-        percent_no_data: float = 50.0,
-    ):
-        sample_direc = preprocessed_data["sample_direc"]
-        use_tta = preprocessed_data["tta"]
-        use_otsu = preprocessed_data["otsu"]
-        # Create list of files of types .npz,.jpg, or .png to run model on
-        files_to_segment = self.get_files_for_seg(
-            sample_direc, avoid_patterns=[], percent_no_data=percent_no_data
-        )
-        logger.info(f"files_to_segment: {files_to_segment}")
-        if self.model_types[0] != "segformer":
-            ### mixed precision
-            from tensorflow.keras import mixed_precision
+            self,
+            preprocessed_data: dict,
+            percent_no_data: float = 0.50,
+        ):
+            """
+            Compute the segmentation for a given set of preprocessed data.
 
-            mixed_precision.set_global_policy("mixed_float16")
-        # Compute the segmentation for each of the files
-        print(f"Found {len(files_to_segment)} files to run on model on")
-        for file_to_seg in tqdm.auto.tqdm(files_to_segment, desc="Applying Model"):
-            do_seg(
-                file_to_seg,
-                self.model_list,
-                self.metadata_dict,
-                self.model_types[0],
-                sample_direc=sample_direc,
-                NCLASSES=self.NCLASSES,
-                N_DATA_BANDS=self.N_DATA_BANDS,
-                TARGET_SIZE=self.TARGET_SIZE,
-                TESTTIMEAUG=use_tta,
-                WRITE_MODELMETADATA=False,
-                OTSU_THRESHOLD=use_otsu,
-                profile="meta",
+            Args:
+                preprocessed_data (dict): A dictionary containing preprocessed data.
+                    This dictionary should contain the following keys:
+                    - sample_direc (str): The directory containing the sample images.
+                    - tta (bool): Whether to use test-time augmentation.
+                    - otsu (bool): Whether to use Otsu thresholding.
+                    
+                percent_no_data (float, optional): The max ercentage of no data pixels allowed in the image. Defaults to 0.50.
+
+            Returns:
+                None
+            """
+            sample_direc = preprocessed_data["sample_direc"]
+            use_tta = preprocessed_data["tta"]
+            use_otsu = preprocessed_data["otsu"]
+            # Create list of files of types .npz,.jpg, or .png to run model on
+            files_to_segment = self.get_files_for_seg(
+                sample_direc, avoid_patterns=[], percent_no_data=percent_no_data
             )
+            logger.info(f"files_to_segment: {files_to_segment}")
+            if self.model_types[0] != "segformer":
+                ### mixed precision
+                from tensorflow.keras import mixed_precision
+
+                mixed_precision.set_global_policy("mixed_float16")
+            # Compute the segmentation for each of the files
+            print(f"Found {len(files_to_segment)} files to run on model on")
+            for file_to_seg in tqdm.auto.tqdm(files_to_segment, desc="Applying Model"):
+                do_seg(
+                    file_to_seg,
+                    self.model_list,
+                    self.metadata_dict,
+                    self.model_types[0],
+                    sample_direc=sample_direc,
+                    NCLASSES=self.NCLASSES,
+                    N_DATA_BANDS=self.N_DATA_BANDS,
+                    TARGET_SIZE=self.TARGET_SIZE,
+                    TESTTIMEAUG=use_tta,
+                    WRITE_MODELMETADATA=False,
+                    OTSU_THRESHOLD=use_otsu,
+                    profile="meta",
+                )
 
     def get_model(self, weights_list: list):
         model_list = []

@@ -14,7 +14,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyproj
-import pyTMD.constants
 import pyTMD.io
 import pyTMD.io.model
 import pyTMD.predict
@@ -218,7 +217,7 @@ def correct_tides(
         pivot_df = predicted_tides_df.pivot_table(index='dates', columns='transect_id', values='tide', aggfunc='first')
         # Reset index if you want 'dates' back as a column
         pivot_df.reset_index(inplace=True)
-        pivot_df.to_csv(os.path.join(session_path, "predicted_tides.csv"))
+        pivot_df.to_csv(os.path.join(session_path, "predicted_tides.csv"),index=False)
         
         tide_corrected_timeseries_df = tidally_correct_timeseries(
             raw_timeseries_df,
@@ -238,12 +237,12 @@ def correct_tides(
                                 'tidally_corrected')
         
         # Save the Tidally corrected time series
-        timeseries_df.to_csv(os.path.join(session_path, 'tidally_corrected_transect_time_series.csv'))
+        timeseries_df.to_csv(os.path.join(session_path, 'tidally_corrected_transect_time_series.csv'),index=False)
 
         
         # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
         tide_corrected_timeseries_merged_df.to_csv(
-            os.path.join(session_path, "tidally_corrected_transect_time_series_merged.csv")
+            os.path.join(session_path, "tidally_corrected_transect_time_series_merged.csv"),index=False
         )
         
         update(f"{roi_id} was tidally corrected")

@@ -12,7 +12,7 @@ def save_csv_per_id(
     for uid in unique_ids:
         new_filename = f"{uid}_{filename}"
         new_df = df[df[id_column_name] == uid]
-        new_df.to_csv(os.path.join(save_location, new_filename))
+        new_df.to_csv(os.path.join(save_location, new_filename),index=False)
 
 # 1. Enter the path to the csv file that contains the tide corrected time series
 # - replace the path below with the path to the csv file

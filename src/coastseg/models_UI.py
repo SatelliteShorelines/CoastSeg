@@ -468,7 +468,7 @@ class UI_Models:
         # step 5 : Tidal Correction
         self.step_5_instr = HTML(
             value="<h2>Step 5 : Tidal Correction</h2>\
-            - The tide model must have been downloaded to CoastSeg/tide_model for tidal correction to work. Follow the guide to download the tide model: https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-Tide-Model \
+            - The tide model must have been downloaded to CoastSeg/tide_model for tidal correction to work. Follow the guide to download the tide model: https://github.com/SatelliteShorelines/CoastSeg/wiki/09.-How-to-Download-Tide-Model \
             - Ensure shorelines are extracted prior to tidal correction. Not all imagery will contain extractable shorelines, thus, tidal correction may not be possible.\
             <br><b>1. Select a Session: </b> Choose a session from the 'sessions' directory containing extracted shorelines.\
             <br><b>2. Run Tidal Correction:</b> Runs the tide model and save tidally corrected CSV files in the selected session directory.\

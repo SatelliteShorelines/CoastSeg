@@ -15,7 +15,8 @@ CALLING SEQUENCE:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     --directory X: working data directory
-    --user X: username for AVISO FTP servers (email)
+    -U X, --user: username for AVISO FTP servers (email)
+    -P X, --password: password for AVISO FTP servers
     -N X, --netrc X: path to .netrc file for authentication
     --tide X: FES tide model to download
         FES1999
@@ -24,6 +25,8 @@ COMMAND LINE OPTIONS:
         FES2014
     --load: download load tide model outputs (fes2014)
     --currents: download tide model current outputs (fes2012 and fes2014)
+    -G, --gzip: compress output ascii and netCDF4 tide files
+    -t X, --timeout X: timeout in seconds for blocking operations
     --log: output log of files downloaded
     -M X, --mode X: Local permissions mode of the files downloaded
 
@@ -35,6 +38,9 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: added option to change connection timeout
+    Updated 04/2023: using pathlib to define and expand paths
+        added option to include AVISO FTP password as argument
     Updated 11/2022: added encoding for writing ascii files
         use f-strings for formatting verbose or ascii output
     Updated 04/2022: use argparse descriptions within documentation
@@ -48,8 +54,8 @@ UPDATE HISTORY:
     Updated 05/2019: new authenticated ftp host (changed 2018-05-31)
     Written 09/2017
 """
-from __future__ import print_function
-from tqdm import tqdm
+from __future__ import print_function, annotations
+
 import sys
 import os
 import io
@@ -59,12 +65,15 @@ import shutil
 import logging
 import tarfile
 import getpass
+import pathlib
 import argparse
 import builtins
 import posixpath
 import calendar, time
 import ftplib
 import pyTMD.utilities
+from tqdm import tqdm
+
 
 # FILE SIZES for files in these files
 load_tide_files = {
@@ -165,18 +174,19 @@ def check_files(directory_path: str, files_dict: dict) -> list:
 
 # PURPOSE: download local AVISO FES files with ftp server
 def aviso_fes_tides(
-    MODEL,
-    DIRECTORY=None,
-    USER="",
-    PASSWORD="",
-    LOAD=False,
-    CURRENTS=False,
-    GZIP=False,
-    LOG=False,
+    MODEL: str,
+    DIRECTORY: str | pathlib.Path | None = None,
+    USER: str = '',
+    PASSWORD: str = '',
+    LOAD: bool = False,
+    CURRENTS: bool = False,
+    GZIP: bool = False,
+    TIMEOUT: int | None = None,
+    LOG: bool = False,
     MODE=None,
 ):
     # connect and login to AVISO ftp server
-    f = ftplib.FTP("ftp-access.aviso.altimetry.fr", timeout=1000)
+    f = ftplib.FTP('ftp-access.aviso.altimetry.fr', timeout=TIMEOUT)
     f.login(USER, PASSWORD)
     # check if local directory exists and recursively create if not
     localpath = os.path.join(DIRECTORY, MODEL.lower())
@@ -435,75 +445,54 @@ def arguments():
             model from AVISO.  Decompresses the model tar files into the
             constituent files and auxiliary files.
             """,
-        fromfile_prefix_chars="@",
+        fromfile_prefix_chars="@"
     )
     parser.convert_arg_line_to_args = pyTMD.utilities.convert_arg_line_to_args
     # command line parameters
     # AVISO FTP credentials
-    parser.add_argument(
-        "--user", "-U", type=str, default="", help="Username for AVISO FTP servers"
-    )
-    parser.add_argument(
-        "--netrc",
-        "-N",
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser("~"), ".netrc"),
-        help="Path to .netrc file for authentication",
-    )
+    parser.add_argument('--user','-U',
+        type=str, default=os.environ.get('AVISO_USERNAME'),
+        help='Username for AVISO Login')
+    parser.add_argument('--password','-W',
+        type=str, default=os.environ.get('AVISO_PASSWORD'),
+        help='Password for AVISO Login')
+    parser.add_argument('--netrc','-N',
+        type=pathlib.Path, default=pathlib.Path().home().joinpath('.netrc'),
+        help='Path to .netrc file for authentication')
     # working data directory
-    parser.add_argument(
-        "--directory",
-        "-D",
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help="Working data directory",
-    )
+    parser.add_argument('--directory','-D',
+        type=pathlib.Path, default=pathlib.Path.cwd(),
+        help='Working data directory')
     # FES tide models
-    parser.add_argument(
-        "--tide",
-        "-T",
-        metavar="TIDE",
-        type=str,
-        nargs="+",
-        default=["FES2014"],
-        choices=["FES1999", "FES2004", "FES2012", "FES2014"],
-        help="FES tide model to download",
-    )
+    parser.add_argument('--tide','-T',
+        metavar='TIDE', type=str, nargs='+',
+        default=['FES2014'], choices=['FES1999','FES2004','FES2012','FES2014'],
+        help='FES tide model to download')
     # download FES load tides
-    parser.add_argument(
-        "--load",
-        default=False,
-        action="store_true",
-        help="Download load tide model outputs",
-    )
+    parser.add_argument('--load',
+        default=False, action='store_true',
+        help='Download load tide model outputs')
     # download FES tidal currents
-    parser.add_argument(
-        "--currents",
-        default=False,
-        action="store_true",
-        help="Download tide model current outputs",
-    )
+    parser.add_argument('--currents',
+        default=False, action='store_true',
+        help='Download tide model current outputs')
     # download FES tidal currents
-    parser.add_argument(
-        "--gzip",
-        "-G",
-        default=False,
-        action="store_true",
-        help="Compress output ascii and netCDF4 tide files",
-    )
+    parser.add_argument('--gzip','-G',
+        default=False, action='store_true',
+        help='Compress output ascii and netCDF4 tide files')
+    # connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=1000,
+        help='Timeout in seconds for blocking operations')
     # Output log file in form
     # AVISO_FES_tides_2002-04-01.log
-    parser.add_argument(
-        "--log", "-l", default=False, action="store_true", help="Output log file"
-    )
+    parser.add_argument('--log','-l',
+        default=False, action='store_true',
+        help='Output log file')
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument(
-        "--mode",
-        "-M",
-        type=lambda x: int(x, base=8),
-        default=0o775,
-        help="Permission mode of directories and files downloaded",
-    )
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='Permission mode of directories and files downloaded')
     # return the parser
     return parser
 
@@ -516,26 +505,28 @@ def main():
 
     # AVISO FTP Server hostname
     HOST = "ftp-access.aviso.altimetry.fr"
-    # get AVISO FTP Server credentials
-    try:
-        args.user, _, PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
-    except:
-        # check that AVISO FTP Server credentials were entered
-        if not args.user:
-            prompt = f"Username for {HOST}: "
-            args.user = builtins.input(prompt)
+    # AVISO FTP Server hostname
+    HOST = 'ftp-access.aviso.altimetry.fr'
+    # get authentication
+    if not args.user and not args.netrc.exists():
+        # check that AVISO credentials were entered
+        args.user = builtins.input(f'Username for {HOST}: ')
         # enter password securely from command-line
-        prompt = f"Password for {args.user}@{HOST}: "
-        PASSWORD = getpass.getpass(prompt)
+        args.password = getpass.getpass(f'Password for {args.user}@{HOST}: ')
+    elif args.netrc.exists():
+        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(HOST)
+    elif args.user and not args.password:
+        # enter password securely from command-line
+        args.password = getpass.getpass(f'Password for {args.user}@{HOST}: ')
 
     # check internet connection before attempting to run program
-    if pyTMD.utilities.check_ftp_connection(HOST, args.user, PASSWORD):
+    if pyTMD.utilities.check_ftp_connection(HOST,args.user,args.password):
         for m in args.tide:
             aviso_fes_tides(
                 m,
                 DIRECTORY=args.directory,
                 USER=args.user,
-                PASSWORD=PASSWORD,
+                PASSWORD=args.password,
                 LOAD=args.load,
                 CURRENTS=args.currents,
                 GZIP=args.gzip,
