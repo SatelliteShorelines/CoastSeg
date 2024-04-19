@@ -75,6 +75,7 @@ nav:
   - Scripts:
       - How to Use Scripts: How-to-Use-Scripts.md
       - How to Use Apply Tidal Correction Script: Apply-Tidal_Correction_Script.md
+      - How to Flip Transects: How-to-Use-Flip-Transects.md
       # - CoastSeg: scripts-coastseg.md
       # - CoastSat: scripts-coastsat.md
       # - Zoo: model.md
