@@ -66,7 +66,7 @@ nav:
       - Extract Shorelines Settings Guide: extract_shoreline_settings.md
       - How to Download the Tide Model: How-to-Download-Tide-Model.md
       - How to Tidally Correct: How-to-Tidally-Correct.md
-      - How to Create Reference Shorelines & Transects: How-to-Create-Reference-Shorelines-&-Transects.md
+      - How to Create Reference Shorelines & Transects & ROIs: How-to-Create-Reference-Shorelines-&-Transects&ROIs.md
       - How to Filter Bad Imagery: How-to-Filter-Out-Bad-Imagery.md
       - How to Use the Config Files: config.md
   - API Reference:

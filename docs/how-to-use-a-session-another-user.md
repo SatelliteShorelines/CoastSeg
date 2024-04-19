@@ -30,8 +30,6 @@ If you have a session from another user you want to load into CoastSeg follow th
 
 ![warning missing rois loaded from session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/2c67676e-cf86-4493-884d-452bda356d26)
 
-
 - As you can see in the screenshot below the first ROI downloads all the missing imagery, while the second ROI which we had the downloaded data for only downloads a single image because 5 images already exist.
 
 ![partial download 2 rois](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/86de7b4a-51de-47b8-9a00-b9d903aded39)
-

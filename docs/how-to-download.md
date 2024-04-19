@@ -29,6 +29,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Click the `Generate ROIs` button. This action creates a grid of ROIs along the shoreline within the bounding box.
 
+- If you want to use your own custom ROIs follow the tutorial [How to Upload Features](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
+
   5.Select Desired ROIs:
 
 - After the ROIs appear on the map, select those for which you want to download satellite imagery.

@@ -1,4 +1,4 @@
-# Table of Contents
+To learn how to load these features in follow the guide at [How to Upload Features](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
 
 ## How to Create Reference Shoreline
 
@@ -60,7 +60,21 @@ In this example we will be creating a reference Shoreline for Fire Island in New
 ![how to add an id geojson io](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/b5be22e7-722c-4037-aac6-209a4eb692d7)
 </br>
 
-**2.Save the transects to a geoJSON file**
+**3.Save the a geoJSON file**
 
 ![save geojson transects](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9a9ccfae-96cd-49e9-b2fa-a53c48debfdb)
 
+## How to Create ROIs
+
+**1.Use the box tool in https://geojson.io/ to create a ROI**
+
+**2.Edit the geojson contents to give each ROI its own ID otherwise CoastSeg will automatically assign them**
+
+- This example shows how to do it with a transect but the process is the same for ROIs
+
+- Make your ROI ID follows the format <3 letters 1 number> example : fvk6
+
+![how to add an id geojson io](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/b5be22e7-722c-4037-aac6-209a4eb692d7)
+</br>
+
+**3.Save the a geoJSON file**
