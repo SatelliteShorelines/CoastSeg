@@ -12,27 +12,20 @@ You can access Google Earth Engine at https://signup.earthengine.google.com/. It
 
 ![google earth engine auth tutorial_v2](https://user-images.githubusercontent.com/61564689/211117527-6af9d55f-d5a9-4d1a-b64b-d98d8e61a253.gif)
 
-### If you're running coastseg locally:
-
-1. Activate coastseg environment by running the following command on the Anaconda Prompt:
+**1.Activate coastseg environment by running the following command on the Anaconda Prompt:**
 
 ```bash
 conda activate coastseg
 ```
 
-2. Launch the notebook in your coastseg environment
+**2.Launch the notebook in your coastseg environment**
 
 ```bash
 jupyter lab <notebook name>
 ```
 
-3.  Run the notebook cell containing the command `ee.Initialize()`.
-    <br> The `earthengine authenticate` program will cause a web browser will open, log in with a Gmail account, and accept the terms and conditions. Then copy the authorization code into the indicated cell block into the notebook.
-
-### If you're running coastseg in google colab:
-
-1.  Run the notebook cell containing the command `ee.Initialize()`.
-    <br> The `earthengine authenticate` program will cause a web browser will open, log in with a Gmail account, and accept the terms and conditions. Then copy the authorization code into the indicated cell block into the notebook.
+**3.Run the notebook cell containing the command `ee.Initialize()`.**
+<br> The `earthengine authenticate` program will cause a web browser will open, log in with a Gmail account, and accept the terms and conditions. Then copy the authorization code into the indicated cell block into the notebook.
 
 ### Errors with `gcloud`?
 
