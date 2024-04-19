@@ -37,6 +37,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Click `Download Imagery`. The imagery for the chosen ROIs (highlighted in blue) will be downloaded.
 
+- NEVER rename your ROIs this is because CoastSeg keeps track of the filename in the 'config.json' and you won't be able to load it into CoastSeg again if you do. The ROI's ID is the filename so that information will be lost if you rename it.
+
 ![create_rois_demo](https://user-images.githubusercontent.com/61564689/213065873-753a8b8c-eda7-45a6-96fb-d81b81cb54d2.gif)
 
 ## Understanding ROI (Region of Interest)
