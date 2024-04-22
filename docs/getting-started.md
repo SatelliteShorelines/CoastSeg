@@ -66,11 +66,11 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **5.Load Transects**
 
-![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
-
 - Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
 
 - If there isn't a reference shoreline or any transects available for your site check out the guide on how to upload your own [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
+
+![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
 **6.Modify the Settings**
 
@@ -86,7 +86,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **7.Name the Session**
 
-- Let's call this 'sample_session'
+- Let's call this 'demo_session'
 
 - This is the name of the folder that will be saved in `CoastSeg/sessions`
 
