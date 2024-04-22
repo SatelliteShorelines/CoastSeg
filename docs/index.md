@@ -16,11 +16,12 @@
 
 <img src="https://user-images.githubusercontent.com/61564689/212394936-263ec9fc-fb82-45b8-bc79-bc57dafdae73.gif" width="350" height="350">
 
-### Useful Links
+### Resources
 
-- [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
+- [Getting Started Guide](https://satelliteshorelines.github.io/CoastSeg/getting-started/)
+- [Wiki](https://satelliteshorelines.github.io/CoastSeg/)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Contribution Guide](https://github.com/SatelliteShorelines/CoastSeg/wiki/13.-%5BADVANCED%5D-Contribution-Guide)
+- [Contribution Guide](https://satelliteshorelines.github.io/CoastSeg/Contribution-Guide/)
 
 ## What is CoastSeg?
 
