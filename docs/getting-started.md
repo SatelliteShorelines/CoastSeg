@@ -38,10 +38,34 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **2.Authenticate with Google Earth Engine**
 
+- Run the cell located under 'Authenticate with Google Earth Engine (GEE)'
+
 ![auth_cell_cropped](https://github.com/Doodleverse/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
+
 **3.Draw an Bounding Box**
+
+- Draw a bounding box along the coast in this box is where ROIs will be created
+
+**Option 1: Draw a Bounding Box with the box tool**
+
+![draw_bbox](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/6b97866d-c54a-4c67-8383-530208fc643c)
+
+**Option 2: Draw a Bounding Box with the polygon tool**
+
+- This is useful if you have back - barrier shorelines that you don't want to include
+
+![draw_bbox_polygon_remove_back_barrier](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a63f023a-f9a8-4e48-9aca-bfa00dc262ea)
+
 **4.Generate ROI (Region of Interest)**
+
+- ROIs can only be generated along a shoreline
+
+- If no shoreline is found then an error message will appear telling you no ROIs can be created. If this happens create your own reference shoreline following the guide here [How to Create Reference Shoreline](https://satelliteshorelines.github.io/CoastSeg/How-to-Create-Reference-Shorelines-%26-Transects%26ROIs/)
+
+![generate_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/ade2123f-3ea6-4dc0-ac5b-15f5f758e220)
+
 **5.Load Transects**
+
 ![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
 - Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
@@ -58,6 +82,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Click `Save Settings`
 
+![save_settings_getting_started_circle](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c14c2e01-bb1f-43d2-b932-b0ccfb82a598)
+
 **7.Name the Session**
 
 - Let's call this 'sample_session'
@@ -65,6 +91,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 - This is the name of the folder that will be saved in `CoastSeg/sessions`
 
 - It will contain a subdirectory for each ROI that shorelines will be extracted for
+
+![save_demo_session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4340c734-e20d-4149-89c2-11e73d9905d3)
 
 **8.Download the ROIs**
 
