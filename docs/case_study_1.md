@@ -109,7 +109,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case study 1 session name circle](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/bd85acd1-0cdc-4eba-b3b6-75b0402bbb76)
 
-### 7.Preview the available Imagery
+### 8.Preview the available Imagery
 
 - Preview the amount of available imagery for the selected ROI between the dates
 
@@ -117,7 +117,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case study 1 preview imagery](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/db42fee9-682b-4e15-8470-b97a166e42a8)
 
-### 8.Download the ROI
+### 9.Download the ROI
 
 - Click the ROI you want to download on the map ( they will turn blue when selected)
 
@@ -127,7 +127,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case_study_1_download_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1a30f9c7-fc4d-4e34-a57b-055624ff8464)
 
-### 9.Sort the Downloaded Imagery
+### 10.Sort the Downloaded Imagery
 
 - Open Coastseg/data and open the folder containing the ROI ID, in my case thats 'tto3', so I opened 'CoastSeg\data\ID_tto3_datetime04-22-24\_\_03_47_52'
 
@@ -139,7 +139,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case_study_1_bad_sort](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/aaba59a9-9523-4419-a80c-9fa860491984)
 
-**10.Extract Shorelines**
+**11.Extract Shorelines**
 
 - Extracting shorelines works by finding the land water interface in the image and drawing a line along it
 
@@ -147,23 +147,57 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![shoreline_transect_intersection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e87b8d34-d9a4-4b1e-b3de-8e0be1c16ecd)
 
-### 11. Examine Detection Images for Extracted Shorelines
+### 12. Examine Detection Images for Extracted Shorelines
 
 - The detection images for the extracted shorelines is at 'CoastSeg\sessions\case_study_1\ID_cwm3_datetime04-22-24\_\_02_57_16\jpg_files\detection'
 
 - In these images you can see how well the shoreline were extracted depending on cloud cover, the size of the reference shoreline buffer and the rest of the extract shoreline settings
 
+- There are a few images with some bad shorelines. Lets remove those in step 13
+
 ![case_study_1_detection_images](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/5bd10163-77bc-4fb1-8669-394ddb8a5bf5)
+
+### 13. Remove Outlier/Bad Extracted Shorelines
+
+- Use the Load Extracted Shoreline feature to view all the extracted shorelines on the map
+
+- Find any bad shorelines and click the trash icon to put that shoreline in the trash
+
+- Once you've put all the bad shorelines in the trash click the empty trash button and this will delete all those shorelines from all the files in the session directory.
+
+![case_study_1_remove_outlier_shorelines](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9e0c1c60-de27-4f5c-a0ab-66eeb20e64ae)
+
+### 14. Open the Extracted Shoreline Session Outputs in QGIS
+
+**Config_gdf.geojson**
+
+- This screenshot show the contents of the config_gdf.geojson file in QGIS, you can see the ROI, the transects and the reference shoreline on the map
+
+![case_study_1_qgis_config_gdf](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/79ff037e-77e2-4fa8-a5d0-216f0e71da50)
+
+**extracted_shorelines_points.geojson & extracted_shorelines_lines.geojson**
+
+- This screenshot show the contents of the extracted_shorelines_points.geojson & extracted_shorelines_lines.geojson files in QGIS
+
+- These files contain the 2D shoreline vectors extracted directly from the satellite imagery. These are NOT the shoreline positions along the transects. The shoreline position along the transect is located in the timeseries files eg. raw_transect_time_series_points.geojson,raw_transect_time_series.csv,raw_transect_time_series_vectors.geojson,raw_transect_time_series_merged.csv
+
+![case_study_1_extracted_shoreline_pts_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/650fc2da-59fd-4ca6-98c2-b6c4ab080058)
+
+**raw_transect_time_series_points.geojson & raw_transect_time_series_vectors.geojson**
+
+- These files contain the shoreline positions along the transects. This is the geojson format of the 'raw_transect_time_series_merged.csv' and 'raw_transect_time_series.csv'
+
+![case_study_1_raw_timeseries_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/43a84621-e593-43b9-a535-b9e6d1c64db1)
 
 ## Apply Tidal Correction to Extracted Shorelines (Optional)
 
-**1.Download the tide model**
+### 1.Download the tide model
 
 - Before tidal correction can be applied the tide model must be downloaded
 
 - Follow the tutorial: [How to Download Tide Model](https://satelliteshorelines.github.io/CoastSeg/How-to-Download-Tide-Model/)
 
-**2.Load the Session with Extracted Shorelines**
+### 2.Load the Session with Extracted Shorelines
 
 - Re-open the jupyter notebook
 
@@ -171,11 +205,11 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![restart kernel and clear outputs of all cells](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a7d09bcb-6c35-48b2-b28a-a6821881e503)
 
-- Click 'Load Session' and load 'sample_session'
+- Click 'Load Session' and load 'case_study_1'
 
 ![select load session and tide correct](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/581f8b4a-062e-4326-9ae8-0145026fb9ad)
 
-**3.Click Correct Tides**
+### 3.Click Correct Tides
 
 - Click the ROI ID from the dropdown
 
@@ -185,6 +219,22 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Enter Beach Elevation relative to Mean Sea Level
 
-![select roi id for tide correction](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9e212590-1f1e-4c51-b223-2e49a329a524)
+![case_study_1_tide_correction](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/8091247b-ad1b-4233-b09f-81363dde1202)
 
 ![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
+
+### 4.View the Tidally Corrected TimeSeries in QGIS
+
+4 new files will be generated:
+
+- 1.'tidally_corrected_transect_time_series.csv'
+
+- 2.'tidally_corrected_transect_time_series_merged.csv'
+
+- 3.'tidally_corrected_transect_time_series_points.geojson'
+
+- 4.'tidally_corrected_transect_time_series_vectors.geojson'
+
+- This screenshot show the difference between the tidally_corrected_transect_time_series_vectors and raw_transect_time_series_vectors as you can see applying tidal correction shifts the raw shoreline position along the transect to account for the tide position
+
+![case_study_1_raw_and_tide_corrected_timeseries_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a232c79e-eb6c-42c8-bb1c-d90b28dd5d98)
