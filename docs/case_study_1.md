@@ -179,7 +179,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - This screenshot show the contents of the extracted_shorelines_points.geojson & extracted_shorelines_lines.geojson files in QGIS
 
-- These files contain the 2D shoreline vectors extracted directly from the satellite imagery. These are NOT the shoreline positions along the transects. The shoreline position along the transect is located in the timeseries files eg. raw_transect_time_series_points.geojson,raw_transect_time_series.csv,raw_transect_time_series_vectors.geojson,raw_transect_time_series_merged.csv
+- These files contain the 2D shoreline vectors extracted directly from the satellite imagery. These are NOT the shoreline positions along the transects. The shoreline position along the transect is located in the timeseries files eg. raw_transect_time_series_points.geojson,raw_transect_time_series.csv, raw_transect_time_series_vectors.geojson, raw_transect_time_series_merged.csv
 
 ![case_study_1_extracted_shoreline_pts_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/650fc2da-59fd-4ca6-98c2-b6c4ab080058)
 
@@ -227,13 +227,13 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 4 new files will be generated:
 
-- 1.'tidally_corrected_transect_time_series.csv'
+1.'tidally_corrected_transect_time_series.csv'
 
-- 2.'tidally_corrected_transect_time_series_merged.csv'
+2.'tidally_corrected_transect_time_series_merged.csv'
 
-- 3.'tidally_corrected_transect_time_series_points.geojson'
+3.'tidally_corrected_transect_time_series_points.geojson'
 
-- 4.'tidally_corrected_transect_time_series_vectors.geojson'
+4.'tidally_corrected_transect_time_series_vectors.geojson'
 
 - This screenshot show the difference between the tidally_corrected_transect_time_series_vectors and raw_transect_time_series_vectors as you can see applying tidal correction shifts the raw shoreline position along the transect to account for the tide position
 
