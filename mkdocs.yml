@@ -46,6 +46,8 @@ nav:
       - Basic Installation Guide: basic-install-guide.md
       - Secure Installation Guide: secure-install-guide.md
   - Getting Started: getting-started.md
+  - Case Studies:
+      - Case Study 1 Easy Location in Santa Cruz: case_study_1.md
   - Contributing:
       - Contribution Guide: Contribution-Guide.md
       - How to Run Test Scripts: contributing-run-tests.md
