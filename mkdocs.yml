@@ -68,7 +68,6 @@ nav:
       - How to Tidally Correct: How-to-Tidally-Correct.md
       - How to Create Reference Shorelines & Transects & ROIs: How-to-Create-Reference-Shorelines-&-Transects&ROIs.md
       - How to Filter Bad Imagery: How-to-Filter-Out-Bad-Imagery.md
-      - How to Use the Config Files: config.md
   - API Reference:
       - How to use CoastSeg API: CoastSeg-API-Guide.md
   - Zoo: models.md
