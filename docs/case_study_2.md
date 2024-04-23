@@ -1,9 +1,3 @@
-# Hey this Guide is Under Construction 🚧 👷‍♀️ 🚧
-
-## Check back later when we're finished!! 🏗️
-
-# 🚧 🚧 🚧 🚧 🚧 🚧 🚧 🚧 🚧
-
 For this case study we will select an difficult site located outside of Unalakleet Alaska.
 This site has a simple shoreline,lots of cloud cover, and not imagery available due to ice and clouds covering the region most of the year making it a difficult test site.
 
@@ -75,7 +69,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - This site does not have a shoreline available so we will have to make our own. Follow the tutorial at [How to Create Reference Shoreline](https://satelliteshorelines.github.io/CoastSeg/How-to-Create-Reference-Shorelines-%26-Transects%26ROIs/) for a guide on how to create your own reference shoreline
 
-- Here is a guide on how to upload your own [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/) transects
+- Here is a guide on how to upload your own [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
 
 - I used geojson.io to create my reference shoreline
 
@@ -85,7 +79,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Here is a guide on how to upload your own [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/) transects
 
-- I used geojson.io to create my transects
+- I used geojson.io to create my transects.This technique is in the tutorial [How to Create Reference Shoreline](https://satelliteshorelines.github.io/CoastSeg/How-to-Create-Reference-Shorelines-%26-Transects%26ROIs/)
 
 ![case_study_2_shoreline_transects_upload](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/cd780e5a-39f7-42ba-90ac-d632390c18dc)
 
@@ -123,7 +117,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Click `Save Settings`
 
-![case_study_1_save_settings](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/aef76b30-3677-417b-8d19-5313649cb877)
+![case_study_2_save_settings](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/b502e062-e518-4d26-8fa7-fe99de489693)
 
 ### 7.Name the Session
 
@@ -131,7 +125,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - This is the name of the folder that will be saved in `CoastSeg/sessions`
 
-![case study 1 session name circle](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/bd85acd1-0cdc-4eba-b3b6-75b0402bbb76)
+![case_study_2_session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/be91a824-66ac-4232-8a68-99160eca6ba6)
 
 ### 8.Preview the available Imagery
 
@@ -145,11 +139,13 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Our study site has a small pond located along the shoreline that will get picked up in the reference shoreline buffer and the pond's water land interface will get misidentified as a shoreline
 
-- To get around this issue we have 2 options:
+To get around this issue we have 2 options:
 
-  1. Shrink the reference shoreline buffer
-     -- This would probably be the best solution for this specific, but if you have a dynamic coastline this may not be the best solution for you
-  2. Add a shoreline extraction area
+1.Shrink the reference shoreline buffer
+
+-- This would probably be the best solution for this specific, but if you have a dynamic coastline this may not be the best solution for you
+
+2.Add a shoreline extraction area
 
 **Example of Bad Shoreline**
 
@@ -306,7 +302,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![restart kernel and clear outputs of all cells](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a7d09bcb-6c35-48b2-b28a-a6821881e503)
 
-- Click 'Load Session' and load 'case_study_1'
+- Click 'Load Session' and load 'case_study_2'
 
 ![select load session and tide correct](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/581f8b4a-062e-4326-9ae8-0145026fb9ad)
 
@@ -322,7 +318,9 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case_study_1_tide_correction](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/8091247b-ad1b-4233-b09f-81363dde1202)
 
-![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
+**Example**
+
+![case_study_2_correct_tides](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/19276668-3285-43a8-bfb0-7ca1edb165cd)
 
 ### 4.View the Tidally Corrected TimeSeries in QGIS
 
@@ -338,4 +336,4 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - This screenshot show the difference between the tidally_corrected_transect_time_series_vectors and raw_transect_time_series_vectors as you can see applying tidal correction shifts the raw shoreline position along the transect to account for the tide position
 
-![case_study_1_raw_and_tide_corrected_timeseries_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a232c79e-eb6c-42c8-bb1c-d90b28dd5d98)
+![case_study_2_raw_and_tide_corrected_timeseries_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/59df41c7-2692-4f81-bd3a-cd997b2f7c37)
