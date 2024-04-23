@@ -87,6 +87,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - I used geojson.io to create my transects
 
+![case_study_2_gen_and_download_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e8755f13-e2ef-45e4-a22f-42a2d46b150a)
+
 ### 6.Modify the Settings
 
 - Change the satellites to L8 and L9
