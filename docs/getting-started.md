@@ -94,7 +94,15 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![save_demo_session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4340c734-e20d-4149-89c2-11e73d9905d3)
 
-**8.Download the ROIs**
+**8.Preview the available Imagery**
+
+- Preview the amount of available imagery for the selected ROI between the dates
+
+- In this example ROI 'cwm3' has 18 images available from LandSat 8 and 16 images available from LandSat 9 for the date range
+
+![case study 1 preview imagery](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/db42fee9-682b-4e15-8470-b97a166e42a8)
+
+**9.Download the ROIs**
 
 - Click the ROIs you want to download on the map ( they will turn blue when selected)
 
@@ -102,7 +110,9 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - NEVER rename your ROIs this is because CoastSeg keeps track of the filename in the 'config.json' and you won't be able to load it into CoastSeg again if you do. The ROI's ID is the filename so that information will be lost if you rename it.
 
-**9.Extract Shorelines**
+![case_study_1_download_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1a30f9c7-fc4d-4e34-a57b-055624ff8464)
+
+**10.Extract Shorelines**
 ![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
 
 - Extracting shorelines works by finding the land water interface in the image and drawing a line along it

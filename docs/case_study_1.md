@@ -111,7 +111,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Preview the amount of available imagery for the selected ROI between the dates
 
-- It will contain a subdirectory for the ROI that shorelines will be extracted for 12/01/2023 - 03/01/2024
+- In this example ROI 'cwm3' has 18 images available from LandSat 8 and 16 images available from LandSat 9 for 12/01/2023 - 03/01/2024
 
 ![case study 1 preview imagery](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/db42fee9-682b-4e15-8470-b97a166e42a8)
 
