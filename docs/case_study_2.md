@@ -232,6 +232,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![shoreline_transect_intersection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e87b8d34-d9a4-4b1e-b3de-8e0be1c16ecd)
 
+![case_study_2_extract_shorelines](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/36e15597-65fc-4932-be4b-52b0c773fc9d)
+
 ### 13. Examine Detection Images for Extracted Shorelines
 
 - The detection images for the extracted shorelines is at 'CoastSeg\sessions\case_study_2\
@@ -240,7 +242,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - There are a few images with some bad shorelines. Lets remove those in step 13
 
-![case_study_1_detection_images](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/5bd10163-77bc-4fb1-8669-394ddb8a5bf5)
+![case_study_2_shoreline_detection_folder](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/60047725-e759-4aa7-b2ba-e3100a107c9a)
 
 ### 14. Remove Outlier/Bad Extracted Shorelines
 
@@ -250,7 +252,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Once you've put all the bad shorelines in the trash click the empty trash button and this will delete all those shorelines from all the files in the session directory.
 
-![case_study_1_remove_outlier_shorelines](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9e0c1c60-de27-4f5c-a0ab-66eeb20e64ae)
+![case_study_2_remove_outllier_shorelines](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/00bd9398-1a35-42f0-8c0a-8d2dac09c5c6)
 
 ### 15. Adjust the Settings to Extract Better shorelines
 
@@ -266,7 +268,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - This screenshot show the contents of the config_gdf.geojson file in QGIS, you can see the ROI, the transects and the reference shoreline on the map
 
-![case_study_1_qgis_config_gdf](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/79ff037e-77e2-4fa8-a5d0-216f0e71da50)
+![case_study_2_config_gdf](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/6141c888-4b27-464d-8a88-27a193ac9502)
 
 **extracted_shorelines_points.geojson & extracted_shorelines_lines.geojson**
 
@@ -274,13 +276,19 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - These files contain the 2D shoreline vectors extracted directly from the satellite imagery. These are NOT the shoreline positions along the transects. The shoreline position along the transect is located in the timeseries files eg. raw_transect_time_series_points.geojson,raw_transect_time_series.csv, raw_transect_time_series_vectors.geojson, raw_transect_time_series_merged.csv
 
-![case_study_1_extracted_shoreline_pts_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/650fc2da-59fd-4ca6-98c2-b6c4ab080058)
+**Zoomed Out 2D Extracted Shorelines as Points and Lines**
+
+![case_study_2_extracted_shorelines_points](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/8030612c-ed83-43bd-92f8-f8bd8c0cf592)
+
+**Zoomed In 2D Extracted Shorelines as Points and Lines**
+
+![case_study_2_extracted_shorelines_points_zoomed_in](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9d5d17d7-1a20-4282-a0cb-01fedb6febf5)
 
 **raw_transect_time_series_points.geojson & raw_transect_time_series_vectors.geojson**
 
 - These files contain the shoreline positions along the transects. This is the geojson format of the 'raw_transect_time_series_merged.csv' and 'raw_transect_time_series.csv'
 
-![case_study_1_raw_timeseries_qgis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/43a84621-e593-43b9-a535-b9e6d1c64db1)
+![case_study_2_timeseries_extracted_shorelines_points](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/8f82e270-92c5-4607-b5d9-475226a04346)
 
 ## Apply Tidal Correction to Extracted Shorelines (Optional)
 
