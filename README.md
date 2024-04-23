@@ -186,19 +186,39 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **2.Authenticate with Google Earth Engine**
 
+- Run the cell located under 'Authenticate with Google Earth Engine (GEE)'
+
 ![auth_cell_cropped](https://github.com/Doodleverse/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
 
 **3.Draw an Bounding Box**
 
+- Draw a bounding box along the coast in this box is where ROIs will be created
+
+**Option 1: Draw a Bounding Box with the box tool**
+
+![draw_bbox](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/6b97866d-c54a-4c67-8383-530208fc643c)
+
+**Option 2: Draw a Bounding Box with the polygon tool**
+
+- This is useful if you have back - barrier shorelines that you don't want to include
+
+![draw_bbox_polygon_remove_back_barrier](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a63f023a-f9a8-4e48-9aca-bfa00dc262ea)
+
 **4.Generate ROI (Region of Interest)**
 
-**5.Load Transects**
+- ROIs can only be generated along a shoreline
 
-![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
+- If no shoreline is found then an error message will appear telling you no ROIs can be created. If this happens create your own reference shoreline following the guide here [How to Create Reference Shoreline](https://satelliteshorelines.github.io/CoastSeg/How-to-Create-Reference-Shorelines-%26-Transects%26ROIs/)
+
+![generate_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/ade2123f-3ea6-4dc0-ac5b-15f5f758e220)
+
+**5.Load Transects**
 
 - Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
 
 - If there isn't a reference shoreline or any transects available for your site check out the guide on how to upload your own [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
+
+![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
 **6.Modify the Settings**
 
@@ -210,15 +230,26 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Click `Save Settings`
 
+![save_settings_getting_started_circle](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c14c2e01-bb1f-43d2-b932-b0ccfb82a598)
+
 **7.Name the Session**
 
-- Let's call this 'sample_session'
+- Let's call this 'demo_session'
 
 - This is the name of the folder that will be saved in `CoastSeg/sessions`
 
 - It will contain a subdirectory for each ROI that shorelines will be extracted for
 
-**8.Download the ROIs**
+![save_demo_session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4340c734-e20d-4149-89c2-11e73d9905d3)
+
+**8.Preview the available Imagery**
+
+- Preview the amount of available imagery for the selected ROI between the dates
+
+![case study 1 preview imagery](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/db42fee9-682b-4e15-8470-b97a166e42a8)
+
+
+**9.Download the ROIs**
 
 - Click the ROIs you want to download on the map ( they will turn blue when selected)
 
@@ -226,8 +257,10 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - NEVER rename your ROIs this is because CoastSeg keeps track of the filename in the 'config.json' and you won't be able to load it into CoastSeg again if you do. The ROI's ID is the filename so that information will be lost if you rename it.
 
-**9.Extract Shorelines**
+![case_study_1_download_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1a30f9c7-fc4d-4e34-a57b-055624ff8464)
 
+
+**10.Extract Shorelines**
 ![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
 
 - Extracting shorelines works by finding the land water interface in the image and drawing a line along it
@@ -235,6 +268,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 - A time series of shoreline position along each transect is generated as well
 
 ![shoreline_transect_intersection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e87b8d34-d9a4-4b1e-b3de-8e0be1c16ecd)
+
 
 ## Apply Tidal Correction to Extracted Shorelines (Optional)
 
@@ -269,7 +303,6 @@ jupyter lab SDS_coastsat_classifier.ipynb
 ![select roi id for tide correction](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9e212590-1f1e-4c51-b223-2e49a329a524)
 
 ![load_session_correct_tides_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d7a34d13-7c01-4a30-98b3-706a63195aa7)
-
 
 # CoastSeg Update Guide
 
