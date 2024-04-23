@@ -26,6 +26,9 @@ theme:
         icon: material/brightness-4
         name: Switch to dark mode
 
+plugins:
+  - search
+
 markdown_extensions:
   - admonition
   - abbr
