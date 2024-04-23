@@ -113,6 +113,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Turn off the Apply Cloud Mask
 
+  -- The cloud mask being off does not impact whether images are filtered out during the download process it only controls if the clouds are blotted off the images.
+
   -- The reason for this is that Alaska is very cloudy and often light clouds will be masked out close to the shoreline causing gaps in the shoreline due to the cloud distance threshold. If we don't mask out the clouds then we get a few more usable images
 
   -- In this example you can see the clouds where masked out in this image but these clouds were onshore so they would not have interfered with the cloud masking. However, the cloud masking was turned on and the 'cloud distance' parameter which removes any shorelines within 'cloud distance' to a cloud causes there to be gaps in the shoreline. You could lower cloud distance to something like 10-20m to fix this or turn off cloud masking
@@ -141,19 +143,35 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ### 9.Add a Shoreline Extraction Area
 
+- Our study site has a small pond located along the shoreline that will get picked up in the reference shoreline buffer and the pond's water land interface will get misidentified as a shoreline
+
+- To get around this issue we have 2 options:
+
+  1. Shrink the reference shoreline buffer
+     -- This would probably be the best solution for this specific, but if you have a dynamic coastline this may not be the best solution for you
+  2. Add a shoreline extraction area
+
+- In this image below you can see the pond's water land interface gets misidentified as part of the shoreline
+
+![case_study_2_why_shoreline_extraction_area_needed_pond](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/8c41a33a-722d-433b-a5da-b6b0667b9078)
+
+- Draw a shoreline extraction area that does not include the pond
+
+![case_study_2_shoreline_extraction_area](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/ad299a2e-1567-4cb1-962c-ee08638b0c43)
+
 ### 10.Download the ROI
 
 - Click the ROI you want to download on the map ( they will turn blue when selected)
 
 - Because we set the cloud threshold to 60% and the percent of bad pixels to 66% you can see that several downloads were skipped because they exceeded the limits
 
-- When the download finishes CoastSeg will print the location where the downloads were saved in this case its 'CoastSeg\data\ID_tto3_datetime04-22-24\_\_03_47_52'
+- When the download finishes CoastSeg will print the location where the downloads were saved in this case its 'pgj2''CoastSeg\data\ID_pgj2_datetime04-22-24\_\_09_38_49'
 
 ![case_study_2_gen_and_download_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e8755f13-e2ef-45e4-a22f-42a2d46b150a)
 
 ### 11.Sort the Downloaded Imagery
 
-- Open Coastseg/data and open the folder containing the ROI ID, in my case thats 'tto3', so I opened 'CoastSeg\data\ID_tto3_datetime04-22-24\_\_03_47_52'
+- Open Coastseg/data and open the folder containing the ROI ID, in my case thats 'pgj2', so I opened 'CoastSeg\data\ID_pgj2_datetime04-22-24\_\_09_38_49'
 
 - You can see the ROI ID in the hover menu located to the top right of the map
 
@@ -161,9 +179,14 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Sort any bad images into the 'bad folder'
 
-| Images                                                                                                                                 | Sample Image                                                                                                                          |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| ![case_study_2_sea_ice_bad_sort](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1559cec9-755a-41a5-b6ba-a87c33992220) | ![case_study_2_sea_ice_example](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/eaf9ede6-cbed-4760-9225-cf020fc58b4e) |
+- Sort out images with snow, sea ice, or cloud cover
+
+| Images                                                                                                                                  | Sample Image                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| ![case_study_2_sea_ice_bad_sort](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1559cec9-755a-41a5-b6ba-a87c33992220)  | ![case_study_2_sea_ice_example](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/eaf9ede6-cbed-4760-9225-cf020fc58b4e) |
+| Filter out images with sea ice and snow                                                                                                 |                                                                                                                                       |
+| ![case_study_2_sample_cloud_imgs](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/692b8742-2966-474b-9b41-94f1ff25278f) | ![case_study_2_bad_cloud](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/de0aedd2-4b9e-4d43-a533-dd31fd77360c)       |
+| Filter out images with clouds                                                                                                           |
 
 **Why is Sea Ice Bad for Extracting Shorelines?**
 
@@ -185,9 +208,13 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Clouds getting misclassified as shorelines is the reason behind why we typically mask out clouds
 
-![case_study_2_clouds_bad_detection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1bc345b4-4a68-450d-bc24-e125309b4b1b)
+| Bad Shoreline Detection Due to Clouds                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------ |
+| ![case_study_2_clouds_bad_detection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1bc345b4-4a68-450d-bc24-e125309b4b1b) |
+| ![case_study_2_bad_clouds1](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/ae7b6283-6ec5-4931-a56d-a99935815327)          |
+| ![case_study_2_bad_clouds2](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/cb64bc8a-e1ab-4cfd-95a1-933e5f2ba156)          |
 
-**12.Extract Shorelines**
+### 12.Extract Shorelines
 
 - Extracting shorelines works by finding the land water interface in the image and drawing a line along it
 
@@ -197,7 +224,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ### 13. Examine Detection Images for Extracted Shorelines
 
-- The detection images for the extracted shorelines is at 'CoastSeg\sessions\case_study_1\ID_cwm3_datetime04-22-24\_\_02_57_16\jpg_files\detection'
+- The detection images for the extracted shorelines is at 'CoastSeg\sessions\case_study_2\
 
 - In these images you can see how well the shoreline were extracted depending on cloud cover, the size of the reference shoreline buffer and the rest of the extract shoreline settings
 
