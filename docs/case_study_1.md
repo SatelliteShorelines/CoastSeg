@@ -97,8 +97,6 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Click `Save Settings`
 
-![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
-
 ![case_study_1_save_settings](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/aef76b30-3677-417b-8d19-5313649cb877)
 
 ### 7.Name the Session
