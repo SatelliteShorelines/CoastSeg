@@ -1,3 +1,9 @@
+# Hey this Guide is Under Construction 🚧 👷‍♀️ 🚧
+
+## Check back later when we're finished!! 🏗️
+
+# 🚧 🚧 🚧 🚧 🚧 🚧 🚧 🚧 🚧
+
 # The CoastSeg Zoo Workflow
 
 This workflow can be found in the 'SDS_zoo_classifier.ipynb' notebook. It is still under active development so use it at your own risk.
