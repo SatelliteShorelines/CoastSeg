@@ -27,9 +27,11 @@
 
 ### Useful Links
 
-- [Wiki](https://github.com/SatelliteShorelines/CoastSeg/wiki)
+- [Getting Started Guide](https://satelliteshorelines.github.io/CoastSeg/getting-started/)
+- [Wiki](https://satelliteshorelines.github.io/CoastSeg/)
 - [Discussion](https://github.com/SatelliteShorelines/CoastSeg/discussions)
-- [Contribution Guide](https://github.com/Doodleverse/CoastSeg/wiki/13.-%5BADVANCED%5D-Contribution-Guide)
+- [Contribution Guide](https://satelliteshorelines.github.io/CoastSeg/Contribution-Guide/)
+
 
 ## What is CoastSeg?
 
