@@ -151,13 +151,23 @@ jupyter lab SDS_coastsat_classifier.ipynb
      -- This would probably be the best solution for this specific, but if you have a dynamic coastline this may not be the best solution for you
   2. Add a shoreline extraction area
 
+**Example of Bad Shoreline**
+
 - In this image below you can see the pond's water land interface gets misidentified as part of the shoreline
 
 ![case_study_2_why_shoreline_extraction_area_needed_pond](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/8c41a33a-722d-433b-a5da-b6b0667b9078)
 
+**How to Draw a Shoreline Extraction Area**
+
 - Draw a shoreline extraction area that does not include the pond
 
-![case_study_2_shoreline_extraction_area](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/ad299a2e-1567-4cb1-962c-ee08638b0c43)
+![case_study_2_shoreline_extraction_area](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/6c239b43-fdf4-4236-8021-56125b18ee0e)
+
+**Example of Good Shoreline from New Shoreline Extraction Area**
+
+- Here is what the shoreline detection image will look like with this new shoreline extraction area
+
+![case_study_2_good_shoreline_extraction_area](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/478b38bf-8fae-44b0-a1d8-23570357357f)
 
 ### 10.Download the ROI
 
