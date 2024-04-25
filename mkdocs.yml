@@ -48,6 +48,7 @@ nav:
   - Installation:
       - Basic Installation Guide: basic-install-guide.md
       - Secure Installation Guide: secure-install-guide.md
+      - Update Guide: update-guide.md
   - Getting Started: getting-started.md
   - Case Studies:
       - Case Study 1 An Easy Location in Santa Cruz: case_study_1.md
