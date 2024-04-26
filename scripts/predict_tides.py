@@ -577,6 +577,9 @@ def load_regions_from_geojson(geojson_path: str) -> gpd.GeoDataFrame:
     Returns:
     - gpd.GeoDataFrame: A GeoDataFrame containing the loaded regions with an added 'region_id' column.
     """
+    print(f"Loading regions from GeoJSON file: {geojson_path}")
+    if not os.path.exists(geojson_path):
+        raise FileNotFoundError(f"GeoJSON file not found: {geojson_path}")
     gdf = gpd.read_file(geojson_path)
     gdf["region_id"] = gdf.index
     return gdf
@@ -825,10 +828,19 @@ def parse_arguments() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description="Script to correct tides.")
     # DEFAULT LOCATIONS OF FES 2014 TIDE MODEL
-
-    MODEL_REGIONS_GEOJSON_PATH = get_location("tide_regions_map.geojson")
-    FES_2014_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
-
+    
+    try:
+        MODEL_REGIONS_GEOJSON_PATH = get_location("tide_regions_map.geojson")
+    except FileNotFoundError as e:
+        print("Model regions geojson file not found at the default location. Please provide the path manually.")
+        MODEL_REGIONS_GEOJSON_PATH = ""
+    try:
+        FES_2014_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
+    except FileNotFoundError as e:
+        print("FES 2014 tide model not found at the default location. Please provide the path manually.")
+        FES_2014_MODEL_PATH = ""
+        
+        
     parser.add_argument(
         "-C",
         "-c",
@@ -903,6 +915,18 @@ def main():
     TIDE_PREDICTIONS_FILE_NAME = args.predictions
     MODEL_REGIONS_GEOJSON_PATH = args.regions
     FES_2014_MODEL_PATH = args.model
+    
+    if not os.path.exists(GEOJSON_FILE_PATH):
+        raise FileNotFoundError(f"GeoJSON file not found: {GEOJSON_FILE_PATH}")
+    
+    if not os.path.exists(FES_2014_MODEL_PATH):
+        raise FileNotFoundError(f"FES 2014 model directory not found: {FES_2014_MODEL_PATH}")
+        
+    if not os.path.exists(MODEL_REGIONS_GEOJSON_PATH):
+        raise FileNotFoundError(f"Model regions directory not found: {MODEL_REGIONS_GEOJSON_PATH}")
+    
+    if not os.path.exists(RAW_TIMESERIES_FILE_PATH):
+        raise FileNotFoundError(f"Time series data file not found: {RAW_TIMESERIES_FILE_PATH}")
 
     tide_model_config = setup_tide_model_config(FES_2014_MODEL_PATH)
 
