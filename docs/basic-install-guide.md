@@ -52,10 +52,9 @@ We highly recommend you install CoastSeg using `conda` following the instruction
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
 3. Install Conda Dependencies
-   - CoastSeg requires `jupyterlab` and `geopandas` to function properly so they will be installed in the `coastseg` environment.
+   - CoastSeg requires `geopandas` to function properly so they will be installed in the `coastseg` environment.
    - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
-   - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version.
-   - Make sure to install both jupyterlab and geopandas from the conda forge channel to avoid dependency conflicts
+   - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version and to avoid dependency conflicts
      ```bash
      conda install -c conda-forge geopandas -y
      ```
