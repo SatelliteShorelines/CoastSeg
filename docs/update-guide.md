@@ -72,7 +72,8 @@ Use the following command to update CoastSeg. This command will fetch the latest
 ```
 
 2. **Install jsonschema**
-   - This is necessary to run coastseg in a jupyter notebook.
+
+   -This is necessary to run coastseg in a jupyter notebook.
 
 ```bash
  pip install jsonschema==4.19.0 --user
@@ -86,14 +87,15 @@ Use the following command to update CoastSeg. This command will fetch the latest
 
 ### Step 1: Open CoastSeg in Anaconda
 
-1.  Open Anaconda Prompt
-2.  Activate the coastseg environment
+1.Open Anaconda Prompt
+
+2.Activate the coastseg environment
 
 ```bash
   conda activate coastseg
 ```
 
-3. Go to your coastseg location
+3.Go to your coastseg location
 
 ```bash
 cd <coastseg location>
@@ -132,7 +134,7 @@ git remote -v
 
 3.  Run the command below:
 
-- **WARNING** This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
+-**WARNING** This will clear out anything you have written to the `certifications.json` make sure to save that file to a new location then move it back when you're done upgrading
 
 ```
        git fetch origin
