@@ -105,8 +105,7 @@ If you didn't install the tide model in the default location you will need to mo
 
 - Description: Path to the FES 2014 tide model directory.
 - Example: `-M "c:\coastseg\tide_model"`
-- `FES_2014_MODEL_PATH`: Path to the FES 2014 tide model, by default attempts to load from `coastseg\tide_model` if you installed the tide_model from
-  step 3 in a different location modify this variable to have the full location to the directory containing the clipped 2014 fes tide model.
+- `FES_2014_MODEL_PATH`: Path to the FES 2014 tide model, by default attempts to load from `coastseg\tide_model` if you installed the tide_model from in a different location then CoastSeg/tide_model then modify this variable to have the full location to the directory containing the clipped 2014 fes tide model.
 
 ### Running the script:
 
