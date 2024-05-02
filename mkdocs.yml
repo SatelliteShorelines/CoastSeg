@@ -58,6 +58,7 @@ nav:
       - How to Run Test Scripts: contributing-run-tests.md
       - How to Add a New Workflow: contribute-a-workflow.md
       - Getting Started to Contribute: Getting-Started_to_contribute.md
+      - How to Contribute Transects: contribute-transects.md
       # - Technical Documentation: technical-documentation.md
   - Tutorials:
       - How to authenticate with Google Earth Engine: how-to-auth.md
