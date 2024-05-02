@@ -23,7 +23,7 @@ def test_imports():
     from coastseg import extracted_shoreline
     from coastseg import factory
     from coastseg import map_UI
-    from coastseg import models_UI
+    # from coastseg import models_UI # until zoo is released don't try importing this mostly because mac os and tensorflow are not compatible right now
 
 def test_init_coastseg_map_no_map():
     coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
