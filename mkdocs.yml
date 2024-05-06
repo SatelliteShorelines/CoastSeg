@@ -48,6 +48,7 @@ nav:
   - Installation:
       - Basic Installation Guide: basic-install-guide.md
       - Secure Installation Guide: secure-install-guide.md
+      - Mac Installation Guide: mac-install-guide.md
       - Update Guide: update-guide.md
   - Getting Started: getting-started.md
   - Case Studies:
