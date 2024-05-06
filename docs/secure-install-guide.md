@@ -170,15 +170,15 @@ ssl_verify: C:\Users\uname\Documents\cacert_with_doi.pem
 
 #### Phase 3: Install CoastSeg Normally
 
-Now that pip is working, follow the rest of the installation instructions located on coastseg's front page. https://github.com/Doodleverse/CoastSeg
+Now that pip is working, follow the rest of the installation instructions located at [Basic Install Guide](https://satelliteshorelines.github.io/CoastSeg/basic-install-guide/)
 
 ##### Step 2: Configure CoastSeg for a Secure Network
 
 To use coastseg on a secure network you need to add the location of the certification file for your network in the `certifications.json` file.
 
-1. Open the `certifications.json` file
+**1.Open the `certifications.json` file**
 
-   This file is located in the main CoastSeg directory
+This file is located in the main CoastSeg directory
 
 ```
 ├── CoastSeg
@@ -196,17 +196,17 @@ To use coastseg on a secure network you need to add the location of the certific
 
 ```
 
-![configuation_json](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/fedfa2f7-8c83-4080-b55b-481514d4e40a)
+![cert_path_screenshot](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/fb1f5b3d-f0be-43ea-9ccf-89c134b90b6f)
 
-2. Modify `cert_path` to have the full path to your cert file.
+**2.Modify `cert_path` to have the full path to your cert file.**
 
 - Windows Users: Make sure to replace each `\` with `\\`
 
 Here is an example of the full path to a cert file.
 
-<img width="700" alt="image" src="https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/fdd61b34-b3a4-4105-be93-1284c9ec56da">
+<img width="451" alt="full_cert_path_ing" src="https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a6147244-b337-4f3a-9659-7b6bf0d3869e">
 
-3. That's it. You're done! 🎊
+**3.That's it. You're done! 🎊**
 
 # WSL SetUp Over a Secure Network
 
