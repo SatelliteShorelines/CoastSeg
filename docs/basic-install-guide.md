@@ -61,8 +61,8 @@ conda activate coastseg
 - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
 - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version and to avoid dependency conflicts
   `bash
- conda install -c conda-forge geopandas -y
- `
+conda install -c conda-forge geopandas -y
+`
   **4.Install the CoastSeg from PyPi**
 
 ```bash
@@ -86,7 +86,7 @@ conda install -c conda-forge h5py -y
 
 ```bash
 pip install tensorflow
-pip uninstall transformers
+pip install transformers
 ```
 
 ## **Having Installation Errors?**
