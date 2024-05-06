@@ -4,20 +4,14 @@ Please refer to the [installation guide](https://github.com/Doodleverse/CoastSeg
 
 ## Mac users
 
-CoastSeg requires Tensorflow (TF), which doesn't play nicely with Mac. We advise you to use either Linux or Windows, if you can. We cannot troubleshoot Mac installations, but we can offer the following advice:
-
-- TF for mac has its own instructions: https://developer.apple.com/metal/tensorflow-plugin/
-- New Mac silicon runs TF, (and has its own TF branch), but the old intel Mac chips might not work with parts of TF.
-- We are not sure if TF is compatible with M2 macs
-- Our continuous integration tests check only the 'latest' version of Mac OS.
-- If you get a working installation on Mac, please let us know, and we can edit these pages to communicate better advice. Thanks in advance
+CoastSeg requires Tensorflow (TF), which doesn't play nicely with Mac. Please see [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/) for more details.
 
 ## Users working over secure network
 
 First, some notes:
 
-- ⚠️ The CoastSeg team is aware of issues with installing CoastSeg's conda dependencies ⚠️
-- ⚠️The following instructions are valid as of 2023-09-12. If this proposed solution fails for you, please create a new [Issue](https://github.com/SatelliteShorelines/CoastSeg/issues) ⚠️)
+- ⚠️ The CoastSeg team is aware of issues with installing CoastSeg's conda dependencies⚠️
+- ⚠️The following instructions are valid as of 2023-09-12. If this proposed solution fails for you, please create a new [Issue](https://github.com/SatelliteShorelines/CoastSeg/issues) ⚠️
 - ⚠️ Where possible, we advise you install the initial Coastseg conda environment not over a secure network. If and _ONLY_ if that is not possible, please follow the instructions posted below carefully
 - If you are running these commands on a secure network verify you are connected to your VPN before running the following commands
 - if you get an SSL error while running any of the `conda install` commands try the following command
