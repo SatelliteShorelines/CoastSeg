@@ -64,6 +64,7 @@ nav:
   - Tutorials:
       - How to authenticate with Google Earth Engine: how-to-auth.md
       - How to Use the Map: map_guide.md
+      - How to Edit the Reference Shorelines: edit_reference_shorelines.md
       - How to use the ROI: roi.md
       - How to Download Imagery: how-to-download.md
       - Download Settings Guide: download_settings.md
