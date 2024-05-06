@@ -10,7 +10,7 @@ You can access Google Earth Engine at https://signup.earthengine.google.com/. It
 
 ## How to authenticate with Google Earth Engine(GEE) in a coastseg notebook
 
-![google earth engine auth tutorial_v2](https://user-images.githubusercontent.com/61564689/211117527-6af9d55f-d5a9-4d1a-b64b-d98d8e61a253.gif)
+![google earth engine auth tutorial_v2](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/46a55b5e-c744-4b08-9d4f-8e3b84da9cc7)
 
 **1.Activate coastseg environment by running the following command on the Anaconda Prompt:**
 
