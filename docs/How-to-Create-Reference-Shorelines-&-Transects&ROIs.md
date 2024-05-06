@@ -13,7 +13,7 @@ In this example we will be creating a reference Shoreline for Fire Island in New
 3.  Digitize the shoreline from the imagery
 4.  Save the shorelines in crs 'epsg:4326'
 
-  <img src="https://github.com/Doodleverse/CoastSeg/assets/61564689/51450c7b-6003-46bb-a3c8-3590dc09891e" alt="QGIS screenshot" width="850" height="480">
+  <img src="https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4366bcec-c523-4e70-86b6-f5df74b72346" alt="QGIS screenshot" width="850" height="480">
 
 ## Option 2: How to Create Reference Shorelines in geojson.io
 
@@ -38,14 +38,14 @@ In this example we will be creating a reference Shoreline for Fire Island in New
 3. Scroll down to the bottom and click the reference shoreline file
 4. click select to load the reference shoreline on the map
 
-![load_shoreline_file_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/3de0b48d-3b3c-4e45-a980-931a73a47298)
+![load_shoreline_file_demo](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c725b8a8-9232-4a2b-b58a-209cf97dd116)
 
 ## How to Create Transects
 
 ### Option 1: Create Transects in QGIS
 
 - The guide below demonstrates how to create transects that you can load into Coastseg. It was created by Catherine Janda & Sharon Fitzpatrick
-  [Create your own transects in QGIS.docx](https://github.com/Doodleverse/CoastSeg/files/13925675/Create.your.own.transects.in.QGIS.docx)
+  [Create.your.own.transects.in_QGIS.docx](https://github.com/SatelliteShorelines/CoastSeg/files/15227516/Create.your.own.transects.in_QGIS.docx)
 
 ### Option 2: Create Transects in geojson.io
 
