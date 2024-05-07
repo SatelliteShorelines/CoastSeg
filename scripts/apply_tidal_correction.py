@@ -244,6 +244,13 @@ def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
         GeoDataFrame: The ordered GeoDataFrame with linestrings.
 
     """
+    gdf = gdf.copy()
+    # Convert to the output CRS
+    if gdf.crs is not None:
+        gdf.to_crs(output_crs, inplace=True)
+    else:
+        gdf.set_crs(output_crs, inplace=True)
+        
     all_points = [shapely.get_coordinates(p) for p in gdf.geometry]
     lines = []
     for points in all_points:
@@ -273,6 +280,7 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326')
     linestrings = grouped_gdf.groupby(group_col).apply(lambda g: LineString(g.geometry.tolist()))
 
     # Create a new GeoDataFrame from the LineStrings
+    linestrings.to_crs(output_crs, inplace=True)
     linestrings_gdf = gpd.GeoDataFrame(linestrings, columns=['geometry'], crs=output_crs)
     linestrings_gdf.reset_index(inplace=True)
     
@@ -327,6 +335,8 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         print("No points were found on the transects. Skipping the creation of the transect_time_series_points.geojson and transect_time_series_vectors.geojson files")
         return merged_timeseries_df,timeseries_df
     
+    # convert the cross shore points to crs 4326 before converting to linestrings
+    cross_shore_pts.to_crs('epsg:4326', inplace=True)
     new_gdf_shorelines_wgs84=convert_points_to_linestrings(cross_shore_pts, group_col='date', output_crs='epsg:4326')
     new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
     new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)

@@ -2193,3 +2193,47 @@ def test_transform_data_to_nested_arrays():
         common.transform_data_to_nested_arrays(data_dict)
     except Exception:
         assert True
+        
+import geopandas as gpd
+from shapely.geometry import Point
+from coastseg.common import convert_points_to_linestrings
+
+def test_convert_points_to_linestrings():
+    # Create a GeoDataFrame with points
+    points = [Point(0, 0), Point(1, 1), Point(2, 2)]
+    gdf = gpd.GeoDataFrame(geometry=points,)
+    # this should cause the last point to be filtered out because it doesn't have a another points with a matching date
+    gdf['date'] = ['1/1/2020','1/1/2020','1/2/2020']
+
+
+    # Set an initial CRS
+    gdf.crs = "EPSG:4326"
+
+    # Convert points to LineStrings with a different CRS
+    output_crs = "EPSG:3857"
+    linestrings_gdf = convert_points_to_linestrings(gdf, output_crs=output_crs)
+
+    # Check the result
+    assert len(linestrings_gdf) == 1
+    assert linestrings_gdf.geometry.iloc[0].geom_type == "LineString"
+    # Check the CRS
+    assert linestrings_gdf.crs == output_crs
+
+
+def test_convert_points_to_linestrings_not_enough_pts():
+    # Create a GeoDataFrame with points
+    points = [Point(0, 0), Point(1, 1), Point(2, 2)]
+    gdf = gpd.GeoDataFrame(geometry=points,)
+    # this should cause the last point to be filtered out because it doesn't have a another points with a matching date
+    gdf['date'] = ['1/1/2020','1/2/2020','1/3/2020']
+
+
+    # Set an initial CRS
+    gdf.crs = "EPSG:4326"
+
+    # Convert points to LineStrings with a different CRS
+    output_crs = "EPSG:3857"
+    linestrings_gdf = convert_points_to_linestrings(gdf, output_crs=output_crs)
+
+    # Check the result
+    assert len(linestrings_gdf) == 0

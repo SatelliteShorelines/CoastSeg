@@ -114,6 +114,13 @@ def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
         GeoDataFrame: The ordered GeoDataFrame with linestrings.
 
     """
+    gdf = gdf.copy()
+    # Convert to the output CRS
+    if gdf.crs is not None:
+        gdf.to_crs(output_crs, inplace=True)
+    else:
+        gdf.set_crs(output_crs, inplace=True)
+        
     all_points = [shapely.get_coordinates(p) for p in gdf.geometry]
     lines = []
     for points in all_points:
