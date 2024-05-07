@@ -60,16 +60,18 @@ conda activate coastseg
 - CoastSeg requires `geopandas` to function properly so they will be installed in the `coastseg` environment.
 - [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
 - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version and to avoid dependency conflicts
-  `bash
+
+```bash
 conda install -c conda-forge geopandas -y
-`
-  **4.Install the CoastSeg from PyPi**
+```
+
+**4.Install the CoastSeg from PyPi**
 
 ```bash
 pip install coastseg
 ```
 
-**4.Uninstall the h5py installed by pip and reinstall with conda-forge**
+**5.Uninstall the h5py installed by pip and reinstall with conda-forge**
 
 - `pip install jsonschema==4.19.0` is a temporary command you have to run until issue https://github.com/stac-utils/pystac/issues/1214 is resolved
 
@@ -79,7 +81,7 @@ pip uninstall h5py -y
 conda install -c conda-forge h5py -y
 ```
 
-**5.(Optional) Install Optional Dependencies for the Zoo Workflow**
+**6.(Optional) Install Optional Dependencies for the Zoo Workflow**
 
 - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
 - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
