@@ -13,7 +13,8 @@ Step 1: Register for an AVISO+ Account
 3. Make sure to select FES2014 / FES2012 (Oceanic Tides Heights) in the model selection section.
 4. Submit the form and wait for a confirmation email.
 
-![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/5f188ced-0f7e-4732-b065-8eb8f2d54986)
+![aviso_select_product](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/d1aa062e-d4f6-40a1-8dea-efa23c6ac386)
+
 <br>
 
 ## Step 2: Verify Your AVISO+ Account
@@ -27,9 +28,9 @@ Step 1: Register for an AVISO+ Account
 2. Navigate to My products in the left side menu.
 3. Confirm that FES2014 / FES2012 (Oceanic Tides Heights) is listed under Your current subscriptions.
    <br>
-   <img src="https://github.com/Doodleverse/CoastSeg/assets/61564689/bf5382f0-6bc0-4867-893d-c8f84a3d3760" alt="drawing" width="900" height="500"/>
+   <img src="https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/26118c1c-87a0-4754-85f0-ee9d141f3fcf" alt="drawing" width="900" height="500"/>
 
-![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/d5758b7c-7a4a-4f48-8b0b-244a0f8d7d7a)
+![download_tide_model_select_product](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a475fe2c-38b7-4337-9e10-90bf7cd115bb)
 
 # Part 2: Downloading and Clipping the Tide Model
 
@@ -57,11 +58,10 @@ jupyter lab Download_tide_model.ipynb
 4.**Check Results:** Confirm that the model files are correctly downloaded and clipped in the specified directory.
 
 - **Example Output from Downloading Tide Model Step in Notebook**
-
-![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/6f4b8998-2d9f-4284-b0bb-075634efd1e8)
+  ![download_tide_model_notebook](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/eecae8d2-cb5e-4e50-a587-3260ff9469b7)
 
 - **Example Output from Clipping Tide Model Step in Notebook**
-  ![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/7251f6ca-acd4-4dda-9429-28bb83daad04)
+  ![clip_tide_model](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/abba33ae-1c63-4c48-be14-4e51e8224870)
 
   5.**Downloaded Tide Model Contents**
 
@@ -80,22 +80,23 @@ mkdir tide_model
 cd scripts
 ```
 
-![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/abe482c6-e1d8-4d0b-adba-45ce6a0fd952)
+![activate_coastseg_tide-Model_download](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9706d481-5538-456d-8c79-b80d0c27b055)
 
 ## Download & Clip
 
-1. **Run Download Script:** Execute the `aviso_fes_tides.py` script with the necessary parameters, including your AVISO credentials and target directory for the tide model.
+1.**Run Download Script:** Execute the `aviso_fes_tides.py` script with the necessary parameters, including your AVISO credentials and target directory for the tide model.
 
 - ⚠️ Enter your AVISO password when prompted. Note that the password won't display as you type. After you have finished typing, press Enter to proceed.
 - Replace `C:\Users\Sample\coastseg` with the actual location of your CoastSeg directory.
-- ![AVISO Password Prompt](https://github.com/Doodleverse/CoastSeg/assets/61564689/70c9306a-853c-45d5-8957-fd214c1c7ffd)
+- ![AVISO Password Prompt](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4e858552-6869-4511-8a87-5caa0f12dd38)
+
   Example command:
 
 ```
  python aviso_fes_tides.py --user your_email@example.com -D C:\Users\Sample\coastseg\tide_model --load --log --tide FES2014 -G
 ```
 
-2. **Clip Model to Regions:** After downloading, run the `clip_and_write_new_nc_files_cmd_line.py` script with the paths to your tide model directory and the regions geojson file.
+2.**Clip Model to Regions:** After downloading, run the `clip_and_write_new_nc_files_cmd_line.py` script with the paths to your tide model directory and the regions geojson file.
 
 To make the tide predictions compute faster we will clip the model it to various regions across the planet. After we've clipped the model to each region, when we want to predict the tide at a particular latitude and longitude we first figure out which region the point lies within, then we load the tide model we clipped to that region.
 
@@ -107,7 +108,7 @@ To make the tide predictions compute faster we will clip the model it to various
 python clip_and_write_new_nc_files_cmd_line.py -T C:\Users\Sample\coastseg\tide_model -R C:\Users\Sample\coastseg\scripts\tide_regions_map.geojson
 ```
 
-3. **Validate:** Ensure each region directory under tide_model contains clipped tide model files.
+3.**Validate:** Ensure each region directory under tide_model contains clipped tide model files.
 
 - Each region will have the same format as region0 the full list of files is omitted for brevity.
 
@@ -198,21 +199,21 @@ If the tide model was NOT downloaded to `CoastSeg/tide_model` then the tide corr
 **WARNING**
 You must have downloaded the tide model to the `tide_model` folder within coastseg for this button to work correctly.
 
-1. **Enter the beach slope**
+1.**Enter the beach slope**
 
-   - This is the beach slope in meters for the ROI you have selected.
+- This is the beach slope in meters for the ROI you have selected.
 
-2. **Enter the beach elevation**
+  2.**Enter the beach elevation**
 
-   - This is the beach elevation in meters for the ROI you have selected.
+- This is the beach elevation in meters for the ROI you have selected.
 
-3. **Select the ROIs' ids to tidally correct**
+  3.**Select the ROIs' ids to tidally correct**
 
-4. **Click compute tides and wait a few minutes.**
+  4.**Click compute tides and wait a few minutes.**
 
 If you encounter any issues or have any questions please submit an issue at [CoastSeg Issues](https://github.com/Doodleverse/CoastSeg/issues/new/choose)
 
-![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/c72ee626-86fd-46ae-98d0-0921b0082d8b)
+![predict-tide_script](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4ce506c2-403e-44e7-9ecd-6a4a4898b870)
 
 ## Option 2: Tide Correction Script
 
