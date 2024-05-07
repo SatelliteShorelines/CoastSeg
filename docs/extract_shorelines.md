@@ -42,7 +42,7 @@ If its your first time extracting shorelines from imagery we recommend using a s
   3. Delete the reference shoreline
   4. Click Load Shoreline Button to load the reference shoreline in the remaining ROIs
 
-![ROI_removal_and_shoreline_loading](https://github.com/Doodleverse/CoastSeg/assets/61564689/0928145a-e5f4-4d3b-bda4-315e17b14263)
+![ROI_removal_and_shoreline_loading](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/9437c93d-096a-4a01-b0fd-9a97d228e8bd)
 
 **Option 2 : Load Your Own Shorelines**
 
@@ -50,7 +50,7 @@ If its your first time extracting shorelines from imagery we recommend using a s
 2. Load shorelines from your geojson file
    - Check out the guide for how to do this here [How to Load Features from Geojson Files on Map](https://github.com/SatelliteShorelines/CoastSeg/wiki/04.-How-to-Use-the-Map#how-to-load-features-from-geojson-files-on-map)
 
-![how_to_make_ref_shoreline](https://github.com/Doodleverse/CoastSeg/assets/61564689/3cd70302-9bc0-411c-87f1-b25d86ac2280)
+![how_to_load_default_sl](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c26b14a8-fef9-462c-8ed5-cad93f1f3d25)
 
 ## Step 2: Load Transects
 
@@ -77,11 +77,11 @@ CoastSeg extract shorelines from your imagery by checking if the water line inte
 
 If most of your imagery looks like these examples you may need to change your ROI.
 
-| Example Image                                                                                                               | Description                                                | Solution                                                            |
-| --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------- |
-| ![1985-09-17-15-02-56_RGB_L5](https://github.com/Doodleverse/CoastSeg/assets/61564689/37d470e2-e2fe-4489-966f-a2a2384b928b) | ROI is too small with excessive water coverage.            | Make your ROI larger to include more land.                          |
-| ![2020-03-09-15-33-35_RGB_L8](https://github.com/Doodleverse/CoastSeg/assets/61564689/cb66cedb-9e90-446a-a6d1-3ac20f1ef0df) | Cloud masking failed and mistakenly masked the shoreline.  | Try turning off cloud masking or set 'cloud_mask_issue' to True     |
-| ![2020-07-16-15-51-52_RGB_S2](https://github.com/Doodleverse/CoastSeg/assets/61564689/78071e57-a6dd-4ea1-b9aa-9731b9ad3723) | Image is likely too cloudy to extract accurate shorelines. | Try using imagery with less clouds or try turning off cloud masking |
+| Example Image                                                                                                              | Description                                                | Solution                                                            |
+| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| ![bad_img_too_small](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/949f11d7-64e5-4886-aee9-f6aec296ea39) | ROI is too small with excessive water coverage.            | Make your ROI larger to include more land.                          |
+| ![masked_out_clouds](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/39529ab1-33d6-4ef8-a2b4-5d80ec92cdbf) | Cloud masking failed and mistakenly masked the shoreline.  | Try turning off cloud masking or set 'cloud_mask_issue' to True     |
+| ![cloudy_imgs](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c0c00983-29a3-427d-bffe-6d4ee02f2f2a)       | Image is likely too cloudy to extract accurate shorelines. | Try using imagery with less clouds or try turning off cloud masking |
 
 ## Step 4: Examine Shorelines Extracted from 3-5 years of imagery
 
@@ -89,16 +89,16 @@ If most of your imagery looks like these examples you may need to change your RO
 
 | Description                                                                              | Example Image                                                                                                             | Suggested Adjustment                                                        |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| This shoreline is almost perfect, but it needs adjustment to capture the thin shoreline. | ![2020-02-22-15-33-41_L8](https://github.com/Doodleverse/CoastSeg/assets/61564689/fea8ab34-8e86-42ce-91d6-7ff9f3c165de)   | Lower the `minimum beach area` to include thinner shorelines.               |
-| More shoreline needs to be captured close to cloud-covered areas.                        | ![2020-10-19-15-34-01_L8](https://github.com/Doodleverse/CoastSeg/assets/61564689/4e7a1db5-9a76-41a9-8519-ca8d45e0b76e)   | Increase the `Cloud Distance` to capture more of the shoreline near clouds. |
-| The reference shoreline buffer (in purple) is too narrow                                 | ![ref_sl_too_small](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/d3b8a195-c038-4a47-93ce-f1659958d586) | Increase the buffer size to better capture area dynamics.                   |
+| This shoreline is almost perfect, but it needs adjustment to capture the thin shoreline. | ![beach_area](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/70799078-4983-4b07-84d2-e7186d4745d1)       | Lower the `minimum beach area` to include thinner shorelines.               |
+| More shoreline needs to be captured close to cloud-covered areas.                        | ![cloud_dis](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/539ba73d-5430-44b8-8f07-9032862a0ea3)        | Increase the `Cloud Distance` to capture more of the shoreline near clouds. |
+| The reference shoreline buffer (in purple) is too narrow                                 | ![shoreline_buffer](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/39312caf-ceaf-4a3e-85a2-843ac80c45a6) | Increase the buffer size to better capture area dynamics.                   |
 
 ## Step 5: Experiment with the Settings
 
 - Manipulate the settings until you get shorelines you like
 - If you find that the cloud masking is covering your shorelines try turning off cloud masking and downloading your imagery again.
 
-![image](https://github.com/Doodleverse/CoastSeg/assets/61564689/5e92e8c3-9540-4b7e-8829-d7e822f0fd20)
+![settings](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/cb578710-2382-4e01-bef2-9fc9df2f02b9)
 
 ## Step 6: Save the Settings
 
