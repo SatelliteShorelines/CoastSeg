@@ -1,7 +1,7 @@
 import geopandas as gpd
 import argparse
 from shapely.geometry import Point, MultiLineString
-
+import os
 
 # Example 1: python get_transects_points.py  -i "C:\development\doodleverse\coastseg\CoastSeg\shortened_transects_JB.geojson"
 # Example 2: python get_transects_points.py -i "C:\development\doodleverse\coastseg\CoastSeg\shortened_transects_JB.geojson" -o "origin.geojson" -e "end.geojson"
@@ -42,8 +42,8 @@ def main(input_file, origin_filename, end_filename):
     origin_gdf.to_file(origin_filename, driver="GeoJSON")
     end_gdf.to_file(end_filename, driver="GeoJSON")
 
-    print(f"Saved origin points for all the transects to {origin_filename}")
-    print(f"Saved end points for all the transects to {end_filename}")
+    print(f"Saved origin points for all the transects to {os.path.abspath(origin_filename)}")
+    print(f"Saved end points for all the transects to {os.path.abspath(end_filename)}")
 
 
 if __name__ == "__main__":

@@ -80,18 +80,6 @@ def create_transects_with_arrowheads(
     if "transect_geometry" in gdf_copy.columns:
         gdf_copy.drop(columns=["transect_geometry"], inplace=True)
 
-    # # Create a new GeoDataFrame for the merged geometries
-    # merged = gpd.GeoDataFrame(crs="EPSG:4326", geometry=[])
-    # # Merge each transect with its arrowhead
-    # for line in gdf_copy.geometry:
-    #     arrowhead = create_arrowhead(
-    #         line, arrow_length=arrow_length, arrow_angle=arrow_angle
-    #     )
-    #     merged_geometry = unary_union([line, arrowhead])
-    #     merged = pd.concat(
-    #         [merged, pd.DataFrame({"geometry": [merged_geometry]})], ignore_index=True
-    #     )
-    # # remove the copy of gdf from memory
     return gdf_copy
     # return merged
 
