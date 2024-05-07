@@ -2001,7 +2001,6 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326')
     """
     # Group the GeoDataFrame by date
     gdf = gdf.copy()
-    print(f"gdf.crs: {gdf.crs}")
     # Convert to the output CRS
     if gdf.crs is not None:
         gdf.to_crs(output_crs, inplace=True)

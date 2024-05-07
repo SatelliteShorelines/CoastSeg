@@ -188,7 +188,13 @@ def correct_tides(
         tide_model_config = setup_tide_model_config(model_location)
         update(f"Getting time series for ROI : {roi_id}")
         # load the time series
-        raw_timeseries_df = get_timeseries(roi_id, session_name)
+        try:
+            raw_timeseries_df = get_timeseries(roi_id, session_name)
+        except FileNotFoundError as e:
+            print(f"No time series data found for {roi_id} cannot perform tide correction")
+            logger.warning(f"No time series data found for {roi_id} cannot perform tide correction")
+            update(f"No time series data found for {roi_id} cannot perform tide correction")
+            return pd.DataFrame()
         # this means that only the date column exists but no transects intersected any of the shorelines for any of these dates
         if len(raw_timeseries_df.columns) < 2:
             print(f"No time series data found for {roi_id} cannot perform tide correction")
