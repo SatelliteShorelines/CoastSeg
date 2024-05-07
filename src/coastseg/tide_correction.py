@@ -189,6 +189,12 @@ def correct_tides(
         update(f"Getting time series for ROI : {roi_id}")
         # load the time series
         raw_timeseries_df = get_timeseries(roi_id, session_name)
+        # this means that only the date column exists but no transects intersected any of the shorelines for any of these dates
+        if len(raw_timeseries_df.columns) < 2:
+            print(f"No time series data found for {roi_id} cannot perform tide correction")
+            logger.warning(f"No time series data found for {roi_id} cannot perform tide correction")
+            update(f"No time series data found for {roi_id} cannot perform tide correction")
+            return pd.DataFrame()
         # read the transects from the config_gdf.geojson file
         update(f"Getting transects for ROI : {roi_id}")
         transects_gdf = get_transects(roi_id, session_name)
