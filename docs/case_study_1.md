@@ -137,7 +137,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case_study_1_bad_sort](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/aaba59a9-9523-4419-a80c-9fa860491984)
 
-**11.Extract Shorelines**
+### 11.Extract Shorelines
 
 - Extracting shorelines works by finding the land water interface in the image and drawing a line along it
 
