@@ -2,25 +2,25 @@
 
 ---
 
-**Extracted Shorelines** are vectors created from satellite imagery to outline coastlines. To ensure accuracy:
+**Extracted Shorelines** are vectors created from satellite imagery to outline coastlines.
 
-- Each `.tiff` file is checked for cloud cover and quality.
+CoastSeg will generate the following files containing the 2D shorelines extracted from the imagery:
 
-- Suitable images are processed using a segmentation model to classify sand, water, and surf.
+1.`extracted_shorelines_lines.geojson`: this contains the 2D extracted shorelines formatted as lines
 
-- Shorelines are then extracted and represented as colored vectors.
+2.`extracted_shorelines_points.geojson`: this contains the 2D extracted shorelines formatted as points
 
-**Common Issues:**
+3.`extracted_shorelines_dict.json`: this contains all the extracted shorelines stored in a json format containing metadata like the satellite the shoreline was derived from and more.
 
-- **Complex Shorelines:** Adjust the `sand color` setting if shorelines appear erratic.
+![shoreline_transect_intersection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e87b8d34-d9a4-4b1e-b3de-8e0be1c16ecd)
 
-- **Missing Shorelines:** This may occur due to poor image quality or excessive cloud cover.
+## Why is there not an extracted shoreline for my ROI?
 
-## Why did isn't there an Extracted Shoreline
+Sometimes shorelines will be not be able to be extracted from any of the imagery downloaded for the ROI on the map due to image quality issues such as excessive cloud cover or too many 'no data'(black) pixels in the downloaded imagery. The message `The ROI id does not have a shoreline to extract. ` will print when this happens. When this occurs no extract shoreline vectors will appear on the map.
 
-Sometimes shorelines will be not be able to be extracted from any of the imagery downloaded for the ROI on the map due to image quality issues such as excessive cloud cover or too many 'no data'(black) pixels in the downloaded imagery. When this is the case the extracted shoreline will not appear on the map.
+Check the imagery you downloaded. Sometimes you'll need to turn off "Apply Cloud Mask" in the settings because the cloud mask is covering the shoreline. Other times your reference shoreline buffer is too small. Go check `extract_shorelines_report.txt` report located in your session to see what happened with more details.
 
-The message `The ROI id does not have a shoreline to extract. ` will print when this happens
+In the guide below we will outline a few senarios you might encounter when extracting shorelines. Also go check out our [case studies](https://satelliteshorelines.github.io/CoastSeg/case_study_2/) to see full examples of how to use CoastSeg to extract shorelines even at difficult locations like Alaska.
 
 ## How to Extract Shorelines From Your Imagery
 
@@ -77,11 +77,11 @@ CoastSeg extract shorelines from your imagery by checking if the water line inte
 
 If most of your imagery looks like these examples you may need to change your ROI.
 
-| Example Image                                                                                                              | Description                                                | Solution                                                            |
-| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------- |
-| ![bad_img_too_small](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/949f11d7-64e5-4886-aee9-f6aec296ea39) | ROI is too small with excessive water coverage.            | Make your ROI larger to include more land.                          |
-| ![masked_out_clouds](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/39529ab1-33d6-4ef8-a2b4-5d80ec92cdbf) | Cloud masking failed and mistakenly masked the shoreline.  | Try turning off cloud masking or set 'cloud_mask_issue' to True     |
-| ![cloudy_imgs](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c0c00983-29a3-427d-bffe-6d4ee02f2f2a)       | Image is likely too cloudy to extract accurate shorelines. | Try using imagery with less clouds or try turning off cloud masking |
+| Example Image                                                                                                              | Description                                                | Solution                                                             |
+| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| ![bad_img_too_small](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/949f11d7-64e5-4886-aee9-f6aec296ea39) | ROI is too small with excessive water coverage.            | Make your ROI larger to include more land.                           |
+| ![masked_out_clouds](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/39529ab1-33d6-4ef8-a2b4-5d80ec92cdbf) | Cloud masking failed and mistakenly masked the shoreline.  | Try turning off cloud masking by setting 'Apply Cloud Mask' to False |
+| ![cloudy_imgs](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c0c00983-29a3-427d-bffe-6d4ee02f2f2a)       | Image is likely too cloudy to extract accurate shorelines. | Try using imagery with less clouds or try turning off cloud masking  |
 
 ## Step 4: Examine Shorelines Extracted from 3-5 years of imagery
 
