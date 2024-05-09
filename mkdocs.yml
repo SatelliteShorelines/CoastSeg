@@ -61,6 +61,7 @@ nav:
       - Getting Started to Contribute: Getting-Started_to_contribute.md
       - How to Contribute Transects: contribute-transects.md
       - How to Test the Zoo Workflow: test-zoo-workflow.md
+      - How to edit the website: edit-website.md
       # - Technical Documentation: technical-documentation.md
   - Tutorials:
       - How to authenticate with Google Earth Engine: how-to-auth.md
