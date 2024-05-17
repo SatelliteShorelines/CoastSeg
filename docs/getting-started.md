@@ -22,7 +22,7 @@ conda activate coastseg
 **2.Download CoastSeg from GitHub**
 
 ```
-git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
+git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
 ```
 
 ## Extract Shorelines

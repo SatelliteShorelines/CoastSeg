@@ -27,7 +27,7 @@ conda activate coastseg
 - Only do this step if you haven't already cloned CoastSeg to your computer
 
 ```
-git clone coastseg --depth 1 https://github.com/Doodleverse/CoastSeg.git
+git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
 ```
 
 **3.Change to the CoastSeg Directory**
