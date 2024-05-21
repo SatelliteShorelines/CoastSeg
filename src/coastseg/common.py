@@ -18,13 +18,12 @@ import numpy as np
 import pandas as pd
 import requests
 import shapely
-from shapely import geometry
 from area import area
-from google.auth import exceptions as google_auth_exceptions
 from ipyfilechooser import FileChooser
-from ipywidgets import HBox, HTML, Layout, ToggleButton, VBox
+from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox
 from PIL import Image
 from requests.exceptions import SSLError
+from shapely import geometry
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from tqdm.auto import tqdm
 
@@ -1307,7 +1306,7 @@ def get_response(url, stream=True):
     # attempt a standard request then try with an ssl certificate
     try:
         response = requests.get(url, stream=stream)
-    except SSLError as e:
+    except SSLError:
         cert_path = get_cert_path_from_config()
         if cert_path:  # if an ssl file was provided use it
             response = requests.get(url, stream=stream, verify=cert_path)
@@ -1914,10 +1913,10 @@ def save_transects(
                               drop_intersection_pts,
                               "raw")
     # save the raw transect time series which contains the columns ['dates', 'x', 'y', 'transect_id', 'cross_distance','shore_x','shore_y']  to file
-    filepath = os.path.join(save_location, f"raw_transect_time_series_merged.csv")
+    filepath = os.path.join(save_location, "raw_transect_time_series_merged.csv")
     merged_timeseries_df.to_csv(filepath, sep=",",index=False) 
     
-    filepath = os.path.join(save_location, f"raw_transect_time_series.csv")
+    filepath = os.path.join(save_location, "raw_transect_time_series.csv")
     timeseries_df.to_csv(filepath, sep=",",index=False)
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
@@ -2778,7 +2777,7 @@ def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         a new GeoDataFrame is returned with z axis dropped.
     """
     if geodf.empty:
-        logger.warning(f"Empty GeoDataFrame has no z-axis")
+        logger.warning("Empty GeoDataFrame has no z-axis")
         return geodf
 
     # if any row has a z coordinate then remove the z_coordinate
@@ -3266,13 +3265,13 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
         is_downloaded = all_sitenames_exist and all_filepaths_exist
     # print correct message depending on whether ROIs were downloaded
     if is_downloaded:
-        logger.info(f"Located previously downloaded ROI data.")
+        logger.info("Located previously downloaded ROI data.")
     elif is_downloaded == False:
         print(
             "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
         )
         logger.info(
-            f"Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
+            "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
         )
     return is_downloaded
 
@@ -3388,3 +3387,58 @@ def rescale_array(dat, mn, mx):
     m = min(dat.flatten())
     M = max(dat.flatten())
     return (mx - mn) * (dat - m) / (M - m) + mn
+
+
+
+import logging
+import pathlib
+from sysconfig import get_python_version
+
+
+def is_interactive() -> bool:
+    """
+    Check if the code is running in a Jupyter Notebook environment.
+    """
+    try:
+        shell = get_python_version().__class__.__name__
+        if shell == "ZMQInteractiveShell":
+            return True  # Jupyter Notebook or JupyterLab
+        elif shell == "TerminalInteractiveShell":
+            return False  # Terminal or IPython cognsole
+        else:
+            return False  # Other interactive shells
+    except NameError:
+        return False  # Not in an interactive shell
+
+
+def get_base_dir(repo_name="CoastSeg") -> pathlib.Path:
+    """
+    Get the project directory path.
+
+    Returns:
+        A `pathlib.Path` object representing the project directory path.
+    """
+
+    def resolve_repo_path(cwd: pathlib.Path, proj_name: str) -> pathlib.Path:
+        root = cwd.root
+        proj_dir = cwd
+        while proj_dir.name != proj_name:
+            proj_dir = proj_dir.parent
+            if str(proj_dir) == root:
+                msg = "Reached root depth - cannot resolve project path."
+                raise ValueError(msg)
+
+        return proj_dir
+
+    cwd = pathlib.Path().resolve() if is_interactive() else pathlib.Path(__file__)
+
+    proj_dir = resolve_repo_path(cwd, proj_name=repo_name)
+    return proj_dir
+
+
+if __name__ == "__main__":
+
+    base_dir = get_base_dir()
+    data_dir = base_dir / "data"
+    print("done")
+    
