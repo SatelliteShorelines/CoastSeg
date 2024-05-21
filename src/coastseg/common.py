@@ -3440,5 +3440,5 @@ if __name__ == "__main__":
 
     base_dir = get_base_dir()
     data_dir = base_dir / "data"
-    print("done")
+    print(data_dir)
     
