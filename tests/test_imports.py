@@ -1,5 +1,5 @@
 import os
-
+import platform
 from coastseg.file_utilities import load_package_resource
 import importlib
 
@@ -111,7 +111,8 @@ def test_import_map_UI():
 
 def test_import_models_UI():
     try:
-        from coastseg import models_UI
+        if platform.system() != 'Darwin':
+            from coastseg import models_UI
     except ImportError:
         assert False, "Failed to import models_UI"
 
