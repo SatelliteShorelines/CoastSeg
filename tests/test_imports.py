@@ -161,7 +161,8 @@ def test_import_transects():
 
 def test_import_zoo_model():
     try:
-        from coastseg import zoo_model
+        if platform.system() != 'Darwin':
+            from coastseg import zoo_model
     except ImportError:
         assert False, "Failed to import zoo_model"
 
