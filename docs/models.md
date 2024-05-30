@@ -4,9 +4,9 @@ This workflow can be found in the 'SDS_zoo_classifier.ipynb' notebook.
 
 The models available in this workflow come from [segmentation zoo](https://github.com/Doodleverse/segmentation_zoo) and were trained using [segmentation gym](https://github.com/Doodleverse/segmentation_gym).
 
-These models have not been thoroughly tested yet, but testing is underway.
+These models have not been thoroughly tested yet, but we are currently undergoing the process of benchmarking these models in a variety of coastal environments. We will be documenting the results of this benchmark in a separate repository and we will link it here when its ready.
 
-Anyone is encouraged to contribute models. Please visit [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo), our repository of models and open a new [Discussion topic](https://github.com/Doodleverse/segmentation_zoo/discussions) and let us know about your model.
+Anyone is encouraged to contribute models. Please visit [Segmentation Zoo](https://github.com/Doodleverse/segmentation_zoo), our repository of models and open a new [Discussion topic](https://github.com/Doodleverse/segmentation_zoo/discussions) and let us know about your model. We will accept models that use any conceivable spectral index, or any combination of bands. However, our team prefers our models to apply equally to all Landsat and Sentinel imagery, so ideally models are trained on those data, not some other data source.
 
 ## Installation Instructions
 
@@ -33,6 +33,8 @@ pip install transformers
 The following image segmentation models are available in CoastSeg to use on downloaded satellite imagery.
 
 To use each model we first download the model weights from the model's Zenodo release and then initialize the model using these weights.
+
+Each model has a Zenodo release which contains the model weights, metadata about the model as well as model validation statistics. Such validation statistics are an indication of model performance for a 4-class image segmentation, but these statistics don't necessarily reflect skill in shoreline detection accuracy and precision.
 
 ## RGB
 
