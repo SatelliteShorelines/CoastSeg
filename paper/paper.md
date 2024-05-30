@@ -134,7 +134,7 @@ It would be also be possible to incorporate automated satellite image subpixel c
 
 # Acknowledgments
 
-The authors would like to thank Qiusheng Wu, developer of `Leafmap`, which adds a lot of functionality to `CoastSeg`. Thanks also to the developers and maintainers of `pyTMD`, `DEA-tools`, `xarray`, and `GDAL`, without which this project would be impossible. We acknowledge contributions from Robbi Bishop-Taylor, Evan Goldstein, Venus Ku, software testing and suggestions from Catherine Janda, Eli Lazarus, Andrea O'Neill, Ann Gibbs, Rachel Henderson, Emily Himmelstoss, Kathryn Weber, and Julia Heslin, and support from USGS Coastal Hazards and Resources Program, and USGS Merbok Supplemental.
+The authors would like to thank Qiusheng Wu, developer of `Leafmap`, which adds a lot of functionality to `CoastSeg`. Thanks also to the developers and maintainers of `pyTMD`, `DEA-tools`, `xarray`, and `GDAL`, without which this project would be impossible. We would also like to thank Freya Muir and Floris Calkoen for reviewing CoastSeg. We acknowledge contributions from Robbi Bishop-Taylor, Evan Goldstein, Venus Ku, software testing and suggestions from Catherine Janda, Eli Lazarus, Andrea O'Neill, Ann Gibbs, Rachel Henderson, Emily Himmelstoss, Kathryn Weber, and Julia Heslin, and support from USGS Coastal Hazards and Resources Program, and USGS Merbok Supplemental.
 
 Any use of trade, firm, or product names is for descriptive purposes only and does not imply endorsement by the U.S. Government.
 
