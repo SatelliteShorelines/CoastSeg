@@ -3390,7 +3390,6 @@ def create_roi_settings(
         roi_settings[roi_id] = inputs_dict
     return roi_settings
 
-
 def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
     """returns resized matrix with shape(rows,cols)
         for 2d discrete labels
@@ -3414,7 +3413,6 @@ def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
     ]
     return np.array(tmp).reshape((rows, cols))
 
-
 def rescale_array(dat, mn, mx):
     """
     rescales an input dat between mn and mx
@@ -3425,45 +3423,5 @@ def rescale_array(dat, mn, mx):
     M = max(dat.flatten())
     return (mx - mn) * (dat - m) / (M - m) + mn
 
-def is_interactive() -> bool:
-    """
-    Check if the code is running in a Jupyter Notebook environment.
-    """
-    try:
-        shell = get_python_version().__class__.__name__
-        if shell == "ZMQInteractiveShell":
-            return True  # Jupyter Notebook or JupyterLab
-        elif shell == "TerminalInteractiveShell":
-            return False  # Terminal or IPython cognsole
-        else:
-            return False  # Other interactive shells
-    except NameError:
-        return False  # Not in an interactive shell
-
-
-def get_base_dir(repo_name="CoastSeg") -> pathlib.Path:
-    """
-    Get the project directory path.
-
-    Returns:
-        A `pathlib.Path` object representing the project directory path.
-    """
-
-    def resolve_repo_path(cwd: pathlib.Path, proj_name: str) -> pathlib.Path:
-        root = cwd.root
-        proj_dir = cwd
-        # keep moving up the directory tree until the project directory is found or the root is reached
-        while proj_dir.name != proj_name:
-            proj_dir = proj_dir.parent
-            if str(proj_dir) == root:
-                msg = "Reached root depth - cannot resolve project path."
-                raise ValueError(msg)
-
-        return proj_dir
-
-    cwd = pathlib.Path().resolve() if is_interactive() else pathlib.Path(__file__)
-
-    proj_dir = resolve_repo_path(cwd, proj_name=repo_name)
-    return proj_dir
 
     
