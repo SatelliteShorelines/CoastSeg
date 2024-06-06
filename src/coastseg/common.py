@@ -3425,7 +3425,6 @@ def rescale_array(dat, mn, mx):
     M = max(dat.flatten())
     return (mx - mn) * (dat - m) / (M - m) + mn
 
-
 def is_interactive() -> bool:
     """
     Check if the code is running in a Jupyter Notebook environment.
@@ -3459,7 +3458,7 @@ def get_base_dir(repo_name="CoastSeg") -> pathlib.Path:
             if str(proj_dir) == root:
                 msg = "Reached root depth - cannot resolve project path."
                 raise ValueError(msg)
-        # return the project directory path for example CoastSeg directory
+
         return proj_dir
 
     cwd = pathlib.Path().resolve() if is_interactive() else pathlib.Path(__file__)
