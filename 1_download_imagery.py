@@ -1,24 +1,23 @@
+import os
 from coastseg import coastseg_logs
 from coastseg.common import initialize_gee
 from coastseg import coastseg_map
-import os
+from coastseg import core_utilities
 
+base_dir = core_utilities.get_base_dir()
+print(f"The base directory is {base_dir}")
+# path to Coastseg/data
+data_folder = base_dir / "data"
+print(f"The data directory is {data_folder}")
 
 # if you get an error here, enter your project id
 initialize_gee(auth_mode = "localhost",project='')
-
+# initialize the CoastSeg map
 coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
 
-# Get the directory of the current script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-print(f"The script directory is {script_dir}")
 # Construct the path to rois.geojson
-rois_path = os.path.join(script_dir, 'examples',"rois.geojson")
+rois_path = os.path.join(os.path.abspath(base_dir), 'examples',"rois.geojson")
 print(f"Loading ROIs from {rois_path}")
-
-# path to Coastseg/data
-data_folder = os.path.join(script_dir, 'data')
-print(f"The data folder is {data_folder}")
 
 # sample ROI (Region of Interest) file
 roi = coastsegmap.load_feature_from_file('roi',rois_path)
@@ -35,10 +34,11 @@ settings = {
     "apply_cloud_mask": True,             # apply cloud mask to the imagery. If False, the cloud mask will not be applied.
     }
 
-# download the imagery for that ROI to the /data folder
+# # download the imagery for that ROI to the /data folder
 coastsegmap.download_imagery(rois=roi.gdf,selected_ids=roi_ids,settings=settings,file_path=data_folder)
 
 # name the session where you want to save the extracted shorelines
+# session_name = 'sample_session1'
 session_name = 'sample_session1'
 coastsegmap.set_session_name(session_name)
 
@@ -47,15 +47,14 @@ coastsegmap.set_session_name(session_name)
 # - a minimum beach area of 500 m^2
 # - a minimum length of 20 m
 # - a maximum distance from the reference shoreline of 300 m
-coastsegmap.set_settings(min_beach_area=500,min_length_sl=20,max_dist_ref=300)
+coastsegmap.set_settings(min_beach_area=100,min_length_sl=20,max_dist_ref=300)
 
 # load a shoreline file from the examples folder
-script_dir = os.path.dirname(os.path.abspath(__file__))
-shoreline_path = os.path.join(script_dir, 'examples', "shoreline.geojson")
+shoreline_path = os.path.join(base_dir, 'examples', "shoreline.geojson")
 shoreline = coastsegmap.load_feature_from_file('shoreline',shoreline_path)
 
 # load transects from the examples folder
-transect_path = os.path.join(script_dir,'examples', "transects.geojson")
+transect_path = os.path.join(base_dir,'examples', "transects.geojson")
 transects = coastsegmap.load_feature_from_file('transects', transect_path)
 
 # extract the shorelines for the selected ROI and save them to the /sessions/session_name folder
