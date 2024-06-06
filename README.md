@@ -103,7 +103,7 @@ CoastSeg comes with a collection of pre-processing script utilities for common i
 
 # Data Sources
 
-The CoastSeg transect and slope database is [available](https://zenodo.org/records/8187949) 
+The CoastSeg transect and slope database is [available]([https://zenodo.org/records/8187949](https://zenodo.org/records/11390980)) 
 
 * Buscombe, D., & Fitzpatrick, S. (2023). CoastSeg: Beach transects and beachface slope database v1.0 (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8187949
 

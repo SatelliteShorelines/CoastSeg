@@ -8,8 +8,10 @@ import random
 import re
 import shutil
 import string
+import pathlib
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from sysconfig import get_python_version
 
 # Third-party imports
 import ee
@@ -31,6 +33,7 @@ from tqdm.auto import tqdm
 from coastseg import exceptions, file_utilities
 from coastseg.exceptions import InvalidGeometryType
 from coastseg.validation import find_satellite_in_filename
+from coastseg import core_utilities
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
@@ -933,6 +936,8 @@ def filter_images_by_roi(roi_settings: list[dict]):
     it constructs a GeoDataFrame and filters images located in a predefined directory based
     on the constructed ROI. The function logs a warning and skips to the next ROI
     if the specified directory for an ROI does not exist.
+    
+    This function assumes the ROI coordinates are in EPSG:4326.
 
     Args:
         roi_settings (list[dict]): A list of dictionaries, each containing the settings
@@ -942,7 +947,7 @@ def filter_images_by_roi(roi_settings: list[dict]):
                                      'roi_id': <int>,
                                      'sitename': <str>,
                                      'filepath': <str>,  # Base filepath for the ROI
-                                     'polygon': <list>,  # List of coordinates representing the ROI polygon
+                                     'polygon': <list>,  # List of coordinates representing the ROI polygon (in EPSG:4326)
                                    }
 
     Returns:
@@ -1663,11 +1668,19 @@ def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
         GeoDataFrame: The ordered GeoDataFrame with linestrings.
 
     """
+    gdf = gdf.copy()
+    # Convert to the output CRS
+    if gdf.crs is not None:
+        gdf.to_crs(output_crs, inplace=True)
+    else:
+        gdf.set_crs(output_crs, inplace=True)
+        
     all_points = [shapely.get_coordinates(p) for p in gdf.geometry]
     lines = []
     for points in all_points:
         line_string = create_complete_line_string(points)
         lines.append(line_string)
+    
     gdf = gpd.GeoDataFrame({'geometry': lines,'date': dates},crs=output_crs)
     return gdf
 
@@ -1762,12 +1775,14 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
     
     # add the shoreline position as an x and y coordinate to the csv called shore_x and shore_y
     merged_timeseries_df = add_shore_points_to_timeseries(merged_timeseries_df, transects_gdf)
+    
     # convert to geodataframe
     merged_timeseries_gdf = gpd.GeoDataFrame(
         merged_timeseries_df, 
         geometry=[Point(xy) for xy in zip(merged_timeseries_df['shore_x'], merged_timeseries_df['shore_y'])], 
         crs="EPSG:4326"
     )
+    merged_timeseries_gdf.to_crs("EPSG:4326",inplace=True)
     if only_keep_points_on_transects:
         merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
         if not dropped_points_df.empty:
@@ -1908,6 +1923,7 @@ def save_transects(
 
     # re-order columns
     merged_timeseries_df = merged_timeseries_df[['dates', 'x', 'y', 'transect_id', 'cross_distance']]
+    # add the shore_x and shore_y columns to the merged time series which are the x and y coordinates of the shore points along the transects
     merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf.to_crs('epsg:4326'),cross_distance_df,
                               save_location,
                               drop_intersection_pts,
@@ -1986,15 +2002,23 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326')
         gpd.GeoDataFrame: A new GeoDataFrame containing LineStrings created from the points.
     """
     # Group the GeoDataFrame by date
+    gdf = gdf.copy()
+    # Convert to the output CRS
+    if gdf.crs is not None:
+        gdf.to_crs(output_crs, inplace=True)
+    else:
+        gdf.set_crs(output_crs, inplace=True)
     grouped = gdf.groupby(group_col)
     # For each group, ensure there are at least two points so that a LineString can be created
     filtered_groups = grouped.filter(lambda g: g[group_col].count() > 1)
+    if len(filtered_groups) <= 0:
+        logger.warning("No groups contain at least two points, so no LineStrings can be created.")
+        return gpd.GeoDataFrame(columns=['geometry'])
     # Recreate the groups as a geodataframe
     grouped_gdf = gpd.GeoDataFrame(filtered_groups, geometry='geometry')
     linestrings = grouped_gdf.groupby(group_col).apply(lambda g: LineString(g.geometry.tolist()))
-
     # Create a new GeoDataFrame from the LineStrings
-    linestrings_gdf = gpd.GeoDataFrame(linestrings, columns=['geometry'], crs=output_crs)
+    linestrings_gdf = gpd.GeoDataFrame(linestrings, columns=['geometry'],)
     linestrings_gdf.reset_index(inplace=True)
     
     # order the linestrings so that they are continuous
@@ -2142,6 +2166,18 @@ def get_most_accurate_epsg(epsg_code: int, polygon: gpd.GeoDataFrame):
     return epsg_code
 
 def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
+    """
+    Creates a directory chooser widget.
+
+    Args:
+        callback: The function to be called when a directory is selected.
+        title (str, optional): The title of the directory chooser. Defaults to None.
+        starting_directory (str, optional): The initial directory to be displayed. Defaults to "data".
+
+    Returns:
+        HBox: The directory chooser widget.
+
+    """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     inital_path = os.path.join(os.getcwd(), starting_directory)
     if not os.path.exists(inital_path):
@@ -3098,11 +3134,12 @@ def get_jpgs_from_data() -> str:
     """Returns the folder where all jpgs were copied from the data folder in coastseg.
     This is where the model will save the computed segmentations."""
     # Data folder location
-    src_path = os.path.abspath(os.getcwd() + os.sep + "data")
+    base_path = os.path.abspath(core_utilities.get_base_dir())
+    src_path = os.path.join(base_path,  "data")
     if os.path.exists(src_path):
         rename_jpgs(src_path)
         # Create a new folder to hold all the data
-        location = os.getcwd()
+        location = base_path
         name = "segmentation_data"
         # new folder "segmentation_data_datetime"
         new_folder = file_utilities.mk_new_dir(name, location)
@@ -3388,13 +3425,6 @@ def rescale_array(dat, mn, mx):
     M = max(dat.flatten())
     return (mx - mn) * (dat - m) / (M - m) + mn
 
-
-
-import logging
-import pathlib
-from sysconfig import get_python_version
-
-
 def is_interactive() -> bool:
     """
     Check if the code is running in a Jupyter Notebook environment.
@@ -3422,6 +3452,7 @@ def get_base_dir(repo_name="CoastSeg") -> pathlib.Path:
     def resolve_repo_path(cwd: pathlib.Path, proj_name: str) -> pathlib.Path:
         root = cwd.root
         proj_dir = cwd
+        # keep moving up the directory tree until the project directory is found or the root is reached
         while proj_dir.name != proj_name:
             proj_dir = proj_dir.parent
             if str(proj_dir) == root:
@@ -3435,10 +3466,4 @@ def get_base_dir(repo_name="CoastSeg") -> pathlib.Path:
     proj_dir = resolve_repo_path(cwd, proj_name=repo_name)
     return proj_dir
 
-
-if __name__ == "__main__":
-
-    base_dir = get_base_dir()
-    data_dir = base_dir / "data"
-    print(data_dir)
     

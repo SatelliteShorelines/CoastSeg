@@ -80,18 +80,6 @@ def create_transects_with_arrowheads(
     if "transect_geometry" in gdf_copy.columns:
         gdf_copy.drop(columns=["transect_geometry"], inplace=True)
 
-    # # Create a new GeoDataFrame for the merged geometries
-    # merged = gpd.GeoDataFrame(crs="EPSG:4326", geometry=[])
-    # # Merge each transect with its arrowhead
-    # for line in gdf_copy.geometry:
-    #     arrowhead = create_arrowhead(
-    #         line, arrow_length=arrow_length, arrow_angle=arrow_angle
-    #     )
-    #     merged_geometry = unary_union([line, arrowhead])
-    #     merged = pd.concat(
-    #         [merged, pd.DataFrame({"geometry": [merged_geometry]})], ignore_index=True
-    #     )
-    # # remove the copy of gdf from memory
     return gdf_copy
     # return merged
 
@@ -173,11 +161,13 @@ def load_intersecting_transects(
 
     # Create a list to store the GeoDataFrames
     gdf_list = []
-
     # Iterate over each transect file and select the transects that intersect with the rectangle
     for transect_file in transect_files:
         transects_name = os.path.splitext(transect_file)[0]
         transect_path = os.path.join(transect_dir, transect_file)
+        if not os.path.exists(transect_path):
+            logger.warning("Transect file %s does not exist", transect_path)
+            continue
         transects = gpd.read_file(transect_path, bbox=bbox)
         # keep only those transects that intersect with the rectangle
         transects = transects[transects.intersects(rectangle.unary_union)]
