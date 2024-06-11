@@ -19,10 +19,13 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # create a custom context manager to create a temporary directory & clean it up after use
 class NamedTemporaryDirectory:
-    def __init__(self, name):
+    def __init__(self, name,base_path=None):
+        if base_path is None:
+            base_path = tempfile.gettempdir()
         self.name = name
-        self.path = os.path.join(tempfile.gettempdir(), name)
+        self.path = os.path.join(base_path, name)
         os.makedirs(self.path, exist_ok=True)
+        print(f"Created temporary directory: {self.path}")
     
     def __enter__(self):
         return self.path
@@ -38,9 +41,9 @@ class NamedTemporaryDirectory:
 @pytest.fixture
 def named_temp_dir(request):
     # Retrieve the parameter from the request (this would be the name of the temporary directory)
-    dir_name = request.param
-    # Setup phase: create the temporary directory with the provided name
-    with NamedTemporaryDirectory(dir_name) as temp_dir:
+    dir_name, base_path = request.param
+    # Setup phase: create the temporary directory with the provided name and base path
+    with NamedTemporaryDirectory(dir_name, base_path) as temp_dir:
         yield temp_dir  # Provide the directory to the test function
     # Teardown phase: cleanup is handled by the NamedTemporaryDirectory context manager
 
