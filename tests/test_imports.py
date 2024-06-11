@@ -24,7 +24,7 @@ def test_import_bounding_boxes():
     except ImportError:
         assert False, "Failed to import bounding_boxes"
 
-@pytest.mark.parametrize('named_temp_dir', [('CoastSeg',str(pathlib.Path(__file__).parent))], indirect=True)
+@pytest.mark.parametrize('named_temp_dir', [('CoastSeg',None)], indirect=True)
 def test_import_coastseg_logs(named_temp_dir):
     try:
         # The named_temp_dir fixture created a temporary directory named 'CoastSeg'
@@ -54,8 +54,8 @@ def test_import_downloads():
         assert False, "Failed to import downloads"
 
 
-# Use the `pytest.mark.parametrize` to pass the parameter to the fixture
-@pytest.mark.parametrize('named_temp_dir', [('CoastSeg',str(pathlib.Path(__file__).parent))], indirect=True)
+# Use the `pytest.mark.parametrize` to pass the parameter to the fixture # create a temporary directory named 'CoastSeg'
+@pytest.mark.parametrize('named_temp_dir', [('CoastSeg',None)], indirect=True)
 def test_import_download_tide_model(named_temp_dir):
     try:
         # The named_temp_dir fixture created a temporary directory named 'CoastSeg'

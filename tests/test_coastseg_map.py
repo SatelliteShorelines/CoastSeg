@@ -166,7 +166,7 @@ def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     expected_config_geojson_path = tmp_path / "config_gdf.geojson"
     assert expected_config_geojson_path.exists()
 
-@pytest.mark.parametrize('named_temp_dir', [('CoastSeg',str(pathlib.Path(__file__).parent))], indirect=True)
+@pytest.mark.parametrize('named_temp_dir', [('CoastSeg',None)], indirect=True)
 def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, named_temp_dir):
     """test_save_config_empty_roi_settings tests if save configs will save both a config.json and
     config_gdf.geojson to the filepath directory when coastseg_map's rois do not have roi_settings.
