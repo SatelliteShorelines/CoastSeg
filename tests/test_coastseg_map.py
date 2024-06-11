@@ -1,5 +1,5 @@
 import json
-
+import os
 from coastseg import shoreline
 from coastseg import transects
 from coastseg import roi
@@ -166,8 +166,8 @@ def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     expected_config_geojson_path = tmp_path / "config_gdf.geojson"
     assert expected_config_geojson_path.exists()
 
-
-def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, tmp_path):
+@pytest.mark.parametrize('named_temp_dir', ['CoastSeg'], indirect=True)
+def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, named_temp_dir):
     """test_save_config_empty_roi_settings tests if save configs will save both a config.json and
     config_gdf.geojson to the filepath directory when coastseg_map's rois do not have roi_settings.
     It should also create roi_settings for coastseg_map's rois
@@ -179,15 +179,20 @@ def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, tm
     Selected ROIs have id:["17"]
         tmp_path (WindowsPath): temporary directory
     """
+    # The named_temp_dir fixture created a temporary directory named 'CoastSeg'
+    tmp_CoastSeg_path = named_temp_dir
     actual_coastsegmap = coastseg_map_with_selected_roi_layer
     assert actual_coastsegmap.rois.roi_settings == {}
-    filepath = str(tmp_path)
+    if type(tmp_CoastSeg_path) != str:
+        filepath = str(tmp_CoastSeg_path)
+    else:
+        filepath = tmp_CoastSeg_path
     roi_id = "17"
     actual_coastsegmap.save_config(filepath)
     # roi_settings was empty before. save_config should have created it
     assert actual_coastsegmap.rois.roi_settings != {}
-    expected_config_json_path = tmp_path / "config.json"
-    assert expected_config_json_path.exists()
+    expected_config_json_path = os.path.join( tmp_CoastSeg_path, "config.json")
+    assert os.path.exists(expected_config_json_path)
     with open(expected_config_json_path, "r", encoding="utf-8") as input_file:
         data = json.load(input_file)
     # test if roi id was saved as key and key fields exist
@@ -199,8 +204,8 @@ def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, tm
     assert "landsat_collection" in data[roi_id]
     assert "sitename" in data[roi_id]
     assert "filepath" in data[roi_id]
-    expected_config_geojson_path = tmp_path / "config_gdf.geojson"
-    assert expected_config_geojson_path.exists()
+    expected_config_geojson_path= os.path.join( tmp_CoastSeg_path,"config_gdf.geojson")
+    assert os.path.exists(expected_config_geojson_path)
 
 
 def test_load_json_config_without_rois(valid_coastseg_map_with_settings, tmp_data_path):
