@@ -86,11 +86,12 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **7.Name the Session**
 
-- Let's call this 'demo_session'
+- Name the session 'demo_session'. This will be the name of the folder saved in `CoastSeg/sessions`.
 
-- This is the name of the folder that will be saved in `CoastSeg/sessions`
+- The folder will contain a subdirectory for each ROI from which shorelines were extracted.
 
-- It will contain a subdirectory for each ROI that shorelines will be extracted for
+- Keeping sessions and downloaded data separate allows users to create multiple sessions from the same downloaded data, enabling experimentation with different settings.
+
 
 ![save_demo_session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4340c734-e20d-4149-89c2-11e73d9905d3)
 
@@ -102,13 +103,19 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case study 1 preview imagery](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/db42fee9-682b-4e15-8470-b97a166e42a8)
 
-**9.Download the ROIs**
+**9. Download the ROIs**
 
-- Click the ROIs you want to download on the map ( they will turn blue when selected)
+- Click the ROIs you want to download on the map (they will turn blue when selected).
 
-- If no transects or reference shorelines are available for the region you have uploaded follow the guide here
+- If no transects or reference shorelines are available for the region you have uploaded, follow the guide here.
 
-- NEVER rename your ROIs this is because CoastSeg keeps track of the filename in the 'config.json' and you won't be able to load it into CoastSeg again if you do. The ROI's ID is the filename so that information will be lost if you rename it.
+- NEVER rename your ROIs. This is because CoastSeg keeps track of the filename in the 'config.json' and you won't be able to load it into CoastSeg again if you do. The ROI's ID is the filename, so that information will be lost if you rename it.
+
+- The downloaded data can be found in `CoastSeg/data` under a folder with a name in the format `ID_<ROI ID>_datetime<currenttime>`. For example, you can see the JPGs for all the images you downloaded in `CoastSeg/data/ID_<ROI ID>_datetime06-17-24__11_12_40/jpg_files/preprocessed/RGB`.
+
+- This is example of the RGB imagery from a downloaded ROI. Here you can see the user sorted some of the imagery into a bad folder so it would not be used to extract shorelines. A full tutorial on how to filter bad imagery is available [here](https://satelliteshorelines.github.io/CoastSeg/How-to-Filter-Out-Bad-Imagery/).
+![coastseg/data/roi/](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/6f357c2e-8cdf-403d-8224-f8ba48946c2c)
+
 
 ![case_study_1_download_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1a30f9c7-fc4d-4e34-a57b-055624ff8464)
 
@@ -117,7 +124,12 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Extracting shorelines works by finding the land water interface in the image and drawing a line along it
 
-- A time series of shoreline position along each transect is generated as well
+- A time series of shoreline position along each transect is generated as well.
+
+- You can find images that show the extracted shoreline on each image in `coastseg/sessions/<YOUR SESSION NAME>/ROI_ID_NAME/jpg_files/detection` as shown below:
+
+![coastseg/sessions/session/roi/jpg_files/detection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/f5be75fb-1c75-46c2-bbec-b9b1e716fea4)
+
 
 ![shoreline_transect_intersection](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/e87b8d34-d9a4-4b1e-b3de-8e0be1c16ecd)
 
