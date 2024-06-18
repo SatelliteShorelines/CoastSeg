@@ -125,7 +125,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 **10.Extract Shorelines**
 ![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
 
-- Extracting shorelines involves loading the ROI data for each selected ROI from `CoastSeg/data/<ROI ID>` and processing the downloaded rasters to extract shorelines. The resulting files are saved in `CoastSeg/sessions/<YOUR SESSION NAME>/ROI_ID_NAME` for each ROI. Note that the downloaded data is NOT copied to the session; instead, the `config.json` file in each session keeps track of the location of the downloaded ROI in `CoastSeg/data`. You can read more about what is in each session in this [guide]().
+- Extracting shorelines involves loading the ROI data for each selected ROI from `CoastSeg/data/<ROI ID>` and processing the downloaded rasters to extract shorelines. The resulting files are saved in `CoastSeg/sessions/<YOUR SESSION NAME>/ROI_ID_NAME` for each ROI. Note that the downloaded data is NOT copied to the session; instead, the `config.json` file in each session keeps track of the location of the downloaded ROI in `CoastSeg/data`. You can read more about what is in each session in this [guide](https://satelliteshorelines.github.io/CoastSeg/what-is-in-a-session/).
 
 
 - Extracting shorelines works by finding the land water interface in the image and drawing a line along this boundary.
