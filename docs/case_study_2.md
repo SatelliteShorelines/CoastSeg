@@ -181,6 +181,8 @@ To get around this issue we have 2 options:
 
 - You can see the ROI ID in the hover menu located to the top right of the map
 
+- Read this quick [guide](https://satelliteshorelines.github.io/CoastSeg/How-to-Filter-Out-Bad-Imagery/) on how to filter bad imagery in CoastSeg.
+
 **Sort out Images with Sea Ice**
 
 - Sort any bad images into the 'bad folder'
