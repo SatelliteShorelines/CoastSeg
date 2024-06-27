@@ -103,7 +103,7 @@ SDS workflows require manipulating various settings in order to extract optimal 
 
 We added helpful workflow components such as image filtering options; for example, users can now filter their imagery based on image size and the proportion of no data pixels in an image. Additionally, the user can decide to turn off cloud masking, which is necessary when the cloud masking process fails and obscures non-cloudy regions such as bright pixels of sand beaches. Finally, we replaced non-cross-platform components of the original workflow, for example the pickle format was replaced with JSON or geoJSON formats which are both human-readable and compatible with GIS and webGIS.
 
-![Schematic of the tidal correction workflow used by a) ``CoastSat`` and b) ``CoastSeg``.](figs/coastseg_figure_1.png){#sylt width="100%"}
+![Schematic of the tidal correction workflow used by a) ``CoastSat`` and b) ``CoastSeg``.](figs/coastseg_figure_1.png)
 
 ### Tide
 
@@ -111,7 +111,7 @@ The CoastSat methodology for applying tide correction to shoreline positions inv
 
 In contrast, CoastSeg introduces a significant improvement to this process by leveraging the pyTMD API [@tyler_sutterley_2024] for a more streamlined and accurate approach to tidal correction (Figure 1). pyTMD facilitates downloading a variety of tide models, including FES14 and models specific to polar regions, and automates tide estimations. We provide an automated workflow that downloads and subdivides the FES2014 model data into 11 global regions (an idea adopted from [@krause2021dea]). This subdivision allows the program to access only relevant subsets of data, drastically reducing the time required to estimate tides—from hours to minutes for multi-decadal satellite time series. Furthermore, CoastSeg calculates tide estimates for each transect corresponding to the times shorelines were detected. This ensures tide corrections are based on temporal and spatial matches, enhancing the accuracy of shoreline position adjustments.
 
-![Schematic of the SDS workflows currently available in ``CoastSeg``. a) ``CoastSat`` workflow; b) ``Zoo`` workflow. Each session has distinct settings that influence the quality of the extracted shoreline. In this example, the reference shoreline buffer size varies between sessions in both the CoastSat and Zoo workflows.](figs/coastseg_figure_2.png){#sylt width="100%"}
+![Schematic of the SDS workflows currently available in ``CoastSeg``. a) ``CoastSat`` workflow; b) ``Zoo`` workflow. Each session has distinct settings that influence the quality of the extracted shoreline. In this example, the reference shoreline buffer size varies between sessions in both the CoastSat and Zoo workflows.](figs/coastseg_figure_2.png)
 
 <!-- --------------------------------------- -->
 
