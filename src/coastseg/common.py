@@ -460,6 +460,7 @@ def initialize_gee(
     # Authenticate and initialize
     authenticate_and_initialize(print_mode, force, auth_args, kwargs)
 
+
 def authenticate_and_initialize(print_mode: bool, force: bool, auth_args: dict, kwargs: dict, attempt: int = 1, max_attempts: int = 2):
     """
     Handles the authentication and initialization of Google Earth Engine.
@@ -490,13 +491,12 @@ def authenticate_and_initialize(print_mode: bool, force: bool, auth_args: dict, 
         else:
             print(f"An error occurred: {error_message}\n")
 
-        # Re-attempt authentication only if not already attempted and attempts are less than max_attempts
+        # Re-attempt authentication only if attempts are less than max_attempts
         if attempt < max_attempts:
             print(f"Re-attempting authentication (Attempt {attempt + 1}/{max_attempts})...\n")
             authenticate_and_initialize(print_mode, True, auth_args, kwargs, attempt + 1, max_attempts)  # Force re-authentication on retry
         else:
             raise Exception(f"Failed to initialize Google Earth Engine after {attempt} attempts: {error_message}")
-
 
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
     """

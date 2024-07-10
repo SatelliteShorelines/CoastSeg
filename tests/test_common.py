@@ -68,9 +68,9 @@ def test_authenticate_and_initialize_max_attempts():
         with pytest.raises(Exception) as excinfo:
             common.authenticate_and_initialize(print_mode=True, force=False, auth_args={}, kwargs={})
         
-        assert "Failed to initialize Google Earth Engine after 3 attempts" in str(excinfo.value)
-        assert mock_authenticate.call_count == 3
-        assert mock_initialize.call_count == 3
+        assert "Failed to initialize Google Earth Engine after 2 attempts" in str(excinfo.value)
+        assert mock_authenticate.call_count == 2
+        assert mock_initialize.call_count == 2
 
 
 def test_order_linestrings_gdf_empty():
