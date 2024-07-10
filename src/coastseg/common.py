@@ -1608,6 +1608,7 @@ def export_dataframe_as_geojson(data:pd.DataFrame, output_file_path:str, x_col:s
 def create_complete_line_string(points):
     """
     Create a complete LineString from a list of points.
+    If there is only a single point in the list, a Point object is returned instead of a LineString.
 
     Args:
         points (numpy.ndarray): An array of points representing the coordinates.
@@ -1653,6 +1654,9 @@ def create_complete_line_string(points):
         current_point = nearest_point
 
     # Convert the sorted list of points to a LineString
+    if len(sorted_points) < 2:
+        return Point(sorted_points[0])
+
     return LineString(sorted_points)
 
 def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
@@ -1682,6 +1686,7 @@ def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
         lines.append(line_string)
     
     gdf = gpd.GeoDataFrame({'geometry': lines,'date': dates},crs=output_crs)
+
     return gdf
 
 
@@ -1731,9 +1736,7 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
         shore_y_utm = first[1]+distances*np.sin(angle)
         # points_utm = [shapely.Point(xy) for xy in zip(shore_x_utm, shore_y_utm)]
 
-        # #conversion from utm to wgs84, put them in the transect_timeseries csv and utm gdf
-        # dummy_gdf_utm = gpd.GeoDataFrame({'geometry':points_utm},
-        #                                  crs=utm_crs)
+        #conversion from utm to wgs84, put them in the transect_timeseries csv and utm gdf
         points_utm = gpd.GeoDataFrame({'geometry': [Point(x, y) for x, y in zip(shore_x_utm, shore_y_utm)]}, crs=utm_crs)
         # Convert shore points to WGS84
         points_wgs84 = points_utm.to_crs(org_crs)
@@ -1743,13 +1746,6 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
         # Update timeseries data with shore_x and shore_y
         timeseries_data.loc[idx, 'shore_x'] = coords_wgs84[:, 0]
         timeseries_data.loc[idx, 'shore_y'] = coords_wgs84[:, 1]
-        # points_wgs84 = [shapely.get_coordinates(p) for p in dummy_gdf_wgs84.geometry]
-        # points_wgs84 = np.array(points_wgs84)
-        # points_wgs84 = points_wgs84.reshape(len(points_wgs84),2)
-        # x_wgs84 = points_wgs84[:,0]
-        # y_wgs84 = points_wgs84[:,1]
-        # timeseries_data.loc[idxes,'shore_x'] = x_wgs84
-        # timeseries_data.loc[idxes,'shore_y'] = y_wgs84
 
     return timeseries_data
 
