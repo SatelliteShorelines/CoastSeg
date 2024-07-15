@@ -398,7 +398,7 @@ def RGB_to_infrared(
             infrared = common.scale(infrared, np.maximum(gx, nx), np.maximum(gy, ny))
 
         # output_img(MNDWI/NDWI) imagery formula (Green - SWIR) / (Green + SWIR)
-        output_img = np.divide(infrared - green_band, infrared + green_band)
+        output_img = (green_band-infrared) / (infrared + green_band)
         # Convert the NaNs to -1
         output_img[np.isnan(output_img)] = -1
         # Rescale to be between 0 - 255
