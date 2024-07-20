@@ -315,7 +315,7 @@ def main():
 
     # Check if EE was initialized or not
     try:
-        ee.ImageCollection("LANDSAT/LT05/C01/T1_TOA")
+        ee.ImageCollection("LANDSAT/LC08/C02/T1_TOA")
     except:
         ee.Initialize()
 

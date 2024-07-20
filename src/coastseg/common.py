@@ -1488,15 +1488,6 @@ def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> di
             )
             continue
 
-        # satname_parts = parts[-1].split(".")
-
-        # if len(satname_parts) < 2:
-        #     logging.warning(
-        #         f"Skipping file with unexpected name format: {old_filename}"
-        #     )
-        #     continue
-
-        # satname = satname_parts[0]
 
         tif_filename = f"{date}_{satname}_{sitename}_ms.tif"
         if satname in satellites:
