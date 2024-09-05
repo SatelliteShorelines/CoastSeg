@@ -45,6 +45,9 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Google Earth Engine Setup: 
+      - 1. First Time Sign Up: google-earth-engine-setup.md
+      - 2. Check if API is Enabled: google-earth-enable-api.md
   - Installation:
       - Basic Installation Guide: basic-install-guide.md
       - Secure Installation Guide: secure-install-guide.md
@@ -61,7 +64,7 @@ nav:
       - Getting Started to Contribute: Getting-Started_to_contribute.md
       - How to Contribute Transects: contribute-transects.md
       - How to Test the Zoo Workflow: test-zoo-workflow.md
-      - How to edit the website: edit-website.md
+      - How to edit the website: contribute-how-edit-website.md
       # - Technical Documentation: technical-documentation.md
   - Tutorials:
       - How to authenticate with Google Earth Engine: how-to-auth.md
