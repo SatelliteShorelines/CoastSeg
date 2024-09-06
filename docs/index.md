@@ -18,6 +18,8 @@
 
 CoastSeg is a Jupyter and Python based program that runs in a conda environment. Please see [the installation guide](https://satelliteshorelines.github.io/CoastSeg/basic-install-guide/)
 
+Check out the [CoastSeg YouTube Channel](https://www.youtube.com/@CoastSeg-n3e/videos) for tutorials! 
+
 ## Getting Started
 
 Please see [Getting Started guide](https://satelliteshorelines.github.io/CoastSeg/getting-started/), which includes instructions for
