@@ -1,4 +1,4 @@
-# Check if Google Earth Engine API is enabled
+# Check if Google Earth Engine API is Enabled
 
 ### Step 1: Select a project & Services
 
@@ -17,7 +17,7 @@
 
 ### Step 4: Click Earth Engine
 
-![results](https://github.com/user-attachments/assets/50dd9815-fe2e-402a-96ee-8efedf2438ba)
+![pop_up](https://github.com/user-attachments/assets/0a864add-4d20-4f2d-a75b-2333297276af)
 
 ### Step 5: Enable the API
 

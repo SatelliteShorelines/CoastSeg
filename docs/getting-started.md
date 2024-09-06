@@ -2,13 +2,29 @@
 
 **1.Sign up to use Google Earth Engine Python API**
 
-- Request access to Google Earth Engine at https://signup.earthengine.google.com/
+1. Follow the guide to setup Google Earth Engine: [Sign up for Google Earth Engine for the First Time](https://satelliteshorelines.github.io/CoastSeg/google-earth-engine-setup/)
 
-- It takes about 1 day for Google to approve requests.
+2. Follow the guide to enable Google earth Engine for your project : [Check if Google Earth Engine API is Enabled](https://satelliteshorelines.github.io/CoastSeg/google-earth-enable-api/)
+
+**2. Install Git**
+
+1. Install git on your computer following the guide [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
+**3. Install CoastSeg in Anaconda**
+
+ Follow one of the install guides under "Installation" to install CoastSeg.
+
+  - For most users the [basic install guide](https://satelliteshorelines.github.io/CoastSeg/basic-install-guide/) will work 
+
+  - If you are on a secure network then you may need to follow the [secure install guide](https://satelliteshorelines.github.io/CoastSeg/basic-install-guide/)
+
 
 ## Installation & SetUp
 
 **1.Activate the coastseg conda environment**
+
+- Open anaconda prompt.
+- Make sure you installed coastseg if not follow the installation guide : [basic install guide](https://satelliteshorelines.github.io/CoastSeg/basic-install-guide/)
 
 ```bash
 conda activate coastseg
@@ -21,17 +37,37 @@ conda activate coastseg
 
 **2.Download CoastSeg from GitHub**
 
+- Before you run this step make you have install git on your computer a guide is linked [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
+- Open 'git bash' (use this in the search bar on windows) and open the app. 
+
+- Here is an example below where I have installed CoastSeg in a folder called 'projects'. 
+
+- After the download finishes close git bash.
+
 ```
+mkdir projects
+cd projects
 git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
 ```
+
+![git bash](https://github.com/user-attachments/assets/10fdd7c1-ef23-4234-ba01-07489c3f7007)
+
 
 ## Extract Shorelines
 
 **1.Launch Jupyter Lab**
 
+- Open Anaconda prompt
+
 - Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
 
+- This will open jupyter in a new tab on your browser
+
+- If you have never used jupyter before I find that this [guide](https://www.dataquest.io/blog/jupyter-notebook-tutorial/) is great!
+
 ```bash
+cd <location you installed Coastseg>
 conda activate coastseg
 jupyter lab SDS_coastsat_classifier.ipynb
 ```
