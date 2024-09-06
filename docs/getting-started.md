@@ -58,23 +58,20 @@ git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
 
 **1.Launch Jupyter Lab**
 
+- If you have never used jupyter notebook before please check out this guide: [How to Use Jupyter Notebook](https://satelliteshorelines.github.io/CoastSeg/jupyter-notebook-guide/)
+
 - Open Anaconda prompt
 
-- Run this command in the coastseg directory to launch the notebook `SDS_coastsat_classifier`
+- Enter `jupyter lab SDS_coastsat_classifier.ipynb` in anaconda prompt and your notebook should automatically open in the browser
 
-- This will open jupyter in a new tab on your browser
+- 3. PLEASE MAKE SURE YOU RUN THIS IN THE COASTSEG DIRECTORY WHERE THE NOTEBOOK `SDS_coastsat_classifier.ipynb` IS LOCATED
 
-- If you have never used jupyter before I find that this [guide](https://www.dataquest.io/blog/jupyter-notebook-tutorial/) is great!
 
 ```bash
 cd <location you installed Coastseg>
 conda activate coastseg
 jupyter lab SDS_coastsat_classifier.ipynb
 ```
-
-- Enter 'jupyter lab SDS_coastsat_classifier.ipynb' in anaconda prompt and your notebook should automatically open in the browser
-
-- PLEASE MAKE SURE YOU RUN THIS IN THE COASTSEG DIRECTORY WHERE THE NOTEBOOK `SDS_coastsat_classifier.ipynb` IS LOCATED
 
 ![jupyter notebbok open classifier](https://github.com/user-attachments/assets/ed1dddb2-3a01-4572-b2c1-4cc0ff794972)
 
