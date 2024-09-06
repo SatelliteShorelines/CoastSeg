@@ -24,7 +24,7 @@
 **1.Activate the coastseg conda environment**
 
 - Open anaconda prompt.
-- Make sure you installed coastseg if not follow the installation guide : [basic install guide](https://satelliteshorelines.github.io/CoastSeg/basic-install-guide/)
+- Make sure you have coastseg installed if not follow the installation guide : [basic install guide](https://satelliteshorelines.github.io/CoastSeg/basic-install-guide/)
 
 ```bash
 conda activate coastseg
@@ -41,7 +41,7 @@ conda activate coastseg
 
 - Open 'git bash' (use this in the search bar on windows) and open the app. 
 
-- Here is an example below where I have installed CoastSeg in a folder called 'projects'. 
+- Here is an example below where I have installed CoastSeg in a folder called 'projects', but you can install it wherever you'd like just make sure to remember the location.
 
 - After the download finishes close git bash.
 
@@ -72,13 +72,34 @@ conda activate coastseg
 jupyter lab SDS_coastsat_classifier.ipynb
 ```
 
+- Enter 'jupyter lab SDS_coastsat_classifier.ipynb' in anaconda prompt and your notebook should automatically open in the browser
+
+- PLEASE MAKE SURE YOU RUN THIS IN THE COASTSEG DIRECTORY WHERE THE NOTEBOOK `SDS_coastsat_classifier.ipynb` IS LOCATED
+
+![jupyter notebbok open classifier](https://github.com/user-attachments/assets/ed1dddb2-3a01-4572-b2c1-4cc0ff794972)
+
+
 **2.Authenticate with Google Earth Engine**
 
 - Run the cell located under 'Authenticate with Google Earth Engine (GEE)'
 
-![auth_cell_cropped](https://github.com/Doodleverse/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
+![run_cell](https://github.com/user-attachments/assets/6bb955a7-edb3-4445-9337-d20d4bb95976)
 
-**3.Draw an Bounding Box**
+
+**3.Run the Cell 'Create Coastseg Map Dashboard'**
+
+- Run the cell to create the map dashboard
+
+
+![run map dashboard](https://github.com/user-attachments/assets/fe46dcf3-352b-458e-a261-f2adbd4663f5)
+
+- After you run the cell you should see the UI appear
+
+- Scroll down to the interactive map
+
+![ran map dashboard](https://github.com/user-attachments/assets/ddd44c63-9285-42a6-a69c-c7410d09a29c)
+
+**4.Draw an Bounding Box**
 
 - Draw a bounding box along the coast in this box is where ROIs will be created
 
@@ -92,7 +113,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![draw_bbox_polygon_remove_back_barrier](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/a63f023a-f9a8-4e48-9aca-bfa00dc262ea)
 
-**4.Generate ROI (Region of Interest)**
+**5.Generate ROI (Region of Interest)**
 
 - ROIs can only be generated along a shoreline
 
@@ -100,7 +121,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![generate_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/ade2123f-3ea6-4dc0-ac5b-15f5f758e220)
 
-**5.Load Transects**
+**6.Load Transects**
 
 - Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
 
@@ -108,7 +129,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![load_rois_then_transects_on_map_demo](https://github.com/Doodleverse/CoastSeg/assets/61564689/d53154b0-7a63-470f-91ec-dabdf7d4a100)
 
-**6.Modify the Settings**
+**7.Modify the Settings**
 
 - Change the satellites to L8 and L9
 
@@ -120,7 +141,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![save_settings_getting_started_circle](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/c14c2e01-bb1f-43d2-b932-b0ccfb82a598)
 
-**7.Name the Session**
+**8.Name the Session**
 
 - Name the session 'demo_session'. This will be the name of the folder saved in `CoastSeg/sessions`.
 
@@ -131,7 +152,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![save_demo_session](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4340c734-e20d-4149-89c2-11e73d9905d3)
 
-**8.Preview the available Imagery**
+**9.Preview the available Imagery**
 
 - Preview the amount of available imagery for the selected ROI between the dates
 
@@ -139,7 +160,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 ![case study 1 preview imagery](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/db42fee9-682b-4e15-8470-b97a166e42a8)
 
-**9. Download the ROIs**
+**10. Download the ROIs**
 
 - Click the ROIs you want to download on the map (they will turn blue when selected).
 
@@ -158,7 +179,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 
 
-**10.Extract Shorelines**
+**11.Extract Shorelines**
 ![save_settings_download_extract](https://github.com/Doodleverse/CoastSeg/assets/61564689/3548a9ce-a190-4c95-b495-0ff75484fdb2)
 
 - Extracting shorelines involves loading the ROI data for each selected ROI from `CoastSeg/data/<ROI ID>` and processing the downloaded rasters to extract shorelines. The resulting files are saved in `CoastSeg/sessions/<YOUR SESSION NAME>/ROI_ID_NAME` for each ROI. Note that the downloaded data is NOT copied to the session; instead, the `config.json` file in each session keeps track of the location of the downloaded ROI in `CoastSeg/data`. You can read more about what is in each session in this [guide](https://satelliteshorelines.github.io/CoastSeg/what-is-in-a-session/).
