@@ -1,3 +1,7 @@
+# Getting Started
+
+CoastSeg works best on sand and gravel beaches. It is not as effective at other sites or a marsh beaches.
+
 ## Prerequisites
 
 **1.Sign up to use Google Earth Engine Python API**
@@ -73,6 +77,14 @@ conda activate coastseg
 jupyter lab SDS_coastsat_classifier.ipynb
 ```
 
+- If this doesn't work then try entering the full path to the notebook
+
+  -- If you notebook is at `C:\projects\CoastSeg` then you would enter the path `C:\projects\CoastSeg\SDS_coastsat_classifier.ipynb`
+
+```bash
+jupyter lab C:\projects\CoastSeg\SDS_coastsat_classifier.ipynb
+```
+
 ![jupyter notebbok open classifier](https://github.com/user-attachments/assets/ed1dddb2-3a01-4572-b2c1-4cc0ff794972)
 
 
@@ -98,7 +110,9 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **4.Draw an Bounding Box**
 
-- Draw a bounding box along the coast in this box is where ROIs will be created
+- Draw a bounding box along the coast in this box is where ROIs will be created.
+
+- You can only draw bounding boxes along the coast to generate ROIs this is because CoastSeg is only designed to extract shorelines.
 
 **Option 1: Draw a Bounding Box with the box tool**
 
@@ -120,6 +134,8 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 **6.Load Transects**
 
+- Not all locations in the world have transects or shorelines available. Feel free to submit an issue to contribute transects or shorelines.
+
 - Make sure there are transects inside the ROI you have selected otherwise you won't be able to extract shorelines
 
 - If there isn't a reference shoreline or any transects available for your site check out the guide on how to upload your own [here](https://satelliteshorelines.github.io/CoastSeg/how-to-upload-features/)
@@ -131,8 +147,6 @@ jupyter lab SDS_coastsat_classifier.ipynb
 - Change the satellites to L8 and L9
 
 - Change the dates to 12/01/2023 - 03/01/2024
-
-- Change the size of the reference shoreline buffer
 
 - Click `Save Settings`
 
@@ -172,8 +186,6 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 
 ![case_study_1_download_roi](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/1a30f9c7-fc4d-4e34-a57b-055624ff8464)
-
-
 
 
 **11.Extract Shorelines**

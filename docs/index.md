@@ -22,6 +22,8 @@ Check out the [CoastSeg YouTube Channel](https://www.youtube.com/@CoastSeg-n3e/v
 
 ## Getting Started
 
+CoastSeg works best on sand and gravel beaches. It is not as effective at other sites or a marsh beaches.
+
 Please see [Getting Started guide](https://satelliteshorelines.github.io/CoastSeg/getting-started/), which includes instructions for
 
 - Pre-requisites (accounts, data access)
