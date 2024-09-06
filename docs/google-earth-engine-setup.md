@@ -22,7 +22,7 @@ Visit: https://code.earthengine.google.com/register
 
 When you click the link to accept the terms a pop up will open. Click agree and then click the button to continue
 
-![alt text](image-4.png)
+![pop_up](https://github.com/user-attachments/assets/0a864add-4d20-4f2d-a75b-2333297276af)
 
 ### Step 5:
 
