@@ -11,7 +11,7 @@ This tutorial is for existing users of CoastSeg who need to use a Google Cloud P
 
 ![1_sign_up_screen](https://github.com/user-attachments/assets/17b4108a-32f3-4a54-b813-9c0a4bddb539)
 
-### Step 2:
+### Step 2: Select Usage type
 ![2_paid_useage](https://github.com/user-attachments/assets/7415ff08-678f-4562-b313-2017d0da6593)
 
 
