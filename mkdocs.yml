@@ -48,6 +48,7 @@ nav:
   - Google Earth Engine Setup: 
       - 1. Sign up for Google Earth Engine for the First Time: google-earth-engine-setup.md
       - 2. Check if API is Enabled: google-earth-enable-api.md
+      - 3. Register an existing project with Google Earth Engine: register-existing-gee-account.md
   - Installation:
       - Basic Installation Guide: basic-install-guide.md
       - Secure Installation Guide: secure-install-guide.md

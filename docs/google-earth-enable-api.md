@@ -15,9 +15,11 @@
 
 ![search](https://github.com/user-attachments/assets/e0296b63-ae3c-460e-9af2-3241e44dba22)
 
+
 ### Step 4: Click Earth Engine
 
-![pop_up](https://github.com/user-attachments/assets/0a864add-4d20-4f2d-a75b-2333297276af)
+![search api for ee](https://github.com/user-attachments/assets/5ccc60ed-370b-4869-80a8-d60139103c59)
+
 
 ### Step 5: Enable the API
 
