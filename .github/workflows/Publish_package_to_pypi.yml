@@ -3,7 +3,7 @@
 # It will create a create a new pip package to release it to pypi with the version specificed by the git tag.
 # 🚨 GTHUB SECRETS REQUIRED: secrets.PYPI_TOKEN
 #                            - Used to publish the package to the pypi
-name: Publish to Package to PyPi
+name: Publish Package to PyPi
 on:
   push:
     # only release a new pip package if the commit it tagged ex.v1.0.3 or v1.2.0dev1
