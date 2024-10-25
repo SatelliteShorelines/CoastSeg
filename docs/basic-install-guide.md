@@ -8,7 +8,7 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
 
 We highly recommend you install CoastSeg using `conda` following the instructions in [Install from conda-forge](#install-from-conda-forge).
 
-## Install from conda-forge
+## Method #1: Install from conda-forge (Recommended)
 
 **1.Create an miniconda/Anaconda environment and Activate it**
 
@@ -35,7 +35,7 @@ We highly recommend you install CoastSeg using `conda` following the instruction
   pip install transformers
   ```
 
-## Install from Pypi
+## Method #2: Install from Pypi
 
 **1.Create an miniconda/Anaconda environment**
 
@@ -62,7 +62,7 @@ conda activate coastseg
 - Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version and to avoid dependency conflicts
 
 ```bash
-conda install -c conda-forge geopandas -y
+conda install -c conda-forge geopandas gdal -y
 ```
 
 **4.Install the CoastSeg from PyPi**
