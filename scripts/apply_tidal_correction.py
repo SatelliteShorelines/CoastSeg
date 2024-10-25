@@ -677,26 +677,23 @@ def model_tides(
     # number of time points
     n_times = len(time)
 
-    if model.format == "FES":
-        amp, ph = pyTMD.io.FES.extract_constants(
-            lon,
-            lat,
-            model.model_file,
-            type=model.type,
-            version=model.version,
-            method=method,
-            extrapolate=extrapolate,
-            cutoff=cutoff,
-            scale=model.scale,
-            compressed=model.compressed,
-        )
-
-        # Available model constituents
-        c = model.constituents
-
-        # Delta time (TT - UT1)
-        # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
-        deltat = timescale.tt_ut1
+    amp, ph = pyTMD.io.FES.extract_constants(
+        lon,
+        lat,
+        model.model_file,
+        type=model.type,
+        version=model.version,
+        method=method,
+        extrapolate=extrapolate,
+        cutoff=cutoff,
+        scale=model.scale,
+        compressed=model.compressed,
+    )
+    # Available model constituents
+    c = model.constituents
+    # Delta time (TT - UT1)
+    # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
+    deltat = timescale.tt_ut1
 
     # Calculate complex phase in radians for Euler's
     cph = -1j * ph * np.pi / 180.0
