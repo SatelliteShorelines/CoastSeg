@@ -1261,9 +1261,9 @@ def simplified_find_contours(
     # make a copy of the im_labels array as a float (this allows find contours to work))
     im_labels_masked = im_labels.copy().astype(float)
     # Apply the cloud mask by setting masked pixels to NaN
-    im_labels_masked[cloud_mask] = np.NaN
+    im_labels_masked[cloud_mask] = np.nan
     # only keep the pixels inside the reference shoreline buffer
-    im_labels_masked[~reference_shoreline_buffer] = np.NaN
+    im_labels_masked[~reference_shoreline_buffer] = np.nan
     
     # 0 or 1 labels means 0.5 is the threshold
     contours = measure.find_contours(im_labels_masked, 0.5)
