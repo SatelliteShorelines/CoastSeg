@@ -832,7 +832,6 @@ def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
     combined_mask = pd.Series([True] * len(gdf))
 
     for column_name, items_list in kwargs.items():
-        print(f"column namme : {column_name} \n items_list : {items_list}")
         # Ensure the column exists in the DataFrame
         if column_name not in gdf.columns:
             continue
@@ -3221,8 +3220,6 @@ def rename_jpgs(src_path: str) -> None:
                 new_name = folder_path + os.sep + base + "_" + folder_id + ext
                 old_name = folder_path + os.sep + jpg
                 os.rename(old_name, new_name)
-        if files_renamed:
-            print(f"Renamed files in {src_path} ")
 
 
 def do_rois_filepaths_exist(roi_settings: dict, roi_ids: list) -> bool:

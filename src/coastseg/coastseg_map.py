@@ -2685,11 +2685,9 @@ class CoastSeg_Map:
         if new_feature is None:
             logger.warning(f"No {feature_name} was None")
             return
-        print(f"Adding {feature_name} to map")
         # get on hover and on click handlers for feature
         on_hover = self.get_on_hover_handler(feature_name)
         on_click = self.get_on_click_handler(feature_name)
-        print(f"on_click handler: {on_click}")
         # if layer name is not given use the layer name of the feature
         if not layer_name and hasattr(new_feature, "LAYER_NAME"):
             layer_name = new_feature.LAYER_NAME
