@@ -60,8 +60,8 @@ class UI_Models:
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "segformer_RGB_4class_8190958",
-            "sat_RGB_4class_6950472",
+            "global_segformer_RGB_4class_14036903", # global segformer model
+            "AK_segformer_RGB_4class_14037041", # AK segformer model
         ]
         # self.five_band_models = [
         #     "sat_5band_4class_7344606",
