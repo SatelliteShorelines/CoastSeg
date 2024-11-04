@@ -622,7 +622,6 @@ def process_satellite_image(
     min_beach_area = settings["min_beach_area"]
     land_mask = remove_small_objects_and_binarize(land_mask, min_beach_area)
 
-
     # get the shoreline from the image
     shoreline = find_shoreline(
         fn,

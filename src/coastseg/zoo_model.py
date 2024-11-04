@@ -380,7 +380,7 @@ def RGB_to_infrared(
         green_band = skimage.io.imread(file[0])[:, :, 1].astype("float")
         # Read infrared(SWIR or NIR) and cast to float
         infrared = skimage.io.imread(file[1]).astype("float")
-        # Transform 0 to np.NAN
+        # Transform 0 to np.nan
         green_band[green_band == 0] = np.nan
         infrared[infrared == 0] = np.nan
         # Mask out NaNs
@@ -607,7 +607,7 @@ class Zoo_Model:
             "sample_direc": None,
             "use_GPU": "0",
             "implementation": "BEST",
-            "model_type": "segformer_RGB_4class_8190958",
+            "model_type": "global_segformer_RGB_4class_14036903",
             "otsu": False,
             "tta": False,
             "cloud_thresh": 0.5,  # threshold on maximum cloud cover
@@ -1167,7 +1167,7 @@ class Zoo_Model:
         # filter out files with no data pixels greater than percent_no_data
         len_before = len(model_ready_files)
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
-        print(f"From {len_before} files {len_before - len(model_ready_files)} files were filtered out due to no data pixels percentage being greater than {percent_no_data*100}%.")
+        print(f"{len_before - len(model_ready_files)}/{len_before} files were filtered out because the percentage of no data pixels in the image was greater than {percent_no_data}%.")
         
         return model_ready_files
 
