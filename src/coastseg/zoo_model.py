@@ -1608,7 +1608,6 @@ class Zoo_Model:
         zenodo_id = model_id.split("_")[-1]
         # get list of files available in zenodo release
         json_content = get_zenodo_release(zenodo_id)
-        print(f"json_content: {json_content}")
         available_files = json_content["files"]
 
         # Download the best model if best or all models if ensemble
