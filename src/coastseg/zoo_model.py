@@ -607,7 +607,7 @@ class Zoo_Model:
             "sample_direc": None,
             "use_GPU": "0",
             "implementation": "BEST",
-            "model_type": "segformer_RGB_4class_8190958",
+            "model_type": "global_segformer_RGB_4class_14036903",
             "otsu": False,
             "tta": False,
             "cloud_thresh": 0.5,  # threshold on maximum cloud cover

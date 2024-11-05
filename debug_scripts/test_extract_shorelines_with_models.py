@@ -58,7 +58,7 @@ def create_model_settings(input_directory:str,img_type:str,implementation: str="
                 "sample_direc": None, # directory of jpgs  ex. C:/Users/username/CoastSeg/data/ID_lla12_datetime11-07-23__08_14_11/jpg_files/preprocessed/RGB/",
                 "use_GPU": "0",  # 0 or 1 0 means no GPU
                 "implementation": "BEST",  # BEST or ENSEMBLE 
-                "model_type": "segformer_RGB_4class_8190958", # model name ex. segformer_RGB_4class_8190958
+                "model_type":"global_segformer_RGB_4class_14036903", # model name ex. global_segformer_RGB_4class_14036903
                 "otsu": False, # Otsu Thresholding
                 "tta": False,  # Test Time Augmentation
             }
@@ -128,14 +128,14 @@ def test_model(img_types:list, available_models_dict:dict, input_directory:str):
 available_models_dict = {
     "RGB": [
         "global_segformer_RGB_4class_14036903", # global segformer model
-        # "AK_segformer_RGB_4class_14037041", # AK segformer model
+        "AK_segformer_RGB_4class_14037041", # AK segformer model
     ],
-    # "MNDWI": [
-    #     "segformer_MNDWI_4class_8213443",
-    # ],
-    # "NDWI": [
-    #     "segformer_NDWI_4class_8213427",
-    # ],
+    "MNDWI": [
+        "segformer_MNDWI_4class_8213443",
+    ],
+    "NDWI": [
+        "segformer_NDWI_4class_8213427",
+    ],
 }
 
 # img_types = ["RGB"]
