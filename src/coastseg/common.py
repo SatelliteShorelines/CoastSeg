@@ -1505,14 +1505,15 @@ def create_unique_ids(data, prefix_length: int = 3):
 
 
 def extract_feature_from_geodataframe(
-    gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
+    gdf: gpd.GeoDataFrame, feature_type: Union[int, str], type_column: str = "type"
 ) -> gpd.GeoDataFrame:
     """
     Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
 
     Args:
         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-        feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        feature_type Union[int, str]: The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        Feature_type can also be list of strings such as ['shoreline','shorelines', 'reference shoreline'] to match the same kind of feature with muliple names.
         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
 
     Returns:
@@ -1527,8 +1528,12 @@ def extract_feature_from_geodataframe(
             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
         )
 
-    # select only the features that are of the correct type and have the correct columns
-    feature_gdf = gdf[gdf[type_column] == feature_type]
+    if isinstance(feature_type, list):
+        # select only the features that are of the correct type and have the correct columns
+        feature_gdf = gdf[gdf[type_column].isin(feature_type)]
+    else:
+        # select only the features that are of the correct type and have the correct columns
+        feature_gdf = gdf[gdf[type_column] == feature_type]
 
     return feature_gdf
 

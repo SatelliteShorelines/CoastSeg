@@ -837,14 +837,15 @@ class CoastSeg_Map:
         del gdf
 
     def _extract_feature_gdf(
-        self, gdf: gpd.GeoDataFrame, feature_type: str, columns: List[str]
+        self, gdf: gpd.GeoDataFrame, feature_type: Union[int, str], columns: List[str]
     ) -> gpd.GeoDataFrame:
         """
         Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
 
         Args:
             gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-            feature_type (str): The type of feature to extract.
+             feature_type Union[int, str]: The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        Feature_type can also be list of strings such as ['shoreline','shorelines', 'reference shoreline'] to match the same kind of feature with muliple names.
             columns (List[str]): A list of column names to extract from the GeoDataFrame.
 
         Returns:
@@ -869,8 +870,8 @@ class CoastSeg_Map:
             )
 
         # select only the features that are of the correct type and have the correct columns
-        feature_gdf = gdf[gdf["type"] == feature_type][keep_columns]
-
+        feature_gdf =  common.extract_feature_from_geodataframe(gdf, feature_type)
+        feature_gdf = feature_gdf[keep_columns]
         return feature_gdf
 
     def preview_available_images(self,selected_ids: set = None):

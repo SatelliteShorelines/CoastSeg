@@ -110,6 +110,16 @@ def create_geofeature_geodataframe(
     return geofeature_gdf
 
 
+FEATURE_TYPE_MAP = {
+    "transect": transects.Transects,
+    "transects": transects.Transects,
+    "shoreline": shoreline.Shoreline,
+    "shorelines": shoreline.Shoreline,
+    "reference_shoreline": shoreline.Shoreline,
+    "reference_shorelines": shoreline.Shoreline,
+    "shoreline_extraction_area": shoreline_extraction_area.Shoreline_Extraction_Area,
+}
+
 def load_geofeatures_from_roi(
     roi_gdf: gpd.GeoDataFrame, feature_type: str
 ) -> gpd.GeoDataFrame:
@@ -127,14 +137,10 @@ def load_geofeatures_from_roi(
     Raises:
         ValueError: If no geographic features were found in the given ROI.
     """
-    feature_type = (
-        feature_type.lower()
-    )  # Convert to lower case for case insensitive comparison
+    feature_type = feature_type.lower()  # Convert to lower case for case insensitive comparison
 
-    if feature_type == "transect" or feature_type == "transects":
-        feature_object = transects.Transects(bbox=roi_gdf)
-    elif feature_type == "shoreline" or feature_type == "shorelines":
-        feature_object = shoreline.Shoreline(bbox=roi_gdf)
+    if feature_type in FEATURE_TYPE_MAP:
+        feature_object = FEATURE_TYPE_MAP[feature_type](bbox=roi_gdf)
     else:
         logger.error(f"Unsupported feature_type: {feature_type}")
         raise ValueError(f"Unsupported feature_type: {feature_type}")
@@ -203,12 +209,10 @@ def load_feature_from_file(feature_path: str, feature_type: str):
 
 
 def create_feature(feature_type: str, gdf):
-    if feature_type == "transect" or feature_type == "transects":
-        feature_object = transects.Transects(transects=gdf)
-    elif feature_type == "shoreline" or feature_type == "shorelines":
-        feature_object = shoreline.Shoreline(shoreline=gdf)
-    elif feature_type == "shoreline_extraction_area":
-        feature_object = shoreline_extraction_area.Shoreline_Extraction_Area(gdf)
+    feature_type = feature_type.lower()  # Convert to lower case for case insensitive comparison
+
+    if feature_type in FEATURE_TYPE_MAP:
+        feature_object = FEATURE_TYPE_MAP[feature_type](gdf)
     else:
         raise ValueError(f"Unsupported feature_type: {feature_type}")
 
@@ -253,41 +257,3 @@ def extract_feature_from_geodataframe(
     filtered_gdf = gdf[gdf[type_column].str.lower().isin(feature_types)]
 
     return filtered_gdf
-
-
-# def extract_feature_from_geodataframe(
-#     gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
-# ) -> gpd.GeoDataFrame:
-#     """
-#     Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
-
-#     Args:
-#         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-#         feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
-#         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
-
-#     Returns:
-#         gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type and columns.
-
-#     Raises:
-#         ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
-#     """
-#     # Check if type_column exists in the GeoDataFrame
-#     if type_column not in gdf.columns:
-#         raise ValueError(
-#             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
-#         )
-
-#     # Check if feature_type ends with 's' and define alternative feature_type
-#     if feature_type.endswith("s"):
-#         alt_feature_type = feature_type[:-1]
-#     else:
-#         alt_feature_type = feature_type + "s"
-
-#     # Filter using both feature_types
-#     main_feature_gdf = gdf[gdf[type_column] == feature_type]
-#     alt_feature_gdf = gdf[gdf[type_column] == alt_feature_type]
-
-#     # Combine both GeoDataFrames
-#     combined_gdf = pd.concat([main_feature_gdf, alt_feature_gdf])
-#     return combined_gdf
