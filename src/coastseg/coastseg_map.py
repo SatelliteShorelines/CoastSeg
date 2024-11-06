@@ -792,28 +792,46 @@ class CoastSeg_Map:
         """Load features from GeoDataFrame located in geojson file at filepath onto map.
 
         Features in config file should contain a column named "type" which contains one of the
-        following possible feature types: "roi", "shoreline", "transect", "bbox".
+        following possible feature types: "roi", "shoreline", "reference_shoreline" "transect", "bbox".
 
         Args:
             filepath (str): full path to config_gdf.geojson
         """
 
         gdf = geodata_processing.read_gpd_file(filepath)
-        gdf = common.stringify_datetime_columns(gdf)
+        gdf = common.stringify_datetime_columns(gdf)    
 
         # each possible type of feature and the columns that should be loaded
         feature_types = {
             "bbox": ["geometry"],
             "roi": ["id", "geometry"],
             "transect": list(Transects.COLUMNS_TO_KEEP),
-            "shoreline": ["geometry"],
+            "shoreline": ["geometry","id"],
             "shoreline_extraction_area": ["geometry"],
+        }
+
+        feature_names = {
+            "bbox": ["bbox"],
+            "roi": ["roi"],
+            "transect": ["transect", "transects"],
+            "shoreline": ["shoreline", "shorelines", "reference_shoreline", "reference_shorelines","reference shoreline","reference shorelines"],
+            "shoreline_extraction_area": ["shoreline_extraction_area"],
         }
 
         # attempt to load each feature type onto the map from the config_gdf.geojson file
         for feature_name, columns in feature_types.items():
-            feature_gdf = self._extract_feature_gdf(gdf, feature_name, columns)
+            # create an empty geodataframe to store the features
+            feature_gdf = gpd.GeoDataFrame()
+
+            # Step 1: Group the like features into a single feature_gdf
+            for name in feature_names[feature_name]:
+                new_feature_gdf = self._extract_feature_gdf(gdf, name, columns)
+                if new_feature_gdf.empty:
+                    continue
+                # append all the features into a single geodataframe
+                feature_gdf = pd.concat([feature_gdf, new_feature_gdf])
             
+             # Step 2: Load each feature gdf as a separate kind of feature eg. roi, shoreline, transect, bbox
             # if the feature is not an ROI use the load_feature_on_map method to load it. (eg. shorelines, transects, bbox)
             if feature_name != "roi":
                 self.load_feature_on_map(feature_name, gdf=feature_gdf, zoom_to_bounds=True)
@@ -1841,6 +1859,9 @@ class CoastSeg_Map:
         Returns:
             None
         """
+        if isinstance(roi_ids, str):
+            roi_ids = [roi_ids]
+
         # 1. validate the inputs for shoreline extraction exist: ROIs, transects,shorelines and a downloaded data for each ROI
         self.validate_extract_shoreline_inputs(roi_ids)
 
@@ -2100,6 +2121,8 @@ class CoastSeg_Map:
                 roi_ids (list[str]): List of ROI IDs.
                 save_transects (bool, optional): Flag to save transects. Defaults to True.
             """
+            if isinstance(roi_ids, str):
+                roi_ids = [roi_ids]
             # Save extracted shoreline info to session directory
             session_name = self.get_session_name()
             for roi_id in roi_ids:
