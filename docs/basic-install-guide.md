@@ -8,7 +8,46 @@ After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Ter
 
 We highly recommend you install CoastSeg using `conda` following the instructions in [Install from conda-forge](#install-from-conda-forge).
 
+### Step 1: Install CoastSeg from Github
+
+ 1. Make sure you have git installed and if not please download it [here](https://git-scm.com/downloads)
+    - This install `git` as well as `git bash` on your computer
+ 2. Open a terminal (or if you are on windows open `git bash`) and run the command
+    ```bash
+    git --version
+    ```
+    - It should return something like this if you have it git installed
+    ```bash
+    git --version
+    git version 2.47.0.windows.1
+    ```
+ 3. Open a terminal that has git installed, then use the `cd` command ( `c`hange `d`irectory) to switch the location you want to install CoastSeg
+ - Then use the `git clone https://github.com/SatelliteShorelines/CoastSeg.git --depth 1` to install the code from github
+ - Once the git clone command finishes use the `cd` command ( `c`hange `d`irectory) to switch the CoastSeg directory containing the code you installed.
+
+ ```bash
+  cd path/to/your/directory 
+  git clone https://github.com/SatelliteShorelines/CoastSeg.git --depth 1
+  cd CoastSeg
+ ```
+
+
 ## Method #1: Install from conda-forge (Recommended)
+
+**0. Install Anaconda**
+
+To get started, you'll need to install Anaconda, which is a free and open-source distribution of Python and R that comes with essential packages and tools for scientific computing and data science. Here’s how you can install it:
+
+1. Install Anaconda by following the instructions at [Anaconda install page](https://docs.anaconda.com/anaconda/install/)
+
+2. Verify the installation
+ - Once the installation is complete, open your terminal (or Anaconda Prompt on Windows).
+ - Type the following command to check if Anaconda is installed correctly:
+
+ ```bash
+  conda --version
+
+ ```
 
 **1.Create an miniconda/Anaconda environment and Activate it**
 
