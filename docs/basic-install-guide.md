@@ -31,8 +31,9 @@ We highly recommend you install CoastSeg using `conda` following the instruction
   - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
 
   ```bash
-  pip install tensorflow
+  pip install tensorflow==2.16.2
   pip install transformers
+  pip install tf-keras==2.16
   ```
 
 ## Method #2: Install from Pypi
@@ -41,7 +42,7 @@ We highly recommend you install CoastSeg using `conda` following the instruction
 
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
   ```bash
-  conda create --name coastseg python=3.10 -y
+  conda create --name coastseg python=3.11 -y
   ```
 
 **2.Activate your conda environment**
@@ -71,25 +72,19 @@ conda install -c conda-forge geopandas gdal -y
 pip install coastseg
 ```
 
-**5.Uninstall the h5py installed by pip and reinstall with conda-forge**
 
-- `pip install jsonschema==4.19.0` is a temporary command you have to run until issue https://github.com/stac-utils/pystac/issues/1214 is resolved
-
-```bash
-pip install jsonschema==4.19.0 --user
-pip uninstall h5py -y
-conda install -c conda-forge h5py -y
-```
-
-**6.(Optional) Install Optional Dependencies for the Zoo Workflow**
+**5.(Optional) Install Optional Dependencies for the Zoo Workflow**
 
 - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
 - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
 
 ```bash
-pip install tensorflow
+pip install tensorflow==2.16.2
 pip install transformers
+pip install tf-keras==2.16
 ```
+
+* If you get any errors about numpy try running `pip install numpy<2`
 
 ## **Having Installation Errors?**
 
