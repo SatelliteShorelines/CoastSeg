@@ -1505,14 +1505,15 @@ def create_unique_ids(data, prefix_length: int = 3):
 
 
 def extract_feature_from_geodataframe(
-    gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
+    gdf: gpd.GeoDataFrame, feature_type: Union[int, str], type_column: str = "type"
 ) -> gpd.GeoDataFrame:
     """
     Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
 
     Args:
         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-        feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        feature_type Union[int, str]: The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        Feature_type can also be list of strings such as ['shoreline','shorelines', 'reference shoreline'] to match the same kind of feature with muliple names.
         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
 
     Returns:
@@ -1527,8 +1528,12 @@ def extract_feature_from_geodataframe(
             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
         )
 
-    # select only the features that are of the correct type and have the correct columns
-    feature_gdf = gdf[gdf[type_column] == feature_type]
+    if isinstance(feature_type, list):
+        # select only the features that are of the correct type and have the correct columns
+        feature_gdf = gdf[gdf[type_column].isin(feature_type)]
+    else:
+        # select only the features that are of the correct type and have the correct columns
+        feature_gdf = gdf[gdf[type_column] == feature_type]
 
     return feature_gdf
 
@@ -1708,7 +1713,7 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
     for i, transect in transects_utm.iterrows():
         transect_id = transect['id']
         first = transect.geometry.coords[0]
-        last = transect.geometry.coords[1]
+        last = transect.geometry.coords[-1]
         
         # Filter timeseries data for the current transect_id
         idx = timeseries_data['transect_id'] == transect_id
@@ -1776,7 +1781,11 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
         if not dropped_points_df.empty:
             timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
-    
+            merged_timeseries_df = merged_timeseries_df[~merged_timeseries_df.set_index(['dates', 'transect_id']).index.isin(dropped_points_df.set_index(['dates', 'transect_id']).index)]
+            if len(merged_timeseries_df) == 0:
+                logger.warning("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+                print("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
     cross_shore_pts = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
     # rename the dates column to date
@@ -1921,8 +1930,13 @@ def save_transects(
     filepath = os.path.join(save_location, "raw_transect_time_series_merged.csv")
     merged_timeseries_df.to_csv(filepath, sep=",",index=False) 
     
+    # sort the columns
+    sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
+    timeseries_df = timeseries_df[sorted_columns]
+
     filepath = os.path.join(save_location, "raw_transect_time_series.csv")
     timeseries_df.to_csv(filepath, sep=",",index=False)
+
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
     transect_settings_path = os.path.join(save_location, "transects_settings.json")

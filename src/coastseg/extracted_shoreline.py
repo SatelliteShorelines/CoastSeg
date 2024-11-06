@@ -682,14 +682,25 @@ def get_model_card_classes(model_card_path: str) -> dict:
         dict: dictionary of classes in model card and their corresponding index
     """
     model_card_data = file_utilities.read_json_file(model_card_path, raise_error=True)
-    # logger.info(
-    #     f"model_card_path: {model_card_path} \nmodel_card_data: {model_card_data}"
-    # )
     # read the classes the model was trained with from either the dictionary under key "DATASET" or "DATASET1"
-    model_card_dataset = common.get_value_by_key_pattern(
-        model_card_data, patterns=("DATASET", "DATASET1")
-    )
-    model_card_classes = model_card_dataset["CLASSES"]
+    try:
+        model_card_dataset = common.get_value_by_key_pattern(
+            model_card_data, patterns=("DATASET", "DATASET1")
+        )
+        model_card_classes = model_card_dataset["CLASSES"]
+    except KeyError:
+        try:
+            model_card_classes = common.get_value_by_key_pattern(
+            model_card_data, patterns=("CLASSES",)
+            )
+        except KeyError:
+            # use the default classes below if the model card does not have the classes
+            # This is the case for the ak only model and the global models (11/05/2024)
+            model_card_classes = {"0": "water",
+                "1": "whitewater",
+                "2": "sediment",
+                "3": "other"
+            }
     return model_card_classes
 
 

@@ -68,7 +68,7 @@ def create_shoreline(
         # check if coastsegmap has a ROI
         if coastsegmap.rois is not None:
             if coastsegmap.rois.gdf.empty == False:
-                # merge ROI geometeries together and use that as the bbbox
+                # merge ROI geometeries together and use that as the bbox
                 merged_rois = merge_rectangles(coastsegmap.rois.gdf)
                 shoreline = Shoreline(merged_rois)
                 exception_handler.check_if_default_feature_available(shoreline.gdf, "shoreline")
@@ -202,6 +202,10 @@ class Factory:
     _feature_makers: Dict[str, Callable] = {
         "shoreline": create_shoreline,
         "shorelines": create_shoreline,
+        "reference_shoreline": create_shoreline,
+        "reference shorelines": create_shoreline,
+        "reference shoreline": create_shoreline,
+        "reference_shorelines": create_shoreline,
         "transects": create_transects,
         "transect": create_transects,
         "bbox": create_bbox,

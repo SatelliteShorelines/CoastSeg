@@ -101,7 +101,7 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
         transect = transects_utm.iloc[i]
         transect_id = transect['id']
         first = transect.geometry.coords[0]
-        last = transect.geometry.coords[1]
+        last = transect.geometry.coords[-1]
         
         idx = timeseries_data['transect_id'].str.contains(transect_id)
         ##in case there is a transect in the config_gdf that doesn't have any intersections
@@ -377,7 +377,11 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
         if not dropped_points_df.empty:
             timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
-    
+            merged_timeseries_df = merged_timeseries_df[~merged_timeseries_df.set_index(['dates', 'transect_id']).index.isin(dropped_points_df.set_index(['dates', 'transect_id']).index)]
+            if len(merged_timeseries_df) == 0:
+                print("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+
+
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
     cross_shore_pts = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
     # rename the dates column to date
