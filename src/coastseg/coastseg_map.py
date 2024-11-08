@@ -1840,6 +1840,8 @@ class CoastSeg_Map:
         Returns:
             None
         """
+        if isinstance(roi_ids, str):
+            roi_ids = [roi_ids]
         # 1. validate the inputs for shoreline extraction exist: ROIs, transects,shorelines and a downloaded data for each ROI
         self.validate_extract_shoreline_inputs(roi_ids)
 

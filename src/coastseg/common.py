@@ -1921,8 +1921,13 @@ def save_transects(
     filepath = os.path.join(save_location, "raw_transect_time_series_merged.csv")
     merged_timeseries_df.to_csv(filepath, sep=",",index=False) 
     
+    # sort the columns
+    sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
+    timeseries_df = timeseries_df[sorted_columns]
+
     filepath = os.path.join(save_location, "raw_transect_time_series.csv")
     timeseries_df.to_csv(filepath, sep=",",index=False)
+
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
     transect_settings_path = os.path.join(save_location, "transects_settings.json")
