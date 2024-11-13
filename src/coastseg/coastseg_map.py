@@ -2101,6 +2101,8 @@ class CoastSeg_Map:
                 roi_ids (list[str]): List of ROI IDs.
                 save_transects (bool, optional): Flag to save transects. Defaults to True.
             """
+            if isinstance(roi_ids, str):
+                roi_ids = [roi_ids]
             # Save extracted shoreline info to session directory
             session_name = self.get_session_name()
             for roi_id in roi_ids:
