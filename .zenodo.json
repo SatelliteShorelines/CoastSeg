@@ -1,0 +1,111 @@
+{
+    "title": "CoastSeg: An Accessible and Extendable Hub for Satellite-Derived Shoreline (SDS) Detection and Mapping",
+    "description": "CoastSeg is an interactive browser-based program that aims to broaden the adoption of satellite-derived shoreline (SDS) detection workflows among coastal scientists and coastal resource management practitioners. SDS is a sub-field of coastal sciences that aims to detect and post-process a time-series of shoreline locations from publicly available satellite imagery.",
+    "creators": [
+      {
+        "name": "Fitzpatrick, Sharon",
+        "orcid": "0000-0001-6513-9132",
+        "affiliation": "Contracted to U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Buscombe, Daniel",
+        "orcid": "0000-0001-6217-5584",
+        "affiliation": "Contracted to U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Warrick, Jonathan A.",
+        "orcid": "0000-0002-0205-3814",
+        "affiliation": "U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Lundine, Mark A.",
+        "orcid": "0000-0002-2878-1713",
+        "affiliation": "U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Vos, Kilian",
+        "orcid": "0000-0002-9518-1582",
+        "affiliation": "New South Wales Department of Planning and Environment, Sydney, Australia"
+      }
+    ],
+    "contributors": [
+      {
+        "name": "Doran, K.S.",
+        "orcid": "0000-0001-8050-5727",
+        "affiliation": "U.S. Geological Survey St. Petersburg Coastal and Marine Science Center, St. Petersburg, FL 33701, United States"
+      },
+      {
+        "name": "Janda, Catherine",
+        "orcid": "0009-0004-5153-3680",
+        "affiliation": "U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Gibbs, Ann",
+        "orcid": "0000-0002-0883-3774",
+        "affiliation": "U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Weber, Kathryn M.",
+        "orcid": "0000-0002-5498-7117",
+        "affiliation": "U.S. Geological Survey Woods Hole Coastal and Marine Science Center, Woods Hole, MA 02543, United States"
+      },
+      {
+        "name": "O'Neill, Andrea",
+        "orcid": "0000-0003-1656-4372",
+        "affiliation": "U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Heslin, Julia L.",
+        "orcid": "0000-0002-6895-800X",
+        "affiliation": "U.S. Geological Survey Woods Hole Coastal and Marine Science Center, Woods Hole, MA 02543, United States"
+      },
+      {
+        "name": "Burgess, Joseph",
+        "affiliation": "U.S. Geological Survey St. Petersburg Coastal and Marine Science Center, St. Petersburg, FL 33701, United States"
+      },
+      {
+        "name": "Vitousek, Sean",
+        "orcid": "0000-0002-3369-4673",
+        "affiliation": "U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
+      },
+      {
+        "name": "Himmelstoss, Emily A.",
+        "orcid": "0000-0002-1760-5474",
+        "affiliation": "U.S. Geological Survey Woods Hole Coastal and Marine Science Center, Woods Hole, MA 02543, United States"
+      },
+      {
+        "name": "Bishop-Taylor, Robbi",
+        "affiliation": "Geoscience Australia"
+      },
+      {
+        "name": "Lazarus, Eli D."
+      },
+      {
+        "name": "Ku, Venus"
+      },
+      {
+        "name": "Goldstein, Evan B.",
+        "orcid": "0000-0001-9358-1016",
+        "affiliation": "Sediment-Science"
+      }
+    ],
+    "license": {
+      "id": "GPL-3.0-only"
+    },
+    "keywords": [
+      "CoastSeg",
+      "Satellite-Derived Shoreline",
+      "SDS",
+      "Coastal Mapping",
+      "Remote Sensing"
+    ],
+    "access_right": "open",
+    "communities": [
+      {
+        "identifier": "coastal-science"
+      }
+    ],
+    "upload_type": "software",
+    "language": "eng"
+  }
+  
