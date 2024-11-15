@@ -249,6 +249,8 @@ def correct_tides(
                                 'tidally_corrected')
         
         # Save the Tidally corrected time series
+        sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
+        timeseries_df = timeseries_df[sorted_columns]
         timeseries_df.to_csv(os.path.join(session_path, 'tidally_corrected_transect_time_series.csv'),index=False)
 
         
