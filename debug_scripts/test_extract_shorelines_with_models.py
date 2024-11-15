@@ -5,11 +5,6 @@ import argparse
 from coastseg import zoo_model
 from transformers import TFSegformerForSemanticSegmentation
 
-# Last update 11/04/2024
-# Added new RGB segformer models to the available_models_dict
-# removed old sat models from the available_models_dict
-
-
 # how to run this script
 # Replace parameter after -P with path to ROI's RGB directory
 # python test_models.py -P <your path here>"
@@ -31,8 +26,47 @@ input_directory = args.path
 
 # uncomment the following lines for local testing only
 CoastSeg_location = r"C:\development\doodleverse\coastseg\CoastSeg" # path to CoastSeg
-roi_name = "ID_ztg2_datetime07-01-24__02_39_39" # name of the ROI directory in CoastSeg
+roi_name = "ID_ppy1_datetime07-19-24__10_59_31" # name of the ROI directory in CoastSeg
 input_directory = os.path.join(CoastSeg_location, "data", roi_name, "jpg_files", "preprocessed", "RGB") # this is the path to the RGB directory of the ROI
+
+def create_settings(new_settings:dict={}):
+    settings ={
+        'min_length_sl': 100,       # minimum length (m) of shoreline perimeter to be valid
+        'max_dist_ref':600,         # maximum distance (m) from reference shoreline to search for valid shorelines. This detrmines the width of the buffer around the reference shoreline  
+        'cloud_thresh': 0.5,        # threshold on maximum cloud cover (0-1). If the cloud cover is above this threshold, no shorelines will be extracted from that image
+        'dist_clouds': 100,         # distance(m) around clouds where shoreline will not be mapped
+        'min_beach_area': 100,      # minimum area (m^2) for an object to be labelled as a beach
+        'sand_color': 'default',    # 'default', 'latest', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
+        "apply_cloud_mask": True,   # apply cloud mask to the imagery. If False, the cloud mask will not be applied.
+    }
+    settings.update(new_settings)
+    return settings
+
+def create_model_settings(input_directory:str,img_type:str,implementation: str="BEST"):
+    """
+    Creates a settings dictionary for model configuration.
+    Args:
+        input_directory (str): The directory containing the input images.
+        img_type (str): The type of images (e.g., 'RGB', 'NIR').
+        implementation (str, optional): The implementation type, either 'BEST' or 'ENSEMBLE'. Defaults to 'BEST'.
+    Returns:
+        dict: A dictionary containing the model settings.
+    Raises:
+        AssertionError: If the input directory does not exist.
+    """
+    model_setting = {
+                "sample_direc": None, # directory of jpgs  ex. C:/Users/username/CoastSeg/data/ID_lla12_datetime11-07-23__08_14_11/jpg_files/preprocessed/RGB/",
+                "use_GPU": "0",  # 0 or 1 0 means no GPU
+                "implementation": "BEST",  # BEST or ENSEMBLE 
+                "model_type":"global_segformer_RGB_4class_14036903", # model name ex. global_segformer_RGB_4class_14036903
+                "otsu": False, # Otsu Thresholding
+                "tta": False,  # Test Time Augmentation
+            }
+    # assrt the input directory exists
+    assert os.path.exists(input_directory), f"Input directory {input_directory} does not exist"
+    model_setting["sample_direc"] = input_directory
+    model_setting["img_type"] = img_type
+    return model_setting
 
 def test_model(img_types:list, available_models_dict:dict, input_directory:str):
     """
@@ -75,30 +109,21 @@ def test_model(img_types:list, available_models_dict:dict, input_directory:str):
             print(f"model_selected: {model_selected}")
             print(f"sample_directory: {input_directory}")
 
-            # load the basic zoo_model settings
-            model_dict = {
-                "sample_direc": input_directory,
-                "use_GPU": "0",
-                "implementation": implementation,
-                "model_type": model_selected,
-                "otsu": False,
-                "tta": False,
-            }
-
             zoo_model_instance = zoo_model.Zoo_Model()
+            # create and set settings for the model
+            model_setting = create_model_settings(input_directory, selected_img_type, implementation)
+            extract_shoreline_settings = create_settings()
+            model_setting.update(extract_shoreline_settings)
+            zoo_model_instance.set_settings(**model_setting)
 
-            zoo_model_instance.run_model(
-                img_types[img_type_index],
-                model_dict["implementation"],
-                session_name,
-                model_dict["sample_direc"],
-                model_name=model_dict["model_type"],
-                use_GPU="0",
-                use_otsu=model_dict["otsu"],
-                use_tta=model_dict["tta"],
-                percent_no_data=50.0,
-            )
-
+            # run the model and extract shorelines 
+            zoo_model_instance.run_model_and_extract_shorelines(
+                        model_setting["sample_direc"],
+                        session_name=session_name,
+                        shoreline_path="",
+                        transects_path="",
+                        shoreline_extraction_area_path = "",
+                    )
 
 available_models_dict = {
     "RGB": [
@@ -113,6 +138,7 @@ available_models_dict = {
     ],
 }
 
+# img_types = ["RGB"]
 img_types = ["RGB", "MNDWI", "NDWI"]
 
 test_model(img_types, available_models_dict, input_directory)

@@ -85,7 +85,8 @@ The models currently available are:
 
 * Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 MNDWI images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8213443
 * Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 NDWI images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8213427
-* Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 3-band (RGB) images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8190958
+* Buscombe, D. (2024). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts. 'Global' version. Zenodo. https://doi.org/10.5281/zenodo.14036903
+* Buscombe, D. (2024). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts. 'Alaska-only' version. Zenodo. https://doi.org/10.5281/zenodo.14037041
 
 Made using the following software, implemented as [Doodleverse/Segmentation Gym]([Zoo](https://github.com/Doodleverse/segmentation_gym)):
 

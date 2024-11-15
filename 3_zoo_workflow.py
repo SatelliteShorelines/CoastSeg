@@ -9,26 +9,27 @@ from coastseg import file_utilities
 
 # Extract Shoreline Settings
 settings ={
-    'min_length_sl': 500,       # minimum length (m) of shoreline perimeter to be valid
-    'max_dist_ref':300,         # maximum distance (m) from reference shoreline to search for valid shorelines. This detrmines the width of the buffer around the reference shoreline  
+    'min_length_sl': 100,       # minimum length (m) of shoreline perimeter to be valid
+    'max_dist_ref':500,         # maximum distance (m) from reference shoreline to search for valid shorelines. This detrmines the width of the buffer around the reference shoreline  
     'cloud_thresh': 0.5,        # threshold on maximum cloud cover (0-1). If the cloud cover is above this threshold, no shorelines will be extracted from that image
-    'dist_clouds': 300,         # distance(m) around clouds where shoreline will not be mapped
-    'min_beach_area': 500,      # minimum area (m^2) for an object to be labelled as a beach
+    'dist_clouds': 100,         # distance(m) around clouds where shoreline will not be mapped
+    'min_beach_area': 50,      # minimum area (m^2) for an object to be labelled as a beach
     'sand_color': 'default',    # 'default', 'latest', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
     "apply_cloud_mask": True,   # apply cloud mask to the imagery. If False, the cloud mask will not be applied.
 }
+
 
 # The model can be run using the following settings:
 model_setting = {
             "sample_direc": None, # directory of jpgs  ex. C:/Users/username/CoastSeg/data/ID_lla12_datetime11-07-23__08_14_11/jpg_files/preprocessed/RGB/",
             "use_GPU": "0",  # 0 or 1 0 means no GPU
             "implementation": "BEST",  # BEST or ENSEMBLE 
-            "model_type": "segformer_RGB_4class_8190958", # model name ex. segformer_RGB_4class_8190958
+            "model_type": "global_segformer_RGB_4class_14036903", # model name from the zoo
             "otsu": False, # Otsu Thresholding
             "tta": False,  # Test Time Augmentation
         }
 # Available models can run input "RGB" # or "MNDWI" or "NDWI"
-img_type = "RGB"
+img_type = "RGB"  # make sure the model name is compatible with the image type
 # percentage of no data allowed in the image eg. 0.75 means 75% of the image can be no data
 percent_no_data = 0.75
 

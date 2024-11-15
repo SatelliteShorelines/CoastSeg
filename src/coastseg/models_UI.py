@@ -53,19 +53,16 @@ class UI_Models:
             "sample_direc": None,
             "use_GPU": "0",
             "implementation": "BEST",
-            "model_type": "segformer_RGB_4class_8190958",
+            "model_type": "global_segformer_RGB_4class_14036903",
             "otsu": False,
             "tta": False,
             "img_type": "RGB",
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "segformer_RGB_4class_8190958",
-            "sat_RGB_4class_6950472",
+            "global_segformer_RGB_4class_14036903", # global segformer model
+            "AK_segformer_RGB_4class_14037041", # AK segformer model
         ]
-        # self.five_band_models = [
-        #     "sat_5band_4class_7344606",
-        # ]
         self.MNDWI_models = [
             "segformer_MNDWI_4class_8213443",
         ]
