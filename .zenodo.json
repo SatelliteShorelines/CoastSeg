@@ -64,13 +64,9 @@
         "affiliation": "U.S. Geological Survey St. Petersburg Coastal and Marine Science Center, St. Petersburg, FL 33701, United States"
       },
       {
-        "name": "Vitousek, Sean",
-        "orcid": "0000-0002-3369-4673",
-        "affiliation": "U.S. Geological Survey Pacific Coastal and Marine Science Center, Santa Cruz, California, United States"
-      },
-      {
         "name": "Floris R. Calkoen",
-        "orcid": "0000-0002-7155-6247"
+        "orcid": "0000-0002-7155-6247",
+        "affiliation": "Deltares | Delft, Netherlands"
       },
       {
         "name": "Himmelstoss, Emily A.",
@@ -79,13 +75,17 @@
       },
       {
         "name": "Bishop-Taylor, Robbi",
+        "orcid": "0000-0002-1533-2599",
         "affiliation": "Geoscience Australia"
       },
       {
-        "name": "Lazarus, Eli D."
+        "name": "Lazarus, Eli D.",
+        "orcid": "0000-0003-2404-9661",
+        "affiliation": "University of Southampton"
       },
       {
-        "name": "Ku, Venus"
+        "name": "Ku, Venus",
+        "orcid": "0000-0002-7454-8277"
       },
       {
         "name": "Goldstein, Evan B.",
