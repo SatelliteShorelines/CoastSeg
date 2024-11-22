@@ -64,13 +64,12 @@ class UI_Models:
             "AK_segformer_RGB_4class_14037041", # AK segformer model
         ]
         self.MNDWI_models = [
-            "segformer_MNDWI_4class_8213443",
+            "global_segformer_MNDWI_4class_14183366",
+            "AK_segformer_MNDWI_4class_14187478 ", # AK segformer model
         ]
         self.NDWI_models = [
-            "NDWI": [
             "global_segformer_NDWI_4class_14172182", # global segformer model
             "AK_segformer_NDWI_4class_14183210", # AK segformer model
-            ],
         ]
         self.session_name = ""
         self.shoreline_session_directory = ""
