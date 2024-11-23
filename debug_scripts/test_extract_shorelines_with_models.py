@@ -24,10 +24,12 @@ args = parser.parse_args()
 # get input directory from the args
 input_directory = args.path
 
-# uncomment the following lines for local testing only
+# uncomment the following lines for local testing only DUCK
 CoastSeg_location = r"C:\development\doodleverse\coastseg\CoastSeg" # path to CoastSeg
 roi_name = "ID_ppy1_datetime07-19-24__10_59_31" # name of the ROI directory in CoastSeg
 input_directory = os.path.join(CoastSeg_location, "data", roi_name, "jpg_files", "preprocessed", "RGB") # this is the path to the RGB directory of the ROI
+
+
 
 def create_settings(new_settings:dict={}):
     settings ={
@@ -131,10 +133,12 @@ available_models_dict = {
         "AK_segformer_RGB_4class_14037041", # AK segformer model
     ],
     "MNDWI": [
-        "segformer_MNDWI_4class_8213443",
+        "global_segformer_MNDWI_4class_14183366", # global segformer model
+        "AK_segformer_MNDWI_4class_14187478", # AK segformer model
     ],
     "NDWI": [
-        "segformer_NDWI_4class_8213427",
+      "global_segformer_NDWI_4class_14172182", # global segformer model
+      "AK_segformer_NDWI_4class_14183210", # AK segformer model
     ],
 }
 
