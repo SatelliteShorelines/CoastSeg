@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
 
-name: Test CoastSeg pip install -e .
+name: Test CoastSeg Pip Installation
 jobs:
   Test:
     name: ${{ matrix.os }}, ${{ matrix.env }}
@@ -28,6 +28,9 @@ jobs:
       - run: |
           conda info
           conda list
+      - name: Install gdal and geopandas from conda
+        run: |
+          conda install -c conda-forge gdal geopandas -y
       - name: Install coastseg with pip install -e .
         run: |
           pip install -e . --user
