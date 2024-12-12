@@ -4,6 +4,7 @@ channels:
 dependencies:
   - python=3.10
   # required
+  - gdal
   - pip
   - pip:
       - tensorflow
