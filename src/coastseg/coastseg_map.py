@@ -807,7 +807,16 @@ class CoastSeg_Map:
             "roi": ["id", "geometry"],
             "transect": list(Transects.COLUMNS_TO_KEEP),
             "shoreline": ["geometry","id"],
+            "shoreline": ["geometry","id"],
             "shoreline_extraction_area": ["geometry"],
+        }
+
+        feature_names = {
+            "bbox": ["bbox"],
+            "roi": ["roi"],
+            "transect": ["transect", "transects"],
+            "shoreline": ["shoreline", "shorelines", "reference_shoreline", "reference_shorelines","reference shoreline","reference shorelines"],
+            "shoreline_extraction_area": ["shoreline_extraction_area"],
         }
 
         feature_names = {
@@ -820,6 +829,18 @@ class CoastSeg_Map:
 
         # attempt to load each feature type onto the map from the config_gdf.geojson file
         for feature_name, columns in feature_types.items():
+            # create an empty geodataframe to store the features
+            feature_gdf = gpd.GeoDataFrame()
+
+            # Step 1: Group the like features into a single feature_gdf
+            for name in feature_names[feature_name]:
+                new_feature_gdf = self._extract_feature_gdf(gdf, name, columns)
+                if new_feature_gdf.empty:
+                    continue
+                # append all the features into a single geodataframe
+                feature_gdf = pd.concat([feature_gdf, new_feature_gdf])
+            
+             # Step 2: Load each feature gdf as a separate kind of feature eg. roi, shoreline, transect, bbox
             # create an empty geodataframe to store the features
             feature_gdf = gpd.GeoDataFrame()
 
@@ -2120,6 +2141,8 @@ class CoastSeg_Map:
                 roi_ids (list[str]): List of ROI IDs.
                 save_transects (bool, optional): Flag to save transects. Defaults to True.
             """
+            if isinstance(roi_ids, str):
+                roi_ids = [roi_ids]
             if isinstance(roi_ids, str):
                 roi_ids = [roi_ids]
             # Save extracted shoreline info to session directory
