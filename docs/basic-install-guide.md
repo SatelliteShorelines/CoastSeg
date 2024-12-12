@@ -69,11 +69,11 @@ To get started, you'll need to install Anaconda, which is a free and open-source
   - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
   - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
 
-  ```bash
-  pip install tensorflow==2.16.2
-  pip install transformers
-  pip install tf-keras==2.16
-  ```
+```bash
+pip install tensorflow==2.16.2
+pip install transformers
+pip install tf-keras==2.16
+``
 
 ## Method #2: Install from Pypi
 
@@ -81,7 +81,7 @@ To get started, you'll need to install Anaconda, which is a free and open-source
 
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
   ```bash
-  conda create --name coastseg python=3.11 -y
+  conda create --name coastseg python=3.10 -y
   ```
 
 **2.Activate your conda environment**
@@ -95,20 +95,20 @@ conda activate coastseg
 <img src="https://user-images.githubusercontent.com/61564689/184215725-3688aedb-e804-481d-bbb6-8c33b30c4607.png" 
      alt="coastseg activated in anaconda prompt" width="350" height="150">
 
-**3.Install Conda Dependencies**
 
-- CoastSeg requires `geopandas` to function properly so they will be installed in the `coastseg` environment.
-- [Geopandas](https://geopandas.org/en/stable/) has [GDAL](https://gdal.org/) as a dependency so its best to install it with conda.
-- Make sure to install geopandas from the `conda-forge` channel to ensure you get the latest version and to avoid dependency conflicts
-
-```bash
-conda install -c conda-forge geopandas gdal -y
-```
-
-**4.Install the CoastSeg from PyPi**
+**3.Install the CoastSeg from PyPi**
 
 ```bash
 pip install coastseg
+```
+
+**4.Install GDAL from conda-forge**
+
+- CoastSeg requires `gdal` to function properly and requires it to be installed from `conda-forge` due to how it is configured in the conda environment.
+- Make sure to install `gdal` from the `conda-forge` channel to ensure you get the latest version and to avoid dependency conflicts.
+
+```bash
+conda install -c conda-forge  gdal -y
 ```
 
 
