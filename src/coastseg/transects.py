@@ -157,15 +157,16 @@ def load_intersecting_transects(
     else:
         rectangle = rectangle.copy().set_crs(crs)
     # get the bounding box of the rectangle
-    bbox = rectangle.bounds.iloc[0].tolist()
-
+    bbox = tuple(rectangle.bounds.iloc[0].tolist())
     # Create a list to store the GeoDataFrames
     gdf_list = []
-
     # Iterate over each transect file and select the transects that intersect with the rectangle
     for transect_file in transect_files:
         transects_name = os.path.splitext(transect_file)[0]
         transect_path = os.path.join(transect_dir, transect_file)
+        if not os.path.exists(transect_path):
+            logger.warning("Transect file %s does not exist", transect_path)
+            continue
         transects = gpd.read_file(transect_path, bbox=bbox)
         # keep only those transects that intersect with the rectangle
         transects = transects[transects.intersects(rectangle.unary_union)]
@@ -314,6 +315,9 @@ class Transects(Feature):
             )
             # if not all the ids in transects are unique then create unique ids
             transects = create_unique_ids(transects, prefix_length=3)
+            # if an id column exists then make sure it is a string
+            if "id" in transects.columns:
+                transects["id"] = transects["id"].astype(str)
             self.gdf = transects
 
     def initialize_transects_with_bbox(self, bbox: gpd.GeoDataFrame):
@@ -412,7 +416,7 @@ class Transects(Feature):
         geojson = data
         if isinstance(data, dict):
             geojson = data
-        elif isinstance(data,gpd.geodataframe.GeoDataFrame):
+        elif isinstance(data,gpd.GeoDataFrame):
             gdf = create_transects_with_arrowheads(data, arrow_angle=30)
             geojson = json.loads(gdf.to_json())
 
@@ -443,7 +447,7 @@ class Transects(Feature):
         #     hover_style={"color": "blue", "fillOpacity": 0.7},
         # )
 
-    def get_intersecting_files(self, bbox_gdf: gpd.geodataframe) -> list:
+    def get_intersecting_files(self, bbox_gdf: gpd.GeoDataFrame) -> list:
         """Returns a list of filenames that intersect with bbox_gdf
 
         Args:

@@ -1,0 +1,11 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  # required
+  - geopandas
+  - gdal
+  - pip
+  - pip:
+      - tensorflow

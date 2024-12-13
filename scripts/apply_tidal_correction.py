@@ -21,6 +21,55 @@ from shapely.geometry import Point
 import shapely
 from shapely.geometry import LineString
 
+
+
+def get_closest_slope(csv_file_path, transect_id, target_date:str, default_slope=0.0):
+    provided_date = pd.to_datetime(target_date)
+    df = pd.read_csv(csv_file_path, header=None)
+
+    # Rename the first column to 'date' for better readability
+    df.rename(columns={0: 'date'}, inplace=True)
+
+    # Convert the 'date' column to datetime format
+    df['date'] = pd.to_datetime(df['date'])
+    # set the date column as the index
+    df.set_index('date', inplace=True)
+    # get the first row and turn it into the columns exception the first column
+    df.columns = df.iloc[0].values
+    # drop the first row because it contains the column names
+    df = df[1:]
+
+    if transect_id not in df.columns:
+        raise ValueError(f"Transect ID {transect_id} not found in the CSV file")
+    if np.all(df[transect_id].isna()):
+        raise ValueError(f"All slope values for transect {transect_id} are NaN")
+
+    # Filter non-NA values for the given transect ID
+    transect_id_dates = df[transect_id].dropna()
+
+    # Find the index of the date closest to the provided date
+    closest_date_idx = np.abs(transect_id_dates.index - provided_date).argmin()
+
+    # Get the value (slope) at the closest date
+    closest_slope = transect_id_dates.iloc[closest_date_idx]
+
+    return closest_slope
+
+
+def get_closest_slope_matrix(matrix_csv_file_path, target_date:str):
+    provided_date = pd.to_datetime(target_date)
+    matrix_df = pd.read_csv(matrix_csv_file_path, index_col=0, parse_dates=True)
+
+    # Find the closest date for each transect
+    closest_slopes = {}
+    for transect_id in matrix_df.columns:
+        transect_id_dates = matrix_df[transect_id].dropna()
+        closest_date_idx = np.abs(transect_id_dates.index - provided_date).argmin()
+        closest_slope = transect_id_dates.iloc[closest_date_idx]
+        closest_slopes[transect_id] = closest_slope
+
+    return closest_slopes
+
 def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
                                  transects: gpd.GeoDataFrame,)->pd.DataFrame:
     """
@@ -52,7 +101,7 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
         transect = transects_utm.iloc[i]
         transect_id = transect['id']
         first = transect.geometry.coords[0]
-        last = transect.geometry.coords[1]
+        last = transect.geometry.coords[-1]
         
         idx = timeseries_data['transect_id'].str.contains(transect_id)
         ##in case there is a transect in the config_gdf that doesn't have any intersections
@@ -114,7 +163,6 @@ def intersect_with_buffered_transects(points_gdf, transects, buffer_distance = 0
     dropped_rows = points_gdf[~points_gdf.index.isin(filtered.index)]
 
     return filtered, dropped_rows
-
 
 def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, transects_gdf:gpd.GeoDataFrame, save_location: str, name: str = ""):
     """
@@ -184,6 +232,7 @@ def convert_date_gdf(gdf):
 def create_complete_line_string(points):
     """
     Create a complete LineString from a list of points.
+    If there is only a single point in the list, a Point object is returned instead of a LineString.
 
     Args:
         points (numpy.ndarray): An array of points representing the coordinates.
@@ -229,7 +278,11 @@ def create_complete_line_string(points):
         current_point = nearest_point
 
     # Convert the sorted list of points to a LineString
+    if len(sorted_points) < 2:
+        return Point(sorted_points[0])
+
     return LineString(sorted_points)
+
 
 def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
     """
@@ -324,7 +377,11 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
         if not dropped_points_df.empty:
             timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
-    
+            merged_timeseries_df = merged_timeseries_df[~merged_timeseries_df.set_index(['dates', 'transect_id']).index.isin(dropped_points_df.set_index(['dates', 'transect_id']).index)]
+            if len(merged_timeseries_df) == 0:
+                print("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+
+
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
     cross_shore_pts = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
     # rename the dates column to date
@@ -624,26 +681,23 @@ def model_tides(
     # number of time points
     n_times = len(time)
 
-    if model.format == "FES":
-        amp, ph = pyTMD.io.FES.extract_constants(
-            lon,
-            lat,
-            model.model_file,
-            type=model.type,
-            version=model.version,
-            method=method,
-            extrapolate=extrapolate,
-            cutoff=cutoff,
-            scale=model.scale,
-            compressed=model.compressed,
-        )
-
-        # Available model constituents
-        c = model.constituents
-
-        # Delta time (TT - UT1)
-        # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
-        deltat = timescale.tt_ut1
+    amp, ph = pyTMD.io.FES.extract_constants(
+        lon,
+        lat,
+        model.model_file,
+        type=model.type,
+        version=model.version,
+        method=method,
+        extrapolate=extrapolate,
+        cutoff=cutoff,
+        scale=model.scale,
+        compressed=model.compressed,
+    )
+    # Available model constituents
+    c = model.constituents
+    # Delta time (TT - UT1)
+    # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
+    deltat = timescale.tt_ut1
 
     # Calculate complex phase in radians for Euler's
     cph = -1j * ph * np.pi / 180.0
@@ -1027,6 +1081,7 @@ def get_location(filename: str, check_parent_directory: bool = False) -> Path:
     return file_path
 
 
+
 def parse_arguments() -> argparse.Namespace:
     """
     Parse command-line arguments for the tide correction script.
@@ -1109,6 +1164,13 @@ def parse_arguments() -> argparse.Namespace:
         default=False,
         help="Add -d to drop any shoreline transect intersections points that are not on the transect from the csv files",
     )
+    parser.add_argument(
+        "--matrix",
+        "-m",
+        dest="matrix",
+        type=str,
+        help="Path to the matrix CSV file with transect ID as columns and dates as rows",
+    )
 
     return parser.parse_args()
 
@@ -1131,7 +1193,6 @@ def setup_tide_model_config(model_path: str) -> dict:
         "REGION_DIRECTORY": os.path.join(model_path, "region"),
     }
 
-
 def main():
     args = parse_arguments()
     # Assigning the parsed arguments to the respective variables
@@ -1149,12 +1210,21 @@ def main():
     MODEL_REGIONS_GEOJSON_PATH = args.regions
     FES_2014_MODEL_PATH = args.model
     DROP_INTERSECTIONS = args.drop
+    MATRIX_CSV_FILE_PATH = args.matrix
 
     tide_model_config = setup_tide_model_config(FES_2014_MODEL_PATH)
 
+    if MATRIX_CSV_FILE_PATH and os.path.isfile(MATRIX_CSV_FILE_PATH):
+        target_date = '2011-08-02'  # Example date, you can change as needed
+        closest_slopes = get_closest_slope_matrix(MATRIX_CSV_FILE_PATH, target_date)
+        print("Closest slopes for each transect:")
+        for transect, slope in closest_slopes.items():
+            print(f"Transect ID {transect}: Closest Slope {slope}")
+        return
+
     # Read timeseries data
     raw_timeseries_df = read_csv(RAW_TIMESERIES_FILE_PATH)
-    # Optionlly read tide predictions from another session
+    # Optionally read tide predictions from another session
     # predicted_tides_df = read_csv(TIDE_PREDICTIONS_FILE_NAME)
 
     start_time = time.time()
@@ -1169,14 +1239,14 @@ def main():
     print(f"Time taken for all tide predictions: {end_time - start_time}s")
     # Save the tide_predictions
     print(f"Predicted tides saved to {os.path.abspath(TIDE_PREDICTIONS_FILE_NAME)}")
-    
+
     # format the predicted tides as a matrix of date vs transect id with the tide as the values
     # Pivot the table
     pivot_df = predicted_tides_df.pivot_table(index='dates', columns='transect_id', values='tide', aggfunc='first')
     # Reset index if you want 'dates' back as a column
-    pivot_df.reset_index(inplace=True)    
+    pivot_df.reset_index(inplace=True)
 
-    pivot_df.to_csv(TIDE_PREDICTIONS_FILE_NAME,index=False)
+    pivot_df.to_csv(TIDE_PREDICTIONS_FILE_NAME, index=False)
 
     print(f"Applying tide corrections to {RAW_TIMESERIES_FILE_PATH}")
     tide_corrected_timeseries_df = tidally_correct_timeseries(
@@ -1185,26 +1255,26 @@ def main():
         REFERENCE_ELEVATION,
         BEACH_SLOPE,
     )
-    
+
     # Load the GeoJSON file containing transect data
     transects_gdf = read_and_filter_geojson(CONFIG_FILE_PATH)
 
     tide_corrected_timeseries_df_matrix = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')
     # Reset index if you want 'dates' back as a column
-    tide_corrected_timeseries_df_matrix.reset_index(inplace=True)      
+    tide_corrected_timeseries_df_matrix.reset_index(inplace=True)
 
     # Add lat lon to the timeseries data
-    tide_corrected_timeseries_df,tide_corrected_timeseries_df_matrix =add_lat_lon_to_timeseries(tide_corrected_timeseries_df,transects_gdf,tide_corrected_timeseries_df_matrix,os.getcwd(),
-                                                                                                only_keep_points_on_transects=DROP_INTERSECTIONS,extension='tidally_corrected')
+    tide_corrected_timeseries_df, tide_corrected_timeseries_df_matrix = add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf, tide_corrected_timeseries_df_matrix, os.getcwd(),
+                                                                                                 only_keep_points_on_transects=DROP_INTERSECTIONS, extension='tidally_corrected')
     # optionally save to session location in ROI the tide_corrected_timeseries_df to csv
     tide_corrected_timeseries_df.to_csv(
-        os.path.join(os.getcwd(), "tidally_corrected_transect_time_series_merged.csv"),index=False
+        os.path.join(os.getcwd(), "tidally_corrected_transect_time_series_merged.csv"), index=False
     )
     # Tidally correct the raw time series
     print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_FILE_NAME)}")
     # Save the Tidally corrected time series
-    tide_corrected_timeseries_df.to_csv(TIDALLY_CORRECTED_FILE_NAME,index=False)
-    
+    tide_corrected_timeseries_df.to_csv(TIDALLY_CORRECTED_FILE_NAME, index=False)
+
     # save the time series as a matrix of date vs transect id with the cross_distance as the values
     pivot_df = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')
 
@@ -1213,7 +1283,9 @@ def main():
     # Tidally correct the raw time series
     print(f"Tidally corrected data saved to {os.path.abspath(TIDALLY_CORRECTED_MATRIX_FILE_NAME)}")
     # Save the Tidally corrected time series
-    pivot_df.to_csv(TIDALLY_CORRECTED_MATRIX_FILE_NAME,index=False)
+    pivot_df.to_csv(TIDALLY_CORRECTED_MATRIX_FILE_NAME, index=False)
+
+
 
 if __name__ == "__main__":
     main()

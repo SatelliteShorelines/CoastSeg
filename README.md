@@ -1,5 +1,6 @@
 # CoastSeg
-
+Paper:
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.06683/status.svg)](https://doi.org/10.21105/joss.06683)
 <!--  [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb) -->
 
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
@@ -84,7 +85,8 @@ The models currently available are:
 
 * Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 MNDWI images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8213443
 * Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 NDWI images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8213427
-* Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 3-band (RGB) images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8190958
+* Buscombe, D. (2024). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts. 'Global' version. Zenodo. https://doi.org/10.5281/zenodo.14036903
+* Buscombe, D. (2024). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts. 'Alaska-only' version. Zenodo. https://doi.org/10.5281/zenodo.14037041
 
 Made using the following software, implemented as [Doodleverse/Segmentation Gym]([Zoo](https://github.com/Doodleverse/segmentation_gym)):
 
@@ -103,7 +105,7 @@ CoastSeg comes with a collection of pre-processing script utilities for common i
 
 # Data Sources
 
-The CoastSeg transect and slope database is [available](https://zenodo.org/records/8187949) 
+The CoastSeg transect and slope database is [available]([https://zenodo.org/records/8187949](https://zenodo.org/records/11390980)) 
 
 * Buscombe, D., & Fitzpatrick, S. (2023). CoastSeg: Beach transects and beachface slope database v1.0 (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8187949
 

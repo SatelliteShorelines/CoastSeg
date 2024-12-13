@@ -17,7 +17,7 @@ from tqdm.auto import tqdm
 import geopandas as gpd
 import geojson
 import numpy as np
-
+from coastseg import core_utilities
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def get_ROI_ID_from_session(session_name: str) -> str:
         Exception: If the session directory does not exist.
     """
     # need to read the ROI ID from the config.json file found in the extracted shoreline session directory
-    session_directory = os.path.join(os.getcwd(), "sessions", session_name)
+    session_directory = os.path.join(core_utilities.get_base_dir(), "sessions", session_name)
     if not os.path.exists(session_directory):
         raise Exception(f"The session directory {session_directory} does not exist")
     config_json_location = find_file_recursively(
@@ -316,7 +316,9 @@ def find_parent_directory(
 
     Parameters:
         path (str): The path to start the search from.
-        directory_name (str): The name of the directory to search for.
+        directory_name (str): Part of the name of the directory to find.
+            For example, directory_name = 'ID' will return the first directory
+            that contains 'ID' in its name.
         stop_directory (str): Optional. A directory name to stop the search at.
                               If this is specified, the search will stop when this
                               directory is reached. If not specified, the search will
@@ -473,7 +475,7 @@ def get_session_location(
     - This function assumes the presence of a function named `create_directory`.
     """
     if not (base_path and os.path.exists(base_path)):
-        base_path = os.getcwd()
+        base_path = os.path.abspath(core_utilities.get_base_dir())
     session_dir = "sessions"
     session_path = (
         os.path.join(base_path, session_dir, session_name)
@@ -552,9 +554,9 @@ def create_session_path(session_name: str, ROI_directory_name: str) -> str:
 
     Note:
     - This function assumes the presence of a function named `create_directory` and a logger object named `logger`.
-    """
-
-    session_path = os.path.join(os.getcwd(), "sessions", session_name)
+    """    
+    base_dir = os.path.abspath(core_utilities.get_base_dir())
+    session_path = os.path.join(base_dir, "sessions", session_name)
     session_path = create_directory(session_path, ROI_directory_name)
     logger.info(f"session_path: {session_path}")
     return session_path
@@ -573,6 +575,9 @@ def create_directory(file_path: str, name: str) -> str:
     Raises:
         OSError: If there was an error creating the new directory.
     """
+    # if file_path is not a path then convert it to a path
+    if not isinstance(file_path, os.PathLike):
+        file_path = os.path.abspath(file_path)
     new_directory = os.path.join(file_path, name)
     # If the directory named 'name' does not exist, create it
     if not os.path.exists(new_directory):
@@ -657,6 +662,7 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
         for dirpath, dirnames, filenames in os.walk(path):
             if name in dirnames:
                 dir_location = os.path.join(dirpath, name)
+                break # stop searching once the first directory is found
 
     if not os.listdir(dir_location):
         raise Exception(f"{name} directory is empty.")

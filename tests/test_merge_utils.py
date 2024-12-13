@@ -707,7 +707,7 @@ def merged_config_no_nulls_no_index_right():
 def merged_config_nulls():
     data = {
         "type": ["bbox", "bbox", "roi", "roi", "shoreline", "shoreline"],
-        "id": [None, np.NaN, "B", "B", "D", "C"],
+        "id": [None, np.nan, "B", "B", "D", "C"],
         "geometry": [
             Point(0, 0),
             Point(0, 0),
@@ -725,7 +725,7 @@ def merged_config_nulls():
 def merged_config_nulls_all_unique():
     data = {
         "type": ["bbox", "bbox", "roi", "roi", "shoreline", "shoreline"],
-        "id": [None, np.NaN, "Z", "B", "D", "C"],
+        "id": [None, np.nan, "Z", "B", "D", "C"],
         "geometry": [
             Point(0, 0),
             Point(1, 1),

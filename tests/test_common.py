@@ -16,11 +16,143 @@ import numpy as np
 from shapely import geometry
 import pandas as pd
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, call
 import pytest
 from coastseg import common
 from typing import Dict, List, Union
-from unittest.mock import patch
+
+
+def test_authenticate_and_initialize_success():
+    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
+         patch('coastseg.common.ee.Initialize') as mock_initialize:
+        
+        # Mock successful initialization
+        mock_initialize.return_value = None
+        
+        common.authenticate_and_initialize(print_mode=True, force=False, auth_args={}, kwargs={})
+
+        mock_authenticate.assert_called_once() # this will call once becase ee.credentials is None
+        mock_initialize.assert_called_once()
+
+def test_authenticate_and_initialize_force_auth():
+    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
+         patch('coastseg.common.ee.Initialize') as mock_initialize:
+        
+        # Mock successful initialization
+        mock_initialize.return_value = None
+        
+        common.authenticate_and_initialize(print_mode=True, force=True, auth_args={}, kwargs={})
+
+        mock_authenticate.assert_called_once_with(force=True)
+        mock_initialize.assert_called_once()
+
+def test_authenticate_and_initialize_retry():
+    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
+         patch('coastseg.common.ee.Initialize') as mock_initialize:
+        
+        # Mock an exception on first initialize, then success
+        mock_initialize.side_effect = [Exception("Credentials file not found"), None]
+
+        common.authenticate_and_initialize(print_mode=True, force=False, auth_args={}, kwargs={})
+
+        assert mock_authenticate.call_count == 2
+        assert mock_initialize.call_count == 2
+
+def test_authenticate_and_initialize_max_attempts():
+    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
+         patch('coastseg.common.ee.Initialize') as mock_initialize:
+        
+        # Mock an exception for all initialize attempts
+        mock_initialize.side_effect = Exception("Credentials file not found")
+        
+        with pytest.raises(Exception) as excinfo:
+            common.authenticate_and_initialize(print_mode=True, force=False, auth_args={}, kwargs={})
+        
+        assert "Failed to initialize Google Earth Engine after 2 attempts" in str(excinfo.value)
+        assert mock_authenticate.call_count == 2
+        assert mock_initialize.call_count == 2
+
+
+def test_order_linestrings_gdf_empty():
+    gdf = gpd.GeoDataFrame({'geometry': []})
+    dates = []
+    result = common.order_linestrings_gdf(gdf, dates)
+    assert result.empty, "Expected an empty GeoDataFrame for empty input"
+
+def test_order_linestrings_gdf_single_linestring():
+    points = np.array([[0, 0], [1, 1]])
+    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)]}, crs='epsg:4326')
+    dates = ['2023-01-01']
+    result = common.order_linestrings_gdf(gdf, dates)
+    expected_line = common.create_complete_line_string(points)
+    assert len(result) == 1, "Expected one linestring in the result"
+    assert result.iloc[0].geometry.equals(expected_line), "The geometry of the linestring is incorrect"
+    assert result.iloc[0].date == '2023-01-01', "The date is incorrect"
+
+def test_order_linestrings_gdf_multiple_linestrings():
+    points1 = np.array([[0, 0], [1, 1]])
+    points2 = np.array([[1, 1], [2, 2]])
+    gdf = gpd.GeoDataFrame({'geometry': [LineString(points1), LineString(points2)]}, crs='epsg:4326')
+    dates = ['2023-01-01', '2023-01-02']
+    result = common.order_linestrings_gdf(gdf, dates)
+    expected_line1 = common.create_complete_line_string(points1)
+    expected_line2 = common.create_complete_line_string(points2)
+    assert len(result) == 2, "Expected two linestrings in the result"
+    assert result.iloc[0].geometry.equals(expected_line1), "The geometry of the first linestring is incorrect"
+    assert result.iloc[1].geometry.equals(expected_line2), "The geometry of the second linestring is incorrect"
+    assert result.iloc[0].date == '2023-01-01', "The first date is incorrect"
+    assert result.iloc[1].date == '2023-01-02', "The second date is incorrect"
+
+# def test_order_linestrings_gdf_crs_conversion():
+#     points = np.array([[0, 0], [1, 1]])
+#     gdf = gpd.GeoDataFrame({'geometry': [LineString(points)]}, crs='epsg:3857')
+#     dates = ['2023-01-01']
+#     result = common.order_linestrings_gdf(gdf, dates, output_crs='epsg:4326')
+#     assert result.crs.to_string() == 'epsg:4326', "The CRS is not converted to 'epsg:4326'"
+    
+def test_order_linestrings_gdf_duplicate_points():
+    points = np.array([[0, 0], [1, 1], [1, 1], [2, 2]])
+    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)]}, crs='epsg:4326')
+    dates = ['2023-01-01']
+    result = common.order_linestrings_gdf(gdf, dates)
+    expected_line = common.create_complete_line_string(points)
+    assert len(result) == 1, "Expected one linestring in the result"
+    assert result.iloc[0].geometry.equals(expected_line), "The geometry of the linestring is incorrect"
+    assert result.iloc[0].date == '2023-01-01', "The date is incorrect"
+
+
+def test_no_points():
+    points = np.array([])
+    result = common.create_complete_line_string(points)
+    assert result is None, "Expected None for no points"
+
+def test_single_point():
+    points = np.array([[1, 1]])
+    result = common.create_complete_line_string(points)
+    assert isinstance(result, Point), "Expected Point for a single point"
+    assert result.x == 1 and result.y == 1, "Expected Point with coordinates (1,1)"
+
+def test_multiple_points_straight_line():
+    points = np.array([[0, 0], [1, 1], [2, 2]])
+    result = common.create_complete_line_string(points)
+    assert isinstance(result, LineString), "Expected LineString for multiple points"
+    expected_coords = [(0, 0), (1, 1), (2, 2)]
+    assert list(result.coords) == expected_coords, "Expected coordinates to be in a straight line"
+
+def test_multiple_points_non_straight_line():
+    points = np.array([[0, 0], [2, 2], [1, 1], [3, 3]])
+    result = common.create_complete_line_string(points)
+    assert isinstance(result, LineString), "Expected LineString for multiple points"
+    expected_coords = [(0, 0), (1, 1), (2, 2), (3, 3)]
+    assert list(result.coords) == expected_coords, "Expected coordinates to be in a sorted line"
+
+def test_duplicate_points():
+    points = np.array([[0, 0], [1, 1], [1, 1], [2, 2]])
+    result =  common.create_complete_line_string(points)
+    assert isinstance(result, LineString), "Expected LineString for multiple points"
+    expected_coords = [(0, 0), (1, 1), (2, 2)]
+    assert list(result.coords) == expected_coords, "Expected coordinates to be unique and sorted"
+
 
 def test_get_missing_roi_dirs():
     roi_settings = {
@@ -1052,12 +1184,12 @@ def sample_ROI_directory(request):
     )
 
     filenames = [
-        "20210101_sat1_L5.jpg",
-        "20210101_sat1_L7.jpg",
-        "20210101_sat1_L8.jpg",
-        "20210101_sat1_L9.jpg",
-        "20210101_sat1_S2.jpg",
-        "20210101_wrong_name.jpg",
+        "2021-01-05-15-33-53_L5_site1_ms.jpg",
+        "2021-01-05-15-33-53_L7_site1_ms.jpg",
+        "2021-01-05-15-33-53_sat1_L8.jpg",
+        "2021-01-05-15-33-53_sat1_L9.jpg",
+        "2021-01-05-15-33-53_sat1_S2.jpg",
+        "2021-01-05-15-33-53_wrong_name.jpg",
         "wrong_name_2.jpg",
     ]
 
@@ -1112,9 +1244,11 @@ def expected_satellites():
 # Test data
 @pytest.fixture(scope="module")
 def sample_metadata():
+    # This metadata is total bogus and is just for testing purposes.
+    # The  only thing that matters is the date format for filesnames is in the format "YYYY-MM-DD-HH-MM-SS"
     metadata = {
         "L5": {
-            "filenames": ["20210101_L5_site1_ms.tif", "20220101_L5_site1_ms.tif"],
+            "filenames": ["2021-01-05-15-33-53_L5_site1_ms.tif", "2022-01-05-15-33-53_L5_site1_ms.tif"],
             "acc_georef": [9.185, 10.185],
             "epsg": [32618, 32618],
             "dates": [
@@ -1123,7 +1257,7 @@ def sample_metadata():
             ],
         },
         "L7": {
-            "filenames": ["20210101_L7_site1_ms.tif", "20220101_L7_site1_ms.tif"],
+            "filenames": ["2021-01-05-15-33-53_L7_site1_ms.tif", "2022-01-05-15-33-53_L7_site1_ms.tif"],
             "acc_georef": [7.441, 5.693],
             "epsg": [32618, 32618],
             "dates": [
@@ -1140,13 +1274,13 @@ def sample_metadata():
 def expected_filtered_metadata():
     metadata = {
         "L5": {
-            "filenames": ["20210101_L5_site1_ms.tif"],
+            "filenames": ["2021-01-05-15-33-53_L5_site1_ms.tif"],
             "acc_georef": [9.185],
             "epsg": [32618],
             "dates": ["datetime.datetime(2020, 1, 5, 15, 33, 53, tzinfo=<UTC>)"],
         },
         "L7": {
-            "filenames": ["20210101_L7_site1_ms.tif"],
+            "filenames": ["2021-01-05-15-33-53_L7_site1_ms.tif"],
             "acc_georef": [7.441],
             "epsg": [32618],
             "dates": [
@@ -1182,7 +1316,10 @@ def expected_empty_filtered_metadata():
 def test_filter_metadata(
     sample_ROI_directory, sample_metadata, expected_filtered_metadata
 ):
-    result = common.filter_metadata(sample_metadata, "site1", sample_ROI_directory)
+    directory =  os.path.join(
+                sample_ROI_directory, "site1", "jpg_files", "preprocessed", "RGB"
+            )
+    result = common.filter_metadata_with_dates(sample_metadata, directory, "jpg")
 
     assert (
         result == expected_filtered_metadata
@@ -1197,23 +1334,21 @@ def test_empty_roi_directory_filter_metadata(
     sample_directory,
 ):
     # if the RGB directory but exists and is empty then no filenames in result should be empty lists
-    result = common.filter_metadata(sample_metadata, "site1", empty_ROI_directory)
+    directory =  os.path.join(
+                empty_ROI_directory, "site1", "jpg_files", "preprocessed", "RGB"
+            )
+    result = common.filter_metadata_with_dates(sample_metadata, directory, "jpg")
+
     assert (
         result == expected_empty_filtered_metadata
     ), "The output filtered metadata is not as expected."
 
     # should raise an error if the RGB directory within the ROI directory does not exist
     with pytest.raises(Exception):
-        common.filter_metadata(sample_metadata, "site1", sample_directory)
-
-
-# Test cases
-def test_get_filtered_files_dict(sample_directory, expected_satellites):
-    result = common.get_filtered_files_dict(sample_directory, "jpg", "site1")
-
-    assert (
-        result == expected_satellites
-    ), "The output file name dictionary is not as expected."
+        directory =  os.path.join(
+                    sample_directory, "site1", "jpg_files", "preprocessed", "RGB"
+                )
+        result = common.filter_metadata_with_dates(sample_metadata, directory, "jpg")
 
 
 # Test for preprocessing function
@@ -2237,3 +2372,21 @@ def test_convert_points_to_linestrings_not_enough_pts():
 
     # Check the result
     assert len(linestrings_gdf) == 0
+
+def test_convert_points_to_linestrings_single_point_per_date():
+    # Create a GeoDataFrame with points
+    points = [Point(0, 0), Point(1, 1)]
+    gdf = gpd.GeoDataFrame(geometry=points,)
+    # this should cause the last point to be filtered out because it doesn't have a another points with a matching date
+    gdf['date'] = ['1/1/2020','1/1/2020']
+
+
+    # Set an initial CRS
+    gdf.crs = "EPSG:4326"
+
+    # Convert points to LineStrings with a different CRS
+    output_crs = "EPSG:3857"
+    linestrings_gdf = convert_points_to_linestrings(gdf, output_crs=output_crs)
+
+    # Check the result
+    assert len(linestrings_gdf) == 1

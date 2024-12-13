@@ -4,8 +4,7 @@ channels:
 dependencies:
   - python=3.10
   # required
-  - jupyterlab
-  - geopandas
+  - gdal
   - pip
   - pip:
       - tensorflow

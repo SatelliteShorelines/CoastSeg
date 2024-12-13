@@ -74,7 +74,7 @@ def get_collection_by_tier(
             "L7": "LANDSAT/LE07/C02/T1_TOA",
             "L8": "LANDSAT/LC08/C02/T1_TOA",
             "L9": "LANDSAT/LC09/C02/T1_TOA",
-            "S2": "COPERNICUS/S2",
+            "S2": "COPERNICUS/S2_HARMONIZED",
         },
         2: {
             "L5": "LANDSAT/LT05/C02/T2_TOA",
@@ -315,7 +315,7 @@ def main():
 
     # Check if EE was initialized or not
     try:
-        ee.ImageCollection("LANDSAT/LT05/C01/T1_TOA")
+        ee.ImageCollection("LANDSAT/LC08/C02/T1_TOA")
     except:
         ee.Initialize()
 

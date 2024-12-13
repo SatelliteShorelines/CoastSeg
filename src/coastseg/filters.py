@@ -5,6 +5,7 @@ import xarray as xr
 import os, shutil
 from sklearn.cluster import KMeans
 from statistics import mode
+import pathlib
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -26,7 +27,16 @@ def copy_files(files: list, dest_folder: str) -> None:
         dest_path = os.path.join(dest_folder, os.path.basename(f))
         if os.path.exists(os.path.abspath(dest_path)):
             continue
-        shutil.copy(f, dest_folder)
+        # shutil.copy(f, dest_folder)
+        shutil.move(f, dest_path)
+        # move the matching png files to the respective folders
+        parent_dir = os.path.abspath(pathlib.Path(f).parent)
+        png_file = os.path.basename(f.replace("_res.npz","_predseg.png"))
+        png_path = os.path.join(parent_dir, png_file)
+        if os.path.exists(png_path):
+            dest_path = os.path.join(dest_folder, os.path.basename(png_path))
+            shutil.move(png_path, dest_path)
+            
 
 
 def load_data(f: str) -> np.array:
@@ -87,6 +97,10 @@ def get_time_vectors(files: list) -> tuple:
 def get_image_shapes(files: list) -> list:
     return [load_data(f).shape for f in files]
 
+# count number of files with the same shape
+def count_files_with_same_shape(files: list) -> dict:
+    file_shapes = get_image_shapes(files)
+    return {shape: file_shapes.count(shape) for shape in set(file_shapes)}
 
 def measure_rmse(da: xr.DataArray, times: list, timeav: xr.DataArray) -> tuple:
     """
@@ -110,7 +124,10 @@ def measure_rmse(da: xr.DataArray, times: list, timeav: xr.DataArray) -> tuple:
 
 def get_kmeans_clusters(input_rmse: np.array, rmse: list) -> tuple:
     """
-    Perform KMeans clustering on RMSE values.
+    Perform KMeans clustering on RMSE values. 
+    Returns the average rmse score for each cluster as well as the labels for each cluster.
+    score[0] is the average rmse for the cluster 0.
+    score [1] is the average rmse for the cluster 1.
 
     Args:
         input_rmse (np.array): Array of RMSE values.
@@ -121,6 +138,8 @@ def get_kmeans_clusters(input_rmse: np.array, rmse: list) -> tuple:
     """
     kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(input_rmse)
     labels = kmeans.labels_
+    # Calculate mean RMSE for each cluster
+    # the lower the RMSE the better the prediction
     scores = [
         np.mean(np.array(rmse)[labels == 0]),
         np.mean(np.array(rmse)[labels == 1]),
@@ -164,6 +183,7 @@ def handle_files_and_directories(
     logger.info(f"Copying {len(files_good)} files to {dest_folder_good}")
     copy_files(files_bad, dest_folder_bad)
     copy_files(files_good, dest_folder_good)
+    # get the matching png files and copy them to the respective folders
 
 
 def return_valid_files(files: list) -> list:
@@ -178,6 +198,26 @@ def return_valid_files(files: list) -> list:
     """
     modal_shape = mode(get_image_shapes(files))
     return [f for f in files if load_data(f).shape == modal_shape]
+
+def get_files_with_shape(files: list,shape:tuple) -> list:
+    """
+    Return files whose image shapes match the  shape among the given files.
+
+    Args:
+        files (list): List of file paths.
+
+    Returns:
+        list: File paths whose image shape matches the mode of all file shapes.
+    """
+    matching_files = []
+    for file in files:
+        if os.path.exists(file):
+            shape_file = load_data(file).shape
+            if shape_file == shape:
+                matching_files.append(file)
+    return matching_files
+    # return [f for f  in files if load_data(f).shape == shape]
+
 
 def apply_land_mask( directory_path: str) -> None:
     """
@@ -226,24 +266,30 @@ def filter_model_outputs(
         dest_folder_good (str): Destination folder for 'good' files.
         dest_folder_bad (str): Destination folder for 'bad' files.
     """
-    valid_files = return_valid_files(files)
-    if len(valid_files) <3:
-        # if there are not enough valid files to perform the analysis, move all files to the good folder
-        handle_files_and_directories(
-        [], valid_files, dest_folder_bad, dest_folder_good
-        ) 
-        return 
-    print(f"Found {len(valid_files)} valid files for {satname}.")
-    times, time_var = get_time_vectors(valid_files)
-    da = xr.concat([load_xarray_data(f) for f in valid_files], dim=time_var)
-    timeav = da.mean(dim="time")
 
-    rmse, input_rmse = measure_rmse(da, times, timeav)
-    labels, scores = get_kmeans_clusters(input_rmse, rmse)
-    files_bad, files_good = get_good_bad_files(valid_files, labels, scores)
-    handle_files_and_directories(
-        files_bad, files_good, dest_folder_bad, dest_folder_good
-    ) 
+    count_shapes = count_files_with_same_shape(files)
+    # get the most common shape
+    # modal_shape = mode(get_image_shapes(files))
+    for shape, count in count_shapes.items():
+        print(f"Shape: {shape} Count: {count}")
+        valid_files = get_files_with_shape(files,shape)
+        if len(valid_files) <3:
+            # if there are not enough valid files to perform the analysis, move all files to the good folder
+            handle_files_and_directories(
+            [], valid_files, dest_folder_bad, dest_folder_good
+            ) 
+        else:
+            times, time_var = get_time_vectors(valid_files)
+            da = xr.concat([load_xarray_data(f) for f in valid_files], dim=time_var)
+            timeav = da.mean(dim="time")
+
+            rmse, input_rmse = measure_rmse(da, times, timeav)
+            labels, scores = get_kmeans_clusters(input_rmse, rmse)
+            files_bad, files_good = get_good_bad_files(valid_files, labels, scores)
+            handle_files_and_directories(
+                files_bad, files_good, dest_folder_bad, dest_folder_good
+            ) 
+            # apply_land_mask(dest_folder_good)    
     
     
     

@@ -8,8 +8,10 @@ import random
 import re
 import shutil
 import string
+import pathlib
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from sysconfig import get_python_version
 
 # Third-party imports
 import ee
@@ -18,13 +20,12 @@ import numpy as np
 import pandas as pd
 import requests
 import shapely
-from shapely import geometry
 from area import area
-from google.auth import exceptions as google_auth_exceptions
 from ipyfilechooser import FileChooser
-from ipywidgets import HBox, HTML, Layout, ToggleButton, VBox
+from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox
 from PIL import Image
 from requests.exceptions import SSLError
+from shapely import geometry
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from tqdm.auto import tqdm
 
@@ -32,6 +33,7 @@ from tqdm.auto import tqdm
 from coastseg import exceptions, file_utilities
 from coastseg.exceptions import InvalidGeometryType
 from coastseg.validation import find_satellite_in_filename
+from coastseg import core_utilities
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
@@ -459,7 +461,7 @@ def initialize_gee(
     authenticate_and_initialize(print_mode, force, auth_args, kwargs)
 
 
-def authenticate_and_initialize(print_mode:bool, force:bool, auth_args:dict, kwargs:dict):
+def authenticate_and_initialize(print_mode: bool, force: bool, auth_args: dict, kwargs: dict, attempt: int = 1, max_attempts: int = 2):
     """
     Handles the authentication and initialization of Google Earth Engine.
 
@@ -468,8 +470,10 @@ def authenticate_and_initialize(print_mode:bool, force:bool, auth_args:dict, kwa
         force (bool): Flag indicating whether to force authentication.
         auth_args (dict): Dictionary of authentication arguments for ee.Authenticate().
         kwargs (dict): Dictionary of initialization arguments for ee.Initialize().
+        attempt (int): Current attempt number for authentication.
+        max_attempts (int): Maximum number of authentication attempts.
     """
-    logger.info(f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode}")
+    logger.info(f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}")
     if print_mode:
         print(f"{'Forcing authentication and ' if force else ''}Initializing Google Earth Engine...\n")
     try:
@@ -487,14 +491,12 @@ def authenticate_and_initialize(print_mode:bool, force:bool, auth_args:dict, kwa
         else:
             print(f"An error occurred: {error_message}\n")
 
-        # Re-attempt authentication only if not already attempted
-        if not force:
-            print("Re-attempting authentication...\n")
-            ee.Authenticate(**auth_args)
-            authenticate_and_initialize( print_mode, True, auth_args, kwargs)  # Force re-authentication on retry
+        # Re-attempt authentication only if attempts are less than max_attempts
+        if attempt < max_attempts:
+            print(f"Re-attempting authentication (Attempt {attempt + 1}/{max_attempts})...\n")
+            authenticate_and_initialize(print_mode, True, auth_args, kwargs, attempt + 1, max_attempts)  # Force re-authentication on retry
         else:
-            raise Exception(f"Failed to initialize Google Earth Engine: {error_message}")
-
+            raise Exception(f"Failed to initialize Google Earth Engine after {attempt} attempts: {error_message}")
 
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
     """
@@ -830,7 +832,6 @@ def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
     combined_mask = pd.Series([True] * len(gdf))
 
     for column_name, items_list in kwargs.items():
-        print(f"column namme : {column_name} \n items_list : {items_list}")
         # Ensure the column exists in the DataFrame
         if column_name not in gdf.columns:
             continue
@@ -1309,7 +1310,7 @@ def get_response(url, stream=True):
     # attempt a standard request then try with an ssl certificate
     try:
         response = requests.get(url, stream=stream)
-    except SSLError as e:
+    except SSLError:
         cert_path = get_cert_path_from_config()
         if cert_path:  # if an ssl file was provided use it
             response = requests.get(url, stream=stream, verify=cert_path)
@@ -1321,7 +1322,73 @@ def get_response(url, stream=True):
     return response
 
 
-def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[str]:
+def extract_date_from_filename(filename: str) -> str:
+    """Extracts the first instance date string "YYYY-MM-DD-HH-MM-SS" from a filename.
+     - The date string is expected to be in the format "YYYY-MM-DD-HH-MM-SS".
+     - Example 2024-05-28-22-18-07 would be extracted from "2024-05-28-22-18-07_S2_ID_1_datetime11-04-24__04_30_52_ms.tif"
+    """
+    pattern = r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}"
+    match = re.match(pattern, filename)
+    if match:
+        return match.group(0)
+    else:
+        return ""
+
+def get_filtered_dates_dict(directory: str, file_type: str, ) -> dict:
+    """
+    Scans the directory for files with the given file_type and extracts the date from the filename and returns a dictionary with the satellite name as the key and a set of dates as the value.
+
+
+    Parameters:
+    -----------
+    directory : str
+        The directory where the files are located.
+
+    file_type : str
+        The filetype of the files to be included.
+        Ex. 'jpg'
+
+
+    Returns:
+    --------
+    dict
+        a dictionary where each key is a satellite name and each value is a set of the dates in the format "YYYY-MM-DD-HH-MM-SS" that represents the time the scene was captured.
+    
+    Example:
+        {
+        "L5":{'2014-12-19-18-22-40',},
+        "L7":{},
+        "L8":{'2014-12-19-18-22-40',},
+        "L9":{},
+        "S2":{},
+    }
+    
+    """
+    filepaths = glob.iglob(os.path.join(directory, f"*.{file_type}"))
+
+    satellites = {"L5": set(), "L7": set(), "L8": set(), "L9": set(), "S2": set()}
+    for filepath in filepaths:
+        filename = os.path.basename(filepath)
+        date = extract_date_from_filename(filename)
+        if date == "":
+            logging.warning(
+                f"Skipping file with unexpected name format which was missing a date: {filename}"
+            )
+            continue
+
+        satname = find_satellite_in_filename(filename)
+        if not satname:
+            logging.warning(
+                f"Skipping file with unexpected name format which was missing a satname: {filename}"
+            )
+            continue
+        
+        if satname in satellites:
+            satellites[satname].add(date)
+
+    return satellites
+
+def filter_metadata_with_dates(metadata: dict, directory:str,file_type:str="jpg") -> dict[str]:
     """
     This function filters metadata to include only those files that exist in the given directory.
 
@@ -1330,35 +1397,33 @@ def filter_metadata(metadata: dict, sitename: str, filepath_data: str) -> dict[s
     metadata : dict
         The metadata dictionary to be filtered.
 
-    sitename : str
-        The site name used for filtering.
+    directory : str
+        The directory containing the files that have been filtered. These files should contain
+        dates that match the format "YYYY-MM-DD-HH-MM-SS".
 
-    filepath_data : str
-        The base filepath where the data is located.
-
+    file_type : str
+        The filetype of the files in the directory. Default is 'jpg'.
+        
     Returns:
     --------
     dict
         The filtered metadata dictionary.
     """
-    # Get the RGB directory
-    RGB_directory = os.path.join(
-        filepath_data, sitename, "jpg_files", "preprocessed", "RGB"
-    )
-    if not os.path.exists(RGB_directory):
+    if not os.path.exists(directory):
         raise FileNotFoundError(
-            f"Cannot extract shorelines from imagery. RGB directory did not exist. {RGB_directory}"
+            f"Cannot extract shorelines from imagery. RGB directory did not exist. {directory}"
         )
-    # filter out files that were removed from RGB directory
-    filtered_files = get_filtered_files_dict(RGB_directory, "jpg", sitename)
-    metadata = edit_metadata(metadata, filtered_files)
+    # Get the dates of the files in the RGB directory (this is the one the user filtered into good/bad)
+    filtered_dates_by_sat = get_filtered_dates_dict(directory, file_type)
+    # print(f"filtered_dates_by_sat: {filtered_dates_by_sat}")
+    metadata = edit_metadata_by_dates(metadata, filtered_dates_by_sat)
     return metadata
 
 
-def edit_metadata(
+def edit_metadata_by_dates(
     metadata: Dict[str, Dict[str, Union[str, List[Union[str, datetime, int, float]]]]],
-    filtered_files: Dict[str, Set[str]],
-) -> Dict[str, Dict[str, Union[str, List[Union[str, datetime, int, float]]]]]:
+    filtered_dates: Dict[str, Set[str]],
+) -> dict:
     """Filters the metadata so that it contains the data for the filenames in filered_files
 
     Args:
@@ -1384,8 +1449,8 @@ def edit_metadata(
         filtered_files = {
             "L5": {},
             "L7": {},
-            "L8": {"2019-02-16-18-22-17_L8_sitename_ms.tif"},
-            "L9": {"2019-02-16-18-22-17_L9_sitename_ms.tif"},
+            "L8": {"2019-02-16-18-22-17"},
+            "L9": {"2019-02-16-18-22-17"},
             "S2": {},
         }
 
@@ -1407,20 +1472,24 @@ def edit_metadata(
             }
         }
     """
-    # Iterate over satellite names in filtered_files
-    for sat_name, files in filtered_files.items():
+    # Loop over each satellite which contains all the dates that images were captured for that satellite
+    for sat_name, filtered_dates in filtered_dates.items():
         # Check if sat_name is present in metadata
         if sat_name in metadata:
             satellite_metadata = metadata[sat_name]
 
-            # Find the indices to keep based on filenames in filtered_files
+            # basically instead of matching the filenames directory check if the dates match
+            # 1. convert the satellite_metadata["filenames"] to dates
+            metadata_dates = [extract_date_from_filename(filename) for filename in satellite_metadata["filenames"]]
+            # 2. get the matching indices
             indices_to_keep = [
                 idx
-                for idx, filename in enumerate(satellite_metadata["filenames"])
-                if filename in files
+                for idx, metadata_date in  enumerate(metadata_dates)
+                if metadata_date in filtered_dates
             ]
 
-            # Loop through each key in the satellite_metadata dictionary
+            # Loop through each key in the satellite_metadata dictionary and keep only the values that match the indices_to_keep
+            # this keeps only the metadata for the files whose date was found in the filtered_files
             for key, values in satellite_metadata.items():
                 # Check if values is a list
                 if isinstance(values, list):
@@ -1433,76 +1502,6 @@ def edit_metadata(
     return metadata
 
 
-def get_filtered_files_dict(directory: str, file_type: str, sitename: str) -> dict:
-    """
-    Scans the directory for files of a given type and groups them by satellite names into a dictionary.
-    Each entry in the dictionary contains a set of multispectral tif filenames associated with the original filenames and site name.
-
-    Example :
-    file_type = "tif"
-    sitename = "ID_onn15_datetime06-07-23__01_02_19"
-    {
-        "L5":{2014-12-19-18-22-40_L5_ID_onn15_datetime06-07-23__01_02_19_ms.tif,},
-        "L7":{},
-        "L8":{2014-12-19-18-22-40_L8_ID_onn15_datetime06-07-23__01_02_19_ms.tif,},
-        "L9":{},
-        "S2":{},
-    }
-
-    Parameters:
-    -----------
-    directory : str
-        The directory where the files are located.
-
-    file_type : str
-        The filetype of the files to be included.
-        Ex. 'jpg'
-
-    sitename : str
-        The site name to be included in the new filename.
-
-    Returns:
-    --------
-    dict
-        a dictionary where each key is a satellite name and each value is a set of the tif filenames.
-    """
-    filepaths = glob.iglob(os.path.join(directory, f"*.{file_type}"))
-
-    satellites = {"L5": set(), "L7": set(), "L8": set(), "L9": set(), "S2": set()}
-    for filepath in filepaths:
-        filename = os.path.basename(filepath)
-        parts = filename.split("_")
-
-        if len(parts) < 2:
-            logging.warning(f"Skipping file with unexpected name format: {filename}")
-            continue
-
-        date = parts[0]
-
-        satname = find_satellite_in_filename(filename)
-        if satname is None:
-            logging.warning(
-                f"Skipping file with unexpected name format which was missing a satname: {filename}"
-            )
-            continue
-
-        # satname_parts = parts[-1].split(".")
-
-        # if len(satname_parts) < 2:
-        #     logging.warning(
-        #         f"Skipping file with unexpected name format: {old_filename}"
-        #     )
-        #     continue
-
-        # satname = satname_parts[0]
-
-        tif_filename = f"{date}_{satname}_{sitename}_ms.tif"
-        if satname in satellites:
-            satellites[satname].add(tif_filename)
-
-    return satellites
-
-
 def create_unique_ids(data, prefix_length: int = 3):
     # if not all the ids in data are unique
     if not check_unique_ids(data):
@@ -1513,14 +1512,15 @@ def create_unique_ids(data, prefix_length: int = 3):
 
 
 def extract_feature_from_geodataframe(
-    gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
+    gdf: gpd.GeoDataFrame, feature_type: Union[int, str], type_column: str = "type"
 ) -> gpd.GeoDataFrame:
     """
     Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
 
     Args:
         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-        feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        feature_type Union[int, str]: The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        Feature_type can also be list of strings such as ['shoreline','shorelines', 'reference shoreline'] to match the same kind of feature with muliple names.
         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
 
     Returns:
@@ -1535,8 +1535,12 @@ def extract_feature_from_geodataframe(
             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
         )
 
-    # select only the features that are of the correct type and have the correct columns
-    feature_gdf = gdf[gdf[type_column] == feature_type]
+    if isinstance(feature_type, list):
+        # select only the features that are of the correct type and have the correct columns
+        feature_gdf = gdf[gdf[type_column].isin(feature_type)]
+    else:
+        # select only the features that are of the correct type and have the correct columns
+        feature_gdf = gdf[gdf[type_column] == feature_type]
 
     return feature_gdf
 
@@ -1606,6 +1610,7 @@ def export_dataframe_as_geojson(data:pd.DataFrame, output_file_path:str, x_col:s
 def create_complete_line_string(points):
     """
     Create a complete LineString from a list of points.
+    If there is only a single point in the list, a Point object is returned instead of a LineString.
 
     Args:
         points (numpy.ndarray): An array of points representing the coordinates.
@@ -1651,6 +1656,9 @@ def create_complete_line_string(points):
         current_point = nearest_point
 
     # Convert the sorted list of points to a LineString
+    if len(sorted_points) < 2:
+        return Point(sorted_points[0])
+
     return LineString(sorted_points)
 
 def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
@@ -1680,6 +1688,7 @@ def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
         lines.append(line_string)
     
     gdf = gpd.GeoDataFrame({'geometry': lines,'date': dates},crs=output_crs)
+
     return gdf
 
 
@@ -1703,48 +1712,42 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
     utm_crs = transects.estimate_utm_crs()
     transects_utm = transects.to_crs(utm_crs)
     
-    ##need some placeholders
-    shore_x_vals = [None]*len(timeseries_data)
-    shore_y_vals = [None]*len(timeseries_data)
-    timeseries_data['shore_x'] = shore_x_vals
-    timeseries_data['shore_y'] = shore_y_vals
+    # Initialize shore_x and shore_y columns
+    timeseries_data['shore_x'] = np.nan
+    timeseries_data['shore_y'] = np.nan
 
     ##loop over all transects
-    for i in range(len(transects_utm)):
-        transect = transects_utm.iloc[i]
+    for i, transect in transects_utm.iterrows():
         transect_id = transect['id']
         first = transect.geometry.coords[0]
-        last = transect.geometry.coords[1]
+        last = transect.geometry.coords[-1]
         
-        idx = timeseries_data['transect_id'].str.contains(transect_id)
-        ##in case there is a transect in the config_gdf that doesn't have any intersections
-        ##skip that transect
-        if np.any(idx):
-            timeseries_data_filter = timeseries_data[idx]
-        else:
+        # Filter timeseries data for the current transect_id
+        idx = timeseries_data['transect_id'] == transect_id
+        if not np.any(idx):
             continue
-
-        idxes = timeseries_data_filter.index
-        distances = timeseries_data_filter['cross_distance']
+        
+        timeseries_data_filter = timeseries_data[idx]
+        distances = timeseries_data_filter['cross_distance'].values
+        # idxes = timeseries_data_filter.index
+        # distances = timeseries_data_filter['cross_distance']
 
         angle = np.arctan2(last[1] - first[1], last[0] - first[0])
 
         shore_x_utm = first[0]+distances*np.cos(angle)
         shore_y_utm = first[1]+distances*np.sin(angle)
-        points_utm = [shapely.Point(xy) for xy in zip(shore_x_utm, shore_y_utm)]
+        # points_utm = [shapely.Point(xy) for xy in zip(shore_x_utm, shore_y_utm)]
 
         #conversion from utm to wgs84, put them in the transect_timeseries csv and utm gdf
-        dummy_gdf_utm = gpd.GeoDataFrame({'geometry':points_utm},
-                                         crs=utm_crs)
-        dummy_gdf_wgs84 = dummy_gdf_utm.to_crs(org_crs)
-
-        points_wgs84 = [shapely.get_coordinates(p) for p in dummy_gdf_wgs84.geometry]
-        points_wgs84 = np.array(points_wgs84)
-        points_wgs84 = points_wgs84.reshape(len(points_wgs84),2)
-        x_wgs84 = points_wgs84[:,0]
-        y_wgs84 = points_wgs84[:,1]
-        timeseries_data.loc[idxes,'shore_x'] = x_wgs84
-        timeseries_data.loc[idxes,'shore_y'] = y_wgs84
+        points_utm = gpd.GeoDataFrame({'geometry': [Point(x, y) for x, y in zip(shore_x_utm, shore_y_utm)]}, crs=utm_crs)
+        # Convert shore points to WGS84
+        points_wgs84 = points_utm.to_crs(org_crs)
+        # dummy_gdf_wgs84 = dummy_gdf_utm.to_crs(org_crs)
+        coords_wgs84 = np.array([point.coords[0] for point in points_wgs84.geometry])
+        
+        # Update timeseries data with shore_x and shore_y
+        timeseries_data.loc[idx, 'shore_x'] = coords_wgs84[:, 0]
+        timeseries_data.loc[idx, 'shore_y'] = coords_wgs84[:, 1]
 
     return timeseries_data
 
@@ -1785,7 +1788,11 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
         if not dropped_points_df.empty:
             timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
-    
+            merged_timeseries_df = merged_timeseries_df[~merged_timeseries_df.set_index(['dates', 'transect_id']).index.isin(dropped_points_df.set_index(['dates', 'transect_id']).index)]
+            if len(merged_timeseries_df) == 0:
+                logger.warning("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+                print("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
     cross_shore_pts = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
     # rename the dates column to date
@@ -1905,7 +1912,7 @@ def save_transects(
     Returns:
         None.
     """    
-    cross_distance_df =get_cross_distance_df(
+    cross_distance_df = get_cross_distance_df(
         extracted_shorelines, cross_distance_transects
     )
     cross_distance_df.dropna(axis="columns", how="all", inplace=True)
@@ -1922,16 +1929,21 @@ def save_transects(
     # re-order columns
     merged_timeseries_df = merged_timeseries_df[['dates', 'x', 'y', 'transect_id', 'cross_distance']]
     # add the shore_x and shore_y columns to the merged time series which are the x and y coordinates of the shore points along the transects
-    merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf.to_crs('epsg:4326'),cross_distance_df,
-                              save_location,
+    merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df,
+                                                                    transects_gdf.to_crs('epsg:4326'),cross_distance_df,save_location,
                               drop_intersection_pts,
                               "raw")
     # save the raw transect time series which contains the columns ['dates', 'x', 'y', 'transect_id', 'cross_distance','shore_x','shore_y']  to file
-    filepath = os.path.join(save_location, f"raw_transect_time_series_merged.csv")
+    filepath = os.path.join(save_location, "raw_transect_time_series_merged.csv")
     merged_timeseries_df.to_csv(filepath, sep=",",index=False) 
     
-    filepath = os.path.join(save_location, f"raw_transect_time_series.csv")
+    # sort the columns
+    sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
+    timeseries_df = timeseries_df[sorted_columns]
+
+    filepath = os.path.join(save_location, "raw_transect_time_series.csv")
     timeseries_df.to_csv(filepath, sep=",",index=False)
+
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
     transect_settings_path = os.path.join(save_location, "transects_settings.json")
@@ -2014,7 +2026,8 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326')
         return gpd.GeoDataFrame(columns=['geometry'])
     # Recreate the groups as a geodataframe
     grouped_gdf = gpd.GeoDataFrame(filtered_groups, geometry='geometry')
-    linestrings = grouped_gdf.groupby(group_col).apply(lambda g: LineString(g.geometry.tolist()))
+    linestrings = grouped_gdf.groupby(group_col,group_keys=False).apply(lambda g: LineString(g.geometry.tolist()))
+
     # Create a new GeoDataFrame from the LineStrings
     linestrings_gdf = gpd.GeoDataFrame(linestrings, columns=['geometry'],)
     linestrings_gdf.reset_index(inplace=True)
@@ -2164,6 +2177,18 @@ def get_most_accurate_epsg(epsg_code: int, polygon: gpd.GeoDataFrame):
     return epsg_code
 
 def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
+    """
+    Creates a directory chooser widget.
+
+    Args:
+        callback: The function to be called when a directory is selected.
+        title (str, optional): The title of the directory chooser. Defaults to None.
+        starting_directory (str, optional): The initial directory to be displayed. Defaults to "data".
+
+    Returns:
+        HBox: The directory chooser widget.
+
+    """
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     inital_path = os.path.join(os.getcwd(), starting_directory)
     if not os.path.exists(inital_path):
@@ -2799,7 +2824,7 @@ def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         a new GeoDataFrame is returned with z axis dropped.
     """
     if geodf.empty:
-        logger.warning(f"Empty GeoDataFrame has no z-axis")
+        logger.warning("Empty GeoDataFrame has no z-axis")
         return geodf
 
     # if any row has a z coordinate then remove the z_coordinate
@@ -3120,11 +3145,12 @@ def get_jpgs_from_data() -> str:
     """Returns the folder where all jpgs were copied from the data folder in coastseg.
     This is where the model will save the computed segmentations."""
     # Data folder location
-    src_path = os.path.abspath(os.getcwd() + os.sep + "data")
+    base_path = os.path.abspath(core_utilities.get_base_dir())
+    src_path = os.path.join(base_path,  "data")
     if os.path.exists(src_path):
         rename_jpgs(src_path)
         # Create a new folder to hold all the data
-        location = os.getcwd()
+        location = base_path
         name = "segmentation_data"
         # new folder "segmentation_data_datetime"
         new_folder = file_utilities.mk_new_dir(name, location)
@@ -3215,8 +3241,6 @@ def rename_jpgs(src_path: str) -> None:
                 new_name = folder_path + os.sep + base + "_" + folder_id + ext
                 old_name = folder_path + os.sep + jpg
                 os.rename(old_name, new_name)
-        if files_renamed:
-            print(f"Renamed files in {src_path} ")
 
 
 def do_rois_filepaths_exist(roi_settings: dict, roi_ids: list) -> bool:
@@ -3287,13 +3311,13 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
         is_downloaded = all_sitenames_exist and all_filepaths_exist
     # print correct message depending on whether ROIs were downloaded
     if is_downloaded:
-        logger.info(f"Located previously downloaded ROI data.")
+        logger.info("Located previously downloaded ROI data.")
     elif is_downloaded == False:
         print(
             "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
         )
         logger.info(
-            f"Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
+            "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
         )
     return is_downloaded
 
@@ -3375,7 +3399,6 @@ def create_roi_settings(
         roi_settings[roi_id] = inputs_dict
     return roi_settings
 
-
 def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
     """returns resized matrix with shape(rows,cols)
         for 2d discrete labels
@@ -3399,7 +3422,6 @@ def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
     ]
     return np.array(tmp).reshape((rows, cols))
 
-
 def rescale_array(dat, mn, mx):
     """
     rescales an input dat between mn and mx
@@ -3409,3 +3431,6 @@ def rescale_array(dat, mn, mx):
     m = min(dat.flatten())
     M = max(dat.flatten())
     return (mx - mn) * (dat - m) / (M - m) + mn
+
+
+    

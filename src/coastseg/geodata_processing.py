@@ -100,7 +100,7 @@ def create_geofeature_geodataframe(
         # if a geofeature file is not given load features from ROI
         geofeature_gdf = load_geofeatures_from_roi(roi_gdf, feature_type)
 
-    logger.info(f"{feature_type}_gdf: {geofeature_gdf}")
+    logger.info(f"{feature_type}_gdf: length {len(geofeature_gdf)} sample {geofeature_gdf.head(1)}")
     if geofeature_gdf.empty:
         raise Exception(
             f"None of the {feature_type}s intersected the ROI. Try a different {feature_type}"
@@ -109,6 +109,16 @@ def create_geofeature_geodataframe(
     geofeature_gdf = geofeature_gdf.to_crs(epsg_code)
     return geofeature_gdf
 
+
+FEATURE_TYPE_MAP = {
+    "transect": transects.Transects,
+    "transects": transects.Transects,
+    "shoreline": shoreline.Shoreline,
+    "shorelines": shoreline.Shoreline,
+    "reference_shoreline": shoreline.Shoreline,
+    "reference_shorelines": shoreline.Shoreline,
+    "shoreline_extraction_area": shoreline_extraction_area.Shoreline_Extraction_Area,
+}
 
 def load_geofeatures_from_roi(
     roi_gdf: gpd.GeoDataFrame, feature_type: str
@@ -127,14 +137,10 @@ def load_geofeatures_from_roi(
     Raises:
         ValueError: If no geographic features were found in the given ROI.
     """
-    feature_type = (
-        feature_type.lower()
-    )  # Convert to lower case for case insensitive comparison
+    feature_type = feature_type.lower()  # Convert to lower case for case insensitive comparison
 
-    if feature_type == "transect" or feature_type == "transects":
-        feature_object = transects.Transects(bbox=roi_gdf)
-    elif feature_type == "shoreline" or feature_type == "shorelines":
-        feature_object = shoreline.Shoreline(bbox=roi_gdf)
+    if feature_type in FEATURE_TYPE_MAP:
+        feature_object = FEATURE_TYPE_MAP[feature_type](bbox=roi_gdf)
     else:
         logger.error(f"Unsupported feature_type: {feature_type}")
         raise ValueError(f"Unsupported feature_type: {feature_type}")
@@ -181,15 +187,18 @@ def load_geodataframe_from_file(
         ValueError: If the feature file is empty.
     """
     logger.info(f"Attempting to load {feature_type} from a file")
-    feature_gdf = read_gpd_file(feature_path)
+    original_feature_gdf = read_gpd_file(feature_path)
     try:
         # attempt to load features from a config file
         feature_gdf = extract_feature_from_geodataframe(
-            feature_gdf, feature_type=feature_type
+            original_feature_gdf, feature_type=feature_type
         )
     except ValueError as e:
         # if it isn't a config file then just ignore the error
         logger.info(f"This probably wasn't a config : {feature_path} \n {e}")
+        feature_gdf = original_feature_gdf # if this wasn't a config then just return the original file
+
+
     if feature_gdf.empty:
         raise ValueError(f"Empty {feature_type} file provided: {feature_path}")
     return feature_gdf
@@ -203,12 +212,16 @@ def load_feature_from_file(feature_path: str, feature_type: str):
 
 
 def create_feature(feature_type: str, gdf):
-    if feature_type == "transect" or feature_type == "transects":
-        feature_object = transects.Transects(transects=gdf)
-    elif feature_type == "shoreline" or feature_type == "shorelines":
-        feature_object = shoreline.Shoreline(shoreline=gdf)
-    elif feature_type == "shoreline_extraction_area":
-        feature_object = shoreline_extraction_area.Shoreline_Extraction_Area(gdf)
+    feature_type = feature_type.lower()  # Convert to lower case for case insensitive comparison
+    if feature_type in FEATURE_TYPE_MAP:
+        if "transect" in feature_type:
+            feature_object = FEATURE_TYPE_MAP[feature_type](transects=gdf)
+        elif "shoreline" in feature_type:
+            feature_object = FEATURE_TYPE_MAP[feature_type](shoreline=gdf)
+        elif "roi" in feature_type:
+            feature_object = FEATURE_TYPE_MAP[feature_type](rois_gdf=gdf)
+        else:
+            feature_object = FEATURE_TYPE_MAP[feature_type](gdf)
     else:
         raise ValueError(f"Unsupported feature_type: {feature_type}")
 
@@ -253,41 +266,3 @@ def extract_feature_from_geodataframe(
     filtered_gdf = gdf[gdf[type_column].str.lower().isin(feature_types)]
 
     return filtered_gdf
-
-
-# def extract_feature_from_geodataframe(
-#     gdf: gpd.GeoDataFrame, feature_type: str, type_column: str = "type"
-# ) -> gpd.GeoDataFrame:
-#     """
-#     Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
-
-#     Args:
-#         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-#         feature_type (str): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
-#         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
-
-#     Returns:
-#         gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type and columns.
-
-#     Raises:
-#         ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
-#     """
-#     # Check if type_column exists in the GeoDataFrame
-#     if type_column not in gdf.columns:
-#         raise ValueError(
-#             f"Column '{type_column}' does not exist in the GeoDataFrame. Incorrect config_gdf.geojson loaded"
-#         )
-
-#     # Check if feature_type ends with 's' and define alternative feature_type
-#     if feature_type.endswith("s"):
-#         alt_feature_type = feature_type[:-1]
-#     else:
-#         alt_feature_type = feature_type + "s"
-
-#     # Filter using both feature_types
-#     main_feature_gdf = gdf[gdf[type_column] == feature_type]
-#     alt_feature_gdf = gdf[gdf[type_column] == alt_feature_type]
-
-#     # Combine both GeoDataFrames
-#     combined_gdf = pd.concat([main_feature_gdf, alt_feature_gdf])
-#     return combined_gdf

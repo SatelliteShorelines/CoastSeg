@@ -16,6 +16,7 @@ from coastseg import sessions
 from coastseg import extracted_shoreline
 from coastseg import geodata_processing
 from coastseg import file_utilities
+from coastseg import core_utilities
 
 import geopandas as gpd
 from osgeo import gdal
@@ -379,7 +380,7 @@ def RGB_to_infrared(
         green_band = skimage.io.imread(file[0])[:, :, 1].astype("float")
         # Read infrared(SWIR or NIR) and cast to float
         infrared = skimage.io.imread(file[1]).astype("float")
-        # Transform 0 to np.NAN
+        # Transform 0 to np.nan
         green_band[green_band == 0] = np.nan
         infrared[infrared == 0] = np.nan
         # Mask out NaNs
@@ -397,7 +398,7 @@ def RGB_to_infrared(
             infrared = common.scale(infrared, np.maximum(gx, nx), np.maximum(gy, ny))
 
         # output_img(MNDWI/NDWI) imagery formula (Green - SWIR) / (Green + SWIR)
-        output_img = np.divide(infrared - green_band, infrared + green_band)
+        output_img = (green_band-infrared) / (green_band + infrared )
         # Convert the NaNs to -1
         output_img[np.isnan(output_img)] = -1
         # Rescale to be between 0 - 255
@@ -524,7 +525,7 @@ def get_url_dict_to_download(models_json_dict: dict) -> dict:
     and urls to download file
 
     ex.
-    {'C:\Home\Project\file.json':"https://website/file.json"}
+    {'C:\\Home\\Project\\file.json':"https://website/file.json"}
 
     Args:
         models_json_dict (dict): full path to files and links
@@ -606,7 +607,9 @@ class Zoo_Model:
             "sample_direc": None,
             "use_GPU": "0",
             "implementation": "BEST",
-            "model_type": "segformer_RGB_4class_8190958",
+            "model_type": "global_segformer_RGB_4class_14036903",
+            "local_model_path": "", # local path to the directory containing the model
+            "use_local_model": False,  # Use local model (not one from zeneodo)
             "otsu": False,
             "tta": False,
             "cloud_thresh": 0.5,  # threshold on maximum cloud cover
@@ -691,6 +694,7 @@ class Zoo_Model:
                                          use_otsu:bool = False,
                                          percent_no_data:float = 50.0,
                                          use_GPU:str="0",
+                                         coregistered:bool = False,
                                          ):
         """
         Runs the model and extracts shorelines using the segmented imagery.
@@ -709,7 +713,8 @@ class Zoo_Model:
             use_otsu (bool, optional): Whether to use Otsu thresholding. Defaults to False.
             percent_no_data (float, optional): The percentage of no-data pixels in the input images. Defaults to 50.0.
             use_GPU (str, optional): The GPU device to use. Defaults to "0".
-        """
+            coregistered (bool, optional): Whether the input images are coregistered. Defaults to False.
+        """   
         settings = self.get_settings()
         model_name = settings.get('model_type', None)
         if model_name is None:
@@ -722,14 +727,14 @@ class Zoo_Model:
         use_GPU = settings.get('use_GPU', "0")
         use_otsu = settings.get('otsu', False)
         use_tta = settings.get('tta', False)
-        percent_no_data = settings.get('percent_no_data', 50.0)
+        percent_no_data = settings.get('percent_no_data', 0.5)
         
         # make a progress bar to show the progress of the model and shoreline extraction
         prog_bar = tqdm.auto.tqdm(range(2),
             desc=f"Running {model_name} model and extracting shorelines",
             leave=True,
         )
-        # run the model
+        # run the model # todo remove this comment
         self.run_model(
             img_type,
             model_implementation,
@@ -740,12 +745,13 @@ class Zoo_Model:
             use_otsu=use_otsu,
             use_tta=use_tta,
             percent_no_data=percent_no_data,
+            coregistered = coregistered,
         )
         prog_bar.update(1)
         prog_bar.set_description_str(
                                 desc=f"Ran model now extracting shorelines", refresh=True
         )
-        sessions_path = os.path.join(os.getcwd(), "sessions")
+        sessions_path = os.path.join(core_utilities.get_base_dir(), "sessions")
         session_directory = file_utilities.create_directory(sessions_path, session_name)
         # extract shorelines using the segmented imagery
         self.extract_shorelines_with_unet(
@@ -796,7 +802,10 @@ class Zoo_Model:
         settings = self.get_settings()
 
         # create session path to store extracted shorelines and transects
-        new_session_path = Path(os.getcwd()) / "sessions" / session_name
+        base_path = core_utilities.get_base_dir()
+        new_session_path = base_path / 'sessions' / session_name
+
+        
         new_session_path.mkdir(parents=True, exist_ok=True)
 
         # load the ROI settings from the config file
@@ -991,6 +1000,39 @@ class Zoo_Model:
         file_utilities.move_files(outputs_path, session_path, delete_src=True)
         session.save(session.path)
 
+    def get_weights_directory(self,model_implementation:str, model_id: str) -> str:
+        """
+        Retrieves the directory path where the model weights are stored.
+        This method determines whether to use a local model path or to download the model
+        from a remote source based on the settings provided. If the local model path is 
+        specified and exists, it will use that path. Otherwise, it will create a directory 
+        for the model and download the weights.
+        Args:
+            model_implementation (str): The implementation type of the model either 'BEST' or 'ENSEMBLE'
+            model_id (str): The identifier for the model. This is the zenodo ID located at the end of the URL
+        Returns:
+            str: The directory path where the model weights are stored.
+        Raises:
+            FileNotFoundError: If the local model path is specified but does not exist.
+        """
+
+        USE_LOCAL_MODEL = self.settings.get("use_local_model", False)
+        LOCAL_MODEL_PATH = self.settings.get("local_model_path", "")
+
+        if USE_LOCAL_MODEL and not os.path.exists(LOCAL_MODEL_PATH):
+            raise FileNotFoundError(f"The local model path does not exist at {LOCAL_MODEL_PATH}")
+
+        # check if a local model should be loaded or not
+        if USE_LOCAL_MODEL == False or LOCAL_MODEL_PATH == "":
+            # create the model directory & download the model
+            weights_directory = self.get_model_directory(model_id)
+            self.download_model(model_implementation, model_id, weights_directory)
+        else:
+            # load the model from the local model path
+            weights_directory = LOCAL_MODEL_PATH
+
+        return weights_directory
+
     def prepare_model(self, model_implementation: str, model_id: str):
         """
         Prepares the model for use by downloading the required files and loading the model.
@@ -999,12 +1041,10 @@ class Zoo_Model:
             model_implementation (str): The model implementation either 'BEST' or 'ENSEMBLE'
             model_id (str): The ID of the model.
         """
-        self.clear_zoo_model()
-        # create the model directory
-        self.weights_directory = self.get_model_directory(model_id)
+        # weights_directory is the directory that contains the model weights, the model card json files and the BEST_MODEL.txt file
+        self.weights_directory = self.get_weights_directory(model_implementation, model_id)
         logger.info(f"self.weights_directory:{self.weights_directory}")
 
-        self.download_model(model_implementation, model_id, self.weights_directory)
         weights_list = self.get_weights_list(model_implementation)
 
         # Load the model from the config files
@@ -1021,18 +1061,38 @@ class Zoo_Model:
         logger.info(f"self.metadatadict: {self.metadata_dict}")
 
     def get_metadatadict(
-        self, weights_list: list, config_files: list, model_types: list
-    ) -> dict:
-        metadatadict = {}
-        metadatadict["model_weights"] = weights_list
-        metadatadict["config_files"] = config_files
-        metadatadict["model_types"] = model_types
-        return metadatadict
+            self, weights_list: list, config_files: list, model_types: list
+        ) -> dict:
+            """
+            Returns a dictionary containing metadata information.
+
+            Args:
+                weights_list (list): A list of model weights.
+                config_files (list): A list of configuration files.
+                model_types (list): A list of model types.
+
+            Returns:
+                dict: A dictionary containing the metadata information.
+            """
+            metadatadict = {}
+            metadatadict["model_weights"] = weights_list
+            metadatadict["config_files"] = config_files
+            metadatadict["model_types"] = model_types
+            return metadatadict
 
     def get_classes(self, model_directory_path: str):
-        class_path = os.path.join(model_directory_path, "classes.txt")
-        classes = common.read_text_file(class_path)
-        return classes
+            """
+            Retrieves the classes from the specified model directory.
+
+            Args:
+                model_directory_path (str): The path to the model directory.
+
+            Returns:
+                list: A list of classes.
+            """
+            class_path = os.path.join(model_directory_path, "classes.txt")
+            classes = common.read_text_file(class_path)
+            return classes
 
     def run_model(
             self,
@@ -1045,6 +1105,7 @@ class Zoo_Model:
             use_otsu: bool,
             use_tta: bool,
             percent_no_data: float,
+            coregistered: bool = False,
         ):
             """
             Runs the model for image segmentation.
@@ -1058,7 +1119,8 @@ class Zoo_Model:
                 use_GPU (str): Whether to use GPU or not.
                 use_otsu (bool): Whether to use Otsu thresholding or not.
                 use_tta (bool): Whether to use test-time augmentation or not.
-                percent_no_data (float): The percentage of no data.
+                percent_no_data (float): The percentage of no data allowed in the image.
+                coregistered (bool, optional): Whether the images are coregistered or not. Defaults to False.
 
             Returns:
                 None
@@ -1072,11 +1134,12 @@ class Zoo_Model:
             logger.info(f"use_tta: {use_tta}")
 
             print(f"Running model {model_name}")
+            # print(f"self.settings: {self.settings}")
             self.prepare_model(model_implementation, model_name)
 
             # create a session
             session = sessions.Session()
-            sessions_path = file_utilities.create_directory(os.getcwd(), "sessions")
+            sessions_path = file_utilities.create_directory(core_utilities.get_base_dir(), "sessions")
             session_path = file_utilities.create_directory(sessions_path, session_name)
 
             session.path = session_path
@@ -1094,6 +1157,10 @@ class Zoo_Model:
             roi_directory = file_utilities.find_parent_directory(
                 src_directory, "ID_", "data"
             )
+
+            if coregistered:
+                roi_directory = os.path.join(roi_directory, "coregistered")
+
 
             print(f"Preprocessing the data at {roi_directory}")
             model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
@@ -1143,7 +1210,7 @@ class Zoo_Model:
         # filter out files with no data pixels greater than percent_no_data
         len_before = len(model_ready_files)
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
-        print(f"From {len_before} files {len_before - len(model_ready_files)} files were filtered out due to no data pixels percentage being greater than {percent_no_data}%.")
+        print(f"{len_before - len(model_ready_files)}/{len_before} files were filtered out because the percentage of no data pixels in the image was greater than {percent_no_data}%.")
         
         return model_ready_files
 

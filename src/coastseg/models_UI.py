@@ -2,7 +2,7 @@ import logging
 import os
 
 from IPython.display import display
-from coastseg import common, file_utilities, settings_UI, zoo_model
+from coastseg import common, core_utilities, file_utilities, settings_UI, zoo_model
 from coastseg.tide_correction import compute_tidal_corrections
 from coastseg.upload_feature_widget import FileUploader
 from ipyfilechooser import FileChooser
@@ -53,24 +53,23 @@ class UI_Models:
             "sample_direc": None,
             "use_GPU": "0",
             "implementation": "BEST",
-            "model_type": "segformer_RGB_4class_8190958",
+            "model_type": "global_segformer_RGB_4class_14036903",
             "otsu": False,
             "tta": False,
             "img_type": "RGB",
         }
         # list of RGB and MNDWI models available
         self.RGB_models = [
-            "segformer_RGB_4class_8190958",
-            "sat_RGB_4class_6950472",
+            "global_segformer_RGB_4class_14036903", # global segformer model
+            "AK_segformer_RGB_4class_14037041", # AK segformer model
         ]
-        # self.five_band_models = [
-        #     "sat_5band_4class_7344606",
-        # ]
         self.MNDWI_models = [
-            "segformer_MNDWI_4class_8213443",
+            "global_segformer_MNDWI_4class_14183366",
+            "AK_segformer_MNDWI_4class_14187478 ", # AK segformer model
         ]
         self.NDWI_models = [
-            "segformer_NDWI_4class_8213427",
+            "global_segformer_NDWI_4class_14172182", # global segformer model
+            "AK_segformer_NDWI_4class_14183210", # AK segformer model
         ]
         self.session_name = ""
         self.shoreline_session_directory = ""
@@ -151,7 +150,8 @@ class UI_Models:
         @output.capture(clear_output=True)
         def enter_clicked(btn):
             session_name = str(self.shoreline_session_name_text.value).strip()
-            session_path = file_utilities.create_directory(os.getcwd(), "sessions")
+            base_path = os.path.abspath(core_utilities.get_base_dir())
+            session_path = file_utilities.create_directory(base_path, "sessions")
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
                 print(f"Session {session_name} already exists at {new_session_path} and will be overwritten.")
@@ -179,7 +179,8 @@ class UI_Models:
         @output.capture(clear_output=True)
         def enter_clicked(btn):
             session_name = str(self.session_name_text.value).strip()
-            session_path = file_utilities.create_directory(os.getcwd(), "sessions")
+            base_path = os.path.abspath(core_utilities.get_base_dir())
+            session_path = file_utilities.create_directory(base_path, "sessions")
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
                 print(f"Session {session_name} already exists at {new_session_path}")

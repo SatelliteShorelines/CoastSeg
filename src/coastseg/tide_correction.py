@@ -8,6 +8,7 @@ from typing import Collection, Dict, Tuple, Union
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
 from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf,add_lat_lon_to_timeseries
+from coastseg import core_utilities
 
 # Third-party imports
 import geopandas as gpd
@@ -20,7 +21,6 @@ import pyTMD.predict
 import pyTMD.spatial
 import pyTMD.time
 import pyTMD.utilities
-from shapely.geometry import Point
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -249,6 +249,8 @@ def correct_tides(
                                 'tidally_corrected')
         
         # Save the Tidally corrected time series
+        sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
+        timeseries_df = timeseries_df[sorted_columns]
         timeseries_df.to_csv(os.path.join(session_path, 'tidally_corrected_transect_time_series.csv'),index=False)
 
         
@@ -332,7 +334,7 @@ def setup_tide_model_config(model_path: str) -> dict:
     }
 
 
-def get_tide_model_location(location: str = "tide_model"):
+def get_tide_model_location(location: str="" ):
     """
     Validates the existence of a tide model at the specified location and returns the absolute path of the location.
 
@@ -348,6 +350,11 @@ def get_tide_model_location(location: str = "tide_model"):
     Raises:
         Exception: If the tide model does not exist at the specified location.
     """
+    # if not location is provided use the default location of the tide model at CoastSeg/tide_model
+    if not location:
+        base_dir = os.path.abspath(core_utilities.get_base_dir())
+        location = os.path.join(base_dir,"tide_model")
+    
     logger.info(f"Checking if tide model exists at {location}")
     if validate_tide_model_exists(location):
         return os.path.abspath(location)
@@ -636,6 +643,7 @@ def model_tides(
         model
     )
 
+
     # If time passed as a single Timestamp, convert to datetime64
     if isinstance(time, pd.Timestamp):
         time = time.to_datetime64()
@@ -669,26 +677,24 @@ def model_tides(
     # number of time points
     n_times = len(time)
 
-    if model.format == "FES":
-        amp, ph = pyTMD.io.FES.extract_constants(
-            lon,
-            lat,
-            model.model_file,
-            type=model.type,
-            version=model.version,
-            method=method,
-            extrapolate=extrapolate,
-            cutoff=cutoff,
-            scale=model.scale,
-            compressed=model.compressed,
-        )
-
-        # Available model constituents
-        c = model.constituents
-
-        # Delta time (TT - UT1)
-        # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
-        deltat = timescale.tt_ut1
+    
+    amp, ph = pyTMD.io.FES.extract_constants(
+        lon,
+        lat,
+        model.model_file,
+        type=model.type,
+        version=model.version,
+        method=method,
+        extrapolate=extrapolate,
+        cutoff=cutoff,
+        scale=model.scale,
+        compressed=model.compressed,
+    )
+    # Available model constituents
+    c = model.constituents
+    # Delta time (TT - UT1)
+    # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
+    deltat = timescale.tt_ut1
 
     # Calculate complex phase in radians for Euler's
     cph = -1j * ph * np.pi / 180.0
@@ -1013,20 +1019,3 @@ def get_location(filename: str, check_parent_directory: bool = False) -> Path:
     return file_path
 
 
-def setup_tide_model_config(model_path: str) -> dict:
-    return {
-        "DIRECTORY": model_path,
-        "DELTA_TIME": [0],
-        "GZIP": False,
-        "MODEL": "FES2014",
-        "ATLAS_FORMAT": "netcdf",
-        "EXTRAPOLATE": True,
-        "METHOD": "spline",
-        "TYPE": "drift",
-        "TIME": "datetime",
-        "EPSG": 4326,
-        "FILL_VALUE": np.nan,
-        "CUTOFF": 10,
-        "METHOD": "bilinear",
-        "REGION_DIRECTORY": os.path.join(model_path, "region"),
-    }
