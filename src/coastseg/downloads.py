@@ -294,51 +294,6 @@ async def async_download_url_dict(url_dict: dict = {}):
     # start all the tasks at once
     await tqdm.asyncio.tqdm.gather(*tasks)
 
-
-async def async_download_url_dict(url_dict: dict = {}):
-    """
-    Asynchronously downloads files from a given dictionary of URLs and save locations.
-
-    Parameters
-    ----------
-    url_dict : dict, optional
-        A dictionary where the keys represent local save paths and the values are the corresponding URLs of the files to be downloaded. Default is an empty dictionary.
-
-    Usage
-    -----
-    url_dict = {
-        "/path/to/save/file1.h5": "https://zenodo.org/record/7574784/file1.h5",
-        "/path/to/save/file2.json": "https://zenodo.org/record/7574784/file2.json",
-        "/path/to/save/file3.txt": "https://zenodo.org/record/7574784/file3.txt",
-    }
-
-    await async_download_url_dict(url_dict)
-    """
-
-    def session_creator():
-        # Set the custom timeout value (in seconds)
-        keepalive_timeout = 100
-        # Configure the timeout
-        connector = aiohttp.TCPConnector(keepalive_timeout=keepalive_timeout)
-        # Create and return the session with the configured timeout
-        return aiohttp.ClientSession(
-            connector=connector, timeout=aiohttp.ClientTimeout(total=600)
-        )
-
-    # allow 1 concurrent downloads
-    semaphore = asyncio.Semaphore(1)
-    tasks = []
-    for save_path, url in url_dict.items():
-        task = asyncio.create_task(
-            download_zenodo_file(
-                semaphore, session_creator, url, save_path, max_retries=0
-            )
-        )
-        tasks.append(task)
-    # start all the tasks at once
-    await tqdm.asyncio.tqdm.gather(*tasks)
-
-
 async def download_zenodo_file(
     semaphore: asyncio.Semaphore,
     session_creator: callable,

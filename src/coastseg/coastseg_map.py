@@ -1980,7 +1980,7 @@ class CoastSeg_Map:
         shoreline_extraction_area_gdf = getattr(self.shoreline_extraction_area, "gdf", None) if self.shoreline_extraction_area else None
 
         # apply good bad classifier to the downloaded imagery
-        from coastseg.classifier import run_inference,get_classifier
+        from coastseg.classifier import run_inference_rgb_image_classifier,get_image_classifier
         
         for key in roi_settings.keys():
             data_path = os.path.join(roi_settings[key]['filepath'],roi_settings[key]['sitename'])
@@ -1990,12 +1990,12 @@ class CoastSeg_Map:
             output_path = RGB_path
             output_csv=os.path.join(RGB_path,'classification_results.csv')
             # model_path = os.path.join(r'C:\development\doodleverse\coastseg\CoastSeg\src\coastseg\classifier_model','best.h5')
-            model_path = get_classifier()
-            run_inference(model_path,
+            model_path = get_image_classifier('rgb')
+            run_inference_rgb_image_classifier(model_path,
                         input_path,
                         output_path,
                         output_csv,
-                        threshold=0.10)
+                        threshold=0.40)
 
 
         #3. get selected ROIs on map and extract shoreline for each of them
