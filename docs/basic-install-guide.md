@@ -2,9 +2,9 @@
 
 We recommend that you use Windows 10, Windows 11, or Ubuntu Linux. Mac users, please see [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
 
-In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) to install the python packages in an environment for Coastseg.
+In order to use Coastseg you need to install Python packages in an environment. We recommend you use [Miniforge](https://conda-forge.org/miniforge/) to install the python packages in an environment for Coastseg.
 
-After you install miniconda/Anaconda on your PC, open the Anaconda prompt or Terminal in Mac and Linux and use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
+After you install Anaconda/miniforge on your PC (see our [How to Install Miniforge](https://satelliteshorelines.github.io/CoastSeg/install-miniforge/)), open the Anaconda Prompt/Miniforge Prompt in Windows or Terminal in Mac and Linux. Then use the `cd` command (change directory) to go the folder where you have downloaded the Coastseg repository.
 
 We highly recommend you install CoastSeg using `conda` following the instructions in [Install from conda-forge](#install-from-conda-forge).
 
@@ -13,14 +13,18 @@ We highly recommend you install CoastSeg using `conda` following the instruction
  1. Make sure you have git installed and if not please download it [here](https://git-scm.com/downloads)
     - This install `git` as well as `git bash` on your computer
  2. Open a terminal (or if you are on windows open `git bash`) and run the command
+
     ```bash
     git --version
     ```
+
     - It should return something like this if you have it git installed
+
     ```bash
     git --version
     git version 2.47.0.windows.1
     ```
+
  3. Open a terminal that has git installed, then use the `cd` command ( `c`hange `d`irectory) to switch the location you want to install CoastSeg
  - Then use the `git clone https://github.com/SatelliteShorelines/CoastSeg.git --depth 1` to install the code from github
  - Once the git clone command finishes use the `cd` command ( `c`hange `d`irectory) to switch the CoastSeg directory containing the code you installed.
@@ -34,22 +38,16 @@ We highly recommend you install CoastSeg using `conda` following the instruction
 
 ## Method #1: Install from conda-forge (Recommended)
 
-**0. Install Anaconda**
+**0. Install MiniForge/Anaconda**
 
-To get started, you'll need to install Anaconda, which is a free and open-source distribution of Python and R that comes with essential packages and tools for scientific computing and data science. Here’s how you can install it:
+To get started, you'll need to install  MiniForge, which is a free and open-source distribution of Python and R that comes with essential packages and tools for scientific computing and data science.
 
-1. Install Anaconda by following the instructions at [Anaconda install page](https://docs.anaconda.com/anaconda/install/)
+Follow our guide here: [How to Install Miniforge](https://satelliteshorelines.github.io/CoastSeg/install-miniforge/)
 
-2. Verify the installation
- - Once the installation is complete, open your terminal (or Anaconda Prompt on Windows).
- - Type the following command to check if Anaconda is installed correctly:
+Note: CoastSeg will work in Anaconda, however since not all users can use Anaconda due to the EULA we provide only provide installation instructions for Miniforge.
 
- ```bash
-  conda --version
 
- ```
-
-**1.Create an miniconda/Anaconda environment and Activate it**
+**1.Create an Conda Environment and Activate it**
 
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
 
@@ -58,22 +56,26 @@ To get started, you'll need to install Anaconda, which is a free and open-source
   conda activate coastseg
   ```
 
+  ![install conda in miniforge](https://github.com/user-attachments/assets/9a6b9cde-f82f-4395-85fd-720ef986b00f)
+
   **2.Install coastseg**
 
   ```bash
   conda install -c conda-forge coastseg
   ```
 
+  ![install coastseg from conda forge](https://github.com/user-attachments/assets/e2126a94-aaa2-49b9-86e7-6ede187dfa53)
+
   **3.(Optional) Install Optional Dependencies**
 
   - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
   - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
 
-```bash
-pip install tensorflow==2.16.2
-pip install transformers
-pip install tf-keras==2.16
-``
+  ```bash
+  pip install tensorflow==2.16.2
+  pip install transformers
+  pip install tf-keras==2.16
+  ```
 
 ## Method #2: Install from Pypi
 

@@ -51,6 +51,7 @@ nav:
       - 3. Register an existing project with Google Earth Engine: register-existing-gee-account.md
   - Installation:
       - Basic Installation Guide: basic-install-guide.md
+      - How to Install MiniForge: install-miniforge.md
       - Secure Installation Guide: secure-install-guide.md
       - Mac Installation Guide: mac-install-guide.md
       - Update Guide: update-guide.md
