@@ -368,8 +368,8 @@ def define_segmentation_classifier_model(input_shape, num_classes=2):
 def run_inference_segmentation_classifier(path_to_model_ckpt,
                       path_to_inference_imgs,
                       output_folder,
-                      result_path,
-                      threshold):
+                      result_path="",
+                      threshold=0.10):
     """
     Runs the trained model on segmentation images, classifying them either as good or bad
     Saves the results to a csv (image_path, class (good or bad), score (0 to 1)
@@ -380,6 +380,7 @@ def run_inference_segmentation_classifier(path_to_model_ckpt,
     path_to_inference_imgs (str): path to the folder containing images to run the model on
     output_folder (str): path to save outputs to
     result_path (str): csv path to save results to
+        If not provided, the results will be saved to output_folder/classification_results.csv
     threshold (float): threshold on sigmoid of model output (ex: 0.6 means mark images as good if model output is >= 0.6, or 60% sure it's a good image)
     returns:
     result_path (str): csv path of saved results
@@ -414,6 +415,9 @@ def run_inference_segmentation_classifier(path_to_model_ckpt,
                        'model_scores':model_scores
                        }
                       )
+
+    if not result_path:
+        result_path = os.path.join(output_folder, 'classification_results.csv')
 
     df.to_csv(result_path)
     sort_images(result_path,

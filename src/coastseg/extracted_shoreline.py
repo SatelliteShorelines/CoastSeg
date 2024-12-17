@@ -1421,44 +1421,48 @@ def get_sorted_model_outputs_directory(
         str: The path to the "good" folder containing the sorted model output files.
     """
     # for each satellite, sort the model outputs into good & bad
-    good_folder = os.path.join(session_path, "good")
-    bad_folder = os.path.join(session_path, "bad")
+    # good_folder = os.path.join(session_path, "good")
+    # bad_folder = os.path.join(session_path, "bad")
 
-    os.makedirs(good_folder, exist_ok=True)  # Ensure good_folder exists.
-    os.makedirs(bad_folder, exist_ok=True)   # Ensure bad_folder exists.
+    # os.makedirs(good_folder, exist_ok=True)  # Ensure good_folder exists.
+    # os.makedirs(bad_folder, exist_ok=True)   # Ensure bad_folder exists.
     
-    satellites = get_satellites_in_directory(session_path)
+    # satellites = get_satellites_in_directory(session_path)
     # if there is nothing to sort return the good folder
-    if not satellites:
-        return good_folder
-    
-    # empty the good and bad folders 
-    if os.path.exists(good_folder):
-        shutil.rmtree(good_folder)
-    if os.path.exists(bad_folder):
-        shutil.rmtree(bad_folder)
+    # if not satellites:
+    #     return good_folder
 
-    for satname in satellites:
-        print(f"Filtering model outputs for {satname}")
-        # Define the pattern for matching files related to the current satellite.
-        pattern = f".*{re.escape(satname)}.*\\.npz$"  # Match files with the satellite name in the filename.
-        # search the session path for the satellite files
-        search_path = session_path
-        files = []
-        try:
-            # Retrieve the list of relevant .npz files.
-            files = file_utilities.find_files_in_directory(search_path, pattern, raise_error=False)
-            logger.info(f"{search_path} contains {len(files)} files for satellite {satname}")
-        except Exception as e:
-            logger.error(f"Error finding files for satellite {satname}: {e}")
-            continue  # Skip to the next satellite if there's an issue.
+    from coastseg import classifier
 
-        logger.info(f"{session_path} contained {satname} files: {len(files)} ")
+    segmentation_classifier = classifier.get_segmentation_classifier()
+    classifier.run_inference_segmentation_classifier(segmentation_classifier,
+                    session_path,
+                    session_path,
+                    threshold=0.40)
+
+
+    # for satname in satellites:
+    #     print(f"Filtering model outputs for {satname}")
+    #     # Define the pattern for matching files related to the current satellite.
+    #     pattern = f".*{re.escape(satname)}.*\\.npz$"  # Match files with the satellite name in the filename.
+    #     # search the session path for the satellite files
+    #     search_path = session_path
+    #     files = []
+    #     # try:
+    #     #     # Retrieve the list of relevant .npz files.
+    #     #     files = file_utilities.find_files_in_directory(search_path, pattern, raise_error=False)
+    #     #     logger.info(f"{search_path} contains {len(files)} files for satellite {satname}")
+    #     # except Exception as e:
+    #     #     logger.error(f"Error finding files for satellite {satname}: {e}")
+    #     #     continue  # Skip to the next satellite if there's an issue.
+
+    #     # logger.info(f"{session_path} contained {satname} files: {len(files)} ")
         
-        # If there are files sort the files into good and bad folders
-        filter_model_outputs(satname, files, good_folder, bad_folder)
+    #     # If there are files sort the files into good and bad folders
+    #     filter_model_outputs(satname, files, good_folder, bad_folder)
             
-    return good_folder
+    # return good_folder
+    return session_path
 
 
 def get_min_shoreline_length(satname: str, default_min_length_sl: float) -> int:
@@ -1918,9 +1922,6 @@ class Extracted_Shoreline:
 
         # filter out files that were removed from RGB directory
         try:
-            # For coregistered files where I artifically altered the sitename the sitename is different that what I modified it to
-            # If I set the sitename to the original sitename I'll be fine
-            # @todo remove this hardcoded variable for testing only 
             RGB_directory = os.path.join(
                 filepath_data, sitename, "jpg_files", "preprocessed", "RGB"
             )
