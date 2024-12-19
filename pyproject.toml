@@ -19,6 +19,7 @@ dependencies = [
   "h5py>=3.10.0",
   "pyTMD >= 2.1.7",
   "coastsat-package>=0.1.74",
+  "pooch",
   "area",
   "aiohttp",
   "chardet",
