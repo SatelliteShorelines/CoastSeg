@@ -9,6 +9,9 @@ from tensorflow.keras import layers
 from coastseg import common
 from coastseg import file_utilities
 
+# Some of these functions were originally written by Mark Lundine and have been modified for this project.
+
+
 def move_matching_files(input_image_path, search_string, file_exts, target_dir):
     """
     Move files matching the given search string and file extensions to the target directory.
