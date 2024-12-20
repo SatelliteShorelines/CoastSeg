@@ -1,5 +1,6 @@
-import os
+from . import __version__
 
+import os
 from pathlib import Path
 import re
 import glob
@@ -637,6 +638,7 @@ class Zoo_Model:
             "model_session_path": "",  # path to model session file
             "apply_cloud_mask": True,  # whether to apply cloud mask to images or not
             "drop_intersection_pts": False, # whether to drop intersection points not on the transect
+            "coastseg_version": __version__,  # version of coastseg used to generate the data
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
