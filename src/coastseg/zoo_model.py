@@ -637,6 +637,7 @@ class Zoo_Model:
             "model_session_path": "",  # path to model session file
             "apply_cloud_mask": True,  # whether to apply cloud mask to images or not
             "drop_intersection_pts": False, # whether to drop intersection points not on the transect
+            "apply_segmentation_filter": True,  # whether to apply to sort the segmentations as good or bad
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
@@ -888,6 +889,7 @@ class Zoo_Model:
             shoreline_extraction_area_gdf = shoreline_extraction_area_gdf,
         )
 
+        
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         extracted_shorelines = (
@@ -899,6 +901,7 @@ class Zoo_Model:
                 session_path,
                 new_session_path,
                 shoreline_extraction_area=shoreline_extraction_area_gdf,
+                apply_segmentation_filter=settings.get("apply_segmentation_filter", True),
                 **kwargs,
             )
         )

@@ -1843,6 +1843,7 @@ class Extracted_Shoreline:
         new_session_path: str = None,
         output_directory: str = None, 
         shoreline_extraction_area : gpd.GeoDataFrame = None,  
+        apply_segmentation_filter: bool = True,
         **kwargs: dict,
     ) -> "Extracted_Shoreline":
         """
@@ -1948,8 +1949,11 @@ class Extracted_Shoreline:
             return self 
         
         # Filter the segmentations to only include the good segmentations, then update the metadata to only include the files with the good segmentations
-        good_directory = classifier.filter_segmentations(session_path)
-        metadata= common.filter_metadata_with_dates(metadata,good_directory,file_type="npz") 
+        good_directory = session_path
+        if apply_segmentation_filter:
+            good_directory = classifier.filter_segmentations(session_path)
+        # Filter the metadata to only include the files with segmentations that are in the good_directory
+        metadata= common.filter_metadata_with_dates(metadata,good_directory,file_type="npz")
 
         extracted_shorelines_dict = extract_shorelines_with_dask(
             session_path,

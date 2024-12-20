@@ -252,44 +252,5 @@ def apply_land_mask( directory_path: str) -> None:
         
     return directory_path
 
-
-
-def filter_model_outputs(
-    satname: str, files: list, dest_folder_good: str, dest_folder_bad: str
-) -> None:
-    """
-    Filter model outputs based on KMeans clustering of RMSE values and organize into 'good' and 'bad'.
-
-    Args:
-        label (str): Label used for categorizing.
-        files (list): List of file paths.
-        dest_folder_good (str): Destination folder for 'good' files.
-        dest_folder_bad (str): Destination folder for 'bad' files.
-    """
-
-    count_shapes = count_files_with_same_shape(files)
-    # get the most common shape
-    # modal_shape = mode(get_image_shapes(files))
-    for shape, count in count_shapes.items():
-        print(f"Shape: {shape} Count: {count}")
-        valid_files = get_files_with_shape(files,shape)
-        if len(valid_files) <3:
-            # if there are not enough valid files to perform the analysis, move all files to the good folder
-            handle_files_and_directories(
-            [], valid_files, dest_folder_bad, dest_folder_good
-            ) 
-        else:
-            times, time_var = get_time_vectors(valid_files)
-            da = xr.concat([load_xarray_data(f) for f in valid_files], dim=time_var)
-            timeav = da.mean(dim="time")
-
-            rmse, input_rmse = measure_rmse(da, times, timeav)
-            labels, scores = get_kmeans_clusters(input_rmse, rmse)
-            files_bad, files_good = get_good_bad_files(valid_files, labels, scores)
-            handle_files_and_directories(
-                files_bad, files_good, dest_folder_bad, dest_folder_good
-            ) 
-            # apply_land_mask(dest_folder_good)    
-    
     
     
