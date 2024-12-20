@@ -27,6 +27,7 @@ model_setting = {
             "model_type": "global_segformer_RGB_4class_14036903", # model name from the zoo
             "otsu": False, # Otsu Thresholding
             "tta": False,  # Test Time Augmentation
+            "apply_segmentation_filter": True, # apply segmentation filter to the model outputs to sort them into good or bad
         }
 # Available models can run input "RGB" # or "MNDWI" or "NDWI"
 img_type = "RGB"  # make sure the model name is compatible with the image type
@@ -39,7 +40,7 @@ percent_no_data = 0.75
 model_session_name = "sample_session_demo1"
 # b. ENTER THE DIRECTORY WHERE THE INPUT IMAGES ARE STORED
 # -  Example of the directory where the input images are stored ( this should be the /data folder in the CoastSeg directory)
-sample_directory = "C:\development\doodleverse\coastseg\CoastSeg\data\ID_wra5_datetime03-04-24__03_43_01\jpg_files\preprocessed\RGB"
+sample_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_wra5_datetime03-04-24__03_43_01\jpg_files\preprocessed\RGB"
 
 
 # 2. Save the settings to the model instance 
