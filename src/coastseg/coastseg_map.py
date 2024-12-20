@@ -1,3 +1,5 @@
+from . import __version__
+
 # Standard library imports
 import os
 import math
@@ -1412,6 +1414,7 @@ class CoastSeg_Map:
             "apply_cloud_mask": True,
             "image_size_filter": True,
             "drop_intersection_pts": False,
+            "coastseg_version":__version__,
         }
 
         # Function to parse dates with flexibility for different formats
