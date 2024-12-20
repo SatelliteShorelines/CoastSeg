@@ -14,6 +14,7 @@ from coastseg import file_utilities
 
 def filter_segmentations(
     session_path: str,
+    threshold: float = 0.40,
 ) -> str:
     """
     Sort model output files into "good" and "bad" folders based on the satellite name in the filename.
@@ -31,7 +32,7 @@ def filter_segmentations(
                     session_path,
                     session_path,
                     good_path=good_path,
-                    threshold=0.40)
+                    threshold=threshold)
     # if the good folder does not exist then this means the classifier could not find any png files at the session path and something went wrong
     if not os.path.exists(good_path):
         raise FileNotFoundError(f"No model output files found at {session_path}. Shoreline Filtering failed.")
