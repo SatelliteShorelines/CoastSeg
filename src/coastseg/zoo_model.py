@@ -1085,20 +1085,6 @@ class Zoo_Model:
             metadatadict["model_types"] = model_types
             return metadatadict
 
-    def get_classes(self, model_directory_path: str):
-            """
-            Retrieves the classes from the specified model directory.
-
-            Args:
-                model_directory_path (str): The path to the model directory.
-
-            Returns:
-                list: A list of classes.
-            """
-            class_path = os.path.join(model_directory_path, "classes.txt")
-            classes = common.read_text_file(class_path)
-            return classes
-
     def run_model(
             self,
             img_type: str,
