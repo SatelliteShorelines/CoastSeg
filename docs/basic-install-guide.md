@@ -71,10 +71,11 @@ Note: CoastSeg will work in Anaconda, however since not all users can use Anacon
   - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
   - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
 
+- Note: As of Jan 2,2025 the commands below are only known to work on Windows, not Linux or Apple.
+  
   ```bash
-  pip install tensorflow==2.16.2
+  pip install tensorflow==2.12
   pip install transformers
-  pip install tf-keras==2.16
   ```
 
 ## Method #2: Install from Pypi
@@ -119,11 +120,12 @@ conda install -c conda-forge  gdal -y
 - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
 - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
 
-```bash
-pip install tensorflow==2.16.2
-pip install transformers
-pip install tf-keras==2.16
-```
+- Note: As of Jan 2,2025 the commands below are only known to work on Windows, not Linux or Apple.
+  
+  ```bash
+  pip install tensorflow==2.12
+  pip install transformers
+  ```
 
 * If you get any errors about numpy try running `pip install numpy<2`
 
