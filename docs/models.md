@@ -61,20 +61,11 @@ Each model has a Zenodo release which contains the model weights, metadata about
 
 **Recomended Model**
 
-**1.** `segformer_RGB_4class_8190958` : a segformer model that takes RGB imagery and applies a 4 class segmentation model
+**1.** `global_segformer_RGB_4class_14036903` : a four-class SegFormer segmentation model, designed to be applied to RGB imagery.
 
-- [Zenodo release](https://zenodo.org/records/8190958)
+- This model was trained using PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts
 
-  Classes
-
-  - 0: water
-  - 1: whitewater,
-  - 2: sediment,
-  - 3: other
-
-**2.** `sat_RGB_4class_6950472` : a resunet model that takes RGB imagery and applies a 4 class segmentation model
-
-- [Zenodo release](https://zenodo.org/records/6950472)
+- [Zenodo release](https://zenodo.org/records/14036903)
 
   Classes
 
@@ -83,11 +74,11 @@ Each model has a Zenodo release which contains the model weights, metadata about
   - 2: sediment,
   - 3: other
 
-## NDWI
+**2.** `AK_segformer_RGB_4class_14037041` : a four-class SegFormer segmentation model, designed to be applied to RGB imagery. Specifically trained on imagery from Alaska.
 
-**1.** `segformer_NDWI_4class_8213427` : a segformer model that takes NDWI imagery and applies a 4 class segmentation model
+- This model was trained using PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts
 
-- [Zenodo release](https://zenodo.org/records/8213427)
+- [Zenodo release](https://zenodo.org/records/14037041)
 
   Classes
 
@@ -98,11 +89,54 @@ Each model has a Zenodo release which contains the model weights, metadata about
 
 ## MNDWI
 
-**1.**`segformer_MNDWI_4class_8213443`: a segformer model that takes MNDWI imagery and applies a 4 class segmentation model
+**1.** `global_segformer_MNDWI_4class_14183366` :  a four-class SegFormer segmentation model, designed to be applied to MNDWI imagery.
 
-- [Zenodo release](https://zenodo.org/records/8213443)
+- This model was trained using PlanetScope, Sentinel-2 and Landsat-5/7/8/9 MNDWI images of coasts
+
+- [Zenodo release](https://zenodo.org/records/14183366)
 
 - If you have a study site that you used with the CoastSat classifer that you want to compare the zoo method to use this MNDWI model because the CoastSat method uses the MNDWI threshold to determine the land water interface.
+
+  Classes
+
+  - 0: water
+  - 1: whitewater,
+  - 2: sediment,
+  - 3: other
+
+**2.** `AK_segformer_MNDWI_4class_14187478` : a four-class SegFormer segmentation model, designed to be applied to MNDWI imagery. Specifically trained on imagery from Alaska.
+
+- This model was trained using PlanetScope, Sentinel-2 and Landsat-5/7/8/9 MNDWI images of coasts
+
+- [Zenodo release](https://zenodo.org/records/14187478)
+
+  Classes
+
+  - 0: water
+  - 1: whitewater,
+  - 2: sediment,
+  - 3: other
+
+## NDWI
+
+**1.**`global_segformer_NDWI_4class_14172182`: a four-class SegFormer segmentation model, designed to be applied to NDWI imagery.
+
+- This model was trained using PlanetScope, Sentinel-2 and Landsat-5/7/8/9 MNDWI images of coasts
+
+- [Zenodo release](https://zenodo.org/records/14172182)
+
+  Classes
+
+  - 0: water
+  - 1: whitewater,
+  - 2: sediment,
+  - 3: other
+
+**2.**`AK_segformer_NDWI_4class_14183210`: a four-class SegFormer segmentation model, designed to be applied to NDWI imagery. Specifically trained on imagery from Alaska.
+
+- This model was trained using PlanetScope, Sentinel-2 and Landsat-5/7/8/9 MNDWI images of coasts
+
+- [Zenodo release](https://zenodo.org/records/14183210)
 
   Classes
 
