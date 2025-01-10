@@ -242,7 +242,7 @@ def get_tide_predictions(
         x (float): The x-coordinate of the location to predict tide for.
         y (float): The y-coordinate of the location to predict tide for.
         - timeseries_df: A DataFrame containing time series data for each transect.
-       - model_region_directory: The path to the FES 2014 model region that will be used to compute the tide predictions
+       - model_region_directory: The path to the FES model region that will be used to compute the tide predictions
          ex."C:/development/doodleverse/CoastSeg/tide_model/region"
         transect_id (str): The ID of the transect. Pass "" if no transect ID is available.
         
@@ -263,6 +263,7 @@ def get_tide_predictions(
         y,
         dates_for_transect_id_df.dates.values,
         directory=model_region_directory,
+        model='fes2022b',
     )
     return tide_predictions_df
 
@@ -287,12 +288,15 @@ def predict_tides_for_df(
     Contains columns dates,x,y,tide,transect_id
     """
     region_directory = config["REGION_DIRECTORY"]
+    print(f"seaward_points_gdf: {seaward_points_gdf}")
     # Apply the get_tide_predictions over each row and collect results in a list
     all_tides = seaward_points_gdf.apply(
         lambda row: get_tide_predictions(row.geometry.x,
                                          row.geometry.y,
                                          timeseries_df,
-                                         f"{region_directory}{row['region_id']}"),axis=1)
+                                         f"{region_directory}{row['region_id']}",
+                                         row["transect_id"]), axis=1
+    )
     # Filter out None values
     all_tides = all_tides.dropna()
     # if no tides are predicted return an empty dataframe
@@ -557,6 +561,7 @@ def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def read_and_filter_geojson(
     file_path: str,
     columns_to_keep: Tuple[str, ...] = ("id", "type", "geometry"),
+    feature_type: str = "transect",
 
 ) -> gpd.GeoDataFrame:
     """
@@ -576,6 +581,9 @@ def read_and_filter_geojson(
     gdf.drop(
         columns=[col for col in gdf.columns if col not in columns_to_keep], inplace=True
     )
+    # Filter the GeoDataFrame based on the feature type
+    gdf = gdf[gdf["type"] == feature_type]
+
     return gdf
 
 
@@ -847,10 +855,10 @@ def parse_arguments() -> argparse.Namespace:
         print("Model regions geojson file not found at the default location. Please provide the path manually.")
         MODEL_REGIONS_GEOJSON_PATH = ""
     try:
-        FES_2014_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
+        FES_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
     except FileNotFoundError as e:
         print("FES 2014 tide model not found at the default location. Please provide the path manually.")
-        FES_2014_MODEL_PATH = ""
+        FES_MODEL_PATH = ""
         
         
     parser.add_argument(
@@ -890,8 +898,8 @@ def parse_arguments() -> argparse.Namespace:
         "-m",
         dest="model",
         type=str,
-        default=FES_2014_MODEL_PATH,
-        help="Set the FES_2014_MODEL_PATH.",
+        default=FES_MODEL_PATH,
+        help="Set the FES_MODEL_PATH.",
     )
     return parser.parse_args()
 
@@ -926,13 +934,13 @@ def main():
     # RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\raw_transect_time_series.csv"
     TIDE_PREDICTIONS_FILE_NAME = args.predictions
     MODEL_REGIONS_GEOJSON_PATH = args.regions
-    FES_2014_MODEL_PATH = args.model
+    FES_MODEL_PATH = args.model
     
     if not os.path.exists(GEOJSON_FILE_PATH):
         raise FileNotFoundError(f"GeoJSON file not found: {GEOJSON_FILE_PATH}")
     
-    if not os.path.exists(FES_2014_MODEL_PATH):
-        raise FileNotFoundError(f"FES 2014 model directory not found: {FES_2014_MODEL_PATH}")
+    if not os.path.exists(FES_MODEL_PATH):
+        raise FileNotFoundError(f"FES 2014 model directory not found: {FES_MODEL_PATH}")
         
     if not os.path.exists(MODEL_REGIONS_GEOJSON_PATH):
         raise FileNotFoundError(f"Model regions directory not found: {MODEL_REGIONS_GEOJSON_PATH}")
@@ -940,7 +948,7 @@ def main():
     if not os.path.exists(RAW_TIMESERIES_FILE_PATH):
         raise FileNotFoundError(f"Time series data file not found: {RAW_TIMESERIES_FILE_PATH}")
 
-    tide_model_config = setup_tide_model_config(FES_2014_MODEL_PATH)
+    tide_model_config = setup_tide_model_config(FES_MODEL_PATH)
 
     # Read timeseries data
     raw_timeseries_df = read_csv(RAW_TIMESERIES_FILE_PATH)
