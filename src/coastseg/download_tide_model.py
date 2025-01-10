@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Update 1/7/2025: added option to download FES2022 by Sharon Fitzpatrick Batiste
     Updated 11/2022: added encoding for writing ascii files
         use f-strings for formatting verbose or ascii output
     Updated 04/2022: use argparse descriptions within documentation
@@ -70,11 +71,15 @@ from glob import glob
 import numpy as np
 import xarray as xr
 from tqdm.auto import tqdm
+import lzma
+import pathlib
+import re
 
 # Local application/library specific imports
 import pyTMD.utilities
 from coastseg.file_utilities import progress_bar_context, load_package_resource
 from coastseg import core_utilities
+
 
 # FILE SIZES for files in these files
 LOAD_TIDE_FILES = {
@@ -151,177 +156,112 @@ OCEAN_TIDE_FILES = {
     "t2.nc.gz": 79210226,
 }
 
+# PURPOSE: compare the modification time of two files
+def newer(t1: int, t2: int) -> bool:
+    return (pyTMD.utilities.even(t1) <= pyTMD.utilities.even(t2))
 
-def clip_specific_region(files, geometries, region_number=10):
+def normalize_longitude(ds):
+    """Normalize dataset longitudes from 0-360 to -180 to 180."""
+    ds = ds.assign_coords(
+                        {"lon": (((ds.lon + 180) % 360) - 180)}
+                    )
+    if ds.lon[-1] == 0:
+        ds = ds.isel(lon=slice(None, -1))
+    return ds.reindex({"lon": np.sort(ds.lon)})
+
+def get_coordinates(ds, region):
+    """Get coordinates within the given region, or the nearest if not found."""
+    # get the lats and lons from the region
+    lon, lat = np.array(region["coordinates"][0])[:, 0], np.array(region["coordinates"][0])[:, 1]
+    # normalize the longitude to be between -180 to 180 because of the geojson format the region is in
+    if min(lon) < 0:
+        ds = normalize_longitude(ds)
+    
+    # Find existing coords between min&max
+    # Get the lats between the min and max latitude of the region
+    lats = ds.lat[np.logical_and(ds.lat >= min(lat), ds.lat <= max(lat))].values
+    # if no lats are found, get the nearest lat to the region but only get the unique values
+    if len(lats) == 0:
+        lats = np.unique(ds.lat.sel(lat=lat, method="nearest"))
+    
+    lons = ds.lon[np.logical_and(ds.lon >= min(lon), ds.lon <= max(lon))].values
+    if len(lons) == 0:
+        lons = np.unique(ds.lon.sel(lon=lon, method="nearest"))
+
+    return lats, lons,ds
+
+def write_clipped_data(ds, dest_dir, filename, region_number, model_name, directory_name):
     """
-    Clips netCDF files to a specific region and writes the clipped data to new netCDF files.
+    Saves the content of ds to a new netCDF file at the follow location:
+    dest_dir/region{region_number}/{model_name}/{directory_name}/{filename}
 
-    This function iterates over a list of file paths, where each file is expected to be a netCDF file.
-    For each file, it opens the file as an xarray Dataset and clips the Dataset to a specific region specified
-    by the 'region_number' argument. The region is retrieved from the global 'geometries' variable and is defined
-    as a longitude-latitude bounding box.
-
-    After clipping the Dataset to the region, the function writes the clipped data to a new netCDF file.
-    The new file has the same name as the original file but with '_clipped_regionN' appended to the name,
-    where N is the 'region_number'.
-
-    Args:
-        files (list): A list of file paths to netCDF files to be clipped.
-        region_number (int, optional): The index of the region in 'geometries' to which to clip the data.
-            Defaults to 10.
-
-    Prints:
-        Progress messages indicating which variable and region the function is currently processing.
-
+    Parameters:
+    ds (xarray.Dataset): The dataset to be written to a netCDF file.
+    dest_dir (str): The destination directory where the netCDF file will be saved.
+    filename (str): The name of the file to be saved.
+    region_number (int): The region number used to create a subdirectory.
+    model_name (str): The model name used to create a subdirectory.
+    directory_name (str): The directory name used to create a subdirectory.
     Returns:
-        None
+    None
     """
-    for counter, k in enumerate(files):
-        ds_disk = xr.open_dataset(k, engine="netcdf4")
-        ## cycle through each region
-        region = geometries[region_number]
-        lon = np.array(region["coordinates"][0])[:, 0]
-        lat = np.array(region["coordinates"][0])[:, 1]
-        if min(lon) < 0:
-            # re-order along longitude to go from -180 to 180
-            ds_disk = ds_disk.assign_coords(
-                {"lon": (((ds_disk.lon + 180) % 360) - 180)}
-            )
-            ds_disk = ds_disk.reindex({"lon": np.sort(ds_disk.lon)})
-            lon = np.array(region["coordinates"][0])[:, 0]
-        # Find existing coords between min&max
-        lats = ds_disk.lat[
-            np.logical_and(ds_disk.lat >= min(lat), ds_disk.lat <= max(lat))
-        ].values
-
-        # If there was nothing between, just plan to grab closest
-        if len(lats) == 0:
-            lats = np.unique(ds_disk.lat.sel(lat=np.array(lat), method="nearest"))
-        lons = ds_disk.lon[
-            np.logical_and(ds_disk.lon >= min(lon), ds_disk.lon <= max(lon))
-        ].values
-
-        if len(lons) == 0:
-            lons = np.unique(ds_disk.lon.sel(lon=np.array(lon), method="nearest"))
-
-        # crop and keep attrs
-        output = ds_disk.sel(lat=lats, lon=lons)
-        output.attrs = ds_disk.attrs
-        for var in output.data_vars:
-            output[var].attrs = ds_disk[var].attrs
-        output.to_netcdf(
-            path=k.replace(".nc", f"_clipped_region{region_number}.nc"),
-            mode="w",
-            format=None,
-            group=None,
-            engine=None,
-            encoding=None,
-            unlimited_dims=None,
-            compute=True,
-            invalid_netcdf=False,
+    """Write clipped dataset to a new netCDF file."""
+    region_name = f"region{region_number}"
+    tide_dir = os.path.join(dest_dir, region_name, model_name, directory_name)
+    os.makedirs(tide_dir, exist_ok=True)
+    
+    destination_path = os.path.join(tide_dir, os.path.basename(filename))
+    if not os.path.exists(destination_path):
+        ds.to_netcdf(
+            path=destination_path,
+            mode="w"
         )
 
-
-def clip_and_write_new_nc_files(
-    files,
-    geometries,
-    dest_dir,
-    progress_bar_name: str = "",
-    use_progress_bar: bool = True,
-):
+def clip_and_write_new_nc_files(files, geometries, dest_dir, progress_bar_name="", use_progress_bar=True, model_name="fes2014",subdirectory_name="ocean_tide"):
     """
-    Clips netCDF files to specified regions and writes the clipped data to new netCDF files.
+        Clips netCDF files to specified regions and writes the clipped data to new netCDF files.
 
-    This function iterates over a list of file paths, where each file is expected to be a netCDF file.
-    For each file, it opens the file as an xarray Dataset and clips the Dataset to each region specified in the
-    global 'geometries' variable. Each region is defined as a longitude-latitude bounding box.
+        Saves the netCDF files in the following format
+        dest_dir/region{region_number}/{model_name}/{directory_name}/{filename}
 
-    After clipping the Dataset to a region, the function writes the clipped data to a new netCDF file.
-    The new file has the same name as the original file but with '_clipped_regionN' appended to the name,
-    where N is the index of the region.
+        Example:
+            model_name = "fes2014"
+            subdirectory_name = "ocean_tide"
 
-    Args:
-        files (list): A list of file paths to netCDF files to be clipped.
+            dest_dir/region0/fes2014/ocean_tide/filename.nc
+            dest_dir/region/fes2014/ocean_tide/filename.nc
+            dest_dir/region1/fes2014/load_tide/filename.nc
 
-    Prints:
-        Progress messages indicating which variable and region the function is currently processing.
+        Parameters:
+            files (list of str): List of file paths to the netCDF files to be clipped.
+            geometries (list of dict): List of geometries defining the regions to clip to.
+            dest_dir (str): Destination directory where the new clipped netCDF files will be saved.
+            progress_bar_name (str, optional): Name to display on the progress bar. Default is an empty string.
+            use_progress_bar (bool, optional): Whether to display a progress bar. Default is True.
+            model_name (str, optional): Name of the model used for naming the output files. Default is "fes2014".
+            directory_name (str, optional): Name of the subdirectory to save the output files. Default is "ocean_tide".
 
-    Returns:
+        Returns:
         None
+
     """
-    with progress_bar_context(
-        use_progress_bar,
-        total=len(files),
-        description=f"Clipping Files to region directory",
-    ) as update:
-        for counter, current_file in enumerate(files):
-            update(
-                f"Clipping {progress_bar_name} files for {current_file} to all the regions"
-            )
-            ds_disk = xr.open_dataset(current_file, engine="netcdf4")
+    progress_description = f"Clipping {progress_bar_name} files"
 
-            ## cycle through each region
-            for region_number, region in enumerate(geometries):
-                lon = np.array(region["coordinates"][0])[:, 0]
-                lat = np.array(region["coordinates"][0])[:, 1]
+    # Iterate through each file with a progress bar if enabled
+    file_iterator = tqdm(files, desc=progress_description, disable=not use_progress_bar)
+    for current_file in file_iterator:
+        ds_disk = xr.open_dataset(current_file, engine="netcdf4")
+        file_iterator.set_description(f"Processing {os.path.basename(current_file)}")
 
-                if min(lon) < 0:
-                    # re-order along longitude to go from -180 to 180
-                    ds_disk = ds_disk.assign_coords(
-                        {"lon": (((ds_disk.lon + 180) % 360) - 180)}
-                    )
-                    ds_disk = ds_disk.reindex({"lon": np.sort(ds_disk.lon)})
-                    lon = np.array(region["coordinates"][0])[:, 0]
+        # Iterate through each region
+        for region_number, region in enumerate(geometries):
+            lats, lons,ds = get_coordinates(ds_disk.copy(deep=True), region)
+            output = ds.sel(lat=lats, lon=lons)
+            output.attrs = ds.attrs
+            for var in output.data_vars:
+                output[var].attrs = ds[var].attrs
 
-                # Find existing coords between min&max
-                lats = ds_disk.lat[
-                    np.logical_and(ds_disk.lat >= min(lat), ds_disk.lat <= max(lat))
-                ].values
-
-                # If there was nothing between, just plan to grab closest
-                if len(lats) == 0:
-                    lats = np.unique(
-                        ds_disk.lat.sel(lat=np.array(lat), method="nearest")
-                    )
-
-                lons = ds_disk.lon[
-                    np.logical_and(ds_disk.lon >= min(lon), ds_disk.lon <= max(lon))
-                ].values
-
-                if len(lons) == 0:
-                    lons = np.unique(
-                        ds_disk.lon.sel(lon=np.array(lon), method="nearest")
-                    )
-
-                # crop and keep attrs
-                output = ds_disk.sel(lat=lats, lon=lons)
-                output.attrs = ds_disk.attrs
-                for var in output.data_vars:
-                    output[var].attrs = ds_disk[var].attrs
-
-                region_name = f"region{region_number}"
-                region_dir = os.path.join(dest_dir, region_name)
-                fes2014_dir = os.path.join(region_dir, "fes2014")
-                directory_name = os.path.basename(os.path.dirname(current_file))
-                tide_dir = os.path.join(fes2014_dir, directory_name)
-
-                os.makedirs(tide_dir, exist_ok=True)
-                filename = os.path.basename(current_file)
-
-                destination_path = os.path.join(tide_dir, filename)
-
-                if not os.path.exists(destination_path):
-                    output.to_netcdf(
-                        path=destination_path,
-                        mode="w",
-                        format=None,
-                        group=None,
-                        engine=None,
-                        encoding=None,
-                        unlimited_dims=None,
-                        compute=True,
-                        invalid_netcdf=False,
-                    )
+            write_clipped_data(output, dest_dir, current_file, region_number, model_name,subdirectory_name)
 
 
 def get_geometries_from_file(file_path):
@@ -384,13 +324,26 @@ def unzip_gzip_files(directory, use_progress_bar: bool = True):
             os.remove(file_path)
 
 
-def create_region_directories(base_dir, region_names):
+def create_region_directories(base_dir, region_names,model_name='fes2014'):
     """
-    Creates subdirectories for each region directory.
+    Creates a series of directories for each region and creates subdirectories for each tide model in each region.
+
+    base_dir
+    |__ region1
+    |   |__ model_name
+    |       |__ load_tide
+    |       |__ ocean_tide
+    |__ region2
+    |   |__ model_name
+    |       |__ load_tide
+    |       |__ ocean_tide
+
 
     Args:
         base_dir (str): The base directory path.
         region_names (list): A list of region names.
+        model_name (str): The name of the model. Defaults to 'fes2014'.
+
 
     Returns:
         None
@@ -398,12 +351,12 @@ def create_region_directories(base_dir, region_names):
     """
     for region_name in region_names:
         region_dir = os.path.join(base_dir, region_name)
-        fes2014_dir = os.path.join(region_dir, "fes2014")
-        load_tide_dir = os.path.join(fes2014_dir, "load_tide")
-        ocean_tide_dir = os.path.join(fes2014_dir, "ocean_tide")
+        model_dir = os.path.join(region_dir, model_name)
+        load_tide_dir = os.path.join(model_dir, "load_tide")
+        ocean_tide_dir = os.path.join(model_dir, "ocean_tide")
 
         os.makedirs(region_dir, exist_ok=True)  # Create region directory
-        os.makedirs(fes2014_dir, exist_ok=True)  # Create 'fes2014' directory
+        os.makedirs (model_dir, exist_ok=True)  # Create 'fes2014' directory
         os.makedirs(load_tide_dir, exist_ok=True)  # Create 'load_tide' directory
         os.makedirs(ocean_tide_dir, exist_ok=True)  # Create 'ocean_tide' directory
 
@@ -429,6 +382,263 @@ def check_files(directory_path: str, files_dict: dict) -> list:
     return missing_files
 
 
+# PURPOSE: pull file from a remote ftp server and decompress if tar file
+def ftp_download(logger, ftp, remote_path, local_dir,
+        LZMA=True,
+        TARMODE=False,
+        FLATTEN=False,
+        GZIP=False,
+        CHUNK=8192,
+        MODE=0o775
+    ):
+    # remote and local directory for data product
+    remote_file = posixpath.join('auxiliary','tide_model',*remote_path)
+    # if compressing the output file
+    opener = gzip.open if GZIP else open
+    # Printing files transferred
+    remote_ftp_url = posixpath.join('ftp://', ftp.host, remote_file)
+    logger.info(f'{remote_ftp_url} -->')
+    if TARMODE:
+        # copy remote file contents to bytesIO object
+        fileobj = io.BytesIO()
+        ftp.retrbinary(f'RETR {remote_file}', fileobj.write, blocksize=CHUNK)
+        fileobj.seek(0)
+        # open the tar file
+        tar = tarfile.open(name=remote_path[-1], fileobj=fileobj, mode=TARMODE)
+        # read tar file and extract all files
+        member_files = [m for m in tar.getmembers() if tarfile.TarInfo.isfile(m)]
+        for m in member_files:
+            member = posixpath.basename(m.name) if FLATTEN else m.name
+            base, sfx = posixpath.splitext(m.name)
+            # extract file contents to new file
+            output = f'{member}.gz' if sfx in ('.asc','.nc') and GZIP else member
+            local_file = local_dir.joinpath(*posixpath.split(output))
+            # check if the local file exists
+            if local_file.exists():
+                # check the modification time of the local file
+                # if remote file is newer: overwrite the local file
+                continue
+            # print the file being transferred
+            logger.info(f'\t{str(local_file)}')
+            # recursively create output directory if non-existent
+            local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
+            # extract file to local directory
+            with tar.extractfile(m) as fi,opener(local_file, 'wb') as fo:
+                shutil.copyfileobj(fi, fo)
+            # get last modified date of remote file within tar file
+            # keep remote modification time of file and local access time
+            os.utime(local_file, (local_file.stat().st_atime, m.mtime))
+            local_file.chmod(mode=MODE)
+    elif LZMA:
+        # get last modified date of remote file and convert into unix time
+        mdtm = ftp.sendcmd(f'MDTM {remote_file}')
+        mtime = calendar.timegm(time.strptime(mdtm[4:],"%Y%m%d%H%M%S"))
+        # output file name for compressed and uncompressed cases
+        stem = posixpath.basename(posixpath.splitext(remote_file)[0])
+        base, sfx = posixpath.splitext(stem)
+        # extract file contents to new file
+        output = f'{stem}.gz' if sfx in ('.asc','.nc') and GZIP else stem
+        local_file = local_dir.joinpath(output)
+        # check if the local file exists
+        if local_file.exists() and newer(mtime,local_file.stat().st_mtime):
+            # check the modification time of the local file
+            # if remote file is newer: overwrite the local file
+            return
+        # print the file being transferred
+        logger.info(f'\t{str(local_file)}')
+        # recursively create output directory if non-existent
+        local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
+        # copy remote file contents to bytesIO object
+        fileobj = io.BytesIO()
+        ftp.retrbinary(f'RETR {remote_file}', fileobj.write, blocksize=CHUNK)
+        fileobj.seek(0)
+        # decompress lzma file and extract contents to local directory
+        with lzma.open(fileobj) as fi,opener(local_file, 'wb') as fo:
+            shutil.copyfileobj(fi, fo)
+        # get last modified date of remote file within tar file
+        # keep remote modification time of file and local access time
+        os.utime(local_file, (local_file.stat().st_atime, mtime))
+        local_file.chmod(mode=MODE)
+    else:
+        # copy readme and uncompressed files directly
+        stem = posixpath.basename(remote_file)
+        base, sfx = posixpath.splitext(stem)
+        # output file name for compressed and uncompressed cases
+        output = f'{stem}.gz' if sfx in ('.asc','.nc') and GZIP else stem
+        local_file = local_dir.joinpath(output)
+        # get last modified date of remote file and convert into unix time
+        mdtm = ftp.sendcmd(f'MDTM {remote_file}')
+        mtime = calendar.timegm(time.strptime(mdtm[4:],"%Y%m%d%H%M%S"))
+        # check if the local file exists
+        if local_file.exists() and newer(mtime, local_file.stat().st_mtime):
+            # check the modification time of the local file
+            # if remote file is newer: overwrite the local file
+            return
+        # print the file being transferred
+        logger.info(f'\t{str(local_file)}\n')
+        # recursively create output directory if non-existent
+        local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
+        # copy remote file contents to local file
+        with opener(local_file, 'wb') as f:
+            ftp.retrbinary(f'RETR {remote_file}', f.write, blocksize=CHUNK)
+        # keep remote modification time of file and local access time
+        pathlib.os.utime(local_file, (local_file.stat().st_atime, mtime))
+        local_file.chmod(mode=MODE)
+
+# PURPOSE: download local AVISO FES files with ftp server
+# by downloading tar files and extracting contents
+def aviso_fes_tar(MODEL, f, logger,
+        DIRECTORY: str | pathlib.Path | None = None,
+        LOAD: bool = False,
+        CURRENTS: bool = False,
+        GZIP: bool = False,
+        MODE: int = 0o775,
+        use_progress_bar: bool = True,
+        LOG=True,
+        LOGFILE = "AVISO_FES_tides.log"
+    ):
+    # check if local directory exists and recursively create if not
+    localpath = os.path.join(DIRECTORY, MODEL.lower())
+    os.makedirs(localpath, MODE) if not os.path.exists(localpath) else None
+
+    # path to remote directory for FES
+    FES = {}
+    # mode for reading tar files
+    TAR = {}
+    # flatten file structure
+    FLATTEN = {}
+
+    # 1999 model
+    FES['FES1999']=[]
+    FES['FES1999'].append(['fes1999_fes2004','readme_fes1999.html'])
+    FES['FES1999'].append(['fes1999_fes2004','fes1999.tar.gz'])
+    TAR['FES1999'] = [None,'r:gz']
+    FLATTEN['FES1999'] = [None,True]
+    # 2004 model
+    FES['FES2004']=[]
+    FES['FES2004'].append(['fes1999_fes2004','readme_fes2004.html'])
+    FES['FES2004'].append(['fes1999_fes2004','fes2004.tar.gz'])
+    TAR['FES2004'] = [None,'r:gz']
+    FLATTEN['FES2004'] = [None,True]
+    # 2012 model
+    FES['FES2012']=[]
+    FES['FES2012'].append(['fes2012_heights','readme_fes2012_heights_v1.1'])
+    FES['FES2012'].append(['fes2012_heights','fes2012_heights_v1.1.tar.lzma'])
+    TAR['FES2012'] = []
+    TAR['FES2012'].extend([None,'r:xz'])
+    FLATTEN['FES2012'] = []
+    FLATTEN['FES2012'].extend([None,True])
+    if CURRENTS:
+        subdir = 'fes2012_currents'
+        FES['FES2012'].append([subdir,'readme_fes2012_currents_v1.1'])
+        FES['FES2012'].append([subdir,'fes2012_currents_v1.1_block1.tar.lzma'])
+        FES['FES2012'].append([subdir,'fes2012_currents_v1.1_block2.tar.lzma'])
+        FES['FES2012'].append([subdir,'fes2012_currents_v1.1_block3.tar.lzma'])
+        FES['FES2012'].append([subdir,'fes2012_currents_v1.1_block4.tar.lzma'])
+        TAR['FES2012'].extend([None,'r:xz','r:xz','r:xz','r:xz'])
+        FLATTEN['FES2012'].extend([None,False,False,False,False])
+    # 2014 model
+    FES['FES2014']=[]
+    FES['FES2014'].append(['fes2014_elevations_and_load',
+        'readme_fes2014_elevation_and_load_v1.2.txt'])
+    FES['FES2014'].append(['fes2014_elevations_and_load',
+        'fes2014b_elevations','ocean_tide.tar.xz'])
+    TAR['FES2014'] = []
+    TAR['FES2014'].extend([None,'r'])
+    FLATTEN['FES2014'] = []
+    FLATTEN['FES2014'].extend([None,False])
+    if LOAD:
+        FES['FES2014'].append(['fes2014_elevations_and_load',
+            'fes2014a_loadtide','load_tide.tar.xz'])
+        TAR['FES2014'].extend(['r'])
+        FLATTEN['FES2014'].extend([False])
+    if CURRENTS:
+        subdir = 'fes2014a_currents'
+        FES['FES2014'].append([subdir,'readme_fes2014_currents_v1.2.txt'])
+        FES['FES2014'].append([subdir,'eastward_velocity.tar.xz'])
+        FES['FES2014'].append([subdir,'northward_velocity.tar.xz'])
+        TAR['FES2014'].extend(['r'])
+        FLATTEN['FES2014'].extend([False])
+
+    num_files_to_process = len(FES[MODEL])
+    with progress_bar_context(
+        use_progress_bar,
+        total=num_files_to_process,
+        description=f"Downloading files from AVISO FTP",
+    ) as update:
+        for remotepath, tarmode, flatten in zip(FES[MODEL], TAR[MODEL], FLATTEN[MODEL]):
+            # download file from ftp and decompress tar files
+            # print(f"Downloading files...{localpath}\n{remotepath}")
+            update(f"Downloading files...{localpath}\n{remotepath}", 0)
+            ftp_download_file(
+                logger, f, remotepath, localpath, tarmode, flatten, GZIP, MODE
+            )
+            update(f"Downloading files...{localpath}\n{remotepath}", 1)
+
+        # close the ftp connection
+        f.quit()
+        # close log file and set permissions level to MODE
+        if LOG:
+            os.chmod(os.path.join(DIRECTORY, LOGFILE), MODE)
+
+# PURPOSE: download local AVISO FES files with ftp server
+# by downloading individual files
+def aviso_fes_list(MODEL, f, logger,
+        DIRECTORY: str | pathlib.Path | None = None,
+        LOAD: bool = False,
+        CURRENTS: bool = False,
+        EXTRAPOLATED: bool = False,
+        GZIP: bool = False,
+        MODE: oct = 0o775
+    ):
+    # validate local directory
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
+
+    # path to remote directory for FES
+    FES = {}
+    # 2022 model
+    FES['FES2022'] = []
+    FES['FES2022'].append(['fes2022b','ocean_tide_20241025'])
+    if LOAD:
+        FES['FES2022'].append(['fes2022b','load_tide'])
+    if EXTRAPOLATED:
+        FES['FES2022'].append(['fes2022b','ocean_tide_extrapolated'])
+
+    # for each model file type
+    for subdir in FES[MODEL]:
+        local_dir = DIRECTORY.joinpath(*subdir)
+        file_list = ftp_list(f, subdir, basename=True, sort=True)
+        for fi in tqdm(file_list, desc=f"Downloading {MODEL} files"):
+            remote_path = [*subdir, fi]
+            LZMA = fi.endswith('.xz')
+            ftp_download(logger, f, remote_path, local_dir,
+                LZMA=LZMA,
+                GZIP=GZIP,
+                CHUNK=32768,
+                MODE=MODE
+            )
+
+# PURPOSE: List a directory on a ftp host
+def ftp_list(ftp, remote_path, basename=False, pattern=None, sort=False):
+    # list remote path
+    output = ftp.nlst(posixpath.join('auxiliary','tide_model',*remote_path))
+    # reduce to basenames
+    if basename:
+        output = [posixpath.basename(i) for i in output]
+    # reduce using regular expression pattern
+    if pattern:
+        i = [i for i,f in enumerate(output) if re.search(pattern,f)]
+        # reduce list of listed items
+        output = [output[indice] for indice in i]
+    # sort the list
+    if sort:
+        i = [i for i,j in sorted(enumerate(output), key=lambda i: i[1])]
+        # sort list of listed items
+        output = [output[indice] for indice in i]
+    # return the list of items
+    return output
+
+
 # PURPOSE: download local AVISO FES files with ftp server
 def aviso_fes_tides(
     MODEL,
@@ -441,13 +651,15 @@ def aviso_fes_tides(
     LOG=True,
     MODE=None,
     use_progress_bar: bool = True,
+    EXTRAPOLATED: bool = False,
 ):
+    
     # connect and login to AVISO ftp server
     f = ftplib.FTP("ftp-access.aviso.altimetry.fr", timeout=1000)
     f.login(USER, PASSWORD)
     # check if local directory exists and recursively create if not
-    localpath = os.path.join(DIRECTORY, MODEL.lower())
-    os.makedirs(localpath, MODE) if not os.path.exists(localpath) else None
+    # localpath = os.path.join(DIRECTORY, MODEL.lower())
+    # os.makedirs(localpath, MODE) if not os.path.exists(localpath) else None
     # create log file with list of downloaded files (or print to terminal)
     if LOG:
         # format: AVISO_FES_tides_2002-04-01.log
@@ -469,89 +681,28 @@ def aviso_fes_tides(
     else:
         # standard output (terminal output)
         logger = pyTMD.utilities.build_logger(__name__, level=logging.INFO)
-    # path to remote directory for FES
-    FES = {}
-    # mode for reading tar files
-    TAR = {}
-    # flatten file structure
-    FLATTEN = {}
-    # 1999 model
-    FES["FES1999"] = []
-    FES["FES1999"].append(["fes1999_fes2004", "readme_fes1999.html"])
-    FES["FES1999"].append(["fes1999_fes2004", "fes1999.tar.gz"])
-    TAR["FES1999"] = [None, "r:gz"]
-    FLATTEN["FES1999"] = [None, True]
-    # 2004 model
-    FES["FES2004"] = []
-    FES["FES2004"].append(["fes1999_fes2004", "readme_fes2004.html"])
-    FES["FES2004"].append(["fes1999_fes2004", "fes2004.tar.gz"])
-    TAR["FES2004"] = [None, "r:gz"]
-    FLATTEN["FES2004"] = [None, True]
-    # 2012 model
-    FES["FES2012"] = []
-    FES["FES2012"].append(["fes2012_heights", "readme_fes2012_heights_v1.1"])
-    FES["FES2012"].append(["fes2012_heights", "fes2012_heights_v1.1.tar.lzma"])
-    TAR["FES2012"] = []
-    TAR["FES2012"].extend([None, "r:xz"])
-    FLATTEN["FES2012"] = []
-    FLATTEN["FES2012"].extend([None, True])
-    if CURRENTS:
-        subdir = "fes2012_currents"
-        FES["FES2012"].append([subdir, "readme_fes2012_currents_v1.1"])
-        FES["FES2012"].append([subdir, "fes2012_currents_v1.1_block1.tar.lzma"])
-        FES["FES2012"].append([subdir, "fes2012_currents_v1.1_block2.tar.lzma"])
-        FES["FES2012"].append([subdir, "fes2012_currents_v1.1_block3.tar.lzma"])
-        FES["FES2012"].append([subdir, "fes2012_currents_v1.1_block4.tar.lzma"])
-        TAR["FES2012"].extend([None, "r:xz", "r:xz", "r:xz", "r:xz"])
-        FLATTEN["FES2012"].extend([None, False, False, False, False])
-    # 2014 model
-    FES["FES2014"] = []
-    FES["FES2014"].append(
-        ["fes2014_elevations_and_load", "readme_fes2014_elevation_and_load_v1.2.txt"]
-    )
-    FES["FES2014"].append(
-        ["fes2014_elevations_and_load", "fes2014b_elevations", "ocean_tide.tar.xz"]
-    )
-    TAR["FES2014"] = []
-    TAR["FES2014"].extend([None, "r"])
-    FLATTEN["FES2014"] = []
-    FLATTEN["FES2014"].extend([None, False])
-    if LOAD:
-        FES["FES2014"].append(
-            ["fes2014_elevations_and_load", "fes2014a_loadtide", "load_tide.tar.xz"]
-        )
-        TAR["FES2014"].extend(["r"])
-        FLATTEN["FES2014"].extend([False])
-    if CURRENTS:
-        subdir = "fes2014a_currents"
-        FES["FES2014"].append([subdir, "readme_fes2014_currents_v1.2.txt"])
-        FES["FES2014"].append([subdir, "eastward_velocity.tar.xz"])
-        FES["FES2014"].append([subdir, "northward_velocity.tar.xz"])
-        TAR["FES2014"].extend(["r"])
-        FLATTEN["FES2014"].extend([False])
 
-    # len(list((zip(FES[MODEL], TAR[MODEL], FLATTEN[MODEL]))))+1
-    num_files_to_process = len(FES[MODEL])
-    with progress_bar_context(
-        use_progress_bar,
-        total=num_files_to_process,
-        description=f"Clipping Files to region directory",
-    ) as update:
-        for remotepath, tarmode, flatten in zip(FES[MODEL], TAR[MODEL], FLATTEN[MODEL]):
-            # download file from ftp and decompress tar files
-            # print(f"Downloading files...{localpath}\n{remotepath}")
-            update(f"Downloading files...{localpath}\n{remotepath}", 0)
-            ftp_download_file(
-                logger, f, remotepath, localpath, tarmode, flatten, GZIP, MODE
-            )
-            update(f"Downloading files...{localpath}\n{remotepath}", 1)
+    MODEL = MODEL.upper()
 
-        # close the ftp connection
-        f.quit()
-        # close log file and set permissions level to MODE
-        if LOG:
-            os.chmod(os.path.join(DIRECTORY, LOGFILE), MODE)
-
+    # download the FES tide model files
+    if MODEL.upper() in ('FES1999','FES2004','FES2012','FES2014'):
+        aviso_fes_tar(MODEL, f, logger,
+            DIRECTORY=DIRECTORY,
+            LOAD=LOAD,
+            CURRENTS=CURRENTS,
+            GZIP=GZIP,
+            MODE=MODE,
+            LOGFILE = LOGFILE)
+    elif MODEL.upper() in ('FES2022',):
+        aviso_fes_list(MODEL, f, logger,
+            DIRECTORY=DIRECTORY,
+            LOAD=LOAD,
+            CURRENTS=CURRENTS,
+            EXTRAPOLATED=EXTRAPOLATED,
+            GZIP=GZIP,
+            MODE=MODE)
+    else:
+        print(f"Model name provided not recogized as any of the available models : ['FES1999','FES2004','FES2012','FES2014','FES2022']")
 
 def retrieve_file_size(ftp: ftplib.FTP, remote_file: str):
     """
@@ -615,51 +766,22 @@ def download_with_progress_bar(ftp: ftplib.FTP, remote_file: str, local_file: st
     if not file_size:
         return
 
-    last_update_time = [0]  # Use a list to make it mutable inside the callback
-
     def callback(data):
         pbar.update(len(data))
         # update(f"Downloading File {remote_file}", len(data))
         fileobj.write(data)
 
-    last_update_time = 0
-    accumulated_data_size = 0
-
-    # def callback(data):
-    #     nonlocal accumulated_data_size
-    #     nonlocal last_update_time
-    #     current_time = time.time()
-    #     accumulated_data_size += len(data)
-    #     if (
-    #         current_time - last_update_time >= 1
-    #     ):  # Check if at least 1 second has passed
-    #         update(f"Downloading File {remote_file}", accumulated_data_size)
-    #         accumulated_data_size = 0  # Reset accumulated data size
-    #         last_update_time = current_time
-    #     fileobj.write(data)
-
     fileobj = io.BytesIO()
-    # with progress_bar_context(
-    #     True,
-    #     total=file_size,
-    #     description=f"Downloading File {remote_file}",
-    #     unit="B",
-    #     unit_scale=True,
-    # ) as update:
+
     with tqdm(
         total=file_size, desc=f"Downloading {remote_file}", unit="B", unit_scale=True
     ) as pbar:
         fileobj = io.BytesIO()
         ftp.retrbinary(f"RETR {remote_file}", callback)
-        # with open(local_file, "wb") as f:
-        #     ftp.retrbinary(
-        #         f"RETR {remote_file}",
-        #         f.write,
-        #         callback=lambda data: pbar.update(len(data)),
-        #     )
 
     fileobj.seek(0)
     return fileobj
+
 
 
 def extract_tar_with_progress_bar(
@@ -803,7 +925,7 @@ def ftp_download_file(
 
 def download_fes_tides(
     user="",
-    password="",  # New parameter for password
+    password="",
     directory=os.path.join(os.path.abspath(core_utilities.get_base_dir()), "tide_model"),
     tide=["FES2014"],
     load=True,
@@ -812,6 +934,22 @@ def download_fes_tides(
     log=True,
     mode=0o775,
 ):
+    """
+    Downloads FES tide models from the AVISO FTP server and saves the tide model files to the specified directory under the tide model name.
+
+    Parameters:
+        user (str): Username for FTP server authentication.
+        password (str): Password for FTP server authentication.
+        directory (str): Directory where the tide models will be downloaded.
+        tide (list): List of tide model names to download. Default is ["FES2014"].
+        load (bool): If True, load the tide model after downloading. Default is True.
+        currents (bool): If True, download tidal currents. Default is False.
+        gzip (bool): If True, download gzip compressed files. Default is True.
+        log (bool): If True, log the download process. Default is True.
+        mode (int): Permissions mode for the downloaded files. Default is 0o775.
+    Returns:
+    None
+    """
     # AVISO FTP Server hostname
     HOST = "ftp-access.aviso.altimetry.fr"
 
@@ -829,13 +967,46 @@ def download_fes_tides(
                 LOG=log,
                 MODE=mode,
             )
+        print(f"Download the {tide_model_name} to {directory}")
 
 
 def clip_model_to_regions(
     tide_model_directory: str = os.path.join(os.path.abspath(core_utilities.get_base_dir()), "tide_model"),
     regions_file: str = "",
+    MODEL:str = "FES2014",
     use_progess_bar: bool = True,
 ):
+    """
+    Clips the selected tide model to each region found in the regions files to create a smaller clipped version of the tide model for each region.
+    Each smaller tide model gets stored in its own directory within the region directory.
+
+    Available options for the MODEL parameter are "FES2014" and "FES2022".
+
+    Example
+        MODEL = "FES2014"
+
+        tide_model_directory
+        |__ region0
+        |   |__ fes2014
+        |       |__ load_tide
+        |           |__ filename.nc  # clipped portion of tide model for region0
+        |       |__ ocean_tide
+        |__ region1
+        |   |__ fes2014
+        |       |__ load_tide
+        |       |__ ocean_tide
+
+
+    Parameters:
+        tide_model_directory (str): The directory where the tide model data is stored. Defaults to a subdirectory named "tide_model" in the base directory.
+        regions_file (str): The file path to the regions GeoJSON file. If not provided, the default internal tide regions map will be used.
+        MODEL (str): The tide model to use. Supported models are "FES2014" and "FES2022". Defaults to "FES2014".
+        use_progess_bar (bool): Whether to display a progress bar during the operation. Defaults to True.
+    Raises:
+    Exception: If the tide model directory does not exist or if the specified model is not supported.
+    Returns:
+    None
+    """
     with progress_bar_context(
         use_progess_bar,
         total=6,
@@ -853,10 +1024,24 @@ def clip_model_to_regions(
             regions_file = load_package_resource(
                 "tide_model", "tide_regions_map.geojson"
             )
-        # create paths to tide models
-        fes2014_model_directory = os.path.join(tide_model_directory, "fes2014")
-        load_tide_dir = os.path.join(fes2014_model_directory, "load_tide")
-        ocean_tide_dir = os.path.join(fes2014_model_directory, "ocean_tide")
+
+        model_name = MODEL.lower()
+
+        if MODEL == "FES2014":
+            # create paths to tide models
+            fes2014_model_directory = os.path.join(tide_model_directory, "fes2014")
+            load_tide_dir = os.path.join(fes2014_model_directory, "load_tide")
+            ocean_tide_dir = os.path.join(fes2014_model_directory, "ocean_tide")
+        elif MODEL == "FES2022":
+            # create paths to tide models
+            fes2022_model_directory = os.path.join(tide_model_directory, "fes2022b")
+            ocean_tide_dir = os.path.join(fes2022_model_directory, "ocean_tide_20241025")
+            load_tide_dir = os.path.join(fes2022_model_directory, "load_tide")
+            model_name = 'fes2022b'
+        else:
+            raise Exception(
+                f"Model {MODEL} is not supported.\n{traceback.format_exc()}"
+            )
 
         # load geometries from regions file
         geometries = get_geometries_from_file(regions_file)
@@ -877,14 +1062,14 @@ def clip_model_to_regions(
         update("Clipping the Tide Model: Creating region directories")
         # create region directory structure and move files
         region_names = [f"region{i}" for i in range(0, len(geometries))]
-        create_region_directories(tide_model_directory, region_names)
+        create_region_directories(tide_model_directory, region_names,model_name=model_name)
         update("Clipping the Tide Model: Clipping the ocean tide files")
         # create the new clipped files in the region directory
         clip_and_write_new_nc_files(
-            ocean_tide_nc_files, geometries, tide_model_directory, "ocean"
+            ocean_tide_nc_files, geometries, tide_model_directory, "ocean",model_name=model_name,subdirectory_name='ocean_tide'
         )
         update("Clipping the Tide Model: Clipping the load tide files")
         clip_and_write_new_nc_files(
-            load_tide_nc_files, geometries, tide_model_directory, "load"
+            load_tide_nc_files, geometries, tide_model_directory, "load",model_name=model_name,subdirectory_name='load_tide'
         )
         update("Clipping the Tide Model: Finished")
