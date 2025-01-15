@@ -738,22 +738,22 @@ class Zoo_Model:
             leave=True,
         )
         # run the model # todo remove this comment
-        self.run_model(
-            img_type,
-            model_implementation,
-            session_name,
-            input_directory,
-            model_name=model_name,
-            use_GPU=use_GPU,
-            use_otsu=use_otsu,
-            use_tta=use_tta,
-            percent_no_data=percent_no_data,
-            coregistered = coregistered,
-        )
-        prog_bar.update(1)
-        prog_bar.set_description_str(
-                                desc=f"Ran model now extracting shorelines", refresh=True
-        )
+        # self.run_model(
+        #     img_type,
+        #     model_implementation,
+        #     session_name,
+        #     input_directory,
+        #     model_name=model_name,
+        #     use_GPU=use_GPU,
+        #     use_otsu=use_otsu,
+        #     use_tta=use_tta,
+        #     percent_no_data=percent_no_data,
+        #     coregistered = coregistered,
+        # )
+        # prog_bar.update(1)
+        # prog_bar.set_description_str(
+        #                         desc=f"Ran model now extracting shorelines", refresh=True
+        # )
         sessions_path = os.path.join(core_utilities.get_base_dir(), "sessions")
         session_directory = file_utilities.create_directory(sessions_path, session_name)
         # extract shorelines using the segmented imagery
@@ -808,7 +808,6 @@ class Zoo_Model:
         base_path = core_utilities.get_base_dir()
         new_session_path = base_path / 'sessions' / session_name
 
-        
         new_session_path.mkdir(parents=True, exist_ok=True)
 
         # load the ROI settings from the config file
@@ -915,38 +914,54 @@ class Zoo_Model:
         print(f"Saved extracted shorelines to {new_session_path}")
 
         # transects must be in the same CRS as the extracted shorelines otherwise intersections will all be NAN
-        if not transects_gdf.empty:
-            transects_gdf = transects_gdf.to_crs(new_espg)
+        # if not transects_gdf.empty:
+        #     transects_gdf = transects_gdf.to_crs(new_espg)
 
-        # compute intersection between extracted shorelines and transects
-        cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
-            extracted_shorelines.dictionary, transects_gdf, settings
-        )
+        # new method to compute intersections
+        # Currently the method requires both the transects and extracted shorelines to be in the same CRS 4326
 
-        first_key = next(iter(cross_distance_transects))
-        logger.info(
-            f"cross_distance_transects.keys(): {cross_distance_transects.keys()}"
-        )
-        logger.info(
-            f"Sample of transect intersections for first key: {list(islice(cross_distance_transects[first_key], 3))}"
-        )
-
-        # save transect shoreline intersections to csv file if they exist
-        if cross_distance_transects == 0:
-            logger.warning("No transect shoreline intersections.")
-            print("No transect shoreline intersections.")
-        else:
-            transect_settings = self.get_settings()
-            transect_settings["output_epsg"] = new_espg
-            drop_intersection_pts=self.get_settings().get('drop_intersection_pts', False)
-            common.save_transects(
-                new_session_path,
-                cross_distance_transects,
-                extracted_shorelines.dictionary,
-                transect_settings,
-                transects_gdf,
-                drop_intersection_pts
+        extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
+                extracted_shorelines.shoreline_settings["output_epsg"],
+                output_crs="EPSG:4326",
+                geomtype="lines",
             )
+        transects_gdf = transects_gdf.to_crs("EPSG:4326")
+
+        from coastseg.intersections import transect_timeseries,save_transects
+        # Comput the transect timeseries by intersecting each transect with each extracted shoreline
+        transect_timeseries_df = transect_timeseries(extracted_shorelines_gdf_lines,transects_gdf)
+        # save two version of the transect timeseries, the transect settings and the transects as a dictionary
+        save_transects(new_session_path,transect_timeseries_df,settings,ext='raw')
+
+        # # compute intersection between extracted shorelines and transects
+        # cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
+        #     extracted_shorelines.dictionary, transects_gdf, settings
+        # )
+
+        # first_key = next(iter(cross_distance_transects))
+        # logger.info(
+        #     f"cross_distance_transects.keys(): {cross_distance_transects.keys()}"
+        # )
+        # logger.info(
+        #     f"Sample of transect intersections for first key: {list(islice(cross_distance_transects[first_key], 3))}"
+        # )
+
+        # # save transect shoreline intersections to csv file if they exist
+        # if cross_distance_transects == 0:
+        #     logger.warning("No transect shoreline intersections.")
+        #     print("No transect shoreline intersections.")
+        # else:
+        #     transect_settings = self.get_settings()
+        #     transect_settings["output_epsg"] = new_espg
+        #     drop_intersection_pts=self.get_settings().get('drop_intersection_pts', False)
+        # common.save_transects(
+        #         new_session_path,
+        #         cross_distance_transects,
+        #         extracted_shorelines.dictionary,
+        #         transect_settings,
+        #         transects_gdf,
+        #         drop_intersection_pts
+        #     )
 
     def postprocess_data(
         self, preprocessed_data: dict, session: sessions.Session, roi_directory: str
