@@ -919,15 +919,17 @@ class Zoo_Model:
 
         # new method to compute intersections
         # Currently the method requires both the transects and extracted shorelines to be in the same CRS 4326
-
-        extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
-                extracted_shorelines.shoreline_settings["output_epsg"],
-                output_crs="EPSG:4326",
-                geomtype="lines",
-            )
+        extracted_shorelines_gdf_lines =extracted_shorelines.gdf
         transects_gdf = transects_gdf.to_crs("EPSG:4326")
 
         from coastseg.intersections import transect_timeseries,save_transects
+
+        # extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
+        #         extracted_shorelines.shoreline_settings["output_epsg"],
+        #         output_crs="EPSG:4326",
+        #         geomtype="lines",
+        #     )
+
         # Comput the transect timeseries by intersecting each transect with each extracted shoreline
         transect_timeseries_df = transect_timeseries(extracted_shorelines_gdf_lines,transects_gdf)
         # save two version of the transect timeseries, the transect settings and the transects as a dictionary

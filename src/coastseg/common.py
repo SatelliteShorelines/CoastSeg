@@ -2959,25 +2959,23 @@ def save_extracted_shorelines(
     - shoreline_settings.json: contains the shoreline settings as JSON data.
     - extracted_shorelines_dict.json: contains the extracted shorelines dictionary as JSON data.
 
-    :param extracted_shorelines: An Extracted_Shoreline object containing the extracted shorelines, shoreline settings, and dictionary.
-    :param save_path: The path where the output files will be saved.
+    Args:
+        extracted_shorelines: An Extracted_Shoreline object containing the extracted shorelines, shoreline settings, and dictionary.
+        extracted_shorelines_gdf
+        save_path: The path where the output files will be saved.
     """
     if extracted_shorelines is None:
         logger.warning("No extracted shorelines to save.")
         return
     # create a geodataframe of the extracted_shorelines as linestrings
-    extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
-        extracted_shorelines.shoreline_settings["output_epsg"],
-        output_crs="EPSG:4326",
-        geomtype="lines",
-    )
+    extracted_shorelines_gdf_lines = extracted_shorelines.gdf
 
     # Save extracted shorelines to GeoJSON files
     extracted_shorelines.to_file(
         save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
     )
     # convert linestrings to multipoints
-    points_gdf = convert_linestrings_to_multipoints(extracted_shorelines_gdf_lines)
+    points_gdf = convert_linestrings_to_multipoints(extracted_shorelines_gdf_lines.copy())
     projected_gdf = stringify_datetime_columns(points_gdf)
     # Save extracted shorelines as a GeoJSON file
     extracted_shorelines.to_file(

@@ -137,37 +137,31 @@ def explode_multilinestrings(gdf):
 
     return final_gdf
 
-def split_line(input_lines_or_multipoints_path,
-               output_path,
+def split_line(extracted_shorelines_gdf,
                linestrings_or_multi_points,
-               smooth=True):
+               smooth=True)->gpd.GeoDataFrame:
     """
     Breaks up linestring into multiple linestrings if point to point distance is too high
     inputs:
-    input_lines_or_multipoints_path (str): path to the output from output_gdf (
-                                           extracted_shorelines_lines.geojson or extracted_shorelines_points.geojson)
-    output_path (str): path to save output to (
-                       extracted_shorelines_lines.geojson or extracted_shorelines_points.geojson)
+    extracted_shorelines_gdf (geodataframe): geodataframe containing the extracted shorelines either as LineStrings or MultiPoints in CRS 4326
     linestrings_or_multi_points (str): 'LineString' to make LineStrings, 'MultiPoint' to make MultiPoints
     smooth (bool): True to smooth the lines, False to not
     returns:
-    output_path (str): path to the geodataframe with the new broken up lines
+    The new geodataframe containing the split and smoothed shorelines in epsg:4326
     """
 
     ##load shorelines, project to utm, get crs
-    input_lines_or_multipoints = gpd.read_file(input_lines_or_multipoints_path)
+    input_lines_or_multipoints = extracted_shorelines_gdf.copy()
     input_lines_or_multipoints = wgs84_to_utm_df(input_lines_or_multipoints)
 
     # Break any MultiLineStrings into individual LineStrings
     input_lines_or_multipoints = explode_multilinestrings(input_lines_or_multipoints)
-    print(input_lines_or_multipoints)
 
     source_crs = input_lines_or_multipoints.crs
 
     ##these lists are gonna hold the broken up lines and their simplified tolerance
     simplify_params = []
     all_lines = []
-    print('splitting lines')
     for idx,row in input_lines_or_multipoints.iterrows():
         line = input_lines_or_multipoints[input_lines_or_multipoints.index==idx].reset_index(drop=True)
 
@@ -209,9 +203,9 @@ def split_line(input_lines_or_multipoints_path,
         def my_line_maker(in_grp):
             if len(in_grp) == 1:
                 return list(in_grp)[0]
-            elif linestrings_or_multi_points == 'LineString':
+            elif linestrings_or_multi_points.lower() == 'linestring':
                 return shapely.geometry.LineString(list(in_grp))
-            elif linestrings_or_multi_points == 'MultiPoint':
+            elif linestrings_or_multi_points.lower() == 'multipoint':
                 return shapely.geometry.MultiPoint(list(in_grp))
         new_lines_gdf = input_coords.groupby(['line_id']).agg({'geometry':my_line_maker}).reset_index()
         
@@ -227,27 +221,25 @@ def split_line(input_lines_or_multipoints_path,
     ##concatenate everything into one gdf, set geometry and crs
     all_lines_gdf = pd.concat(all_lines)
     all_lines_gdf['simplify_param'] = simplify_param
-    all_lines_gdf['date'] = pd.to_datetime(all_lines_gdf['date'], utc=True)
+    all_lines_gdf['date'] = pd.to_datetime(all_lines_gdf['date'])
+    all_lines_gdf['date'] = all_lines_gdf['date'].dt.tz_localize('UTC')
+
     all_lines_gdf['year'] = all_lines_gdf['date'].dt.year
     all_lines_gdf = all_lines_gdf.set_geometry('geometry')
     all_lines_gdf = all_lines_gdf.set_crs(source_crs)
 
     ##smooth the lines
     if smooth==True:
-        print('smoothing lines')
         smooth_lines_gdf = smooth_lines(all_lines_gdf)
-        print('lines smooth')
 
         ##put back in wgs84, save new file
         smooth_lines_gdf = utm_to_wgs84_df(smooth_lines_gdf)
-        smooth_lines_gdf.to_file(output_path)
+        return smooth_lines_gdf
 
     else:
         ##put back in wgs84, save new file
         all_lines_gdf = utm_to_wgs84_df(all_lines_gdf)
-        all_lines_gdf.to_file(output_path)
-    
-    return output_path
+        return all_lines_gdf
 
 
 def wgs84_to_utm_df(geo_df):
@@ -289,14 +281,10 @@ def transect_timeseries(shorelines_gdf,
     and transects. Saves the merged transect timeseries.
     
     inputs:
-    shorelines_gdf (geopandas dataframe): geodataframe containing shorelines in crs 4326
+    shorelines_gdf (geopandas dataframe): geodataframe containing shorelines as Linestrings or multilinestrings in crs 4326
     transects_gdf (geopandas dataframe): geodataframe containing transects in crs 4326"""
-    # output_merged path (str): path to save the merged csv file 
-    # output_mat_path (str): path to save the matrix csv file
-    # """
+
     # load transects, project to utm, get start x and y coords
-    print('Loading transects, computing start coordinates')
-    # transects_gdf = gpd.read_file(transects_path)
     transects_gdf = wgs84_to_utm_df(transects_gdf)
     crs = transects_gdf.crs
 
@@ -322,7 +310,10 @@ def transect_timeseries(shorelines_gdf,
     shorelines_gdf = shorelines_gdf.dissolve(by='date')
     shorelines_gdf = shorelines_gdf.reset_index()
 
-    print('computing intersections')
+    # if the shorelines are multipoints convert them to linestrings because this function does not work well with multipoints
+    if 'MultiPoint' in [geom_type for geom_type in shorelines_gdf['geometry'].geom_type]:
+        shorelines_gdf = convert_points_to_linestrings(shorelines_gdf, group_col='date', output_crs=crs)
+
     # spatial join shorelines to transects
     joined_gdf = gpd.sjoin(shorelines_gdf, transects_gdf, predicate='intersects')
     
@@ -390,9 +381,10 @@ def transect_timeseries(shorelines_gdf,
     joined_df['dates'] = pd.to_datetime(joined_df['dates'])
     # sort by dates
     joined_df = joined_df.sort_values(by='dates')
-    joined_df['dates'] = joined_df['dates'].dt.tz_localize('UTC')
 
-
+    # check if the dates column is already in UTC
+    if joined_df['dates'].dt.tz is None:
+        joined_df['dates'] = joined_df['dates'].dt.tz_localize('UTC')
 
     return joined_df
 

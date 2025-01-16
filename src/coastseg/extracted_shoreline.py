@@ -44,6 +44,7 @@ import numpy as np
 import pandas as pd
 import skimage.measure as measure
 import skimage.morphology as morphology
+from coastseg.intersections import split_line
 
 from coastsat.SDS_download import get_metadata
 # from coastsat.SDS_shoreline import extract_shorelines
@@ -1397,7 +1398,6 @@ def find_shoreline(
     except Exception as e:
         logger.error(f"{e}\nCould not map shoreline for this image: {filename}")
         return None
-    # print(f"Settings used by process_shoreline: {settings}")
     # process the water contours into a shoreline
     shoreline = SDS_shoreline.process_shoreline(
         contours, cloud_mask_adv, im_nodata, georef, image_epsg, settings
@@ -1985,8 +1985,12 @@ class Extracted_Shoreline:
 
         # extracted shorelines have map crs so they can be displayed on the map
         self.gdf = self.create_geodataframe(
-            self.shoreline_settings["output_epsg"], output_crs="EPSG:4326"
+            self.shoreline_settings["output_epsg"], output_crs="EPSG:4326",geomtype="lines"
         )
+
+        # break up the shoreline vectors & smooth
+        self.gdf = split_line(self.gdf,"linestring",smooth=True)
+
         return self
 
     def _validate_input_params(
