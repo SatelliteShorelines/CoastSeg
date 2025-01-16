@@ -27,6 +27,7 @@ from ipywidgets import BoundedFloatText
 from ipywidgets import SelectMultiple
 from ipywidgets import Output
 from ipywidgets import FloatText
+from ipywidgets import Dropdown
 from ipywidgets import Accordion
 
 
@@ -446,6 +447,13 @@ class UI:
             options=id_container.ids,
             layout=Layout(overflow_y="auto", height="100px"),
         )
+        self.tide_model_selection = Dropdown(
+            options=['FES2014', 'FES2022',],
+            value='FES2014',
+            description='Tide Model:',
+            disabled=False,
+            style={'description_width': 'initial'},
+        )
 
         # Function to update widget options when the traitlet changes
         def update_widget_options(change):
@@ -464,6 +472,7 @@ class UI:
         return VBox(
             [
                 correct_tides_html,
+                self.tide_model_selection,
                 self.beach_slope_text,
                 self.reference_elevation_text,
                 self.scrollable_select,
@@ -487,7 +496,7 @@ class UI:
         reference_elevation = self.reference_elevation_text.value
         
         self.coastseg_map.compute_tidal_corrections(
-            selected_rois, beach_slope, reference_elevation
+            selected_rois, beach_slope, reference_elevation,model=self.tide_model_selection.value
         )
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
 
