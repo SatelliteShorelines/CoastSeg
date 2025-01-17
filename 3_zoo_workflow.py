@@ -89,4 +89,4 @@ beach_slope = 0.02 # Slope of the beach (m)
 reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
 # UNCOMMENT THESE LINES TO RUN THE TIDE CORRECTION
 roi_id = file_utilities.get_ROI_ID_from_session(model_session_name) # read ROI ID from the config.json file found in the extracted shoreline session directory
-compute_tidal_corrections(model_session_name, [roi_id], beach_slope, reference_elevation,model='FES2022')
+# compute_tidal_corrections(model_session_name, [roi_id], beach_slope, reference_elevation,model='FES2022')

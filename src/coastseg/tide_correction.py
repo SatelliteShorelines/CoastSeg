@@ -4,6 +4,7 @@ import logging
 import pathlib
 from pathlib import Path
 from typing import Collection, Dict, Tuple, Union
+import traceback
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
@@ -25,6 +26,20 @@ import pyTMD.utilities
 # Logger setup
 logger = logging.getLogger(__name__)
 
+# Check if transects and timeseries have any ids in common
+def check_transect_timeseries_ids(transects_gdf: gpd.GeoDataFrame, timeseries_df: pd.DataFrame) -> bool:
+    # Read the id from the transects_gdf
+    transect_ids = transects_gdf['id'].unique() # type: ignore
+    # read either the transect_id column or the column names from the timeseries_df 
+    if 'transect_id' in timeseries_df.columns:
+        timeseries_ids = timeseries_df['transect_id'].unique()
+    else:
+        timeseries_ids = timeseries_df.columns
+    # check if any of the ids from the transects_gdf are in the timeseries_df
+    if any([transect_id in timeseries_ids for transect_id in transect_ids]):
+        return True
+    return False
+
 
 def compute_tidal_corrections(
     session_name, roi_ids: Collection, beach_slope: float, reference_elevation: float,only_keep_points_on_transects:bool=False,model:str="FES2022"
@@ -43,6 +58,7 @@ def compute_tidal_corrections(
         )
     except Exception as e:
         print(f"Tide Model Error \n {e}")
+        print(traceback.format_exc())
     else:
         print("\ntidal corrections completed")
 
@@ -208,6 +224,11 @@ def correct_tides(
         # read the transects from the config_gdf.geojson file
         update(f"Getting transects for ROI : {roi_id}")
         transects_gdf = get_transects(roi_id, session_name)
+
+        if not check_transect_timeseries_ids(transects_gdf, raw_timeseries_df):
+            print(f"None of the transect ids in the transects file were found in the raw_timeseries.csv file for ROI ID: {roi_id}")
+            raise Exception(f"None of the transect ids in the transects file were found in the raw_timeseries.csv file for ROI ID: {roi_id}")
+
         # predict the tides for each seaward transect point in the ROI
         update(f"Predicting tides : {roi_id}")
         predicted_tides_df = predict_tides(
@@ -267,13 +288,17 @@ def correct_tides(
     return tide_corrected_timeseries_merged_df
 
 
-def get_timeseries_location(ROI_ID: str, session_name: str) -> str:
+def get_timeseries_location(ROI_ID: str, session_name: str,raw_or_tidecorrected = 'raw') -> str:
     """
     Retrieves the path to the time series CSV file for a given ROI ID and session name.
+    Note this does NOT return the merged timeseries file.
+
+    Note this retrieves the raw time series file by default.
 
     Args:
         ROI_ID (str): The ID of the region of interest.
         session_name (str): The name of the session.
+        raw_or_tidecorrected (str): The type of time series to retrieve. Defaults to 'raw'.
 
     Returns:
         str: Path to the time series CSV file.
@@ -283,14 +308,19 @@ def get_timeseries_location(ROI_ID: str, session_name: str) -> str:
     """
     # get the contents of the session directory containing the data for the ROI id
     session_path = file_utilities.get_session_contents_location(session_name, ROI_ID)
-    try:
+    if raw_or_tidecorrected == 'raw':
+        try:
+            time_series_location = file_utilities.find_file_by_regex(
+                session_path, r"^raw_transect_time_series\.csv$"
+            )
+        except FileNotFoundError:
+            # if the new file name is not found try the old file name format
+            time_series_location = file_utilities.find_file_by_regex(
+                session_path, r"^transect_time_series\.csv$"
+            )
+    else:
         time_series_location = file_utilities.find_file_by_regex(
-            session_path, r"^raw_transect_time_series\.csv$"
-        )
-    except FileNotFoundError:
-        # if the new file name is not found try the old file name format
-        time_series_location = file_utilities.find_file_by_regex(
-            session_path, r"^transect_time_series\.csv$"
+            session_path, r"^tidally_corrected_transect_time_series\.csv$"
         )
     return time_series_location
 
@@ -313,7 +343,7 @@ def get_transects(roi_id: str, session_name: str):
         session_path, r"^config_gdf\.geojson$"
     )
     # Load the GeoJSON file containing transect data
-    transects_gdf = read_and_filter_geojson(config_path)
+    transects_gdf = read_and_filter_geojson(config_path,feature_type='transect')
     # get only the transects that intersect with this ROI
     # this may not be necessary because these should have NaN values
     return transects_gdf
@@ -535,8 +565,10 @@ def predict_tides_for_df(
                                          row.geometry.y,
                                          timeseries_df,
                                          f"{region_directory}{row['region_id']}",
-                                         row["transect_id"]), axis=1,
-                                         model = config["MODEL"],    
+                                         row["transect_id"],
+                                         model = config["MODEL"]),
+                                        axis=1,
+                                         
     )
     # Filter out None values
     all_tides = all_tides.dropna()
