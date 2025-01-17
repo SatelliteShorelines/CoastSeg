@@ -568,7 +568,6 @@ def aviso_fes_tar(MODEL, f, logger,
     ) as update:
         for remotepath, tarmode, flatten in zip(FES[MODEL], TAR[MODEL], FLATTEN[MODEL]):
             # download file from ftp and decompress tar files
-            # print(f"Downloading files...{localpath}\n{remotepath}")
             update(f"Downloading files...{localpath}\n{remotepath}", 0)
             ftp_download_file(
                 logger, f, remotepath, localpath, tarmode, flatten, GZIP, MODE
@@ -1027,12 +1026,12 @@ def clip_model_to_regions(
 
         model_name = MODEL.lower()
 
-        if MODEL == "FES2014":
+        if MODEL.upper() == "FES2014":
             # create paths to tide models
             fes2014_model_directory = os.path.join(tide_model_directory, "fes2014")
             load_tide_dir = os.path.join(fes2014_model_directory, "load_tide")
             ocean_tide_dir = os.path.join(fes2014_model_directory, "ocean_tide")
-        elif MODEL == "FES2022":
+        elif MODEL.upper() == "FES2022":
             # create paths to tide models
             fes2022_model_directory = os.path.join(tide_model_directory, "fes2022b")
             ocean_tide_dir = os.path.join(fes2022_model_directory, "ocean_tide_20241025")

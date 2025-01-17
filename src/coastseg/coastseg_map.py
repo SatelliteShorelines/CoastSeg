@@ -562,7 +562,7 @@ class CoastSeg_Map:
                 reference_elevation,
                 beach_slope,
                 only_keep_points_on_transects=only_keep_points_on_transects,
-                model = 'FES2014'
+                model = model
             )
         except Exception as e:
             if self.map is not None:

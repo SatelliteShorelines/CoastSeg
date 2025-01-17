@@ -42,7 +42,7 @@ def compute_tidal_corrections(
             model=model
         )
     except Exception as e:
-        print(f"Tide Model Not Found Error \n {e}")
+        print(f"Tide Model Error \n {e}")
     else:
         print("\ntidal corrections completed")
 
@@ -69,7 +69,7 @@ def correct_all_tides(
         use_progress_bar (bool, optional): Whether to display a progress bar. Defaults to True.
     """
     # validate tide model exists at CoastSeg/tide_model
-    model_location = get_tide_model_location()
+    model_location = get_tide_model_location(model=model.lower())
     # load the regions the tide model was clipped to from geojson file
     tide_regions_file = file_utilities.load_package_resource(
         "tide_model", "tide_regions_map.geojson"
@@ -324,7 +324,7 @@ def setup_tide_model_config(model_path: str,model:str) -> dict:
         "DIRECTORY": model_path,
         "DELTA_TIME": [0],
         "GZIP": False,
-        "MODEL": model,  # name of the model in uppercase eg FES2022
+        "MODEL": model.upper(),  # name of the model in uppercase eg FES2022
         "ATLAS_FORMAT": "netcdf",
         "EXTRAPOLATE": True,
         "METHOD": "spline",
@@ -338,7 +338,7 @@ def setup_tide_model_config(model_path: str,model:str) -> dict:
     }
 
 
-def get_tide_model_location(location: str="" ):
+def get_tide_model_location(location: str="",model='fes2022' ):
     """
     Validates the existence of a tide model at the specified location and returns the absolute path of the location.
 
@@ -347,6 +347,7 @@ def get_tide_model_location(location: str="" ):
 
     Args:
         location (str, optional): The location to check for the tide model. Defaults to "tide_model".
+        model (str, optional): The tide model to use. Defaults to 'fes2022'.
 
     Returns:
         str: The absolute path of the location if the tide model exists.
@@ -360,7 +361,7 @@ def get_tide_model_location(location: str="" ):
         location = os.path.join(base_dir,"tide_model")
     
     logger.info(f"Checking if tide model exists at {location}")
-    if validate_tide_model_exists(location):
+    if validate_tide_model_exists(location,model = model ):
         return os.path.abspath(location)
     else:
         raise Exception(
@@ -417,10 +418,6 @@ def sub_directory_contains_files(
     files_with_extension = [
         f for f in os.listdir(sub_directory_path) if f.endswith(extension)
     ]
-    # if len(files_with_extension) != count:
-    # raise Exception(
-    #     f"The tide model was not correctly clipped {os.path.basename(sub_directory_path)} only contained {len(files_with_extension)} when it should have contained {count} files"
-    # )
     return len(files_with_extension) == count
 
 
@@ -461,11 +458,11 @@ def contains_sub_directories(directory_name: str, num_regions: int,model='fes201
 
         if not sub_directory_contains_files(load_tide_path, ".nc", 34):
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(load_tide_path)}' directory did not contain all 34 .nc files at {load_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(load_tide_path)}' directory did not contain all 34 .nc files at {load_tide_path}.Please download again"
             )
         if not sub_directory_contains_files(ocean_tide_path, ".nc", 34):
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(ocean_tide_path)}' directory did not contain all 34 .nc files at {ocean_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(ocean_tide_path)}' directory did not contain all 34 .nc files at {ocean_tide_path}. Please download again"
             )
 
     return True
@@ -497,6 +494,9 @@ def get_tide_predictions(
         dates_for_transect_id_df = timeseries_df[["dates", transect_id]].dropna()
     else:    
         dates_for_transect_id_df = timeseries_df[["dates"]].dropna()
+
+    print(f"model_region_directory: {model_region_directory}")
+    print(f"model: {model}")
     tide_predictions_df = model_tides(
         x,
         y,
@@ -521,7 +521,8 @@ def predict_tides_for_df(
     - timeseries_df: A DataFrame containing time series data for each transect. A DataFrame containing time series data for the transects
     - config: Configuration dictionary.
         Must contain key:
-        "REGION_DIRECTORY" : contains full path to the fes 2014 model region folder
+        "REGION_DIRECTORY" : contains full path to the fes  model region folder
+        "MODEL" : The tide model to use. Defaults to 'FES2022'
 
     Returns:
     - pd.DataFrame: A DataFrame containing predicted tides.
@@ -534,7 +535,8 @@ def predict_tides_for_df(
                                          row.geometry.y,
                                          timeseries_df,
                                          f"{region_directory}{row['region_id']}",
-                                         row["transect_id"]), axis=1
+                                         row["transect_id"]), axis=1,
+                                         model = config["MODEL"],    
     )
     # Filter out None values
     all_tides = all_tides.dropna()

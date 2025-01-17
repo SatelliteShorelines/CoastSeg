@@ -449,7 +449,7 @@ class UI:
         )
         self.tide_model_selection = Dropdown(
             options=['FES2014', 'FES2022',],
-            value='FES2014',
+            value='FES2022',
             description='Tide Model:',
             disabled=False,
             style={'description_width': 'initial'},
