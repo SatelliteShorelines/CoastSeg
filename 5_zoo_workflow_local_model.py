@@ -29,6 +29,7 @@ model_setting = {
             "tta": False,  # Test Time Augmentation
             "use_local_model": True,  # Use local model (not one from zeneodo)
             "local_model_path": r"C:\development\doodleverse\coastseg\CoastSeg\src\coastseg\downloaded_models\non_validation_model",  # path to the local model
+            "apply_segmentation_filter": True, # apply segmentation filter to the model outputs to sort them into good or bad
         }
 
 # Available models can run input "RGB" # or "MNDWI" or "NDWI"
