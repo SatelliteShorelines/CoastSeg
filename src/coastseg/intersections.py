@@ -13,6 +13,33 @@ from shapely.geometry import Point, LineString
 
 warnings.filterwarnings("ignore")
 
+def add_classifer_scores_to_transects(session_path, good_bad_csv, good_bad_seg_csv):
+    """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
+
+    Args:
+        geojson_path (gpd.GeoDataFrame): A GeoDataFrame of extracted transects that contains the date column
+        good_bad_csv (str): The path to the image_classification_results.csv file
+        good_bad_seg_csv (str): The path to the segmentation_classification_results.csv file
+    """
+    timeseris_csv_location = os.path.join(session_path,"raw_transect_time_series_merged.csv" )
+    
+    list_of_files = [timeseris_csv_location]
+    for file in list_of_files:
+        if os.path.exists(file):
+            file_utilities.join_model_scores_to_time_series(file,
+                                    good_bad_csv,
+                                    good_bad_seg_csv)
+            
+    # Now add it to the geojson files that contain the transect intersections with the extracted shorelines
+    timeseries_lines_location = os.path.join(session_path,"raw_transect_time_series_vectors.geojson" )
+    timeseries_points_location = os.path.join(session_path,"raw_transect_time_series_points.geojson" )
+    files = [timeseries_lines_location, timeseries_points_location]
+    for file in files:
+        if os.path.exists(file):
+            file_utilities.join_model_scores_to_shorelines(file,
+                                    good_bad_csv,
+                                    good_bad_seg_csv)
+
 def wgs84_to_utm_file(geojson_file):
     """
     Converts wgs84 to UTM
@@ -458,7 +485,8 @@ def save_transects_timeseries_to_geojson(timeseries_df,save_location,ext:str='ra
     save_timeseries_to_lines(merged_timeseries_gdf,save_location,ext)
 
 
-def save_transects(save_location: str, transect_timeseries_df, settings: dict,ext:str='raw'):
+def save_transects(save_location: str, transect_timeseries_df, settings: dict,ext:str='raw', 
+                   good_bad_csv:str="",good_bad_seg_csv:str=""):
     """
     Saves the transect timeseries to a csv file, the transects as a dictionary to a json file and the transect settings to a json file
     
@@ -477,6 +505,7 @@ def save_transects(save_location: str, transect_timeseries_df, settings: dict,ex
     """
     save_transects_timeseries(transect_timeseries_df, save_location)
     save_transects_timeseries_to_geojson(transect_timeseries_df, save_location,ext)
+    add_classifer_scores_to_transects(save_location,good_bad_csv, good_bad_seg_csv )
 
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
