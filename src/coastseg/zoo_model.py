@@ -1,14 +1,12 @@
 from . import __version__
 
 import os
-from pathlib import Path
 import re
 import glob
 import asyncio
 import platform
 import json
 import logging
-from itertools import islice
 from typing import List, Set, Tuple
 
 from coastseg import common
@@ -46,8 +44,52 @@ from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_mult
 # suppress tensorflow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
 import tensorflow as tf
+from typing import Collection
 
 logger = logging.getLogger(__name__)
+
+def add_classifer_scores_to_shorelines(good_bad_csv, good_bad_seg_csv, files:Collection):
+    """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
+
+    Args:
+        geojson_path (gpd.GeoDataFrame): A GeoDataFrame of extracted shorelines that contains the date column
+        good_bad_csv (str): The path to the image_classification_results.csv file
+        good_bad_seg_csv (str): The path to the segmentation_classification_results.csv file
+        files (Collection): A collection of files to add the model scores to
+            These files should be geojson files that contain a column called 'date'
+    """
+    for file in files:
+        if os.path.exists(file):
+            file_utilities.join_model_scores_to_shorelines(file,
+                                    good_bad_csv,
+                                    good_bad_seg_csv)
+            
+def add_classifer_scores_to_transects(session_path, good_bad_csv, good_bad_seg_csv):
+    """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
+
+    Args:
+        geojson_path (gpd.GeoDataFrame): A GeoDataFrame of extracted transects that contains the date column
+        good_bad_csv (str): The path to the image_classification_results.csv file
+        good_bad_seg_csv (str): The path to the segmentation_classification_results.csv file
+    """
+    timeseris_csv_location = os.path.join(session_path,"raw_transect_time_series_merged.csv" )
+    
+    list_of_files = [timeseris_csv_location]
+    for file in list_of_files:
+        if os.path.exists(file):
+            file_utilities.join_model_scores_to_time_series(file,
+                                    good_bad_csv,
+                                    good_bad_seg_csv)
+            
+    # Now add it to the geojson files that contain the transect intersections with the extracted shorelines
+    timeseries_lines_location = os.path.join(session_path,"raw_transect_time_series_vectors.geojson" )
+    timeseries_points_location = os.path.join(session_path,"raw_transect_time_series_points.geojson" )
+    files = [timeseries_lines_location, timeseries_points_location]
+    for file in files:
+        if os.path.exists(file):
+            file_utilities.join_model_scores_to_shorelines(file,
+                                    good_bad_csv,
+                                    good_bad_seg_csv)
 
 
 def filter_no_data_pixels(files: list[str], percent_no_data: float = 0.50) -> list[str]:
@@ -819,6 +861,8 @@ class Zoo_Model:
             if config.get("roi_ids"):
                 roi_id = config["roi_ids"][0]
             roi_settings = {roi_id:config[roi_id]}
+            good_bad_csv = file_utilities.find_file_path_in_roi(roi_id,roi_settings,"image_classification_results.csv")
+
         except (KeyError, ValueError) as e:
             logger.error(f"{roi_id} ROI settings did not exist: {e}")
             if roi_id is None:
@@ -907,33 +951,44 @@ class Zoo_Model:
             )
         )
 
+
+        good_bad_seg_csv = ""
+        # If the segmentation filter is applied read the model scores
+        if model_settings.get("apply_segmentation_filter",False):
+            if os.path.exists( os.path.join(session_path, "segmentation_classification_results.csv")):
+                good_bad_seg_csv =  os.path.join(session_path, "segmentation_classification_results.csv")
+                # copy it to the new session path
+                import shutil
+                shutil.copy(good_bad_seg_csv, new_session_path)
         # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
+        # save the classification scores to the extracted shorelines geojson files
+        shorelines_lines_location = os.path.join(session_path, "extracted_shorelines_lines.geojson")
+        shorelines_points_location = os.path.join(session_path, "extracted_shorelines_points.geojson")
+
+        files = set([shorelines_lines_location, shorelines_points_location])
+        add_classifer_scores_to_shorelines(good_bad_csv,good_bad_seg_csv,files = files)
+
 
         # common.save_extracted_shoreline_figures(extracted_shorelines, new_session_path)
         print(f"Saved extracted shorelines to {new_session_path}")
 
         # transects must be in the same CRS as the extracted shorelines otherwise intersections will all be NAN
-        # if not transects_gdf.empty:
-        #     transects_gdf = transects_gdf.to_crs(new_espg)
+        if not transects_gdf.empty:
+            transects_gdf = transects_gdf.to_crs("EPSG:4326")
 
         # new method to compute intersections
         # Currently the method requires both the transects and extracted shorelines to be in the same CRS 4326
         extracted_shorelines_gdf_lines =extracted_shorelines.gdf
-        transects_gdf = transects_gdf.to_crs("EPSG:4326")
+        # @ todo does extracted shorelines gdf need to be in crs 4326?
 
         from coastseg.intersections import transect_timeseries,save_transects
 
-        # extracted_shorelines_gdf_lines = extracted_shorelines.create_geodataframe(
-        #         extracted_shorelines.shoreline_settings["output_epsg"],
-        #         output_crs="EPSG:4326",
-        #         geomtype="lines",
-        #     )
 
-        # Comput the transect timeseries by intersecting each transect with each extracted shoreline
+        # Compute the transect timeseries by intersecting each transect with each extracted shoreline
         transect_timeseries_df = transect_timeseries(extracted_shorelines_gdf_lines,transects_gdf)
         # save two version of the transect timeseries, the transect settings and the transects as a dictionary
-        save_transects(new_session_path,transect_timeseries_df,settings,ext='raw')
+        save_transects(new_session_path,transect_timeseries_df,settings,ext='raw',good_bad_csv= good_bad_csv, good_bad_seg_csv=good_bad_seg_csv )
 
         # # compute intersection between extracted shorelines and transects
         # cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
