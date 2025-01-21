@@ -213,7 +213,6 @@ def split_line(extracted_shorelines_gdf,
         input_coords = gpd.GeoDataFrame(input_coords_dict, crs=source_crs)
         
         ##make the shifted geometries to compute point to point distance
-        input_coords_columns = input_coords.columns[:]
         new_geometry_column = 'geom_2'
         input_coords[new_geometry_column] = input_coords['geometry'].shift(-1)
 
@@ -251,7 +250,6 @@ def split_line(extracted_shorelines_gdf,
     all_lines_gdf['date'] = pd.to_datetime(all_lines_gdf['date'])
     all_lines_gdf['date'] = all_lines_gdf['date'].dt.tz_localize('UTC')
 
-    all_lines_gdf['year'] = all_lines_gdf['date'].dt.year
     all_lines_gdf = all_lines_gdf.set_geometry('geometry')
     all_lines_gdf = all_lines_gdf.set_crs(source_crs)
 
