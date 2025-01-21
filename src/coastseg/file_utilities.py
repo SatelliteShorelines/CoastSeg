@@ -180,6 +180,9 @@ def join_model_scores_to_shorelines(shorelines_path,
         
         #rename model_scores to classifer_model_score
         shorelines_gdf.rename(columns={'model_scores': 'classifier_model_score'}, inplace=True)
+        
+        shorelines_gdf.drop(columns=['dates','dates_seg'], inplace=True, errors='ignore')
+
         if "threshold" in shorelines_gdf:
             shorelines_gdf.rename(columns={'threshold': 'classifier_threshold'}, inplace=True)
 
@@ -207,6 +210,8 @@ def join_model_scores_to_shorelines(shorelines_path,
     # Save modified GeoDataFrame
     # drop any duplicate columns
     shorelines_gdf = shorelines_gdf.loc[:,~shorelines_gdf.columns.duplicated()]
+
+    shorelines_gdf.drop(columns=['dates','dates_seg'], inplace=True, errors='ignore')
 
     shorelines_gdf.to_file(shorelines_path)
 
