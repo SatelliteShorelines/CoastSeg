@@ -1,5 +1,7 @@
+
 from . import __version__
 
+# Standard library imports
 import os
 import re
 import glob
@@ -7,16 +9,11 @@ import asyncio
 import platform
 import json
 import logging
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Collection
+from shutil import SameFileError
+import shutil
 
-from coastseg import common
-from coastseg import downloads
-from coastseg import sessions
-from coastseg import extracted_shoreline
-from coastseg import geodata_processing
-from coastseg import file_utilities
-from coastseg import core_utilities
-
+# Third-party imports
 import geopandas as gpd
 from osgeo import gdal
 import skimage
@@ -24,12 +21,22 @@ import aiohttp
 import tqdm
 from PIL import Image
 import numpy as np
-from glob import glob
 import tqdm.asyncio
 import nest_asyncio
-
 from skimage.io import imread
+import tensorflow as tf
 from tensorflow.keras import mixed_precision
+
+# Local imports
+from . import __version__
+from coastseg import common
+from coastseg import downloads
+from coastseg import sessions
+from coastseg import extracted_shoreline
+from coastseg import geodata_processing
+from coastseg import file_utilities
+from coastseg import core_utilities
+from coastseg.intersections import transect_timeseries,save_transects
 from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.model_imports import (
     simple_resunet,
@@ -41,11 +48,11 @@ from doodleverse_utils.model_imports import (
     segformer,
 )
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
-# suppress tensorflow warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
-import tensorflow as tf
-from typing import Collection
 
+# Suppress TensorFlow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
+
+# Logger setup
 logger = logging.getLogger(__name__)
 
 def add_classifer_scores_to_shorelines(good_bad_csv, good_bad_seg_csv, files:Collection):
@@ -954,12 +961,14 @@ class Zoo_Model:
 
         good_bad_seg_csv = ""
         # If the segmentation filter is applied read the model scores
-        if model_settings.get("apply_segmentation_filter",False):
+        if settings.get("apply_segmentation_filter",False):
             if os.path.exists( os.path.join(session_path, "segmentation_classification_results.csv")):
                 good_bad_seg_csv =  os.path.join(session_path, "segmentation_classification_results.csv")
                 # copy it to the new session path
-                import shutil
-                shutil.copy(good_bad_seg_csv, new_session_path)
+                try:
+                    shutil.copy(good_bad_seg_csv, new_session_path)
+                except SameFileError as e:
+                    pass # we don't care if the file is the same
         # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
         # save the classification scores to the extracted shorelines geojson files
@@ -979,46 +988,13 @@ class Zoo_Model:
 
         # new method to compute intersections
         # Currently the method requires both the transects and extracted shorelines to be in the same CRS 4326
-        extracted_shorelines_gdf_lines =extracted_shorelines.gdf
-        # @ todo does extracted shorelines gdf need to be in crs 4326?
-
-        from coastseg.intersections import transect_timeseries,save_transects
-
+        extracted_shorelines_gdf_lines =extracted_shorelines.gdf.copy().to_crs("EPSG:4326")
 
         # Compute the transect timeseries by intersecting each transect with each extracted shoreline
         transect_timeseries_df = transect_timeseries(extracted_shorelines_gdf_lines,transects_gdf)
         # save two version of the transect timeseries, the transect settings and the transects as a dictionary
         save_transects(new_session_path,transect_timeseries_df,settings,ext='raw',good_bad_csv= good_bad_csv, good_bad_seg_csv=good_bad_seg_csv )
 
-        # # compute intersection between extracted shorelines and transects
-        # cross_distance_transects = extracted_shoreline.compute_transects_from_roi(
-        #     extracted_shorelines.dictionary, transects_gdf, settings
-        # )
-
-        # first_key = next(iter(cross_distance_transects))
-        # logger.info(
-        #     f"cross_distance_transects.keys(): {cross_distance_transects.keys()}"
-        # )
-        # logger.info(
-        #     f"Sample of transect intersections for first key: {list(islice(cross_distance_transects[first_key], 3))}"
-        # )
-
-        # # save transect shoreline intersections to csv file if they exist
-        # if cross_distance_transects == 0:
-        #     logger.warning("No transect shoreline intersections.")
-        #     print("No transect shoreline intersections.")
-        # else:
-        #     transect_settings = self.get_settings()
-        #     transect_settings["output_epsg"] = new_espg
-        #     drop_intersection_pts=self.get_settings().get('drop_intersection_pts', False)
-        # common.save_transects(
-        #         new_session_path,
-        #         cross_distance_transects,
-        #         extracted_shorelines.dictionary,
-        #         transect_settings,
-        #         transects_gdf,
-        #         drop_intersection_pts
-        #     )
 
     def postprocess_data(
         self, preprocessed_data: dict, session: sessions.Session, roi_directory: str
