@@ -26,6 +26,21 @@ import pyTMD.utilities
 # Logger setup
 logger = logging.getLogger(__name__)
 
+def merge_tide_corrected_with_raw_timeseries(session_path,tide_timeseries):
+    tide_timeseries["dates"] = pd.to_datetime(tide_timeseries["dates"], utc=True)
+    
+    raw_time_series_location = file_utilities.find_file_by_regex(
+                session_path, r"^raw_transect_time_series_merged\.csv$"
+            )
+    df = pd.read_csv(raw_time_series_location)
+    df["dates"] = pd.to_datetime(df["dates"], utc=True)
+    # Drop the columns we don't want to include in the final merged dataframe
+    raw_timseries = df.drop(columns=['shore_x', 'shore_y','x','y','cross_distance'], errors='ignore')
+    #drop any unnamed columns
+    raw_timseries = raw_timseries.loc[:, ~raw_timseries.columns.str.contains('^Unnamed')]
+    return pd.merge(tide_timeseries, raw_timseries, on=['dates','transect_id'], how='left')
+        
+
 # Check if transects and timeseries have any ids in common
 def check_transect_timeseries_ids(transects_gdf: gpd.GeoDataFrame, timeseries_df: pd.DataFrame) -> bool:
     # Read the id from the transects_gdf
@@ -61,6 +76,7 @@ def compute_tidal_corrections(
         print(traceback.format_exc())
     else:
         print("\ntidal corrections completed")
+
 
 def correct_all_tides(
     roi_ids: Collection,
@@ -273,6 +289,9 @@ def correct_tides(
                                 only_keep_points_on_transects,
                                 'tidally_corrected')
         
+        # The following code is for the zoo workflow but it shouldn't impact coastseg workflow
+        tide_corrected_timeseries_merged_df = merge_tide_corrected_with_raw_timeseries(session_path,tide_corrected_timeseries_merged_df)
+
         # Save the Tidally corrected time series
         sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
         timeseries_df = timeseries_df[sorted_columns]
@@ -972,7 +991,9 @@ def apply_tide_correction(
 
 def timeseries_read_csv(file_path):
     """
-    Reads a CSV file into a DataFrame and performs necessary preprocessing.
+    Reads the timeseries from a CSV file.
+    It converts the dates column to datetime in UTC.
+    It drops the columns 'x', 'y', and 'Unnamed: 0' if they exist.
 
     Args:
     - file_path (str): Path to the CSV file.
