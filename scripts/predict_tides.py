@@ -242,7 +242,7 @@ def get_tide_predictions(
         x (float): The x-coordinate of the location to predict tide for.
         y (float): The y-coordinate of the location to predict tide for.
         - timeseries_df: A DataFrame containing time series data for each transect.
-       - model_region_directory: The path to the FES 2014 model region that will be used to compute the tide predictions
+       - model_region_directory: The path to the FES model region that will be used to compute the tide predictions
          ex."C:/development/doodleverse/CoastSeg/tide_model/region"
         transect_id (str): The ID of the transect. Pass "" if no transect ID is available.
         
@@ -263,6 +263,7 @@ def get_tide_predictions(
         y,
         dates_for_transect_id_df.dates.values,
         directory=model_region_directory,
+        model='fes2022b',
     )
     return tide_predictions_df
 
@@ -287,12 +288,15 @@ def predict_tides_for_df(
     Contains columns dates,x,y,tide,transect_id
     """
     region_directory = config["REGION_DIRECTORY"]
+    print(f"seaward_points_gdf: {seaward_points_gdf}")
     # Apply the get_tide_predictions over each row and collect results in a list
     all_tides = seaward_points_gdf.apply(
         lambda row: get_tide_predictions(row.geometry.x,
                                          row.geometry.y,
                                          timeseries_df,
-                                         f"{region_directory}{row['region_id']}"),axis=1)
+                                         f"{region_directory}{row['region_id']}",
+                                         row["transect_id"]), axis=1
+    )
     # Filter out None values
     all_tides = all_tides.dropna()
     # if no tides are predicted return an empty dataframe
@@ -309,7 +313,7 @@ def model_tides(
     y,
     time,
     transect_id: str = "",
-    model="FES2014",
+    model:str="FES2022",
     directory=None,
     epsg=4326,
     method="bilinear",
@@ -323,25 +327,10 @@ def model_tides(
 
     This function supports any tidal model supported by
     `pyTMD`, including the FES2014 Finite Element Solution
-    tide model, and the TPXO8-atlas and TPXO9-atlas-v5
-    TOPEX/POSEIDON global tide models.
+    tide model, and FES2022 Finite Element Solution
+    tide model.
 
-    This function requires access to tide model data files
-    to work. These should be placed in a folder with
-    subfolders matching the formats specified by `pyTMD`:
-    https://pytmd.readthedocs.io/en/latest/getting_started/Getting-Started.html#directories
-
-    For FES2014 (https://www.aviso.altimetry.fr/es/data/products/auxiliary-products/global-tide-fes/description-fes2014.html):
-        - {directory}/fes2014/ocean_tide/
-          {directory}/fes2014/load_tide/
-
-    For TPXO8-atlas (https://www.tpxo.net/tpxo-products-and-registration):
-        - {directory}/tpxo8_atlas/
-
-    For TPXO9-atlas-v5 (https://www.tpxo.net/tpxo-products-and-registration):
-        - {directory}/TPXO9_atlas_v5/
-
-    This function is a minor modification of the `pyTMD`
+    This function is a modification of the `pyTMD`
     package's `compute_tide_corrections` function, adapted
     to process multiple timesteps for multiple input point
     locations. For more info:
@@ -360,7 +349,7 @@ def model_tides(
         model tides in UTC time.
     model : string
         The tide model used to model tides. Options include:
-        - "FES2014" (only pre-configured option on DEA Sandbox)
+        - "fes2022b" (only pre-configured option on DEA Sandbox)
         - "TPXO8-atlas"
         - "TPXO9-atlas-v5"
     directory : string
@@ -371,8 +360,6 @@ def model_tides(
         For example:
         - {directory}/fes2014/ocean_tide/
           {directory}/fes2014/load_tide/
-        - {directory}/tpxo8_atlas/
-        - {directory}/TPXO9_atlas_v5/
     epsg : int
         Input coordinate system for 'x' and 'y' coordinates.
         Defaults to 4326 (WGS84).
@@ -398,15 +385,15 @@ def model_tides(
         directory = pathlib.Path(directory).expanduser()
         if not directory.exists():
             raise FileNotFoundError("Invalid tide directory")
-
     # Validate input arguments
     assert method in ("bilinear", "spline", "linear", "nearest")
 
+    if "fes2022" in model.lower():
+        model = 'FES2022'
     # Get parameters for tide model; use custom definition file for
     model = pyTMD.io.model(directory, format="netcdf", compressed=False).elevation(
         model
     )
-
     # If time passed as a single Timestamp, convert to datetime64
     if isinstance(time, pd.Timestamp):
         time = time.to_datetime64()
@@ -440,26 +427,24 @@ def model_tides(
     # number of time points
     n_times = len(time)
 
-    if model.format == "FES":
-        amp, ph = pyTMD.io.FES.extract_constants(
-            lon,
-            lat,
-            model.model_file,
-            type=model.type,
-            version=model.version,
-            method=method,
-            extrapolate=extrapolate,
-            cutoff=cutoff,
-            scale=model.scale,
-            compressed=model.compressed,
-        )
-
-        # Available model constituents
-        c = model.constituents
-
-        # Delta time (TT - UT1)
-        # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
-        deltat = timescale.tt_ut1
+    
+    amp, ph = pyTMD.io.FES.extract_constants(
+        lon,
+        lat,
+        model.model_file,
+        type=model.type,
+        version=model.version,
+        method=method,
+        extrapolate=extrapolate,
+        cutoff=cutoff,
+        scale=model.scale,
+        compressed=model.compressed,
+    )
+    # Available model constituents
+    c = model.constituents
+    # Delta time (TT - UT1)
+    # calculating the difference between Terrestrial Time (TT) and UT1 (Universal Time 1),
+    deltat = timescale.tt_ut1
 
     # Calculate complex phase in radians for Euler's
     cph = -1j * ph * np.pi / 180.0
@@ -557,6 +542,7 @@ def get_seaward_points_gdf(transects_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def read_and_filter_geojson(
     file_path: str,
     columns_to_keep: Tuple[str, ...] = ("id", "type", "geometry"),
+    feature_type: str = "transect",
 
 ) -> gpd.GeoDataFrame:
     """
@@ -576,6 +562,13 @@ def read_and_filter_geojson(
     gdf.drop(
         columns=[col for col in gdf.columns if col not in columns_to_keep], inplace=True
     )
+
+    if "type" not in gdf.columns:
+        return gdf
+
+    # Filter the GeoDataFrame based on the feature type
+    gdf = gdf[gdf["type"] == feature_type]
+
     return gdf
 
 
@@ -712,11 +705,11 @@ def predict_tides(
     
     
     # Load the GeoJSON file containing transect data
-    seaward_points_gdf = read_and_filter_geojson(geojson_file_path)
+    transects_gdf = read_and_filter_geojson(geojson_file_path,feature_type="transect")
     # Read in the model regions from a GeoJSON file
     regions_gdf = load_regions_from_geojson(model_regions_geojson_path)
     # Get the seaward points
-    # seaward_points_gdf = get_seaward_points_gdf(transects_gdf)
+    seaward_points_gdf = get_seaward_points_gdf(transects_gdf)
     # Perform a spatial join to get the region_id for each point in seaward_points_gdf
     regional_seaward_points_gdf = perform_spatial_join(seaward_points_gdf, regions_gdf)
     # predict the tides
@@ -847,10 +840,10 @@ def parse_arguments() -> argparse.Namespace:
         print("Model regions geojson file not found at the default location. Please provide the path manually.")
         MODEL_REGIONS_GEOJSON_PATH = ""
     try:
-        FES_2014_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
+        FES_MODEL_PATH = get_location("tide_model", check_parent_directory=True)
     except FileNotFoundError as e:
         print("FES 2014 tide model not found at the default location. Please provide the path manually.")
-        FES_2014_MODEL_PATH = ""
+        FES_MODEL_PATH = ""
         
         
     parser.add_argument(
@@ -890,18 +883,26 @@ def parse_arguments() -> argparse.Namespace:
         "-m",
         dest="model",
         type=str,
-        default=FES_2014_MODEL_PATH,
-        help="Set the FES_2014_MODEL_PATH.",
+        default=FES_MODEL_PATH,
+        help="Set the FES_MODEL_PATH.",
+    )
+    parser.add_argument(
+        "-F",
+        "-F",
+        dest="fes_tide_model",
+        type=str,
+        default='FES2022',
+        help="Indicate whether FES2022 or FES2014 should be used. Defaults to FES2022.",
     )
     return parser.parse_args()
 
 
-def setup_tide_model_config(model_path: str) -> dict:
+def setup_tide_model_config(model_path: str,model:str='FES2022') -> dict:
     return {
         "DIRECTORY": model_path,
         "DELTA_TIME": [0],
         "GZIP": False,
-        "MODEL": "FES2014",
+        "MODEL":  model.upper(),  # name of the model in uppercase eg FES2022
         "ATLAS_FORMAT": "netcdf",
         "EXTRAPOLATE": True,
         "METHOD": "spline",
@@ -926,13 +927,14 @@ def main():
     # RAW_TIMESERIES_FILE_PATH = r"C:\development\doodleverse\coastseg\CoastSeg\sessions\fire_island\ID_ham1_datetime08-03-23__10_58_34\raw_transect_time_series.csv"
     TIDE_PREDICTIONS_FILE_NAME = args.predictions
     MODEL_REGIONS_GEOJSON_PATH = args.regions
-    FES_2014_MODEL_PATH = args.model
+    FES_MODEL_PATH = args.model
+    FES_TIDE_MODEL = args.fes_tide_model
     
     if not os.path.exists(GEOJSON_FILE_PATH):
         raise FileNotFoundError(f"GeoJSON file not found: {GEOJSON_FILE_PATH}")
     
-    if not os.path.exists(FES_2014_MODEL_PATH):
-        raise FileNotFoundError(f"FES 2014 model directory not found: {FES_2014_MODEL_PATH}")
+    if not os.path.exists(FES_MODEL_PATH):
+        raise FileNotFoundError(f"FES 2014 model directory not found: {FES_MODEL_PATH}")
         
     if not os.path.exists(MODEL_REGIONS_GEOJSON_PATH):
         raise FileNotFoundError(f"Model regions directory not found: {MODEL_REGIONS_GEOJSON_PATH}")
@@ -940,7 +942,7 @@ def main():
     if not os.path.exists(RAW_TIMESERIES_FILE_PATH):
         raise FileNotFoundError(f"Time series data file not found: {RAW_TIMESERIES_FILE_PATH}")
 
-    tide_model_config = setup_tide_model_config(FES_2014_MODEL_PATH)
+    tide_model_config = setup_tide_model_config(FES_MODEL_PATH,model = FES_TIDE_MODEL)
 
     # Read timeseries data
     raw_timeseries_df = read_csv(RAW_TIMESERIES_FILE_PATH)

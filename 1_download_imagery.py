@@ -61,8 +61,18 @@ transects = coastsegmap.load_feature_from_file('transects', transect_path)
 coastsegmap.extract_all_shorelines(roi_ids = roi_ids)
 
 # Tide Correction (optional)
-# Tutorial: https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-and-clip-Tide-Model
-# Tide Model must be downloaded to CoastSeg/tide_model
+# WARNING: Before running this snippet, you must download the tide model to the CoastSeg/tide_model folder.
+# WE RECOMMEND USING FES2022.
+# 
+# Tutorial on How to Download the Tide Model:
+# https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-and-clip-Tide-Model
+#
+# The Tide Model must be downloaded to CoastSeg/tide_model.
+# Two Tide Models are available: 'FES2014' or 'FES2022'.
+#
+# Parameters:
 beach_slope = 0.02 # Slope of the beach (m)
 reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
-# coastsegmap.compute_tidal_corrections(roi_ids, beach_slope, reference_elevation)
+#
+# Uncomment the line below to run the tide correction
+# coastsegmap.compute_tidal_corrections(roi_ids, beach_slope, reference_elevation,model='FES2022')

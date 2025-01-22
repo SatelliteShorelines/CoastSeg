@@ -75,15 +75,18 @@ zoo_model_instance.run_model_and_extract_shorelines(
 # 4. OPTIONAL: Run Tide Correction
 # ------------------------------------------
 # Tide Correction (optional)
-# Before running this snippet, you must download the tide model to the CoastSeg/tide_model folder
-# Tutorial: https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-and-clip-Tide-Model
-#  You will need to uncomment the line below to run the tide correction
-
+# WARNING: Before running this snippet, you must download the tide model to the CoastSeg/tide_model folder.
+# WE RECOMMEND USING FES2022.
+# 
+# Tutorial on How to Download the Tide Model:
+# https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-and-clip-Tide-Model
+#
+# The Tide Model must be downloaded to CoastSeg/tide_model.
+# Two Tide Models are available: 'FES2014' or 'FES2022'.
+#
+# Parameters:
 beach_slope = 0.02 # Slope of the beach (m)
 reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
-
 # UNCOMMENT THESE LINES TO RUN THE TIDE CORRECTION
-# roi_id = file_utilities.get_ROI_ID_from_session(session_name) # read ROI ID from the config.json file found in the extracted shoreline session directory
-# compute_tidal_corrections(
-#     session_name, [roi_id], beach_slope, reference_elevation
-# )
+roi_id = file_utilities.get_ROI_ID_from_session(model_session_name) # read ROI ID from the config.json file found in the extracted shoreline session directory
+# compute_tidal_corrections(model_session_name, [roi_id], beach_slope, reference_elevation,model='FES2022')

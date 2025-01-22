@@ -300,6 +300,14 @@ class UI_Models:
         self.beach_slope_text = FloatText(value=0.02, description="Beach Slope (m/m):",style={'description_width': 'initial'})
         self.reference_elevation_text = FloatText(value=0.0, description="Beach Elevation (m, relative M.S.L.):",style={'description_width': 'initial'})
 
+        self.tide_model_selection = Dropdown(
+            options=['FES2014', 'FES2022',],
+            value='FES2022',
+            description='Tide Model:',
+            disabled=False,
+            style={'description_width': 'initial'},
+        )
+
         self.tidally_correct_button = Button(
             description="Correct Tides",
             style=load_style,
@@ -309,6 +317,7 @@ class UI_Models:
 
         return VBox(
             [
+                self.tide_model_selection,
                 self.beach_slope_text,
                 self.reference_elevation_text,
                 self.tidally_correct_button,
@@ -343,7 +352,7 @@ class UI_Models:
         reference_elevation = self.reference_elevation_text.value
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
         compute_tidal_corrections(
-            session_name, [roi_id], beach_slope, reference_elevation
+            session_name, [roi_id], beach_slope, reference_elevation,model = self.tide_model_selection.value
         )
 
     def _create_widgets(self):

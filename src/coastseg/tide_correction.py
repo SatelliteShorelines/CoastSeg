@@ -4,6 +4,7 @@ import logging
 import pathlib
 from pathlib import Path
 from typing import Collection, Dict, Tuple, Union
+import traceback
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
@@ -25,9 +26,23 @@ import pyTMD.utilities
 # Logger setup
 logger = logging.getLogger(__name__)
 
+# Check if transects and timeseries have any ids in common
+def check_transect_timeseries_ids(transects_gdf: gpd.GeoDataFrame, timeseries_df: pd.DataFrame) -> bool:
+    # Read the id from the transects_gdf
+    transect_ids = transects_gdf['id'].unique() # type: ignore
+    # read either the transect_id column or the column names from the timeseries_df 
+    if 'transect_id' in timeseries_df.columns:
+        timeseries_ids = timeseries_df['transect_id'].unique()
+    else:
+        timeseries_ids = timeseries_df.columns
+    # check if any of the ids from the transects_gdf are in the timeseries_df
+    if any([transect_id in timeseries_ids for transect_id in transect_ids]):
+        return True
+    return False
+
 
 def compute_tidal_corrections(
-    session_name, roi_ids: Collection, beach_slope: float, reference_elevation: float,only_keep_points_on_transects:bool=False
+    session_name, roi_ids: Collection, beach_slope: float, reference_elevation: float,only_keep_points_on_transects:bool=False,model:str="FES2022"
 ):
     logger.info(
         f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
@@ -39,9 +54,11 @@ def compute_tidal_corrections(
             reference_elevation,
             beach_slope,
             only_keep_points_on_transects=only_keep_points_on_transects,
+            model=model
         )
     except Exception as e:
-        print(f"Tide Model Not Found Error \n {e}")
+        print(f"Tide Model Error \n {e}")
+        print(traceback.format_exc())
     else:
         print("\ntidal corrections completed")
 
@@ -52,6 +69,7 @@ def correct_all_tides(
     beach_slope: float,
     only_keep_points_on_transects:bool=False,
     use_progress_bar: bool = True,
+    model:str="FES2022"
 ):
     """
     Corrects the tides for all regions of interest (ROIs).
@@ -67,7 +85,7 @@ def correct_all_tides(
         use_progress_bar (bool, optional): Whether to display a progress bar. Defaults to True.
     """
     # validate tide model exists at CoastSeg/tide_model
-    model_location = get_tide_model_location()
+    model_location = get_tide_model_location(model=model.lower())
     # load the regions the tide model was clipped to from geojson file
     tide_regions_file = file_utilities.load_package_resource(
         "tide_model", "tide_regions_map.geojson"
@@ -87,6 +105,7 @@ def correct_all_tides(
                 tide_regions_file,
                 only_keep_points_on_transects = only_keep_points_on_transects,
                 use_progress_bar = use_progress_bar,
+                model=model
             )
             logger.info(f"{roi_id} was tidally corrected")
             update(f"{roi_id} was tidally corrected")
@@ -144,6 +163,7 @@ def correct_tides(
     tide_regions_file: str,
     only_keep_points_on_transects:bool = False,
     use_progress_bar: bool = True,
+    model: str = "FES2022",
 ) -> pd.DataFrame:
     """
     Correct the tides for a given Region Of Interest (ROI) using a tide model.
@@ -185,7 +205,7 @@ def correct_tides(
         # create the settings used to run the tide_model
 
         update(f"Setting up the tide model : {roi_id}")
-        tide_model_config = setup_tide_model_config(model_location)
+        tide_model_config = setup_tide_model_config(model_location,model=model)
         update(f"Getting time series for ROI : {roi_id}")
         # load the time series
         try:
@@ -204,6 +224,11 @@ def correct_tides(
         # read the transects from the config_gdf.geojson file
         update(f"Getting transects for ROI : {roi_id}")
         transects_gdf = get_transects(roi_id, session_name)
+
+        if not check_transect_timeseries_ids(transects_gdf, raw_timeseries_df):
+            print(f"None of the transect ids in the transects file were found in the raw_timeseries.csv file for ROI ID: {roi_id}")
+            raise Exception(f"None of the transect ids in the transects file were found in the raw_timeseries.csv file for ROI ID: {roi_id}")
+
         # predict the tides for each seaward transect point in the ROI
         update(f"Predicting tides : {roi_id}")
         predicted_tides_df = predict_tides(
@@ -263,13 +288,17 @@ def correct_tides(
     return tide_corrected_timeseries_merged_df
 
 
-def get_timeseries_location(ROI_ID: str, session_name: str) -> str:
+def get_timeseries_location(ROI_ID: str, session_name: str,raw_or_tidecorrected = 'raw') -> str:
     """
     Retrieves the path to the time series CSV file for a given ROI ID and session name.
+    Note this does NOT return the merged timeseries file.
+
+    Note this retrieves the raw time series file by default.
 
     Args:
         ROI_ID (str): The ID of the region of interest.
         session_name (str): The name of the session.
+        raw_or_tidecorrected (str): The type of time series to retrieve. Defaults to 'raw'.
 
     Returns:
         str: Path to the time series CSV file.
@@ -279,14 +308,19 @@ def get_timeseries_location(ROI_ID: str, session_name: str) -> str:
     """
     # get the contents of the session directory containing the data for the ROI id
     session_path = file_utilities.get_session_contents_location(session_name, ROI_ID)
-    try:
+    if raw_or_tidecorrected == 'raw':
+        try:
+            time_series_location = file_utilities.find_file_by_regex(
+                session_path, r"^raw_transect_time_series\.csv$"
+            )
+        except FileNotFoundError:
+            # if the new file name is not found try the old file name format
+            time_series_location = file_utilities.find_file_by_regex(
+                session_path, r"^transect_time_series\.csv$"
+            )
+    else:
         time_series_location = file_utilities.find_file_by_regex(
-            session_path, r"^raw_transect_time_series\.csv$"
-        )
-    except FileNotFoundError:
-        # if the new file name is not found try the old file name format
-        time_series_location = file_utilities.find_file_by_regex(
-            session_path, r"^transect_time_series\.csv$"
+            session_path, r"^tidally_corrected_transect_time_series\.csv$"
         )
     return time_series_location
 
@@ -309,18 +343,18 @@ def get_transects(roi_id: str, session_name: str):
         session_path, r"^config_gdf\.geojson$"
     )
     # Load the GeoJSON file containing transect data
-    transects_gdf = read_and_filter_geojson(config_path)
+    transects_gdf = read_and_filter_geojson(config_path,feature_type='transect')
     # get only the transects that intersect with this ROI
     # this may not be necessary because these should have NaN values
     return transects_gdf
 
 
-def setup_tide_model_config(model_path: str) -> dict:
+def setup_tide_model_config(model_path: str,model:str) -> dict:
     return {
         "DIRECTORY": model_path,
         "DELTA_TIME": [0],
         "GZIP": False,
-        "MODEL": "FES2014",
+        "MODEL": model.upper(),  # name of the model in uppercase eg FES2022
         "ATLAS_FORMAT": "netcdf",
         "EXTRAPOLATE": True,
         "METHOD": "spline",
@@ -334,7 +368,7 @@ def setup_tide_model_config(model_path: str) -> dict:
     }
 
 
-def get_tide_model_location(location: str="" ):
+def get_tide_model_location(location: str="",model='fes2022' ):
     """
     Validates the existence of a tide model at the specified location and returns the absolute path of the location.
 
@@ -343,6 +377,7 @@ def get_tide_model_location(location: str="" ):
 
     Args:
         location (str, optional): The location to check for the tide model. Defaults to "tide_model".
+        model (str, optional): The tide model to use. Defaults to 'fes2022'.
 
     Returns:
         str: The absolute path of the location if the tide model exists.
@@ -356,15 +391,14 @@ def get_tide_model_location(location: str="" ):
         location = os.path.join(base_dir,"tide_model")
     
     logger.info(f"Checking if tide model exists at {location}")
-    if validate_tide_model_exists(location):
+    if validate_tide_model_exists(location,model = model ):
         return os.path.abspath(location)
     else:
         raise Exception(
             f"Tide model not found at: '{os.path.abspath(location)}'. Ensure the model is downloaded to this location."
         )
 
-
-def validate_tide_model_exists(location: str) -> bool:
+def validate_tide_model_exists(location: str,model:str='fes2022') -> bool:
     """
     Validates if a given directory exists and if it adheres to the tide model structure,
     specifically if it contains sub-directories named "region0" to "region10"
@@ -384,7 +418,7 @@ def validate_tide_model_exists(location: str) -> bool:
     location = os.path.abspath(location)
     logger.info(f"Tide model absolute path {location}")
     # check if tide directory exists and if the model was clipped to the 10 regions
-    if os.path.isdir(location) and contains_sub_directories(location, 10):
+    if os.path.isdir(location) and contains_sub_directories(location, 10,model):
         return True
     return False
 
@@ -413,14 +447,10 @@ def sub_directory_contains_files(
     files_with_extension = [
         f for f in os.listdir(sub_directory_path) if f.endswith(extension)
     ]
-    # if len(files_with_extension) != count:
-    # raise Exception(
-    #     f"The tide model was not correctly clipped {os.path.basename(sub_directory_path)} only contained {len(files_with_extension)} when it should have contained {count} files"
-    # )
     return len(files_with_extension) == count
 
 
-def contains_sub_directories(directory_name: str, num_regions: int) -> bool:
+def contains_sub_directories(directory_name: str, num_regions: int,model='fes2014') -> bool:
     """
     Check if a directory contains sub-directories in the format "regionX/fes2014/load_tide"
     and "regionX/fes2014/ocean_tide", and if each of these sub-directories contains 34 .nc files.
@@ -432,11 +462,13 @@ def contains_sub_directories(directory_name: str, num_regions: int) -> bool:
     Returns:
     - bool: True if all conditions are met, False otherwise.
     """
+    if 'fes2022' in model.lower():
+        model = 'fes2022b'
 
     for i in range(num_regions + 1):
         region_dir = os.path.join(directory_name, f"region{i}")
-        load_tide_path = os.path.join(region_dir, "fes2014", "load_tide")
-        ocean_tide_path = os.path.join(region_dir, "fes2014", "ocean_tide")
+        load_tide_path = os.path.join(region_dir, model, "load_tide")
+        ocean_tide_path = os.path.join(region_dir, model, "ocean_tide")
 
         if not os.path.isdir(region_dir):
             raise Exception(
@@ -455,18 +487,18 @@ def contains_sub_directories(directory_name: str, num_regions: int) -> bool:
 
         if not sub_directory_contains_files(load_tide_path, ".nc", 34):
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(load_tide_path)}' directory did not contain all 34 .nc files at {load_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(load_tide_path)}' directory did not contain all 34 .nc files at {load_tide_path}.Please download again"
             )
         if not sub_directory_contains_files(ocean_tide_path, ".nc", 34):
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(ocean_tide_path)}' directory did not contain all 34 .nc files at {ocean_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(ocean_tide_path)}' directory did not contain all 34 .nc files at {ocean_tide_path}. Please download again"
             )
 
     return True
 
 
 def get_tide_predictions(
-   x:float,y:float, timeseries_df: pd.DataFrame, model_region_directory: str,transect_id:str="",
+   x:float,y:float, timeseries_df: pd.DataFrame, model_region_directory: str,transect_id:str="",model:str='FES2022'
 ) -> pd.DataFrame:
     """
     Get tide predictions for a given location and transect ID.
@@ -475,10 +507,11 @@ def get_tide_predictions(
         x (float): The x-coordinate of the location to predict tide for.
         y (float): The y-coordinate of the location to predict tide for.
         - timeseries_df: A DataFrame containing time series data for each transect.
-       - model_region_directory: The path to the FES 2014 model region that will be used to compute the tide predictions
+       - model_region_directory: The path to the model region that will be used to compute the tide predictions
          ex."C:/development/doodleverse/CoastSeg/tide_model/region"
         transect_id (str): The ID of the transect. Pass "" if no transect ID is available.
-        
+        model (str): The tide model to use. Defaults to 'FES2022'.
+            Available options FES2014 and FES2022.
     Returns:
             - pd.DataFrame: A DataFrame containing tide predictions for all the dates that the selected transect_id using the
     fes 2014 model region specified in the "region_id".
@@ -490,12 +523,14 @@ def get_tide_predictions(
         dates_for_transect_id_df = timeseries_df[["dates", transect_id]].dropna()
     else:    
         dates_for_transect_id_df = timeseries_df[["dates"]].dropna()
+
     tide_predictions_df = model_tides(
         x,
         y,
         dates_for_transect_id_df.dates.values,
         transect_id=transect_id,
         directory=model_region_directory,
+        model=model.upper(),
     )
     return tide_predictions_df
 
@@ -513,7 +548,8 @@ def predict_tides_for_df(
     - timeseries_df: A DataFrame containing time series data for each transect. A DataFrame containing time series data for the transects
     - config: Configuration dictionary.
         Must contain key:
-        "REGION_DIRECTORY" : contains full path to the fes 2014 model region folder
+        "REGION_DIRECTORY" : contains full path to the fes  model region folder
+        "MODEL" : The tide model to use. Defaults to 'FES2022'
 
     Returns:
     - pd.DataFrame: A DataFrame containing predicted tides.
@@ -526,7 +562,9 @@ def predict_tides_for_df(
                                          row.geometry.y,
                                          timeseries_df,
                                          f"{region_directory}{row['region_id']}",
-                                         row["transect_id"]), axis=1
+                                         row["transect_id"],
+                                         model = config["MODEL"]),
+                                        axis=1,              
     )
     # Filter out None values
     all_tides = all_tides.dropna()
@@ -545,7 +583,7 @@ def model_tides(
     y,
     time,
     transect_id: str = "",
-    model="FES2014",
+    model="FES2022",
     directory=None,
     epsg=4326,
     method="bilinear",
@@ -559,25 +597,10 @@ def model_tides(
 
     This function supports any tidal model supported by
     `pyTMD`, including the FES2014 Finite Element Solution
-    tide model, and the TPXO8-atlas and TPXO9-atlas-v5
-    TOPEX/POSEIDON global tide models.
+    tide model, and FES2022 Finite Element Solution
+    tide model.
 
-    This function requires access to tide model data files
-    to work. These should be placed in a folder with
-    subfolders matching the formats specified by `pyTMD`:
-    https://pytmd.readthedocs.io/en/latest/getting_started/Getting-Started.html#directories
-
-    For FES2014 (https://www.aviso.altimetry.fr/es/data/products/auxiliary-products/global-tide-fes/description-fes2014.html):
-        - {directory}/fes2014/ocean_tide/
-          {directory}/fes2014/load_tide/
-
-    For TPXO8-atlas (https://www.tpxo.net/tpxo-products-and-registration):
-        - {directory}/tpxo8_atlas/
-
-    For TPXO9-atlas-v5 (https://www.tpxo.net/tpxo-products-and-registration):
-        - {directory}/TPXO9_atlas_v5/
-
-    This function is a minor modification of the `pyTMD`
+    This function is a modification of the `pyTMD`
     package's `compute_tide_corrections` function, adapted
     to process multiple timesteps for multiple input point
     locations. For more info:
@@ -596,7 +619,7 @@ def model_tides(
         model tides in UTC time.
     model : string
         The tide model used to model tides. Options include:
-        - "FES2014" (only pre-configured option on DEA Sandbox)
+        - "fes2022b" (only pre-configured option on DEA Sandbox)
         - "TPXO8-atlas"
         - "TPXO9-atlas-v5"
     directory : string
@@ -607,8 +630,6 @@ def model_tides(
         For example:
         - {directory}/fes2014/ocean_tide/
           {directory}/fes2014/load_tide/
-        - {directory}/tpxo8_atlas/
-        - {directory}/TPXO9_atlas_v5/
     epsg : int
         Input coordinate system for 'x' and 'y' coordinates.
         Defaults to 4326 (WGS84).
@@ -634,10 +655,11 @@ def model_tides(
         directory = pathlib.Path(directory).expanduser()
         if not directory.exists():
             raise FileNotFoundError("Invalid tide directory")
-
     # Validate input arguments
     assert method in ("bilinear", "spline", "linear", "nearest")
 
+    if "fes2022" in model.lower():
+        model = 'FES2022'
     # Get parameters for tide model; use custom definition file for
     model = pyTMD.io.model(directory, format="netcdf", compressed=False).elevation(
         model

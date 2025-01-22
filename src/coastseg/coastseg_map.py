@@ -534,7 +534,7 @@ class CoastSeg_Map:
         )
 
     def compute_tidal_corrections(
-        self, roi_ids: Collection, beach_slope: float=0.02, reference_elevation: float=0
+        self, roi_ids: Collection, beach_slope: float=0.02, reference_elevation: float=0,model:str="FES2014"
     ):
         """
         Computes tidal corrections for the specified region of interest (ROI) IDs.
@@ -543,6 +543,7 @@ class CoastSeg_Map:
             roi_ids (Collection): A collection of ROI IDs for which tidal corrections need to be computed.
             beach_slope (float, optional): The slope of the beach in meters. Defaults to 0.02.
             reference_elevation (float, optional): The reference elevation in meters relative to MSL (Mean Sea Level). Defaults to 0.
+            model (str, optional): The tidal model to use for the corrections. Defaults to "FES2014".
 
         Returns:
             None
@@ -560,7 +561,8 @@ class CoastSeg_Map:
                 session_name,
                 reference_elevation,
                 beach_slope,
-                only_keep_points_on_transects=only_keep_points_on_transects
+                only_keep_points_on_transects=only_keep_points_on_transects,
+                model = model
             )
         except Exception as e:
             if self.map is not None:

@@ -1814,10 +1814,42 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
 
     return merged_timeseries_df,timeseries_df
     
+def convert_dates_to_UTC(df: pd.DataFrame, date_col: str,) -> pd.Series:
+    # Check and convert to UTC
+    if df[date_col].dt.tz is not None: # If the date column is timezone aware, convert it to UTC
+        print("Converting from:", df[date_col].dt.tz)
+        df[date_col] = df[date_col].dt.tz_convert('UTC')
+    else: # If the date column is timezone naive, localize it to UTC, (this makes it timezone aware)
+        df[date_col] = df[date_col].dt.tz_localize('UTC')
+    return df[date_col]
+
+def make_timezone_naive(df, column_name):
+    """
+    Converts a specified column in a DataFrame from timezone aware or timezone naive
+    to a timezone naive format.
+
+    Parameters:
+    - df: pandas.DataFrame containing the datetime column.
+    - column_name: string, the name of the column to convert.
+
+    Returns:
+    - None, the operation modifies the DataFrame in place.
+    """
+
+    # Convert column to datetime if it's not already
+    df[column_name] = pd.to_datetime(df[column_name])
+
+    # Check if the column is timezone aware
+    if df[column_name].dt.tz:
+        # If timezone aware, convert to timezone naive by removing timezone info
+        df[column_name] = df[column_name].dt.tz_convert(None)
+
+    # If already timezone naive, no action needed
     
 def convert_date_gdf(gdf):
     """
-    Convert date columns in a GeoDataFrame to datetime format.
+   Converts the date columns in a GeoDataFrame to string format.
+   Converts either 'dates' or 'date' columns to string format after converting it to naive timezone.
 
     Args:
         gdf (GeoDataFrame): The input GeoDataFrame.
@@ -1827,9 +1859,9 @@ def convert_date_gdf(gdf):
     """
     gdf = gdf.copy()
     if 'dates' in gdf.columns:
-        gdf['dates'] = pd.to_datetime(gdf['dates']).dt.tz_convert(None)
+        make_timezone_naive(gdf, 'dates')
     if 'date' in gdf.columns:
-        gdf['date'] = pd.to_datetime(gdf['date']).dt.tz_convert(None)
+        make_timezone_naive(gdf, 'date')
     gdf = stringify_datetime_columns(gdf)
     return gdf
 
