@@ -398,8 +398,7 @@ def get_tide_model_location(location: str="",model='fes2022' ):
             f"Tide model not found at: '{os.path.abspath(location)}'. Ensure the model is downloaded to this location."
         )
 
-
-def validate_tide_model_exists(location: str,model:str='fes2014') -> bool:
+def validate_tide_model_exists(location: str,model:str='fes2022') -> bool:
     """
     Validates if a given directory exists and if it adheres to the tide model structure,
     specifically if it contains sub-directories named "region0" to "region10"
@@ -499,7 +498,7 @@ def contains_sub_directories(directory_name: str, num_regions: int,model='fes201
 
 
 def get_tide_predictions(
-   x:float,y:float, timeseries_df: pd.DataFrame, model_region_directory: str,transect_id:str="",model:str='FES2014'
+   x:float,y:float, timeseries_df: pd.DataFrame, model_region_directory: str,transect_id:str="",model:str='FES2022'
 ) -> pd.DataFrame:
     """
     Get tide predictions for a given location and transect ID.
@@ -508,10 +507,10 @@ def get_tide_predictions(
         x (float): The x-coordinate of the location to predict tide for.
         y (float): The y-coordinate of the location to predict tide for.
         - timeseries_df: A DataFrame containing time series data for each transect.
-       - model_region_directory: The path to the FES 2014 model region that will be used to compute the tide predictions
+       - model_region_directory: The path to the model region that will be used to compute the tide predictions
          ex."C:/development/doodleverse/CoastSeg/tide_model/region"
         transect_id (str): The ID of the transect. Pass "" if no transect ID is available.
-        model (str): The tide model to use. Defaults to 'FES2014'.
+        model (str): The tide model to use. Defaults to 'FES2022'.
             Available options FES2014 and FES2022.
     Returns:
             - pd.DataFrame: A DataFrame containing tide predictions for all the dates that the selected transect_id using the
@@ -525,8 +524,6 @@ def get_tide_predictions(
     else:    
         dates_for_transect_id_df = timeseries_df[["dates"]].dropna()
 
-    print(f"model_region_directory: {model_region_directory}")
-    print(f"model: {model}")
     tide_predictions_df = model_tides(
         x,
         y,
@@ -567,8 +564,7 @@ def predict_tides_for_df(
                                          f"{region_directory}{row['region_id']}",
                                          row["transect_id"],
                                          model = config["MODEL"]),
-                                        axis=1,
-                                         
+                                        axis=1,              
     )
     # Filter out None values
     all_tides = all_tides.dropna()
@@ -601,23 +597,10 @@ def model_tides(
 
     This function supports any tidal model supported by
     `pyTMD`, including the FES2014 Finite Element Solution
-    tide model, and the TPXO8-atlas and TPXO9-atlas-v5
-    TOPEX/POSEIDON global tide models.
+    tide model, and FES2022 Finite Element Solution
+    tide model.
 
-    This function requires access to tide model data files
-    to work. These should be placed in a folder with
-    subfolders matching the formats specified by `pyTMD`:
-    https://pytmd.readthedocs.io/en/latest/getting_started/Getting-Started.html#directories
-
-    For FES2014 (https://www.aviso.altimetry.fr/es/data/products/auxiliary-products/global-tide-fes/description-fes2014.html):
-        - {directory}/fes2014/ocean_tide/
-          {directory}/fes2014/load_tide/
-
-    For FES2022 (https://www.aviso.altimetry.fr/en/data/products/auxiliary-products/global-tide-fes/description-fes2022.html):
-        - {directory}/fes2022b/ocean_tide/
-            {directory}/fes2022b/load_tide/
-
-    This function is a minor modification of the `pyTMD`
+    This function is a modification of the `pyTMD`
     package's `compute_tide_corrections` function, adapted
     to process multiple timesteps for multiple input point
     locations. For more info:
@@ -647,8 +630,6 @@ def model_tides(
         For example:
         - {directory}/fes2014/ocean_tide/
           {directory}/fes2014/load_tide/
-        - {directory}/tpxo8_atlas/
-        - {directory}/TPXO9_atlas_v5/
     epsg : int
         Input coordinate system for 'x' and 'y' coordinates.
         Defaults to 4326 (WGS84).
