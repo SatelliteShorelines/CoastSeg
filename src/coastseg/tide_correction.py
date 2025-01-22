@@ -8,7 +8,7 @@ import traceback
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
-from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf,add_lat_lon_to_timeseries
+from coastseg import common
 from coastseg import core_utilities
 
 # Third-party imports
@@ -25,21 +25,6 @@ import pyTMD.utilities
 
 # Logger setup
 logger = logging.getLogger(__name__)
-
-def merge_tide_corrected_with_raw_timeseries(session_path,tide_timeseries):
-    tide_timeseries["dates"] = pd.to_datetime(tide_timeseries["dates"], utc=True)
-    
-    raw_time_series_location = file_utilities.find_file_by_regex(
-                session_path, r"^raw_transect_time_series_merged\.csv$"
-            )
-    df = pd.read_csv(raw_time_series_location)
-    df["dates"] = pd.to_datetime(df["dates"], utc=True)
-    # Drop the columns we don't want to include in the final merged dataframe
-    raw_timseries = df.drop(columns=['shore_x', 'shore_y','x','y','cross_distance'], errors='ignore')
-    #drop any unnamed columns
-    raw_timseries = raw_timseries.loc[:, ~raw_timseries.columns.str.contains('^Unnamed')]
-    return pd.merge(tide_timeseries, raw_timseries, on=['dates','transect_id'], how='left')
-        
 
 # Check if transects and timeseries have any ids in common
 def check_transect_timeseries_ids(transects_gdf: gpd.GeoDataFrame, timeseries_df: pd.DataFrame) -> bool:
@@ -284,14 +269,11 @@ def correct_tides(
         pivot_df.reset_index(inplace=True)
         # add columns shore_x and shore_y to the tide_corrected_timeseries_df. Also save shorelines as vectors
 
-        tide_corrected_timeseries_merged_df,timeseries_df  = add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf.to_crs('epsg:4326'),pivot_df,
+        tide_corrected_timeseries_merged_df,timeseries_df  = common.add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf.to_crs('epsg:4326'),pivot_df,
                                 session_path,
                                 only_keep_points_on_transects,
                                 'tidally_corrected')
         
-        # The following code is for the zoo workflow but it shouldn't impact coastseg workflow
-        tide_corrected_timeseries_merged_df = merge_tide_corrected_with_raw_timeseries(session_path,tide_corrected_timeseries_merged_df)
-
         # Save the Tidally corrected time series
         sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
         timeseries_df = timeseries_df[sorted_columns]
@@ -959,7 +941,7 @@ def predict_tides(
     else:
         regions_gdf = regions_gdf.to_crs("epsg:4326")
     # Get the seaward points in CRS 4326
-    seaward_points_gdf = get_seaward_points_gdf(transects_gdf)
+    seaward_points_gdf = common.get_seaward_points_gdf(transects_gdf)
     # Perform a spatial join to get the region_id for each point in seaward_points_gdf
     regional_seaward_points_gdf = perform_spatial_join(seaward_points_gdf, regions_gdf)
     # predict the tides
@@ -1027,8 +1009,8 @@ def tidally_correct_timeseries(
     Returns:
         - pd.DataFrame: A DataFrame containing the timeseries_df that's been tidally corrected with the predicted tides
     """
-    timeseries_df = convert_transect_ids_to_rows(timeseries_df)
-    merged_df = merge_dataframes(tide_predictions_df, timeseries_df)
+    timeseries_df = common.convert_transect_ids_to_rows(timeseries_df)
+    merged_df = common.merge_dataframes(tide_predictions_df, timeseries_df)
     corrected_df = apply_tide_correction(merged_df, reference_elevation, beach_slope)
     return corrected_df
 
