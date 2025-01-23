@@ -8,7 +8,7 @@ import traceback
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
-from coastseg.common import merge_dataframes, convert_transect_ids_to_rows,get_seaward_points_gdf,add_lat_lon_to_timeseries
+from coastseg import common
 from coastseg import core_utilities
 
 # Third-party imports
@@ -61,6 +61,7 @@ def compute_tidal_corrections(
         print(traceback.format_exc())
     else:
         print("\ntidal corrections completed")
+
 
 def correct_all_tides(
     roi_ids: Collection,
@@ -268,7 +269,7 @@ def correct_tides(
         pivot_df.reset_index(inplace=True)
         # add columns shore_x and shore_y to the tide_corrected_timeseries_df. Also save shorelines as vectors
 
-        tide_corrected_timeseries_merged_df,timeseries_df  = add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf.to_crs('epsg:4326'),pivot_df,
+        tide_corrected_timeseries_merged_df,timeseries_df  = common.add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf.to_crs('epsg:4326'),pivot_df,
                                 session_path,
                                 only_keep_points_on_transects,
                                 'tidally_corrected')
@@ -940,7 +941,7 @@ def predict_tides(
     else:
         regions_gdf = regions_gdf.to_crs("epsg:4326")
     # Get the seaward points in CRS 4326
-    seaward_points_gdf = get_seaward_points_gdf(transects_gdf)
+    seaward_points_gdf = common.get_seaward_points_gdf(transects_gdf)
     # Perform a spatial join to get the region_id for each point in seaward_points_gdf
     regional_seaward_points_gdf = perform_spatial_join(seaward_points_gdf, regions_gdf)
     # predict the tides
@@ -972,7 +973,9 @@ def apply_tide_correction(
 
 def timeseries_read_csv(file_path):
     """
-    Reads a CSV file into a DataFrame and performs necessary preprocessing.
+    Reads the timeseries from a CSV file.
+    It converts the dates column to datetime in UTC.
+    It drops the columns 'x', 'y', and 'Unnamed: 0' if they exist.
 
     Args:
     - file_path (str): Path to the CSV file.
@@ -1006,8 +1009,8 @@ def tidally_correct_timeseries(
     Returns:
         - pd.DataFrame: A DataFrame containing the timeseries_df that's been tidally corrected with the predicted tides
     """
-    timeseries_df = convert_transect_ids_to_rows(timeseries_df)
-    merged_df = merge_dataframes(tide_predictions_df, timeseries_df)
+    timeseries_df = common.convert_transect_ids_to_rows(timeseries_df)
+    merged_df = common.merge_dataframes(tide_predictions_df, timeseries_df)
     corrected_df = apply_tide_correction(merged_df, reference_elevation, beach_slope)
     return corrected_df
 

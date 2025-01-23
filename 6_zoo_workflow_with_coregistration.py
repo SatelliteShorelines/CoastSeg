@@ -27,6 +27,7 @@ model_setting = {
             "model_type": "global_segformer_RGB_4class_14036903", # model name from the zoo
             "otsu": False, # Otsu Thresholding
             "tta": False,  # Test Time Augmentation
+            "apply_segmentation_filter": True, # apply segmentation filter to the model outputs to sort them into good or bad
         }
 # Available models can run input "RGB" # or "MNDWI" or "NDWI"
 img_type = "RGB"  # make sure the model name is compatible with the image type
