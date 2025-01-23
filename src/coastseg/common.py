@@ -1953,15 +1953,17 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
     # Merge the shoreline vectors by date to get the model scores
     merged_timeseries_df['dates'] = pd.to_datetime(merged_timeseries_df["dates"], utc=True)
     new_gdf_shorelines_wgs84['date'] = pd.to_datetime(new_gdf_shorelines_wgs84["date"], utc=True)
-    new_gdf_shorelines_wgs84.merge(merged_timeseries_df, left_on='date',right_on = 'dates', how='left')
+    new_gdf_shorelines_wgs84 = new_gdf_shorelines_wgs84.merge(merged_timeseries_df, left_on='date',right_on = 'dates', how='left')
     # drop columns like x,y,shore_x,shore_y,cross_distance
-    new_gdf_shorelines_wgs84.drop(columns=['x','y','shore_x','shore_y','cross_distance','dates','transect_id'],inplace=True,errors='ignore')
+    new_gdf_shorelines_wgs84.drop(columns=['x','y','shore_x','shore_y','cross_distance','dates','transect_id','tide'],inplace=True,errors='ignore')
 
+    # convert the date column to a string and make timezone naive
+    new_gdf_shorelines_wgs84 = convert_date_gdf(new_gdf_shorelines_wgs84)
     new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
     new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
 
     # save the merged time series that includes the shore_x and shore_y columns to a geojson file and a  csv file
-    merged_timeseries_gdf_cleaned = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).rename(columns={'dates':'date'}).to_crs('epsg:4326'))
+    merged_timeseries_gdf_cleaned = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance','tide','transect_id'],errors='ignore').rename(columns={'dates':'date'}).to_crs('epsg:4326'))
     merged_timeseries_gdf_cleaned.to_file(os.path.join(save_location, f"{ext}_transect_time_series_points.geojson"), driver='GeoJSON')
     merged_timeseries_df = pd.DataFrame(merged_timeseries_gdf.drop(columns=['geometry']))
 
@@ -2057,9 +2059,6 @@ def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, tran
     # convert back to same crs as original merged_timeseries_gdf
     merged_timeseries_gdf = filtered_merged_timeseries_gdf_utm.to_crs(merged_timeseries_gdf.crs)
     return merged_timeseries_gdf, dropped_points_df
-
-
-
 
 
 def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326',retain_columns=False) -> gpd.GeoDataFrame:
