@@ -664,6 +664,7 @@ def aviso_fes_tides(
         # format: AVISO_FES_tides_2002-04-01.log
         today = time.strftime("%Y-%m-%d", time.localtime())
         LOGFILE = f"AVISO_FES_tides_{today}.log"
+        os.makedirs(DIRECTORY, exist_ok=True)
         fid = open(os.path.join(DIRECTORY, LOGFILE), mode="w", encoding="utf8")
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
@@ -951,6 +952,8 @@ def download_fes_tides(
     """
     # AVISO FTP Server hostname
     HOST = "ftp-access.aviso.altimetry.fr"
+    # Step 1: Create the directory if it does not exist
+    os.makedirs(directory, exist_ok=True)
 
     # check internet connection before attempting to run program
     if pyTMD.utilities.check_ftp_connection(HOST, user, password):

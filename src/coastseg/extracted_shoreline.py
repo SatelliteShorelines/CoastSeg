@@ -2226,6 +2226,7 @@ class Extracted_Shoreline:
         # Filter the segmentations to only include the good segmentations, then update the metadata to only include the files with the good segmentations
         good_directory = session_path
         if apply_segmentation_filter:
+            from coastseg import classifier
             good_directory = classifier.filter_segmentations(session_path)
         # Filter the metadata to only include the files with segmentations that are in the good_directory
         metadata= common.filter_metadata_with_dates(metadata,good_directory,file_type="npz")

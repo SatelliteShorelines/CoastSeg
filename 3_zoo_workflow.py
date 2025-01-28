@@ -37,11 +37,10 @@ percent_no_data = 0.75
 # 1. Set the User configuration Settings
 # ---------------------------
 # a. ENTER THE NAME OF THE SESSION TO SAVE THE MODEL PREDICTIONS TO
-model_session_name = "sample_session1_with_model_scores"
+model_session_name = "sample_session_demo1"
 # b. ENTER THE DIRECTORY WHERE THE INPUT IMAGES ARE STORED
 # -  Example of the directory where the input images are stored ( this should be the /data folder in the CoastSeg directory)
 sample_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_zyh1_datetime06-11-24__03_02_55\jpg_files\preprocessed\RGB"
-
 
 # 2. Save the settings to the model instance 
 # -----------------
@@ -64,13 +63,13 @@ shoreline_extraction_area_path= "" # path to the shoreline extraction area geojs
 
 # 3. Run the model and extract shorelines
 # -------------------------------------
-# zoo_model_instance.run_model_and_extract_shorelines(
-#             model_setting["sample_direc"],
-#             session_name=model_session_name,
-#             shoreline_path=shoreline_path,
-#             transects_path=transects_path,
-#             shoreline_extraction_area_path = shoreline_extraction_area_path
-#         )
+zoo_model_instance.run_model_and_extract_shorelines(
+            model_setting["sample_direc"],
+            session_name=model_session_name,
+            shoreline_path=shoreline_path,
+            transects_path=transects_path,
+            shoreline_extraction_area_path = shoreline_extraction_area_path
+        )
 
 # 4. OPTIONAL: Run Tide Correction
 # ------------------------------------------
@@ -87,6 +86,6 @@ shoreline_extraction_area_path= "" # path to the shoreline extraction area geojs
 # Parameters:
 beach_slope = 0.02 # Slope of the beach (m)
 reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
-# UNCOMMENT THESE LINES TO RUN THE TIDE CORRECTION
-roi_id = file_utilities.get_ROI_ID_from_session(model_session_name) # read ROI ID from the config.json file found in the extracted shoreline session directory
-compute_tidal_corrections(model_session_name, [roi_id], beach_slope, reference_elevation,model='FES2022')
+# UNCOMMENT THESE 2 LINES TO RUN THE TIDE CORRECTION
+# roi_id = file_utilities.get_ROI_ID_from_session(model_session_name) # read ROI ID from the config.json file found in the extracted shoreline session directory
+# compute_tidal_corrections(model_session_name, [roi_id], beach_slope, reference_elevation,model='FES2022')
