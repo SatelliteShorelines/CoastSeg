@@ -208,7 +208,7 @@ def run_inference(path_to_model_ckpt,
                        'model_scores':model_scores
                        }
                       )
-    df.to_csv(result_path)
+    df.to_csv(result_path,index=False)
     sort_images(result_path,
                 output_folder,
                 threshold=threshold)
