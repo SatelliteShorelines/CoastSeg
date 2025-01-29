@@ -240,7 +240,7 @@ def split_line(extracted_shorelines_gdf,
         new_lines_gdf = new_lines_gdf[new_lines_gdf['geom_type']!=shapely.Point].reset_index(drop=True)
         for column in column_names:
             new_lines_gdf[column] = [line[column].values[0]]*len(new_lines_gdf)
-        new_lines_gdf = new_lines_gdf.drop(columns=['geom_type', 'line_id'])
+        new_lines_gdf = new_lines_gdf.drop(columns=['geom_type', 'line_id'],errors='ignore')
         all_lines.append(new_lines_gdf)
         simplify_params.append(simplify_param)
 
@@ -398,7 +398,7 @@ def transect_timeseries(shorelines_gdf,
 
     for col in joined_gdf.columns:
         if col not in keep_columns:
-            joined_gdf = joined_gdf.drop(columns=[col])
+            joined_gdf = joined_gdf.drop(columns=[col],errors='ignore')
 
     joined_df = joined_gdf.reset_index(drop=True)
 
@@ -414,10 +414,7 @@ def transect_timeseries(shorelines_gdf,
     return joined_df
 
 
-
-
-
-def save_timeseries_to_points(timeseries_df,save_location,ext:str='raw'):
+def save_timeseries_to_lines(timeseries_df,save_location,ext:str='raw'):
     """
     Saves the timeseries of shoreline intersection points as a geojson file with CRS 4326.
     The output file will contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
@@ -433,14 +430,15 @@ def save_timeseries_to_points(timeseries_df,save_location,ext:str='raw'):
         None
     """
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
-    cross_shore_pts = convert_date_gdf(timeseries_df.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
+    cross_shore_pts = convert_date_gdf(timeseries_df.drop(columns=['x','y','shore_x','shore_y','cross_distance','transect_id'],errors='ignore').to_crs('epsg:4326'))
     # rename the dates column to date
     cross_shore_pts.rename(columns={'dates':'date'},inplace=True)
     new_gdf_shorelines_wgs84=convert_points_to_linestrings(cross_shore_pts, group_col='date', output_crs='epsg:4326')
+
     new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
     new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
 
-def save_timeseries_to_lines(timeseries_df,save_location,ext:str='raw'):
+def save_timeseries_to_points(timeseries_df,save_location,ext:str='raw'):
     """
     Saves the timeseries of shoreline intersections as series of lines as a geojson file with CRS 4326.
     The output file will contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
@@ -455,7 +453,7 @@ def save_timeseries_to_lines(timeseries_df,save_location,ext:str='raw'):
     Returns
         None
     """
-    timeseries_df_cleaned = convert_date_gdf(timeseries_df.drop(columns=['x','y','shore_x','shore_y','cross_distance']).rename(columns={'dates':'date'}).to_crs('epsg:4326'))
+    timeseries_df_cleaned = convert_date_gdf(timeseries_df.drop(columns=['x','y','shore_x','shore_y','cross_distance'],errors='ignore').rename(columns={'dates':'date'}).to_crs('epsg:4326'))
     timeseries_df_cleaned.to_file(os.path.join(save_location, f"{ext}_transect_time_series_points.geojson"), driver='GeoJSON')
 
 def save_transects_timeseries_to_geojson(timeseries_df,save_location,ext:str='raw'):
