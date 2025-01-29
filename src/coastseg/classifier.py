@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import shutil
 import pooch
-import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from coastseg import common
@@ -12,6 +11,12 @@ from coastseg import file_utilities
 
 # Some of these functions were originally written by Mark Lundine and have been modified for this project.
 
+# check if tensorflow is installed
+def check_tensorflow():
+    try:
+        import tensorflow as tf
+    except ImportError:
+        raise ImportError("Tensorflow is not installed. Please install tensorflow to use the classifier functions. Pip install tensorflow==2.12")
 
 
 def filter_segmentations(
@@ -180,6 +185,7 @@ def run_inference_rgb_image_classifier(path_to_model_ckpt,
     returns:
     csv_path (str): csv path of saved results
     """
+    import tensorflow as tf
     if not csv_path:
         csv_path = os.path.join(output_folder, 'image_classification_results.csv')
 
@@ -210,7 +216,7 @@ def run_inference_rgb_image_classifier(path_to_model_ckpt,
                        }
                       )
 
-    df.to_csv(csv_path)
+    df.to_csv(csv_path,index=False)
     sort_images(csv_path,
                 output_folder,
                 good_path=output_folder,
@@ -236,6 +242,7 @@ def run_inference_gray_image_classifier(path_to_model_ckpt,
     returns:
     csv_path (str): csv path of saved results
     """
+    import tensorflow as tf
     if not csv_path:
         csv_path = os.path.join(output_folder, 'image_classification_results.csv')
 
@@ -264,7 +271,7 @@ def run_inference_gray_image_classifier(path_to_model_ckpt,
                        'threshold':np.full(len(im_paths), threshold)
                        }
                       )
-    df.to_csv(csv_path)
+    df.to_csv(csv_path,index=False)
     sort_images(csv_path,
                 output_folder,
                 good_path=output_folder,
@@ -439,7 +446,7 @@ def run_inference_segmentation_classifier(path_to_model_ckpt:str,
     good_path (str): path to the directory containing the good images
     bad_path (str): path to the directory containing the bad images
     """
-
+    import tensorflow as tf
     os.makedirs(output_folder,exist_ok=True)
 
     if not good_path:
@@ -488,7 +495,7 @@ def run_inference_segmentation_classifier(path_to_model_ckpt:str,
     if not csv_path:
         csv_path = os.path.join(output_folder, 'segmentation_classification_results.csv')
 
-    df.to_csv(csv_path)
+    df.to_csv(csv_path,index=False)
     good_path,bad_path=sort_images(csv_path,
                 output_folder,
                 good_path=good_path,
