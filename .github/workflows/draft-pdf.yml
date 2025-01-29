@@ -1,23 +1,44 @@
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'paper/**' # Triggers the workflow when files in paper/ change
 
 jobs:
+  check-paper-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      paper_changed: ${{ steps.filter.outputs.paper }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for changes in paper directory
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            paper:
+              - 'paper/**'
+
   paper:
+    needs: check-paper-changes
+    if: needs.check-paper-changes.outputs.paper_changed == 'true'
     runs-on: ubuntu-latest
     name: Paper Draft
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Build draft PDF
         uses: openjournals/openjournals-draft-action@master
         with:
           journal: joss
-          # This should be the path to the paper within your repo.
           paper-path: paper/paper.md
-      - name: Upload
+
+      - name: Upload PDF
         uses: actions/upload-artifact@v4
         with:
           name: paper
-          # This is the output path where Pandoc will write the compiled
-          # PDF. Note, this should be the same directory as the input
-          # paper.md
           path: paper/paper.pdf
