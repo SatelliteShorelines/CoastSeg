@@ -41,11 +41,42 @@ from coastseg import core_utilities
 logger = logging.getLogger(__name__)
 
 def merge_tide_corrected_with_raw_timeseries(session_path,tide_timeseries):
+    """
+    Merges tide-corrected timeseries data with raw timeseries data to add columns such as the classifier scores,thresholds
+    and other relevant information to the tide-corrected timeseries data.
+
+    If the timeseries passed in is not the tide corrected one then it is returned as is. 
+
+    This function takes a session path and a tide timeseries DataFrame, 
+    converts the 'dates' column in the tide timeseries to datetime format, 
+    and attempts to find and read a raw timeseries CSV file in the specified 
+    session path. It then merges the tide timeseries with the raw timeseries 
+    on the 'dates' and 'transect_id' columns, excluding certain columns from 
+    the raw timeseries.
+
+    Parameters:
+    session_path (str): The file path to the session directory where the raw 
+                        timeseries CSV file is located.
+    tide_timeseries (pd.DataFrame): A DataFrame containing the tide-corrected 
+                                    timeseries data with a 'dates' column.
+
+    Returns:
+    pd.DataFrame: A DataFrame containing the merged timeseries data. If the 
+                    raw timeseries file is not found, returns the original 
+                    tide_timeseries DataFrame.
+    """
     tide_timeseries["dates"] = pd.to_datetime(tide_timeseries["dates"], utc=True)
+    # check if the tide timseries has a column called 'tide'
+    if 'tide' not in tide_timeseries.columns:
+        return tide_timeseries
+    try:
+        raw_time_series_location = file_utilities.find_file_by_regex(
+                    session_path, r"^raw_transect_time_series_merged\.csv$"
+                )
+    except FileNotFoundError as e:
+        logger.warning(f"Could not find raw_transect_time_series_merged.csv in {session_path}")
+        return tide_timeseries
     
-    raw_time_series_location = file_utilities.find_file_by_regex(
-                session_path, r"^raw_transect_time_series_merged\.csv$"
-            )
     df = pd.read_csv(raw_time_series_location)
     df["dates"] = pd.to_datetime(df["dates"], utc=True)
     # Drop the columns we don't want to include in the final merged dataframe
@@ -210,7 +241,7 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
 
     ##Assign the new geometries, save the output
     shorelines_gdf_filter['geometry'] = new_lines
-    shorelines_gdf_filter = shorelines_gdf_filter.drop(columns=['buffer_vals'])
+    shorelines_gdf_filter = shorelines_gdf_filter.drop(columns=['buffer_vals'],errors='ignore')
 
     return shorelines_gdf_filter
 
@@ -1628,13 +1659,12 @@ def create_complete_line_string(points):
 
     return LineString(sorted_points)
 
-def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
+def order_linestrings_gdf(gdf, output_crs='epsg:4326'):
     """
     Orders the linestrings in a GeoDataFrame by creating complete line strings from the given points.
 
     Args:
         gdf (GeoDataFrame): The input GeoDataFrame containing linestrings.
-        dates (list): The list of dates corresponding to the linestrings.
         output_crs (str): The output coordinate reference system (CRS) for the GeoDataFrame. Default is 'epsg:4326'.
 
     Returns:
@@ -1647,15 +1677,9 @@ def order_linestrings_gdf(gdf,dates, output_crs='epsg:4326'):
         gdf.to_crs(output_crs, inplace=True)
     else:
         gdf.set_crs(output_crs, inplace=True)
-        
-    all_points = [shapely.get_coordinates(p) for p in gdf.geometry]
-    lines = []
-    for points in all_points:
-        line_string = create_complete_line_string(points)
-        lines.append(line_string)
-    
-    gdf = gpd.GeoDataFrame({'geometry': lines,'date': dates},crs=output_crs)
 
+    gdf['geometry'] = gdf['geometry'].apply(lambda geom: create_complete_line_string(list(geom.coords)) if isinstance(geom, LineString) else geom)
+    
     return gdf
 
 
@@ -1722,7 +1746,6 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
 def convert_dates_to_UTC(df: pd.DataFrame, date_col: str,) -> pd.Series:
     # Check and convert to UTC
     if df[date_col].dt.tz is not None: # If the date column is timezone aware, convert it to UTC
-        print("Converting from:", df[date_col].dt.tz)
         df[date_col] = df[date_col].dt.tz_convert('UTC')
     else: # If the date column is timezone naive, localize it to UTC, (this makes it timezone aware)
         df[date_col] = df[date_col].dt.tz_localize('UTC')
@@ -1918,55 +1941,183 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
     # add the shoreline position as an x and y coordinate to the csv called shore_x and shore_y
     merged_timeseries_df = add_shore_points_to_timeseries(merged_timeseries_df, transects_gdf)
 
-    # The following code is for the zoo workflow but it shouldn't impact coastseg workflow
-    merged_timeseries_df = merge_tide_corrected_with_raw_timeseries(save_location,merged_timeseries_df)
+    # The following code is for the zoo workflow but it shouldn't impact coastseg workflow ( adds models scores to merged_timeseries_df)
+    if 'tide' in merged_timeseries_df.columns:
+        merged_timeseries_df = merge_tide_corrected_with_raw_timeseries(save_location,merged_timeseries_df)
 
+    if only_keep_points_on_transects:
+        merged_timeseries_df,timeseries_df = filter_points_not_on_transects(merged_timeseries_df,timeseries_df,transects_gdf,save_location,ext)
+
+    # convert merged timeseries to a geodataframe in crs 4326, that is because the the transects gdf has its points in epsg 4326
+    merged_timeseries_gdf = create_merged_timeseries_gdf(merged_timeseries_df)
+
+    if merged_timeseries_gdf.empty:
+        logger.warning(f"No extracted shorelines intersected the transects. Will not create '{ext}_transect_time_series_vectors.geojson' and '{ext}_transect_time_series_points.geojson' .")
+        print((f"No extracted shorelines intersected the transects. Will not create '{ext}_transect_time_series_vectors.geojson' and '{ext}_transect_time_series_points.geojson'."))
+        return merged_timeseries_df,timeseries_df
+
+    # saves the merged_timeseries to a geojson file called '{ext}_transect_time_series_points.geojson'. with the shore_x and shore_y values as points
+    save_timeseries_points_as_geojson(merged_timeseries_gdf,ext,save_location)
+    # saves the merged_timeseries to a geojson file called '{ext}_transect_time_series_vectors.geojson'. with the shore_x and shore_y values as points
+    save_timeseries_vectors_as_geojson(merged_timeseries_gdf,ext,save_location)
+
+    return merged_timeseries_df,timeseries_df
+
+def points_to_linestrings(gdf, date_column):
+    """
+    Converts points in a GeoDataFrame to LineStrings based on a specified date column.
+
+
+    Parameters:
+    gdf (GeoDataFrame): A GeoDataFrame containing point geometries.
+    date_column (str): The name of the column containing date information to group points by.
+    Returns:
+    GeoDataFrame: A new GeoDataFrame with LineString geometries created from the points.
+                  Each LineString is created by grouping points by the specified date column.
+                  If a group contains a single point, a pseudo-LineString is created by adding a small offset.
+    """
+    data = []
+
+    # Define a small offset for creating pseudo-lines from single points
+    offset = 0.0001  # Adjust based on coordinate system
+
+    for date, group in gdf.groupby(date_column):
+        if len(group) == 1:
+            # Handle a single point by creating a slightly modified copy
+            original_point = group.geometry.iloc[0]
+            if isinstance(original_point, Point):
+                modified_point = Point(original_point.x + offset, original_point.y + offset)
+                linestring = LineString([original_point, modified_point])
+            else:
+                # Skip if geometry is not a point
+                continue
+        elif len(group) >= 2:
+            # Create LineString from points
+            linestring = LineString(list(group.geometry))
+        else:
+            # Skip groups with no points
+            continue
+
+        # Copy attributes from the first row, ensure modifications don't impact the original group
+        attributes = group.iloc[0].copy().to_dict()
+        attributes[date_column] = date  # Ensure the date is correctly assigned
+        attributes['geometry'] = linestring  # Set the geometry to the linestring
+
+        # Append the attributes as a dictionary to the data list
+        data.append(attributes)
+
+    # Create a new GeoDataFrame from the list of dictionaries
+    new_gdf = gpd.GeoDataFrame(data, crs=gdf.crs)
+    new_gdf.reset_index(inplace=True,drop=True)
+
+    return new_gdf
+
+def create_merged_timeseries_gdf(merged_timeseries_df: pd.DataFrame) -> gpd.GeoDataFrame:
+    """
+    Convert a DataFrame containing timeseries data into a GeoDataFrame with geometry based on shore_x and shore_y columns.
+    Geodataframe is in crs 4326.
+    Args:
+        merged_timeseries_df (pd.DataFrame): The merged timeseries DataFrame containing 'shore_x' and 'shore_y' columns.
+
+    Returns:
+        gpd.GeoDataFrame: A GeoDataFrame with the same data as the input DataFrame, but with an added geometry column.
+    """
     # convert to geodataframe
     merged_timeseries_gdf = gpd.GeoDataFrame(
         merged_timeseries_df, 
         geometry=[Point(xy) for xy in zip(merged_timeseries_df['shore_x'], merged_timeseries_df['shore_y'])], 
         crs="EPSG:4326"
     )
-
     merged_timeseries_gdf.to_crs("EPSG:4326",inplace=True)
-    if only_keep_points_on_transects:
-        merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
-        if not dropped_points_df.empty:
-            timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
-            merged_timeseries_df = merged_timeseries_df[~merged_timeseries_df.set_index(['dates', 'transect_id']).index.isin(dropped_points_df.set_index(['dates', 'transect_id']).index)]
-            if len(merged_timeseries_df) == 0:
-                logger.warning("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
-                print("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+    return merged_timeseries_gdf
 
-    # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
-    cross_shore_pts = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance']).to_crs('epsg:4326'))
-    # rename the dates column to date
-    cross_shore_pts.rename(columns={'dates':'date'},inplace=True)
+def save_timeseries_points_as_geojson(merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None) -> gpd.GeoDataFrame:
+    """
+    Save the merged timeseries that includes the shore_x and shore_y columns to a GeoJSON file.
+
+    Args:
+        merged_timeseries_gdf (gpd.GeoDataFrame): The merged timeseries GeoDataFrame. Must contain columns 'shore_x', 'shore_y' and 'dates'.
+        ext (str, optional): The extension to add to the output filename. Defaults to "raw".
+        save_location (str, optional): The directory path to save the output file. Defaults to None.
+
+    Returns:
+        gpd.GeoDataFrame: The timeseries points GeoDataFrame.
+    """
+    if merged_timeseries_gdf.empty:
+        raise ValueError(f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty.")
     
-    # Create 2D vector of shorelines from where each shoreline intersected the transect
-    if cross_shore_pts.empty:
-        logger.warning("No points were found on the transects. Skipping the creation of the transect_time_series_points.geojson and transect_time_series_vectors.geojson files")
-        return merged_timeseries_df,timeseries_df
-    
-    new_gdf_shorelines_wgs84=convert_points_to_linestrings(cross_shore_pts, group_col='date', output_crs='epsg:4326')
+    timeseries_points_gdf = convert_date_gdf(
+        merged_timeseries_gdf.drop(
+            columns=['x', 'y', 'shore_x', 'shore_y', 'cross_distance', 'tide', 'transect_id'],
+            errors='ignore'
+        ).rename(columns={'dates': 'date'}).to_crs('epsg:4326')
+    )
+    if os.path.exists(save_location):
+        timeseries_points_gdf.to_file(
+            os.path.join(save_location, f"{ext}_transect_time_series_points.geojson"),
+            driver='GeoJSON'
+        )
+    return timeseries_points_gdf
 
-    # Merge the shoreline vectors by date to get the model scores
-    merged_timeseries_df['dates'] = pd.to_datetime(merged_timeseries_df["dates"], utc=True)
-    new_gdf_shorelines_wgs84['date'] = pd.to_datetime(new_gdf_shorelines_wgs84["date"], utc=True)
-    new_gdf_shorelines_wgs84 = new_gdf_shorelines_wgs84.merge(merged_timeseries_df, left_on='date',right_on = 'dates', how='left')
-    # drop columns like x,y,shore_x,shore_y,cross_distance
-    new_gdf_shorelines_wgs84.drop(columns=['x','y','shore_x','shore_y','cross_distance','dates','transect_id','tide'],inplace=True,errors='ignore')
+def save_timeseries_vectors_as_geojson(merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None) -> gpd.GeoDataFrame:
+    """
+    Save the time series of along shore points as vectors to a GeoJSON file called '{ext}_transect_time_series_vectors.geojson'.
 
-    # convert the date column to a string and make timezone naive
-    new_gdf_shorelines_wgs84 = convert_date_gdf(new_gdf_shorelines_wgs84)
-    new_gdf_shorelines_wgs84_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
-    new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
+    Args:
+        merged_timeseries_gdf (gpd.GeoDataFrame): The merged timeseries GeoDataFrame.
+        ext (str, optional): The extension to add to the output filename. Defaults to "raw".
+        save_location (str, optional): The directory path to save the output file. Defaults to None.
 
-    # save the merged time series that includes the shore_x and shore_y columns to a geojson file and a  csv file
-    merged_timeseries_gdf_cleaned = convert_date_gdf(merged_timeseries_gdf.drop(columns=['x','y','shore_x','shore_y','cross_distance','tide','transect_id'],errors='ignore').rename(columns={'dates':'date'}).to_crs('epsg:4326'))
-    merged_timeseries_gdf_cleaned.to_file(os.path.join(save_location, f"{ext}_transect_time_series_points.geojson"), driver='GeoJSON')
-    merged_timeseries_df = pd.DataFrame(merged_timeseries_gdf.drop(columns=['geometry']))
+    Returns:
+        gpd.GeoDataFrame: The timeseries vectors GeoDataFrame.
+    """
+    if merged_timeseries_gdf.empty:
+        # raise ValueError(f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty.")
+        logger.warning(f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty.")
+        return merged_timeseries_gdf
 
+    cross_shore_pts = convert_date_gdf(
+        merged_timeseries_gdf.drop(
+            columns=['x', 'y', 'shore_x', 'shore_y', 'cross_distance','transect_id',],
+            errors='ignore'
+        ).to_crs('epsg:4326').rename(columns={'dates': 'date'})
+    )
+    timeseries_lines_gdf = convert_points_to_linestrings(cross_shore_pts, group_col='date', output_crs='epsg:4326')
+    if os.path.exists(save_location):
+        timeseries_lines_gdf_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
+        
+        timeseries_lines_gdf.to_file(timeseries_lines_gdf_path)
+    return timeseries_lines_gdf
+
+def filter_points_not_on_transects(merged_timeseries_df: pd.DataFrame,
+                                   timeseries_df: pd.DataFrame,
+                                   transects_gdf: gpd.GeoDataFrame,
+                                   save_location: str,
+                                   ext: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Filter out points from the timeseries that do not land on the transects.
+    Returns both the modified merged timeseries and timeseries dataframes after dropping the points that
+    do not land on the transects.
+
+    Args:
+        merged_timeseries_df (pd.DataFrame): The merged timeseries DataFrame.
+        timeseries_df (pd.DataFrame): The original timeseries DataFrame.
+        transects_gdf (gpd.GeoDataFrame): The GeoDataFrame containing transects.
+        save_location (str): The directory path to save the output files.
+        ext (str): The extension to add to the output filenames.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing the filtered merged timeseries DataFrame and the filtered timeseries DataFrame.
+    """
+    # create a geodataframe from the merged timeseries dataframe
+    merged_timeseries_gdf = create_merged_timeseries_gdf(merged_timeseries_df)
+    merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
+    if not dropped_points_df.empty:
+        timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
+        merged_timeseries_df = merged_timeseries_df[~merged_timeseries_df.set_index(['dates', 'transect_id']).index.isin(dropped_points_df.set_index(['dates', 'transect_id']).index)]
+        if len(merged_timeseries_df) == 0:
+            logger.warning("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
+            print("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
     return merged_timeseries_df,timeseries_df
 
 def save_transects(
@@ -2061,7 +2212,7 @@ def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, tran
     return merged_timeseries_gdf, dropped_points_df
 
 
-def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326',retain_columns=False) -> gpd.GeoDataFrame:
+def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326',) -> gpd.GeoDataFrame:
     """
     Convert points to LineStrings.
 
@@ -2069,7 +2220,6 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326',
         gdf (gpd.GeoDataFrame): The input GeoDataFrame containing points.
         group_col (str): The column to group the GeoDataFrame by (default is 'date').
         output_crs (str): The coordinate reference system for the output GeoDataFrame (default is 'epsg:4326').
-        retain_columns (bool): Flag to determine if original non-geometry columns should be retained
 
     Returns:
         gpd.GeoDataFrame: A new GeoDataFrame containing LineStrings created from the points.
@@ -2077,30 +2227,19 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326',
     # Group the GeoDataFrame by date
     gdf = gdf.copy()
     # Convert to the output CRS
+    if gdf.empty:
+        return gdf
     if gdf.crs is not None:
         gdf.to_crs(output_crs, inplace=True)
     else:
         gdf.set_crs(output_crs, inplace=True)
-
-    # Group the GeoDataFrame by the specified column
-    grouped = gdf.groupby(group_col)
-
-    # Create LineStrings from each group that has at least two points
-    filtered_groups = grouped.filter(lambda g: g[group_col].count() > 1)
-    if len(filtered_groups) <= 0:
-        logger.warning("No groups contain at least two points, so no LineStrings can be created.")
-        return gpd.GeoDataFrame(columns=['geometry'])
     
-    # Recreate the groups as a geodataframe
-    grouped_gdf = gpd.GeoDataFrame(filtered_groups, geometry='geometry')
-    linestrings = grouped_gdf.groupby(group_col,group_keys=False).apply(lambda g: LineString(g.geometry.tolist()))
 
     # Create a new GeoDataFrame from the LineStrings
-    linestrings_gdf = gpd.GeoDataFrame(linestrings, columns=['geometry'],)
-    linestrings_gdf.reset_index(inplace=True)
+    linestrings_gdf = points_to_linestrings(gdf, group_col)
     
     # order the linestrings so that they are continuous
-    linestrings_gdf = order_linestrings_gdf(linestrings_gdf,linestrings_gdf['date'],output_crs=output_crs)
+    linestrings_gdf = order_linestrings_gdf(linestrings_gdf,output_crs=output_crs)
     
     return linestrings_gdf
 

@@ -21,6 +21,102 @@ import pytest
 from coastseg import common
 from typing import Dict, List, Union
 
+def test_empty_merged_timeseries_gdf():
+    # Create an empty GeoDataFrame with the necessary structure
+    empty_gdf = gpd.GeoDataFrame(columns=['x', 'y', 'shore_x', 'shore_y', 'cross_distance', 'dates'])
+
+    # Call the function with the empty GeoDataFrame
+    result = common.save_timeseries_vectors_as_geojson(empty_gdf,save_location=r"C:\Users\sf230\Downloads")
+
+    # Check that the result is also an empty GeoDataFrame
+    assert result.empty, "The result should be an empty GeoDataFrame"
+
+def test_get_seaward_points_gdf_no_crs():
+    # Create a GeoDataFrame with transect data
+    transects = gpd.GeoDataFrame(
+        {
+            "id": [1, 2, 3],
+            "geometry": [
+                LineString([(0, 0), (1, 1)]),
+                LineString([(1, 1), (2, 2)]),
+                LineString([(2, 2), (3, 3)]),
+            ],
+        }
+    )
+
+    # Call the function to get the seaward points GeoDataFrame
+    seaward_points_gdf = common.get_seaward_points_gdf(transects)
+
+    # Check that the seaward points GeoDataFrame was created correctly
+    assert isinstance(seaward_points_gdf, gpd.GeoDataFrame)
+    assert len(seaward_points_gdf) == 3
+    assert seaward_points_gdf.crs == "epsg:4326"
+    assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
+
+    # Check the geometry of the seaward points
+    assert seaward_points_gdf.loc[0, "geometry"] == Point(1, 1)
+    assert seaward_points_gdf.loc[1, "geometry"] == Point(2, 2)
+    assert seaward_points_gdf.loc[2, "geometry"] == Point(3, 3)
+
+def test_get_seaward_points_gdf():
+    # Create a GeoDataFrame with transect data
+    transects = gpd.GeoDataFrame(
+        {
+            "id": [1, 2],
+            "geometry": [
+                LineString([(-75.19473124155853,
+                38.13686333982983), (-75.16075424076779,
+                38.12447790470557)]),
+                LineString([( -75.20301831492232,
+                38.12317405244161), ( -75.16862696046286,
+                38.11274239609162)]),
+            ],
+        },
+        crs = 4326
+    ) 
+
+    # Call the function to get the seaward points GeoDataFrame
+    seaward_points_gdf = common.get_seaward_points_gdf(transects)
+
+    # Check that the seaward points GeoDataFrame was created correctly
+    assert isinstance(seaward_points_gdf, gpd.GeoDataFrame)
+    assert len(seaward_points_gdf) == 2
+    assert seaward_points_gdf.crs == "epsg:4326"
+    assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
+
+    # Check the geometry of the seaward points
+    assert seaward_points_gdf.loc[0, "geometry"] == Point(-75.16075424076779,38.12447790470557)
+    assert seaward_points_gdf.loc[1, "geometry"] == Point( -75.16862696046286,
+            38.11274239609162)
+
+def test_get_seaward_points_gdf_diff_crs():
+    # Create a GeoDataFrame with transect data
+    transects = gpd.GeoDataFrame(
+        {
+            "id": [1, 2],
+            "geometry": [
+                LineString([(-8370639.1921473555, 4598778.094918826), (-8366856.889720647, 4597025.320623461)]),
+                LineString([( -8371561.704934379, 4596840.818066094), ( -8367733.276868261, 4595364.797606845)]),
+            ],
+        },
+        crs = 3857
+    ) 
+
+    # Call the function to get the seaward points GeoDataFrame
+    seaward_points_gdf = common.get_seaward_points_gdf(transects)
+
+    # Check that the seaward points GeoDataFrame was created correctly
+    assert isinstance(seaward_points_gdf, gpd.GeoDataFrame)
+    assert len(seaward_points_gdf) == 2
+    assert seaward_points_gdf.crs == "epsg:4326"
+    assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
+
+    transects.to_crs(epsg=4326, inplace=True)
+    assert list(seaward_points_gdf.loc[0, "geometry"].coords)[0] == list(transects.loc[0, "geometry"].coords)[1]
+    # assert seaward_points_gdf.loc[1, "geometry"] == Point( -75.16862696046286,
+    #         38.11274239609162)
+ 
+
 
 def test_authenticate_and_initialize_success():
     with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
@@ -75,15 +171,13 @@ def test_authenticate_and_initialize_max_attempts():
 
 def test_order_linestrings_gdf_empty():
     gdf = gpd.GeoDataFrame({'geometry': []})
-    dates = []
-    result = common.order_linestrings_gdf(gdf, dates)
+    result = common.order_linestrings_gdf(gdf)
     assert result.empty, "Expected an empty GeoDataFrame for empty input"
 
 def test_order_linestrings_gdf_single_linestring():
     points = np.array([[0, 0], [1, 1]])
-    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)]}, crs='epsg:4326')
-    dates = ['2023-01-01']
-    result = common.order_linestrings_gdf(gdf, dates)
+    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)],'date': ['2023-01-01']}, crs='epsg:4326')
+    result = common.order_linestrings_gdf(gdf)
     expected_line = common.create_complete_line_string(points)
     assert len(result) == 1, "Expected one linestring in the result"
     assert result.iloc[0].geometry.equals(expected_line), "The geometry of the linestring is incorrect"
@@ -92,9 +186,8 @@ def test_order_linestrings_gdf_single_linestring():
 def test_order_linestrings_gdf_multiple_linestrings():
     points1 = np.array([[0, 0], [1, 1]])
     points2 = np.array([[1, 1], [2, 2]])
-    gdf = gpd.GeoDataFrame({'geometry': [LineString(points1), LineString(points2)]}, crs='epsg:4326')
-    dates = ['2023-01-01', '2023-01-02']
-    result = common.order_linestrings_gdf(gdf, dates)
+    gdf = gpd.GeoDataFrame({'geometry': [LineString(points1), LineString(points2)],'date':['2023-01-01', '2023-01-02']}, crs='epsg:4326')
+    result = common.order_linestrings_gdf(gdf)
     expected_line1 = common.create_complete_line_string(points1)
     expected_line2 = common.create_complete_line_string(points2)
     assert len(result) == 2, "Expected two linestrings in the result"
@@ -103,18 +196,12 @@ def test_order_linestrings_gdf_multiple_linestrings():
     assert result.iloc[0].date == '2023-01-01', "The first date is incorrect"
     assert result.iloc[1].date == '2023-01-02', "The second date is incorrect"
 
-# def test_order_linestrings_gdf_crs_conversion():
-#     points = np.array([[0, 0], [1, 1]])
-#     gdf = gpd.GeoDataFrame({'geometry': [LineString(points)]}, crs='epsg:3857')
-#     dates = ['2023-01-01']
-#     result = common.order_linestrings_gdf(gdf, dates, output_crs='epsg:4326')
-#     assert result.crs.to_string() == 'epsg:4326', "The CRS is not converted to 'epsg:4326'"
+
     
 def test_order_linestrings_gdf_duplicate_points():
     points = np.array([[0, 0], [1, 1], [1, 1], [2, 2]])
-    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)]}, crs='epsg:4326')
-    dates = ['2023-01-01']
-    result = common.order_linestrings_gdf(gdf, dates)
+    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)],'date':['2023-01-01']}, crs='epsg:4326')
+    result = common.order_linestrings_gdf(gdf)
     expected_line = common.create_complete_line_string(points)
     assert len(result) == 1, "Expected one linestring in the result"
     assert result.iloc[0].geometry.equals(expected_line), "The geometry of the linestring is incorrect"
@@ -2349,7 +2436,7 @@ def test_convert_points_to_linestrings():
     linestrings_gdf = convert_points_to_linestrings(gdf, output_crs=output_crs)
 
     # Check the result
-    assert len(linestrings_gdf) == 1
+    assert len(linestrings_gdf) == 2
     assert linestrings_gdf.geometry.iloc[0].geom_type == "LineString"
     # Check the CRS
     assert linestrings_gdf.crs == output_crs
@@ -2371,7 +2458,7 @@ def test_convert_points_to_linestrings_not_enough_pts():
     linestrings_gdf = convert_points_to_linestrings(gdf, output_crs=output_crs)
 
     # Check the result
-    assert len(linestrings_gdf) == 0
+    assert len(linestrings_gdf) == 3
 
 def test_convert_points_to_linestrings_single_point_per_date():
     # Create a GeoDataFrame with points

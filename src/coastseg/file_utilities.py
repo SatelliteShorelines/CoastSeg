@@ -138,7 +138,7 @@ def join_model_scores_to_time_series(transect_time_series_merged_path,
             transect_time_series_merged.rename(columns={'threshold': 'segmentation_threshold'}, inplace=True)
 
     # Save updated DataFrame
-    transect_time_series_merged.to_csv(transect_time_series_merged_path)
+    transect_time_series_merged.to_csv(transect_time_series_merged_path,index=False)
     print(f"Saved updated transect time series to {transect_time_series_merged_path}")
 
     return transect_time_series_merged_path
