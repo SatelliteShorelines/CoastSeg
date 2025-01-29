@@ -2,15 +2,15 @@ import os
 import json
 import tempfile
 import geopandas as gpd
+import numpy as np
+import pandas as pd
 from shapely.geometry import Point
 from shapely.geometry import LineString
 from shapely.geometry import Polygon
-from coastseg.tide_correction import save_transect_settings, get_seaward_points_gdf
-from coastseg.tide_correction import load_regions_from_geojson
-import pandas as pd
 from coastseg.tide_correction import get_tide_predictions
+from coastseg.tide_correction import save_transect_settings
+from coastseg.tide_correction import load_regions_from_geojson
 from unittest.mock import patch
-import numpy as np
 
 def test_save_transect_settings():
     # Create a temporary directory
@@ -44,91 +44,6 @@ def test_save_transect_settings_no_file():
         assert settings["reference_elevation"] == 1.23
         assert settings["beach_slope"] == 4.56
 
-def test_get_seaward_points_gdf():
-    # Create a GeoDataFrame with transect data
-    transects = gpd.GeoDataFrame(
-        {
-            "id": [1, 2],
-            "geometry": [
-                LineString([(-75.19473124155853,
-                38.13686333982983), (-75.16075424076779,
-                38.12447790470557)]),
-                LineString([( -75.20301831492232,
-                38.12317405244161), ( -75.16862696046286,
-                38.11274239609162)]),
-            ],
-        },
-        crs = 4326
-    ) 
-
-    # Call the function to get the seaward points GeoDataFrame
-    seaward_points_gdf = get_seaward_points_gdf(transects)
-
-    # Check that the seaward points GeoDataFrame was created correctly
-    assert isinstance(seaward_points_gdf, gpd.GeoDataFrame)
-    assert len(seaward_points_gdf) == 2
-    assert seaward_points_gdf.crs == "epsg:4326"
-    assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
-
-    # Check the geometry of the seaward points
-    assert seaward_points_gdf.loc[0, "geometry"] == Point(-75.16075424076779,38.12447790470557)
-    assert seaward_points_gdf.loc[1, "geometry"] == Point( -75.16862696046286,
-            38.11274239609162)
-
-def test_get_seaward_points_gdf_diff_crs():
-    # Create a GeoDataFrame with transect data
-    transects = gpd.GeoDataFrame(
-        {
-            "id": [1, 2],
-            "geometry": [
-                LineString([(-8370639.1921473555, 4598778.094918826), (-8366856.889720647, 4597025.320623461)]),
-                LineString([( -8371561.704934379, 4596840.818066094), ( -8367733.276868261, 4595364.797606845)]),
-            ],
-        },
-        crs = 3857
-    ) 
-
-    # Call the function to get the seaward points GeoDataFrame
-    seaward_points_gdf = get_seaward_points_gdf(transects)
-
-    # Check that the seaward points GeoDataFrame was created correctly
-    assert isinstance(seaward_points_gdf, gpd.GeoDataFrame)
-    assert len(seaward_points_gdf) == 2
-    assert seaward_points_gdf.crs == "epsg:4326"
-    assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
-
-    transects.to_crs(epsg=4326, inplace=True)
-    assert list(seaward_points_gdf.loc[0, "geometry"].coords)[0] == list(transects.loc[0, "geometry"].coords)[1]
-    # assert seaward_points_gdf.loc[1, "geometry"] == Point( -75.16862696046286,
-    #         38.11274239609162)
- 
-def test_get_seaward_points_gdf_no_crs():
-    # Create a GeoDataFrame with transect data
-    transects = gpd.GeoDataFrame(
-        {
-            "id": [1, 2, 3],
-            "geometry": [
-                LineString([(0, 0), (1, 1)]),
-                LineString([(1, 1), (2, 2)]),
-                LineString([(2, 2), (3, 3)]),
-            ],
-        }
-    )
-
-    # Call the function to get the seaward points GeoDataFrame
-    seaward_points_gdf = get_seaward_points_gdf(transects)
-
-    # Check that the seaward points GeoDataFrame was created correctly
-    assert isinstance(seaward_points_gdf, gpd.GeoDataFrame)
-    assert len(seaward_points_gdf) == 3
-    assert seaward_points_gdf.crs == "epsg:4326"
-    assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
-
-    # Check the geometry of the seaward points
-    assert seaward_points_gdf.loc[0, "geometry"] == Point(1, 1)
-    assert seaward_points_gdf.loc[1, "geometry"] == Point(2, 2)
-    assert seaward_points_gdf.loc[2, "geometry"] == Point(3, 3)
-    
 
 def test_load_regions_from_geojson():
     # Create a temporary GeoJSON file

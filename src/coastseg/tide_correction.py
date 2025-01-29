@@ -12,6 +12,7 @@ from coastseg import common
 from coastseg import core_utilities
 
 # Third-party imports
+from tqdm import tqdm
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -535,7 +536,6 @@ def get_tide_predictions(
     )
     return tide_predictions_df
 
-
 def predict_tides_for_df(
     seaward_points_gdf: gpd.GeoDataFrame,
     timeseries_df: pd.DataFrame,
@@ -546,37 +546,82 @@ def predict_tides_for_df(
 
     Parameters:
     - seaward_points_gdf: A GeoDataFrame containing seaward points for each transect
-    - timeseries_df: A DataFrame containing time series data for each transect. A DataFrame containing time series data for the transects
+    - timeseries_df: A DataFrame containing time series data for each transect.
     - config: Configuration dictionary.
-        Must contain key:
-        "REGION_DIRECTORY" : contains full path to the fes  model region folder
+        Must contain keys:
+        "REGION_DIRECTORY" : contains full path to the FES model region folder
         "MODEL" : The tide model to use. Defaults to 'FES2022'
 
     Returns:
     - pd.DataFrame: A DataFrame containing predicted tides.
-    Contains columns dates,x,y,tide,transect_id
+    Contains columns dates, x, y, tide, transect_id
     """
     region_directory = config["REGION_DIRECTORY"]
-    # Apply the get_tide_predictions over each row and collect results in a list
-    all_tides = seaward_points_gdf.apply(
-        lambda row: get_tide_predictions(row.geometry.x,
-                                         row.geometry.y,
-                                         timeseries_df,
-                                         f"{region_directory}{row['region_id']}",
-                                         row["transect_id"],
-                                         model = config["MODEL"]),
-                                        axis=1,              
+    # Use tqdm to add a progress bar for the apply function
+    tqdm.pandas(desc=f"  Predicting tides for {len(seaward_points_gdf)} transects")
+    all_tides = seaward_points_gdf.progress_apply(
+        lambda row: get_tide_predictions(
+            row.geometry.x,
+            row.geometry.y,
+            timeseries_df,
+            f"{region_directory}{row['region_id']}",
+            row["transect_id"],
+            model=config["MODEL"]
+        ),
+        axis=1
     )
     # Filter out None values
     all_tides = all_tides.dropna()
-    # if no tides are predicted return an empty dataframe
+    # If no tides are predicted return an empty dataframe
     if all_tides.empty:
         return pd.DataFrame(columns=["dates", "x", "y", "tide", "transect_id"])
-    
+
     # Concatenate all the results
     all_tides_df = pd.concat(all_tides.tolist())
 
     return all_tides_df
+
+# def predict_tides_for_df(
+#     seaward_points_gdf: gpd.GeoDataFrame,
+#     timeseries_df: pd.DataFrame,
+#     config: dict,
+# ) -> pd.DataFrame:
+#     """
+#     Predict tides for a points in the DataFrame.
+
+#     Parameters:
+#     - seaward_points_gdf: A GeoDataFrame containing seaward points for each transect
+#     - timeseries_df: A DataFrame containing time series data for each transect. A DataFrame containing time series data for the transects
+#     - config: Configuration dictionary.
+#         Must contain key:
+#         "REGION_DIRECTORY" : contains full path to the fes  model region folder
+#         "MODEL" : The tide model to use. Defaults to 'FES2022'
+
+#     Returns:
+#     - pd.DataFrame: A DataFrame containing predicted tides.
+#     Contains columns dates,x,y,tide,transect_id
+#     """
+#     region_directory = config["REGION_DIRECTORY"]
+#     # Apply the get_tide_predictions over each row and collect results in a list
+#     all_tides = seaward_points_gdf.apply(
+#         lambda row: get_tide_predictions(row.geometry.x,
+#                                          row.geometry.y,
+#                                          timeseries_df,
+#                                          f"{region_directory}{row['region_id']}",
+#                                          row["transect_id"],
+#                                          model = config["MODEL"]),
+#                                         axis=1,              
+#     )
+#     # Filter out None values
+#     all_tides = all_tides.dropna()
+#     # if no tides are predicted return an empty dataframe
+#     if all_tides.empty:
+#         return pd.DataFrame(columns=["dates", "x", "y", "tide", "transect_id"])
+    
+#     # Concatenate all the results
+#     all_tides_df = pd.concat(all_tides.tolist())
+
+#     return all_tides_df
 
 
 def model_tides(
