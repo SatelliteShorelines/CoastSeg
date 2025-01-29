@@ -2,7 +2,6 @@
 import colorsys
 import copy
 import re
-from coastseg import classifier
 import fnmatch
 import json
 import json
@@ -2225,9 +2224,16 @@ class Extracted_Shoreline:
         
         # Filter the segmentations to only include the good segmentations, then update the metadata to only include the files with the good segmentations
         good_directory = session_path
-        if apply_segmentation_filter:
-            from coastseg import classifier
-            good_directory = classifier.filter_segmentations(session_path)
+
+        try:
+            if apply_segmentation_filter:
+                from coastseg import classifier
+                classifier.check_tensorflow()
+                good_directory = classifier.filter_segmentations(session_path)
+        except ImportError as e:
+            logger.warning(f"Skipping segmentation filtering. Failed to import classifier module: {e}")
+            print(f"Tensorflow 2.12 is not installed. Skipping segmentation filtering.")
+
         # Filter the metadata to only include the files with segmentations that are in the good_directory
         metadata= common.filter_metadata_with_dates(metadata,good_directory,file_type="npz")
 
