@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
 
-name: Test CoastSeg Pip Installation
+name: Test CoastSeg Pip Installation (pip install -e .)
 jobs:
   Test:
     name: ${{ matrix.os }}

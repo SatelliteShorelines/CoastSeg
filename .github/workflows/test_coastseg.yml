@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
 
-name: Test CoastSeg
+name: Test CoastSeg Pip Package From PyPI 
 jobs:
   Test:
     name: ${{ matrix.os }}, ${{ matrix.env }}
