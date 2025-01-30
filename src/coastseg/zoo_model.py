@@ -786,23 +786,23 @@ class Zoo_Model:
             desc=f"Running {model_name} model and extracting shorelines",
             leave=True,
         )
-        # run the model # todo remove this comment
-        # self.run_model(
-        #     img_type,
-        #     model_implementation,
-        #     session_name,
-        #     input_directory,
-        #     model_name=model_name,
-        #     use_GPU=use_GPU,
-        #     use_otsu=use_otsu,
-        #     use_tta=use_tta,
-        #     percent_no_data=percent_no_data,
-        #     coregistered = coregistered,
-        # )
-        # prog_bar.update(1)
-        # prog_bar.set_description_str(
-        #                         desc=f"Ran model now extracting shorelines", refresh=True
-        # )
+        # run the model
+        self.run_model(
+            img_type,
+            model_implementation,
+            session_name,
+            input_directory,
+            model_name=model_name,
+            use_GPU=use_GPU,
+            use_otsu=use_otsu,
+            use_tta=use_tta,
+            percent_no_data=percent_no_data,
+            coregistered = coregistered,
+        )
+        prog_bar.update(1)
+        prog_bar.set_description_str(
+                                desc=f"Ran model now extracting shorelines", refresh=True
+        )
         sessions_path = os.path.join(core_utilities.get_base_dir(), "sessions")
         session_directory = file_utilities.create_directory(sessions_path, session_name)
         # extract shorelines using the segmented imagery
@@ -852,6 +852,7 @@ class Zoo_Model:
         settings["model_session_path"] = session_path
         self.set_settings(**settings)
         settings = self.get_settings()
+        good_bad_csv = None
 
         # create session path to store extracted shorelines and transects
         base_path = core_utilities.get_base_dir()
@@ -868,8 +869,11 @@ class Zoo_Model:
             if config.get("roi_ids"):
                 roi_id = config["roi_ids"][0]
             roi_settings = {roi_id:config[roi_id]}
-            good_bad_csv = file_utilities.find_file_path_in_roi(roi_id,roi_settings,"image_classification_results.csv")
-
+            try:
+                good_bad_csv = file_utilities.find_file_path_in_roi(roi_id,roi_settings,"image_classification_results.csv")
+            except Exception as e:
+                logger.error(f"good_bad_csv not found for ROI {roi_id}: {e}")
+                good_bad_csv = None
         except (KeyError, ValueError) as e:
             logger.error(f"{roi_id} ROI settings did not exist: {e}")
             if roi_id is None:
