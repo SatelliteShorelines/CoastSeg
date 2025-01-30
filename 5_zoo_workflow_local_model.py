@@ -40,7 +40,7 @@ percent_no_data = 0.75
 # 1. Set the User configuration Settings
 # ---------------------------
 # a. ENTER THE NAME OF THE SESSION TO SAVE THE MODEL PREDICTIONS TO
-model_session_name = "sample_session_demo1"
+session_name = "sample_session_demo1"
 # b. ENTER THE DIRECTORY WHERE THE INPUT IMAGES ARE STORED
 # -  Example of the directory where the input images are stored ( this should be the /data folder in the CoastSeg directory)
 sample_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_wra5_datetime03-04-24__03_43_01\jpg_files\preprocessed\RGB"
@@ -69,7 +69,7 @@ shoreline_extraction_area_path= "" # path to the shoreline extraction area geojs
 # -------------------------------------
 zoo_model_instance.run_model_and_extract_shorelines(
             model_setting["sample_direc"],
-            session_name=model_session_name,
+            session_name=session_name,
             shoreline_path=shoreline_path,
             transects_path=transects_path,
             shoreline_extraction_area_path = shoreline_extraction_area_path
