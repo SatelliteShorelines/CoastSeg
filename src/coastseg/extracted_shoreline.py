@@ -1312,8 +1312,6 @@ def plot_image_with_legend(
     masked_array = None
     if im_ref_buffer is not None:
         masked_array = np.ma.masked_where(im_ref_buffer == False, im_ref_buffer)
-    # color map for the reference shoreline buffer
-    masked_cmap = plt.get_cmap("PiYG")
 
     # if original_image is wider than 2.5 times as tall, plot the images in a 3x1 grid (vertical)
     if original_image.shape[0] > 2.5 * original_image.shape[1]:
@@ -1346,7 +1344,7 @@ def plot_image_with_legend(
     ax2.imshow(merged_overlay)
     # Plot the reference shoreline buffer
     if masked_array is not None:
-        ax2.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
+        ax2.imshow(masked_array, cmap=plt.get_cmap("PiYG"), alpha=0.25)
     ax2.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
     for idx in range(len(pixelated_shoreline_extraction_area)):
         ax2.plot(pixelated_shoreline_extraction_area[idx][:, 0], pixelated_shoreline_extraction_area[idx][:, 1], color='#cb42f5', markersize=1)
@@ -1363,7 +1361,7 @@ def plot_image_with_legend(
     # Plot the second image that shows all the classes separately
     ax3.imshow(all_overlay)
     if masked_array is not None:
-        ax3.imshow(masked_array, cmap=masked_cmap, alpha=0.60)
+        ax3.imshow(masked_array, cmap=plt.get_cmap("PiYG"), alpha=0.30)
     ax3.plot(pixelated_shoreline[:, 0], pixelated_shoreline[:, 1], "k.", markersize=1)
     for idx in range(len(pixelated_shoreline_extraction_area)):
         ax3.plot(pixelated_shoreline_extraction_area[idx][:, 0], pixelated_shoreline_extraction_area[idx][:, 1], color='#cb42f5', markersize=1)
@@ -1541,7 +1539,7 @@ def shoreline_detection_figures(
     # Create legend for the shorelines
     black_line = mlines.Line2D([], [], color="k", linestyle="-", label="shoreline")
     buffer_patch = mpatches.Patch(
-        color="#800000", alpha=0.80, label="Reference shoreline buffer"
+        color="#800000", alpha=0.50, label="Reference shoreline buffer"
     )
     # The additional patches to be appended to the legend
     additional_legend_items = [black_line, buffer_patch]

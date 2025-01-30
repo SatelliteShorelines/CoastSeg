@@ -157,7 +157,6 @@ def join_model_scores_to_shorelines(shorelines_path,
     str: path to the shoreline points with model scores joined.
     """
     # Load shorelines data
-    print(shorelines_path)
     shorelines_gdf = gpd.read_file(shorelines_path)
     shorelines_gdf['date'] = pd.to_datetime(shorelines_gdf['date'], utc=True)
 
