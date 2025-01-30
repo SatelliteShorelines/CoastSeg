@@ -83,6 +83,11 @@ def merge_tide_corrected_with_raw_timeseries(session_path,tide_timeseries):
     raw_timseries = df.drop(columns=['shore_x', 'shore_y','x','y','cross_distance'], errors='ignore')
     #drop any unnamed columns
     raw_timseries = raw_timseries.loc[:, ~raw_timseries.columns.str.contains('^Unnamed')]
+
+    # convert both transect_id columns to string to avoid merge issues
+    tide_timeseries['transect_id'] = tide_timeseries['transect_id'].astype(str)
+    raw_timseries['transect_id'] = raw_timseries['transect_id'].astype(str)
+
     return pd.merge(tide_timeseries, raw_timseries, on=['dates','transect_id'], how='left')
 
 def delete_unmatched_rows(
