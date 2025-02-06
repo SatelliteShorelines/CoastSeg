@@ -89,6 +89,11 @@ nav:
       - How to Tidally Correct: How-to-Tidally-Correct.md
       - How to Create Reference Shorelines & Transects & ROIs: How-to-Create-Reference-Shorelines-&-Transects&ROIs.md
       - How to Filter Bad Imagery: How-to-Filter-Out-Bad-Imagery.md
+  - Tide Correction:
+      - How to Download the Tide Model: How-to-Download-Tide-Model-updated.md
+      # - How to Tidally Correct: How-to-Tidally-Correct.md
+      # - How to Apply Tidal Correction: How-to-Apply-Tidal-Correction.md
+      # - How to Predict Tides: How-to-Predict-Tides.md
   - API Reference:
       - How to use CoastSeg API: CoastSeg-API-Guide.md
   - Zoo: models.md
