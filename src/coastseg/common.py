@@ -22,7 +22,7 @@ import requests
 import shapely
 from area import area
 from ipyfilechooser import FileChooser
-from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox
+from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox,Button
 from PIL import Image
 from requests.exceptions import SSLError
 from shapely import geometry
@@ -65,6 +65,10 @@ def merge_tide_corrected_with_raw_timeseries(session_path,tide_timeseries):
                     raw timeseries file is not found, returns the original 
                     tide_timeseries DataFrame.
     """
+    # if the tides dataframe already has the columns from the model scores then we don't need to merge
+    model_cols = ['classifier_model_score','classifier_threshold','segmentation_model_score','segmentation_threshold',]
+    if any(col in tide_timeseries.columns for col in model_cols):
+        return tide_timeseries
     tide_timeseries["dates"] = pd.to_datetime(tide_timeseries["dates"], utc=True)
     # check if the tide timseries has a column called 'tide'
     if 'tide' not in tide_timeseries.columns:
@@ -87,7 +91,6 @@ def merge_tide_corrected_with_raw_timeseries(session_path,tide_timeseries):
     # convert both transect_id columns to string to avoid merge issues
     tide_timeseries['transect_id'] = tide_timeseries['transect_id'].astype(str)
     raw_timseries['transect_id'] = raw_timseries['transect_id'].astype(str)
-
     return pd.merge(tide_timeseries, raw_timseries, on=['dates','transect_id'], how='left')
 
 def delete_unmatched_rows(
@@ -2311,6 +2314,54 @@ def copy_configs(src: str, dst: str) -> None:
             logger.info(f"Copying {config_json_path} to {dst_file}")
             shutil.copy(config_json_path, dst_file)
 
+def create_file_chooser_with_clear(
+    callback,
+    title: str = "Select a file",
+    filter_pattern: str = "",
+    starting_directory: str = "",
+):
+    """
+    This function creates a file chooser with a clear button.
+    It takes a callback function and an optional title as arguments.
+    It only searches for .geojson files, unless a different filter pattern is specified.
+
+    Args:
+        callback (Callable[[FileChooser], None]): A callback function that is called
+        when a file is selected.
+        title (str): Optional title for the file chooser.
+        filter_pattern (str): Optional filter pattern for the file chooser.
+        starting_directory (str): Optional starting directory for the file chooser.
+
+    Returns:
+        chooser (HBox): A HBox containing the file chooser and a clear button.
+    """
+    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
+    initial_path = os.getcwd()
+    if starting_directory:
+        initial_path = os.path.join(initial_path, starting_directory)
+    file_chooser = FileChooser(initial_path)
+
+    file_chooser.dir_icon = os.sep
+    file_chooser.filter_pattern = ["*.geojson"] if not filter_pattern else [filter_pattern]
+    file_chooser.title = f"<b>{title or 'Select a geojson file'}</b>"
+    
+    # callback function is called when a file is selected
+    file_chooser.register_callback(callback)
+
+    clear_button = Button(
+        description="Clear",
+        tooltip="Clear the selected file",
+        button_style="warning",
+        layout=Layout(height="28px", padding=padding)
+    )
+
+    def clear_selection(b):
+        file_chooser.reset()  # resets the file chooser
+
+    clear_button.on_click(clear_selection)
+
+    chooser = HBox([file_chooser, clear_button], layout=Layout(width="100%"))
+    return chooser, file_chooser
 
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
@@ -2327,6 +2378,8 @@ def create_file_chooser(
         callback (Callable[[FileChooser],None]): A callback function that which is called
         when a file is selected.
         title (str): Optional title for the file chooser.
+        filter_pattern (str): Optional filter pattern for the file chooser.
+        starting_directory (str): Optional starting directory for the file chooser.
 
     Returns:
         chooser (HBox): A HBox containing the file chooser and close button.
