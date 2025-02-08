@@ -344,6 +344,9 @@ def transect_timeseries(shorelines_gdf,
     
     # get points, keep highest cross distance point if multipoint (most seaward intersection)
     joined_gdf['intersection_point'] = joined_gdf.geometry.intersection(joined_gdf['geometry_saved'])
+    # reset the index because running the intersection function changes the index
+    joined_gdf = joined_gdf.reset_index(drop=True)
+
 
     for i in range(len(joined_gdf['intersection_point'])):
         point = joined_gdf['intersection_point'].iloc[i]
@@ -358,10 +361,10 @@ def transect_timeseries(shorelines_gdf,
                 dists[j] = cross_distance(start_x, start_y, coords['x'].iloc[j], coords['y'].iloc[j])
             max_dist_idx = np.argmax(dists)
             last_point = points[max_dist_idx]
-            joined_gdf['intersection_point'].iloc[i] = last_point
+            # This new line  updates the shoreline at index (i) for a single value. We only want to update a single shoreline
+            joined_gdf.at[i, 'intersection_point'] = last_point # is only edits a single intersection point
+            
     # get x's and y's for intersections
-
-
     intersection_coords = joined_gdf['intersection_point'].get_coordinates()
     joined_gdf['shore_x'] = intersection_coords['x']
     joined_gdf['shore_y'] = intersection_coords['y']
