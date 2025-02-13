@@ -91,6 +91,8 @@ nav:
       - How to Filter Bad Imagery: How-to-Filter-Out-Bad-Imagery.md
   - Tide Correction:
       - How to Download the Tide Model: How-to-Download-Tide-Model-updated.md
+      - Acceptable Formats to Upload Slopes: slope-file-format.md
+      - Acceptable Formats to Upload Tides: tide-file-format.md
       # - How to Tidally Correct: How-to-Tidally-Correct.md
       # - How to Apply Tidal Correction: How-to-Apply-Tidal-Correction.md
       # - How to Predict Tides: How-to-Predict-Tides.md
