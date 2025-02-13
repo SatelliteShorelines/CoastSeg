@@ -2,7 +2,7 @@ import logging
 import os
 
 from IPython.display import display
-from coastseg import common, core_utilities, file_utilities, settings_UI, zoo_model
+from coastseg import common, core_utilities, file_utilities, settings_UI, zoo_model,UI_elements
 from coastseg.tide_correction import compute_tidal_corrections
 from coastseg.upload_feature_widget import FileUploader
 from ipyfilechooser import FileChooser
@@ -297,16 +297,17 @@ class UI_Models:
     def create_tidal_correction_widget(self):
         load_style = dict(button_color="#69add1", description_width="initial")
 
-        self.beach_slope_text = FloatText(value=0.02, description="Beach Slope (m/m):",style={'description_width': 'initial'})
-        self.reference_elevation_text = FloatText(value=0.0, description="Beach Elevation (m, relative M.S.L.):",style={'description_width': 'initial'})
-
-        self.tide_model_selection = Dropdown(
-            options=['FES2014', 'FES2022',],
-            value='FES2022',
-            description='Tide Model:',
-            disabled=False,
-            style={'description_width': 'initial'},
+        correct_tides_html = HTML(
+            value="<h3><b>Apply Tide Correction</b></h3> \
+               Only apply after extracting shorelines</br>",
+            layout=Layout(margin="0px 5px 0px 0px"),
         )
+
+        self.reference_elevation_text = FloatText(value=0.0, description="Beach Elevation (m, relative M.S.L.):",style={'description_width': 'initial'})
+        self.beach_slope_selector = UI_elements.BeachSlopeSelector()
+        self.tide_selector = UI_elements.TidesSelector()
+
+
 
         self.tidally_correct_button = Button(
             description="Correct Tides",
@@ -317,9 +318,10 @@ class UI_Models:
 
         return VBox(
             [
-                self.tide_model_selection,
-                self.beach_slope_text,
+                correct_tides_html,
                 self.reference_elevation_text,
+                self.beach_slope_selector,
+                self.tide_selector,
                 self.tidally_correct_button,
             ]
         )
