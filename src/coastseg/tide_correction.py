@@ -40,7 +40,10 @@ def _initialize_column(df, column_name):
 
 def _find_closest_date(date, reference_dates):
     """Find the closest date from a series of dates."""
-    return reference_dates.iloc[(reference_dates - date).abs().argsort()[0]]
+    copy_of_reference_dates = reference_dates.copy()
+    # reset index so that we can use the index to find the closest date
+    copy_of_reference_dates.reset_index(drop=True, inplace=True)
+    return copy_of_reference_dates.iloc[(copy_of_reference_dates - date).abs().argsort()[0]]
 
 # Only cares about column name and 'dates' column
 def match_via_date(timeseries, df, column_name):
@@ -93,14 +96,14 @@ def match_via_id_and_date(timeseries, df, column_name):
             # Multiple dates case
             shoreline_dates = timeseries.loc[timeseries['transect_id'] == transect_id, 'dates']
             for shoreline_date in shoreline_dates:
-                closest_row = _find_closest_date(shoreline_date, matching_rows['dates'])
-                matching_value = closest_row[column_name].values[0]
+                # gets the closest date from the df data for that transect_id
+                matching_date = _find_closest_date(shoreline_date, matching_rows['dates'])
+                matching_value = matching_rows.loc[matching_rows['dates'] == matching_date, column_name].values[0]
                 timeseries.loc[
                     (timeseries['transect_id'] == transect_id) & 
                     (timeseries['dates'] == shoreline_date), 
                     column_name
                 ] = matching_value
-    
     return timeseries
 
 # Only cares about column name, 'transect_id', and 'dates' column
@@ -149,8 +152,33 @@ def match_via_points_and_date(timeseries, df, column_name):
             
     return timeseries
 
-def melt_df(df,column_name):
-    df.rename(columns = {'Unnamed: 0':'dates'}, inplace = True)
+def melt_df(df,column_name:str):
+    """
+    Transforms a DataFrame by melting it, converting columns into rows.
+
+    Assumes the inputted df has 1 of 2 formats
+    1. The dates in an 'Unnamed: 0' column and the dates are in this column
+    2. The dates are the row index and the transect ids are the columns
+        Ex. 1,2,3,4
+            2021-01-01, 1.2, 1.3, 1.4, 1.5
+            2021-01-02, 1.3, 1.4, 1.5, 1.6
+
+    This function renames the 'Unnamed: 0' column to 'dates' if it exists,
+    or resets the index and names it 'dates' if it doesn't. It then converts
+    the 'dates' column to datetime format and melts the DataFrame, creating
+    two new columns: 'transect_id' and the specified column name.
+
+    Parameters:
+    df (pandas.DataFrame): The input DataFrame to be transformed.
+    column_name (str): The name to be assigned to the values column in the melted DataFrame.
+
+    Returns:
+    pandas.DataFrame: The melted DataFrame with 'dates', 'transect_id', and the specified column name.
+    """
+    if 'Unnamed: 0' in df.columns:
+        df.rename(columns = {'Unnamed: 0':'dates'}, inplace = True)
+    else:
+        df = df.reset_index(names='dates')
     df['dates'] = pd.to_datetime(df['dates'])
     df = pd.melt(df, id_vars=['dates'], var_name='transect_id', value_name=column_name)
     return df
@@ -168,13 +196,15 @@ def read_content_csv(tides_file,timeseries,column_name='tide'):
         DataFrame containing tide data
     """
     tides_df = pd.read_csv(tides_file)
-    tides_df['dates'] = pd.to_datetime(tides_df['dates'],format='ISO8601')
-    import pytz
-    # Specify the desired timezone (e.g., UTC)
-    timezone = pytz.timezone('UTC')
-    # Convert the naive datetime objects to timezone-aware datetime objects
-    tides_df['dates'] = tides_df['dates'].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
-
+    if 'dates' not in tides_df.columns or 'Unnamed: 0' in tides_df.columns:
+        tides_df = melt_df(tides_df,column_name)
+    if 'dates' in tides_df.columns:
+        tides_df['dates'] = pd.to_datetime(tides_df['dates'],format='ISO8601')
+        import pytz
+        # Specify the desired timezone (e.g., UTC)
+        timezone = pytz.timezone('UTC')
+        # Convert the naive datetime objects to timezone-aware datetime objects
+        tides_df['dates'] = tides_df['dates'].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
 
     # if it has columns 'transect_id', 'tide', 'dates'
     if 'transect_id' in tides_df.columns:
@@ -429,6 +459,7 @@ def apply_tide_correction_df(timeseries):
     This function adjusts the 'cross_distance' in the timeseries DataFrame based on the tide level,
     reference elevation, and beach slope. The correction is calculated as the difference between
     the tide level and the reference elevation, divided by the beach slope.
+
 
     Parameters:
     timeseries (pd.DataFrame): A DataFrame containing the following columns:
