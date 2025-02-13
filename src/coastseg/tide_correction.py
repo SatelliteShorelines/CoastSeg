@@ -106,14 +106,14 @@ def match_via_id_and_date(timeseries, df, column_name):
 # Only cares about column name, 'transect_id', and 'dates' column
 def match_via_points_and_date(timeseries, df, column_name):
     """
-    Matches tide measurements to transects based on closest spatial and temporal proximity.
+    Matches measurements to transects based on closest spatial and temporal proximity.
     
     Parameters:
     ----------
     timeseries : DataFrame
-        Contains transect data with columns: 'transect_id', 'latitude', 'longitude', 'dates'
+        Contains transect data with columns: 'transect_id', 'x', 'y', 'dates'
     df : DataFrame
-        Contains tide data with columns: 'latitude', 'longitude', 'dates', column_name
+        Contains data with columns: 'latitude', 'longitude', 'dates', column_name
     column_name : str
         Name of the column in df containing the values to match
         
@@ -127,16 +127,10 @@ def match_via_points_and_date(timeseries, df, column_name):
     
     for transect_id in df_transect_id:
         # Get transect coordinates
-        transect_x, transect_y = timeseries.loc[timeseries['transect_id']==transect_id, ['latitude', 'longitude']].values[0]
+        transect_x, transect_y = timeseries.loc[timeseries['transect_id']==transect_id, ['x', 'y']].values[0]
         
-        # Calculate distances to all tide points
-        df['distance'] = compute_distance_xy(
-            transect_x, 
-            transect_y, 
-            df['latitude'], 
-            df['longitude']
-        )
-        
+        df['distance'] = df.apply(lambda row: compute_distance_xy(transect_x, transect_y, row['longitude'], row['latitude']), axis=1)
+
         # Find points with minimum distance
         min_distance = np.min(df['distance'])
         closest_tides = df.loc[df['distance']==min_distance]
@@ -174,7 +168,13 @@ def read_content_csv(tides_file,timeseries,column_name='tide'):
         DataFrame containing tide data
     """
     tides_df = pd.read_csv(tides_file)
-    tides_df['dates'] = pd.to_datetime(tides_df['dates'])
+    tides_df['dates'] = pd.to_datetime(tides_df['dates'],format='ISO8601')
+    import pytz
+    # Specify the desired timezone (e.g., UTC)
+    timezone = pytz.timezone('UTC')
+    # Convert the naive datetime objects to timezone-aware datetime objects
+    tides_df['dates'] = tides_df['dates'].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
+
 
     # if it has columns 'transect_id', 'tide', 'dates'
     if 'transect_id' in tides_df.columns:

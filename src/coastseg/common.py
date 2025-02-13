@@ -1370,10 +1370,9 @@ def get_filtered_dates_dict(directory: str, file_type: str, ) -> dict:
     }
     
     """
-    filepaths = glob.iglob(os.path.join(directory, f"*.{file_type}"))
-
     satellites = {"L5": set(), "L7": set(), "L8": set(), "L9": set(), "S2": set()}
-    for filepath in filepaths:
+    # loop over the generator of files in the directory
+    for filepath in glob.iglob(os.path.join(directory, f"*.{file_type}")):
         filename = os.path.basename(filepath)
         date = extract_date_from_filename(filename)
         if date == "":
@@ -1421,7 +1420,6 @@ def filter_metadata_with_dates(metadata: dict, directory:str,file_type:str="jpg"
         )
     # Get the dates of the files in the RGB directory (this is the one the user filtered into good/bad)
     filtered_dates_by_sat = get_filtered_dates_dict(directory, file_type)
-    # print(f"filtered_dates_by_sat: {filtered_dates_by_sat}")
     metadata = edit_metadata_by_dates(metadata, filtered_dates_by_sat)
     return metadata
 
