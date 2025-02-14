@@ -76,7 +76,8 @@ class TidesSelector(widgets.VBox):
         clear_button = widgets.Button(description="Clear", button_style="warning", layout=widgets.Layout(height="28px", padding=padding))
         clear_button.on_click(lambda b: file_chooser.reset())
 
-        instructions = widgets.HTML(value="""Upload a CSV file containing the tides.The CSV file must follow the file format listed here: 
+        instructions = widgets.HTML(value="""Upload a CSV file containing the tides. Note any transescts that do not have tides will not be included in the tide correction.
+                                    The CSV file must follow the file format listed here: 
                                      <a href="https://satelliteshorelines.github.io/CoastSeg/tide-file-format/" target="_blank" style="color: blue; text-decoration: underline;">View acceptable formats</a>""",
                             layout=widgets.Layout(margin="0 0 10px 0"))
 
@@ -135,7 +136,8 @@ class BeachSlopeSelector(widgets.VBox):
         clear_button = widgets.Button(description="Clear", button_style="warning", layout=widgets.Layout(height="28px", padding=padding))
         clear_button.on_click(lambda b: file_chooser.reset())
 
-        instructions = widgets.HTML(value="""Upload a CSV file containing the slopes. The CSV file must follow the file format listed here: 
+        instructions = widgets.HTML(value="""Upload a CSV file containing the slopes. Note: any transescts that do not have a slope will have their slope set to the median slope value for the tide correction.
+                                    The CSV file must follow the file format listed here: 
                                      <a href="https://satelliteshorelines.github.io/CoastSeg/slope-file-format/" target="_blank" style="color: blue; text-decoration: underline;">View acceptable formats</a>""",
                             layout=widgets.Layout(margin="0 0 10px 0"))
 
