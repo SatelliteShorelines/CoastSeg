@@ -89,7 +89,7 @@ zoo_model_instance.run_model_and_extract_shorelines(
 #
 # Parameters:
 beach_slope = 0.02 # Slope of the beach (m/m)
-reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
+reference_elevation = 0 # Reference elevation (m, relative to user-specified vertical datum)
 tides_file = '' #(Optional) Enter the full path to the CSV file containing the tide data if you don't want to use the tide model. See accepted formats : https://satelliteshorelines.github.io/CoastSeg/tide-file-format/
 slopes_file ='' #(Optional) Enter the full path to the CSV file containing the beach slopes if you don't want to use a constant slope. See accepted formats: https://satelliteshorelines.github.io/CoastSeg/slope-file-format/
 if slopes_file:
