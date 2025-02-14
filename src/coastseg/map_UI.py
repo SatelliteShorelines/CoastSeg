@@ -428,7 +428,7 @@ class UI:
             layout=widgets.Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.reference_elevation_text = widgets.FloatText(value=0.0, description="Beach Elevation (m, relative M.S.L.):",style={'description_width': 'initial'})
+        self.reference_elevation_text = widgets.FloatText(value=0.0, description="Reference Elevation (m, relative to user-specified vertical datum):",style={'description_width': 'initial'})
         self.beach_slope_selector = UI_elements.BeachSlopeSelector()
         self.tide_selector = UI_elements.TidesSelector()
 

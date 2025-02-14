@@ -534,17 +534,44 @@ class CoastSeg_Map:
         )
 
     def compute_tidal_corrections(
-        self, roi_ids: Collection, beach_slope: float=0.02, reference_elevation: float=0,model:str="FES2014"
+        self,
+        roi_ids: Collection,
+        beach_slope: Union[str,float]=0.02,
+        reference_elevation: float=0,
+        model:str="FES2014",
+        tides_file:str="",
+        use_progress_bar:bool=True,
     ):
         """
         Computes tidal corrections for the specified region of interest (ROI) IDs.
 
         Args:
             roi_ids (Collection): A collection of ROI IDs for which tidal corrections need to be computed.
-            beach_slope (float, optional): The slope of the beach in meters. Defaults to 0.02.
-            reference_elevation (float, optional): The reference elevation in meters relative to MSL (Mean Sea Level). Defaults to 0.
-            model (str, optional): The tidal model to use for the corrections. Defaults to "FES2014".
+            
+            beach_slope (str or float): The slope of the beach or file containing the slopes of the beach
+                This can be either a file containing the slopes of the beach or a float value.
+                Available file formats for the beach slope:
+                    - A CSV file containing the beach slope data with columns 'dates' and 'slope'.
+                    - A CSV file containing the beach slope data with columns 'dates', 'transect_id', and 'slope'.
+                    - A CSV file containing the beach slope data with columns 'dates', 'latitude', 'longitude', and 'slope'.
+                    - A CSV file containing the transect ids as the columns and the dates as the row indices.
 
+            reference_elevation (float, optional): The reference elevation in meters relative to MSL (Mean Sea Level). Defaults to 0.
+            
+            only_keep_points_on_transects (bool, optional): If True, only keep points that lie directly on the transects. Defaults to False.
+                                                            - This value is read from the settings under the name 'drop_intersection_pts'.
+
+             model (str, optional): The tidal model to use.To not use tide model set to "". Defaults to "FES2022".
+                - Other option is "FES2014". The tide model must be installed prior to use.
+                - If model = "" then the tide_file must be provided.
+
+            tides_file (str, optional): Path to the CSV file containing tide data. Defaults to an empty string.
+                - Acceptable tide formats:
+                    - CSV file containing tide data with columns 'dates' and 'tide'.
+                    - CSV file containing tide data with columns 'dates', 'transect_id', and 'tide'.
+                    - CSV file containing tide data with columns 'dates', 'latitude', 'longitude', and 'tide'.
+                    - CSV file containing the transect ids are the columns and the dates as the row indices
+            use_progress_bar (bool, optional): If True, display a progress bar. Defaults to True.
         Returns:
             None
         """
@@ -561,8 +588,10 @@ class CoastSeg_Map:
                 session_name,
                 reference_elevation,
                 beach_slope,
+                use_progress_bar=use_progress_bar,
                 only_keep_points_on_transects=only_keep_points_on_transects,
-                model = model
+                model = model,
+                tides_file=tides_file,
             )
         except Exception as e:
             if self.map is not None:
@@ -575,7 +604,7 @@ class CoastSeg_Map:
             else:
                 raise Exception(f"""Tide Model Error:\n {e}""")
         else:
-            print("\ntidal corrections completed")
+            print("\nTidal corrections completed")
 
     def load_metadata(self, settings: dict = {}, ids: Collection = set([])):
         """
