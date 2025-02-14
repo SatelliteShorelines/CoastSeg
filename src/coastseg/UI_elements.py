@@ -2,8 +2,6 @@
 
 # Standard Python imports
 import os
-import datetime
-import logging
 
 # External Python imports
 import ipywidgets as widgets
