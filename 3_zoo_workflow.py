@@ -84,8 +84,13 @@ zoo_model_instance.run_model_and_extract_shorelines(
 # Two Tide Models are available: 'FES2014' or 'FES2022'.
 #
 # Parameters:
-beach_slope = 0.02 # Slope of the beach (m)
+beach_slope = 0.02 # Slope of the beach (m/m)
 reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
+tides_file = '' #(Optional) Enter the full path to the CSV file containing the tide data if you don't want to use the tide model. See accepted formats : https://satelliteshorelines.github.io/CoastSeg/tide-file-format/
+slopes_file ='' #(Optional) Enter the full path to the CSV file containing the beach slopes if you don't want to use a constant slope. See accepted formats: https://satelliteshorelines.github.io/CoastSeg/slope-file-format/
+if slopes_file:
+    beach_slope = slopes_file
+
 # UNCOMMENT THESE 2 LINES TO RUN THE TIDE CORRECTION
 # roi_id = file_utilities.get_ROI_ID_from_session(session_name) # read ROI ID from the config.json file found in the extracted shoreline session directory
-# compute_tidal_corrections(session_name, [roi_id], beach_slope, reference_elevation,model='FES2022')
+# compute_tidal_corrections(session_name, [roi_id], beach_slope, reference_elevation,model='FES2022',tides_file=tides_file)
