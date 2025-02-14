@@ -491,22 +491,14 @@ class UI:
             )
             return
 
-        print(f"Beach Slope: {beach_slope}")
-        print(f"Reference Elevation: {reference_elevation}")
-        print(f"Selected ROIs: {selected_rois}")
-        print(f"Tides File: {tides_file}")
-        print(f"Model: {model}")
+        beach_slope = self.beach_slope_selector.value
+        reference_elevation = self.reference_elevation_text.value
+        model = self.tide_selector.model
+        tides_file = self.tide_selector.tides_file
         # this is where the tide correction will be applied
-        # self.coastseg_map.compute_tidal_corrections(
-        #     selected_rois, beach_slope, reference_elevation,model=self.tide_model_selection.value
-        # )
-
-        # self.coastseg_map.compute_tidal_corrections(
-        #     selected_rois, beach_slope, reference_elevation,model=self.tide_model_selection.value
-        # )
-        
-
-        # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
+        self.coastseg_map.compute_tidal_corrections(
+            selected_rois, beach_slope, reference_elevation,model=model, tides_file = tides_file
+        )
 
     def set_session_name(self, name: str):
         self.session_name = str(name).strip()

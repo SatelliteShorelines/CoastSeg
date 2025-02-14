@@ -350,11 +350,13 @@ class UI_Models:
         roi_id = config.get("roi_id", "")
         logger.info(f"roi_id: {roi_id}")
 
-        beach_slope = self.beach_slope_text.value
+        beach_slope = self.beach_slope_selector.value
         reference_elevation = self.reference_elevation_text.value
+        model = self.tide_selector.model
+        tides_file = self.tide_selector.tides_file
         # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
         compute_tidal_corrections(
-            session_name, [roi_id], beach_slope, reference_elevation,model = self.tide_model_selection.value
+            session_name, [roi_id], beach_slope, reference_elevation,model = model, tides_file = tides_file
         )
 
     def _create_widgets(self):

@@ -254,6 +254,7 @@ def compute_tidal_corrections(
     Parameters:
     session_name (str): The name of the session.
     roi_ids (Collection): A collection of region of interest (ROI) identifiers.
+    
     beach_slope (str or float): The slope of the beach or file containing the slopes of the beach
         This can be either a file containing the slopes of the beach or a float value.
         Available file formats for the beach slope:
@@ -262,8 +263,8 @@ def compute_tidal_corrections(
             - A CSV file containing the beach slope data with columns 'dates', 'latitude', 'longitude', and 'slope'.
             - A CSV file containing the transect ids as the columns and the dates as the row indices.
 
-    reference_elevation (float): The reference elevation for tidal corrections.
-
+    reference_elevation (float): The reference elevation in meters relative to MSL (Mean Sea Level). Defaults to 0.
+            
     only_keep_points_on_transects (bool, optional): If True, only keep points that lie directly on the transects. Defaults to False.
     
     model (str, optional): The tidal model to use.To not use tide model set to "". Defaults to "FES2022".
@@ -652,6 +653,7 @@ def correct_tides(
 
         # tidally corrected timeseries in format dates, transect_id, x, y, shore_x, shore_y, tide, reference_elevation, slope, correction, cross_distance
 
+        update(f"Saving tidally corrected time series for ROI : {roi_id}")
         tide_corrected_timeseries_merged_df,timeseries_df  = common.add_lat_lon_to_timeseries(
             tide_corrected_timeseries_df,
             transects_gdf.to_crs('epsg:4326'),
