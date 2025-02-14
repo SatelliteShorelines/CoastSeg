@@ -639,7 +639,7 @@ def correct_tides(
 
         # load the slopes if they are passed in
         if isinstance(beach_slope,str):
-            timeseries['slope'] = np.NaN
+            timeseries['slope'] = np.nan
             timeseries = read_content_csv(beach_slope,timeseries,column_name='slope')
         else:
             timeseries['slope'] = beach_slope 
