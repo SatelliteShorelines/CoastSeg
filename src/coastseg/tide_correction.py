@@ -84,10 +84,10 @@ def match_via_id_and_date(timeseries, df, column_name):
     """
     timeseries = _initialize_column(timeseries, column_name)
     unique_ids = np.unique(df['transect_id'])
-    
+
     for transect_id in unique_ids:
         matching_rows = df.loc[df['transect_id'] == transect_id]
-        
+
         if len(matching_rows) == 1:
             # Single tide value case
             matching_value = matching_rows[column_name].values[0]
@@ -104,6 +104,14 @@ def match_via_id_and_date(timeseries, df, column_name):
                     (timeseries['dates'] == shoreline_date), 
                     column_name
                 ] = matching_value
+
+
+    if column_name == 'slope':
+        unique_ids = np.unique(timeseries['transect_id'])
+        median_slope = np.median(np.unique(df[column_name]))
+        # Fill NaN values in the 'slope' column with the calculated median
+        timeseries[column_name].fillna(median_slope, inplace=True)
+
     return timeseries
 
 # Only cares about column name, 'transect_id', and 'dates' column
@@ -208,6 +216,7 @@ def read_content_csv(tides_file,timeseries,column_name='tide'):
 
     # if it has columns 'transect_id', 'tide', 'dates'
     if 'transect_id' in tides_df.columns:
+        timeseries[column_name] = np.nan
         merged_csv = match_via_id_and_date(timeseries, tides_df, column_name)
     # if it has columns 'latitude', 'longitude', 'tide', 'dates'
     elif 'latitude' in tides_df.columns:
@@ -218,6 +227,7 @@ def read_content_csv(tides_file,timeseries,column_name='tide'):
     # if one of column is called unnamed then we need to melt
     elif 'Unnamed: 0' in tides_df.columns:
         tides_df = melt_df(tides_df,column_name)
+        timeseries[column_name] = np.nan
         merged_csv = match_via_id_and_date(timeseries, tides_df, column_name)
     else:
         raise ValueError('CSV format not supported. ')
