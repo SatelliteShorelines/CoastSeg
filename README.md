@@ -1,9 +1,11 @@
 # CoastSeg
-Paper:
+Paper: 
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.06683/status.svg)](https://doi.org/10.21105/joss.06683)
 <!--  [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2320sharon/CoastSeg/blob/main/coastseg_for_google_colab.ipynb) -->
 
+[![image](https://img.shields.io/conda/vn/conda-forge/coastseg.svg)](https://anaconda.org/conda-forge/coastseg)
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
+[![image](https://img.shields.io/badge/YouTube-Channel-red)](https://www.youtube.com/@CoastSeg-n3e)
 </br>
 [![image](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/pip_install_e.yml/badge.svg)](https://github.com/SatelliteShorelines/CoastSeg/actions)
 
