@@ -1,6 +1,10 @@
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
+[![image](https://img.shields.io/badge/YouTube-Channel-red)](https://www.youtube.com/@CoastSeg-n3e)
+[![status](https://joss.theoj.org/papers//10.21105/joss.06683/status.svg)](https://doi.org//10.21105/joss.06683)
+[![image](https://img.shields.io/conda/vn/conda-forge/coastseg.svg)](https://anaconda.org/conda-forge/coastseg)
 </br>
 [![image](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/pip_install_e.yml/badge.svg)](https://github.com/SatelliteShorelines/CoastSeg/actions)
+
 
 [![Last Commit](https://img.shields.io/github/last-commit/SatelliteShorelines/CoastSeg)](https://github.com/Doodleverse/segmentation_gym/commits/main)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SatelliteShorelines/CoastSeg/graphs/commit-activity)
@@ -20,6 +24,9 @@ CoastSeg is a Jupyter and Python based program that runs in a conda environment.
 
 Check out the [CoastSeg YouTube Channel](https://www.youtube.com/@CoastSeg-n3e/videos) for tutorials! 
 
+[![CoastSeg Tutorial](https://img.youtube.com/vi/u6AwISfEtL4/0.jpg)](https://www.youtube.com/watch?v=u6AwISfEtL4)
+
+
 ## Getting Started
 
 CoastSeg works best on sand and gravel beaches. It is not as effective at other sites or a marsh beaches.
@@ -32,6 +39,8 @@ Please see [Getting Started guide](https://satelliteshorelines.github.io/CoastSe
 - Applying tidal corrections to extracted shorelines
 
 ## What is CoastSeg?
+
+⭐ Check out the CoastSeg paper for free: [CoastSeg Paper](https://joss.theoj.org/papers/10.21105/joss.06683)
 
 CoastSeg is an interactive browser-based program that aims to broaden the adoption of satellite-derived shoreline (SDS) detection and coastal landcover mapping workflows among coastal scientists and coastal resource management practitioners. SDS is a sub-field of coastal sciences that aims to detect and post-process a time-series of shoreline locations from publicly available satellite imagery.
 
