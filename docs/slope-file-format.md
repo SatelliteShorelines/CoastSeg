@@ -9,7 +9,7 @@ Note: The exact columns names (capitalizations too) must match
 1. Dates in ISO 8601, specifying year-month-day followed by the time in 24-hour format with an offset from UTC (Coordinated Universal Time)
       - Example 2023-12-25 18:40:14+00:00
       - We recommend this format since this is the same format used to save the dates in the timeseries CSV files saved by CoastSeg
-2. Dates in YYY-MM-DD
+2. Dates in YYYY-MM-DD
       - Example 2021-04-05
 
 ## Acceptable CSV formats
