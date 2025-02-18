@@ -72,12 +72,7 @@ CoastSeg comes with a collection of pre-processing script utilities for common i
 
 A lot of work underpins the 'Zoo' method for SDS, which uses models and datasets developed over several years and still under an active cycle of improvement. That is, once we find the time!
 
-The models currently available are:
-
-- Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 MNDWI images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8213443
-- Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 NDWI images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8213427
-- Buscombe, D. (2023). Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of Sentinel-2 and Landsat-7/8 3-band (RGB) images of coasts. (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8190958
-
+You can find all the available models at [segmentation_zoo](https://github.com/Doodleverse/segmentation_zoo).
 Made using the following software, implemented as [Doodleverse/Segmentation Gym](<[Zoo](https://github.com/Doodleverse/segmentation_gym)>):
 
 - Segmentation Gym: Buscombe, D., & Goldstein, E. B. (2022). A reproducible and reusable pipeline for segmentation of geoscientific imagery. Earth and Space Science, 9, e2022EA002332. https://doi.org/10.1029/2022EA002332
