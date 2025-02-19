@@ -535,8 +535,11 @@ def get_matrix_timeseries(timeseries:pd.DataFrame):
     Returns:
     pd.DataFrame: The pivoted DataFrame (matrix) with 'dates' as the index and 
                     'transect_id' as the columns.
+                    Note : transect id is converted to string
     """
     matrix_timeseries = timeseries.copy()
+    # convert the transect ids to string
+    matrix_timeseries['transect_id'] = matrix_timeseries['transect_id'].astype(str)
     matrix_timeseries.set_index('dates', inplace=True)
     matrix_timeseries = matrix_timeseries.pivot_table(index='dates', columns='transect_id', values='cross_distance',)
     # Reset index if you want 'dates' back as a column
@@ -635,6 +638,15 @@ def correct_tides(
                 tide_regions_file=tide_regions_file,
                 model=model,
             )
+
+            # convert tides's transect id and timeseries transect id to str
+            tides['transect_id'] = tides['transect_id'].astype(str)
+            timeseries['transect_id'] = timeseries['transect_id'].astype(str)
+
+            # convert tides and timeseries columns to str
+            # if the tides dataframe has columns x and y drop them 
+            tides.drop(columns=['x','y'],inplace=True,errors='ignore')
+
             timeseries = common.merge_dataframes(tides, timeseries)
 
         # load the slopes if they are passed in
@@ -955,6 +967,7 @@ def get_tide_predictions(
             - It expects a DataFrame with columns 'dates'
                  - If a transect ID is available, it should be included as a column in the DataFrame.
                  - It expects all the dates in a single column called dates in datetime format.
+                 - All the transect ids should be type string
 
        - model_region_directory: The path to the model region that will be used to compute the tide predictions
          ex."C:/development/doodleverse/CoastSeg/tide_model/region"

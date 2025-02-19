@@ -502,6 +502,9 @@ def save_transects(save_location: str, transect_timeseries_df, settings: dict,ex
     settings (dict): dictionary containing the settings for the transect analysis
     ext (str): A string to append to the beginning of the saved file names to indicate whether tide correction was applied or not. Defaults to 'raw'.   
     """
+    # convert the transect_id column to string
+    transect_timeseries_df['transect_id'] = transect_timeseries_df['transect_id'].astype(str)
+
     save_transects_timeseries(transect_timeseries_df, save_location)
     save_transects_timeseries_to_geojson(transect_timeseries_df, save_location,ext)
     add_classifer_scores_to_transects(save_location,good_bad_csv, good_bad_seg_csv )
