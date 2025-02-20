@@ -2101,7 +2101,7 @@ class Extracted_Shoreline:
         self.gdf = self.create_geodataframe(
             self.shoreline_settings["output_epsg"],
             output_crs="EPSG:4326",
-            geomtype="points",
+            geomtype="lines",
         )
         return self
 
