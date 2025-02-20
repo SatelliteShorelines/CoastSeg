@@ -45,6 +45,64 @@ def _find_closest_date(date, reference_dates):
     copy_of_reference_dates.reset_index(drop=True, inplace=True)
     return copy_of_reference_dates.iloc[(copy_of_reference_dates - date).abs().argsort()[0]]
 
+
+
+def match_via_month(timeseries, df, column_name='slope'):
+    """
+    Matches the timeseries data with the dataframe based on the month and adds the slope.
+
+    Parameters:
+    timeseries (pd.DataFrame): DataFrame containing the timeseries data with a 'dates' column.
+    df (pd.DataFrame): DataFrame containing the slope data with a 'slope' column and a column for matching (default is 'month').
+    column_name (str): The name of the column to match on (default is 'slope').
+
+    Returns:
+    pd.DataFrame: The timeseries DataFrame with the slope added and the matching column removed.
+    """
+    # if the column already exists drop it else it will cause a duplicate column to appear after the merge
+    if column_name in timeseries.columns:
+        timeseries = timeseries.drop(columns=[column_name], errors='ignore')
+
+    median_val = df[column_name].median()
+    # For each transect, get the month of the date and add the slope
+    timeseries['month'] = timeseries['dates'].dt.month
+    timeseries = timeseries.merge(df, on='month', how='left')
+    timeseries[column_name] = timeseries[column_name].fillna(median_val)
+    # drop month column
+    timeseries = timeseries.drop(columns=['month'])
+    return timeseries
+
+# Only cares about column name, 'transect_id', and 'dates' column
+def match_via_id_and_month(timeseries, df, column_name):
+    """
+    Match values based on transect_id and closest month.
+    If slope is the column name, it will fill NaN values with the median slope.
+    
+    Args:
+        timeseries: DataFrame containing shoreline data
+        df: Reference DataFrame with matching data contains columns 'transect_id', 'month', column_name
+        column_name: Name of column to match
+    
+    Returns:
+        Updated timeseries DataFrame with matched values
+    """
+    # if the column already exists drop it else it will cause a duplicate column to appear after the merge
+    if column_name in timeseries.columns:
+        timeseries = timeseries.drop(columns=[column_name], errors='ignore')
+
+    df['transect_id'] = df['transect_id'].astype(str)
+    timeseries['month'] = timeseries['dates'].dt.month
+    timeseries = timeseries.merge(df, on=['month',"transect_id"], how='left')
+    timeseries = timeseries.drop(columns=['month'])
+
+    if column_name == 'slope':
+        median_slope = np.median(np.unique(df[column_name]))
+        # Fill NaN values in the 'slope' column with the calculated median
+        timeseries[column_name].fillna(median_slope, inplace=True)
+
+    return timeseries
+
+
 # Only cares about column name and 'dates' column
 def match_via_date(timeseries, df, column_name):
     """
@@ -191,46 +249,54 @@ def melt_df(df,column_name:str):
     df = pd.melt(df, id_vars=['dates'], var_name='transect_id', value_name=column_name)
     return df
 
-def read_content_csv(tides_file,timeseries,column_name='tide'):
+def read_content_csv(file,timeseries,column_name='tide'):
     """
-    Read tide data from a CSV file.
+    Read data from a CSV file and add it to the timeseries DataFrame under the specified column name.
     
     Args:
-        tides_file: Path to the tide data CSV file
+        file: Path to the data CSV file containing the data to be added to the timeseries
         timeseries: DataFrame containing shoreline data
         column_name: Name of column to match
     
     Returns:
         DataFrame containing tide data
     """
-    tides_df = pd.read_csv(tides_file)
-    if 'dates' not in tides_df.columns or 'Unnamed: 0' in tides_df.columns:
-        tides_df = melt_df(tides_df,column_name)
-    if 'dates' in tides_df.columns:
-        tides_df['dates'] = pd.to_datetime(tides_df['dates'],format='ISO8601')
-        import pytz
-        # Specify the desired timezone (e.g., UTC)
-        timezone = pytz.timezone('UTC')
-        # Convert the naive datetime objects to timezone-aware datetime objects
-        tides_df['dates'] = tides_df['dates'].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
-
-    # if it has columns 'transect_id', 'tide', 'dates'
-    if 'transect_id' in tides_df.columns:
-        timeseries[column_name] = np.nan
-        merged_csv = match_via_id_and_date(timeseries, tides_df, column_name)
-    # if it has columns 'latitude', 'longitude', 'tide', 'dates'
-    elif 'latitude' in tides_df.columns:
-        merged_csv = match_via_points_and_date(timeseries, tides_df, column_name)
-    # if it has columns 'dates', 'tide'
-    elif 'dates' in tides_df.columns and column_name in tides_df.columns:
-        merged_csv = match_via_date(timeseries, tides_df, column_name)
-    # if one of column is called unnamed then we need to melt
-    elif 'Unnamed: 0' in tides_df.columns:
-        tides_df = melt_df(tides_df,column_name)
-        timeseries[column_name] = np.nan
-        merged_csv = match_via_id_and_date(timeseries, tides_df, column_name)
+    df = pd.read_csv(file)
+    # This logic is for seasonal monthly slopes
+    if 'month' in df.columns:
+        if "transect_id" in df.columns:
+            merged_csv = match_via_id_and_month(timeseries, df, column_name)
+        elif "month" in df.columns and column_name in df.columns:
+            merged_csv = match_via_month(timeseries, df, column_name)
     else:
-        raise ValueError('CSV format not supported. ')
+        # this ensures that the dates are in datetime format
+        if 'dates' not in df.columns or 'Unnamed: 0' in df.columns:
+            df = melt_df(df,column_name)
+        if 'dates' in df.columns:
+            df['dates'] = pd.to_datetime(df['dates'],format='ISO8601')
+            import pytz
+            # Specify the desired timezone (e.g., UTC)
+            timezone = pytz.timezone('UTC')
+            # Convert the naive datetime objects to timezone-aware datetime objects
+            df['dates'] = df['dates'].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
+
+        # if it has columns 'transect_id', 'tide', 'dates'
+        if 'transect_id' in df.columns:
+            timeseries[column_name] = np.nan
+            merged_csv = match_via_id_and_date(timeseries, df, column_name)
+        # if it has columns 'latitude', 'longitude', 'tide', 'dates'
+        elif 'latitude' in df.columns:
+            merged_csv = match_via_points_and_date(timeseries, df, column_name)
+        # if it has columns 'dates', 'tide'
+        elif 'dates' in df.columns and column_name in df.columns:
+            merged_csv = match_via_date(timeseries, df, column_name)
+        # if one of column is called unnamed then we need to melt
+        elif 'Unnamed: 0' in df.columns:
+            df = melt_df(df,column_name)
+            timeseries[column_name] = np.nan
+            merged_csv = match_via_id_and_date(timeseries, df, column_name)
+        else:
+            raise ValueError('CSV format not supported. ')
     return merged_csv
 
 
