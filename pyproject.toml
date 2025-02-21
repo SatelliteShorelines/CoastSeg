@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coastseg"
+dynamic = ["readme"]
+version = "1.2.5" 
+authors = [
+  { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
+]
+keywords = [
+    "coastseg",
+    "coastsat",
+]
+# find` directive with `include` or `exclude`
+description = "An interactive python package for satellite derived shoreline workflows"
+dependencies = [
+  "h5py>=3.10.0",
+  "pyTMD",
+  "coastsat-package>=0.1.65",
+  "area",
+  "aiohttp",
+  "chardet",
+  "dask",
+  "doodleverse-utils>=0.0.35",
+  "earthengine-api>=0.1.388",
+  "geojson",
+  "geopandas",
+  "jupyterlab>=3.0.0",
+  "leafmap>=0.14.0",
+  "nest-asyncio",
+  "xarray",]
+license = { file="LICENSE" }
+requires-python = ">=3.10"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+# tells setup tools to include the code in the coastseg directory within the src directory
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+[project.urls]
+homepage = "https://github.com/SatelliteShorelines/CoastSeg"
+repository = "https://github.com/SatelliteShorelines/CoastSeg"
+documentation = "https://github.com/SatelliteShorelines/CoastSeg/wiki"
+"Bug Tracker" = "https://github.com/SatelliteShorelines/CoastSeg/issues"

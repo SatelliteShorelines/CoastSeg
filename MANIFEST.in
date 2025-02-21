@@ -1,0 +1,45 @@
+include MANIFEST.in
+include LICENSE
+include pyproject.toml
+include *.md
+
+# Include src directories in package
+graft src
+
+# Include bounding boxes for shorelines and transects
+recursive-include src/coastseg/bounding_boxes *.csv
+# Include tide regions map for the tide model
+recursive-include src/coastseg/tide_model *.geojson
+
+# Exclude downloaded shorelines and models
+recursive-exclude src/coastseg/shorelines *.geojson
+recursive-exclude src/coastseg/downloaded_models *
+
+# Remove the pycache directory and any pycache files
+prune src/coastseg/__pycache__
+recursive-exclude * *.py[co]
+
+# don't include the tests, docs, scripts or paper
+prune tests
+prune docs
+prune scripts
+prune paper
+
+
+exclude .gitignore
+exclude .gitattributes
+prune .git
+prune .github
+exclude .editorconfig
+exclude .pre-commit-config.yaml
+exclude .flake8
+exclude .pylintrc
+exclude tox.ini
+
+prune build
+prune dist
+
+exclude *.log
+prune __pycache__
+
+
