@@ -207,6 +207,28 @@ def validate_extract_shorelines_session(session_directory,session_name,roi_name,
         print("ROI folder does not contain the required files and folders.")
         return
     
+    # Check if extracted_shorelines_lines.geojson exist and if it does make sure it contains only LineStrings and MultiLineStrings
+    extracted_shorelines_lines_path = os.path.join(session_directory, session_name, roi_name, 'extracted_shorelines_lines.geojson')
+    if not os.path.isfile(extracted_shorelines_lines_path):
+        raise FileNotFoundError("extracted_shorelines_lines.geojson not found.")
+
+    extracted_shorelines_lines = gpd.read_file(extracted_shorelines_lines_path)
+    if not extracted_shorelines_lines.empty:
+        if not all(geom.type in ['LineString', 'MultiLineString'] for geom in extracted_shorelines_lines.geometry):
+            print("extracted_shorelines_lines.geojson contains invalid geometries.")
+            raise ValueError("Invalid geometries found in extracted_shorelines_lines.geojson.")
+        
+    # Now test if extracted_shorelines_points.geojson exist and if it does make sure it contains only Points
+    extracted_shorelines_points_path = os.path.join(session_directory, session_name, roi_name, 'extracted_shorelines_points.geojson')
+    if not os.path.isfile(extracted_shorelines_points_path):
+        raise FileNotFoundError("extracted_shorelines_points.geojson not found.")
+    extracted_shorelines_points = gpd.read_file(extracted_shorelines_points_path)
+    if not extracted_shorelines_points.empty:
+        if not all(geom.type in ['Point', 'MultiPoint'] for geom in extracted_shorelines_points.geometry):
+            print("extracted_shorelines_points.geojson contains invalid geometries.")
+            raise ValueError("Invalid geometries found in extracted_shorelines_points.geojson.")
+
+    
     if not validate_jpg_files_subfolders(session_name, session_directory, roi_name, required_subfolders):
         print("jpg_files folder does not contain the required subfolders or lacks JPEGs.")
         return
