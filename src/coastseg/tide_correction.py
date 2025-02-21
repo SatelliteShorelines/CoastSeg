@@ -5,6 +5,7 @@ import pathlib
 from pathlib import Path
 from typing import Collection, Dict, Tuple, Union
 import traceback
+import pytz
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
@@ -27,6 +28,25 @@ import pyTMD.utilities
 # Logger setup
 logger = logging.getLogger(__name__)
 
+def convert_col_to_ISO_8601(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
+    """
+    Converts a specified column in a DataFrame to ISO 8601 format and ensures the datetime objects are timezone-aware.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing the column to be converted.
+        col_name (str): The name of the column to be converted to ISO 8601 format.
+
+    Returns:
+        pd.DataFrame: The DataFrame with the specified column converted to ISO 8601 format and timezone-aware datetime objects.
+    """
+    if col_name not in df.columns:
+        return df
+    df[col_name] = pd.to_datetime(df[col_name],format='ISO8601')
+    # Specify the desired timezone (e.g., UTC)
+    timezone = pytz.timezone('UTC')
+    # Convert the naive datetime objects to timezone-aware datetime objects
+    df[col_name] = df[col_name].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
+    return df
 
 def compute_distance_xy(x1, y1, x2, y2):
     return np.sqrt((x1-x2)**2 + (y1-y2)**2)
@@ -249,6 +269,30 @@ def melt_df(df,column_name:str):
     df = pd.melt(df, id_vars=['dates'], var_name='transect_id', value_name=column_name)
     return df
 
+def clean_dataframe(df,keep_columns=None,convert_to_lower=True,remove_s=True):
+    """
+    Cleans the dataframe by
+    1. Converting to lowercase
+    2. Dropping any 's' from end of column names
+    3. dropping extra columns
+
+    if no keep columns are provided, the function will return the dataframe at the end of step 2
+
+    Args:
+        df (pd.dataframe): dataframe to be cleaned
+    """
+    if convert_to_lower:
+        df.columns = df.columns.str.lower()
+
+    if remove_s:
+        # remove 's' from end of column names
+        df.columns = df.columns.str.replace(r's$', '',regex=True)
+    if keep_columns is None:
+        return df
+    cols_to_drop = [col for col in df.columns if col not in keep_columns]
+    df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
+    return df
+
 def read_content_csv(file,timeseries,column_name='tide'):
     """
     Read data from a CSV file and add it to the timeseries DataFrame under the specified column name.
@@ -262,23 +306,28 @@ def read_content_csv(file,timeseries,column_name='tide'):
         DataFrame containing tide data
     """
     df = pd.read_csv(file)
-    # This logic is for seasonal monthly slopes
-    if 'month' in df.columns:
-        if "transect_id" in df.columns:
+
+    # clean the dataframe
+    df = clean_dataframe(df,keep_columns=None, remove_s=False)
+
+    # If any of the columns contain 'month' then use the logic for seasonal data matching 
+    if any(df.columns.str.contains(r'(?i)month')):
+        df = clean_dataframe(df,keep_columns=['transect_id','month',column_name])
+        if "transect_id" in df.columns and "month" in df.columns and column_name in df.columns:
             merged_csv = match_via_id_and_month(timeseries, df, column_name)
         elif "month" in df.columns and column_name in df.columns:
             merged_csv = match_via_month(timeseries, df, column_name)
+        else:
+            raise ValueError(f'CSV format not supported. If you are using a CSV file with monthly data then the columns should be "month" and "{column_name}" or  "transect_id", "month" and "{column_name}"')
     else:
-        # this ensures that the dates are in datetime format
+        # Convert dataframe to column based format so that transect_id, dates and column_name are columns
         if 'dates' not in df.columns or 'Unnamed: 0' in df.columns:
             df = melt_df(df,column_name)
-        if 'dates' in df.columns:
-            df['dates'] = pd.to_datetime(df['dates'],format='ISO8601')
-            import pytz
-            # Specify the desired timezone (e.g., UTC)
-            timezone = pytz.timezone('UTC')
-            # Convert the naive datetime objects to timezone-aware datetime objects
-            df['dates'] = df['dates'].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
+
+        df = clean_dataframe(df,keep_columns=['transect_id','dates',column_name,'latitude'],remove_s=False)
+            
+        # Convert the dates column to ISO 8601 format and ensure it is timezone-aware
+        df = convert_col_to_ISO_8601(df,'dates')
 
         # if it has columns 'transect_id', 'tide', 'dates'
         if 'transect_id' in df.columns:
@@ -290,13 +339,11 @@ def read_content_csv(file,timeseries,column_name='tide'):
         # if it has columns 'dates', 'tide'
         elif 'dates' in df.columns and column_name in df.columns:
             merged_csv = match_via_date(timeseries, df, column_name)
-        # if one of column is called unnamed then we need to melt
-        elif 'Unnamed: 0' in df.columns:
-            df = melt_df(df,column_name)
-            timeseries[column_name] = np.nan
-            merged_csv = match_via_id_and_date(timeseries, df, column_name)
         else:
-            raise ValueError('CSV format not supported. ')
+            if column_name == 'tide':
+                raise ValueError(f'CSV format not supported. Must be in one of the following formats as listed on the documentation: https://satelliteshorelines.github.io/CoastSeg/tide-file-format/')
+            else:
+                raise ValueError(f'CSV format not supported. Must be in one of the following formats as listed on the documentation: https://satelliteshorelines.github.io/CoastSeg/slope-file-format/')
     return merged_csv
 
 
