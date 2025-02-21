@@ -12,7 +12,7 @@ Note: The exact columns names (capitalizations too) must match
 2. Dates in YYYY-MM-DD
       - Example 2021-04-05
 
-## Acceptable CSV formats
+## Acceptable CSV formats for Specific Dates
 Any of the following CSV formats will be accepted.
 - Note: The exact columns names (capitalizations too) must match
 
@@ -57,9 +57,44 @@ Any of the following CSV formats will be accepted.
       - This format has the slope value for each transect id and date
       - In the examples below 123, 1234 ... are transect ids
 
-      | 123 | 1234 |12345 | 123456 |
+      |  | 1234 |12345 | 123456 |
       | -------- | ------- | ---------| ---------|
       | 2004-04-07 00:00:00+00:00          |  0.05                   | 0.04     | 0.04     |
       |2004-04-08 00:00:00+00:00       | 0.04       |0.05      | 0.08     |
       | 2004-04-09 00:00:00+00:00      | 0.03     |0.09    |0.07   |
       | 2004-04-10 00:00:00+00:00     | 0.02   |  0.01  | 0.07      |
+
+## Acceptable CSV formats for Seasonal Data
+
+Any of the following CSV formats will be accepted for seasonal
+
+- Note: The exact columns names (capitalizations too) must match
+- Note: Any month that is missing will use the median slope
+- Months : [1,2,3,4,5,6,7,8,9,10,11,12]
+
+5. Format 5: Slopes for each transect ID
+      - columns : month, slope
+      - Uses that the slope for any shoreline that was detected during that month
+      - For any shorelines that don't have a corresponding slope for that month the median of all the slopes is used
+      - In this example, the slope 0.05 will be used to tidally correct all shorelines that occured in the 1st month, the slope 0.04 will be used to tidally correct shorelines that were in February, and the slope 0.02 will be used to tidally correct shorelines that were in March.
+
+
+      | month   | slope | 
+      | -------- | ------- | 
+      | 1          |  0.05                    |
+      | 2         | 0.04        |
+      | 3         | 0.02   | |
+
+6. Format 6: month and transect_id values for each slope
+
+      - columns : transect_id, slope, month
+      - Uses that the slope for any shoreline that was detected during that month
+      - For any shorelines that don't have a corresponding slope for that month the median of all the slopes is used
+      - For example for transect 2 slope `0.04` will be used for all tide corrections for dates that occured in the 5th month May, but for shorelines in June the slope `0.03` will be used
+
+      | transect_id | slope | month       |
+      |-------------|-------|------------|
+      | 1           | 0.05  | 4 |
+      | 2           | 0.04  | 5 |
+      | 2           | 0.03  | 6 |
+      | 3           | 0.02  | 3 |
