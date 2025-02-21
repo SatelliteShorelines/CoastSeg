@@ -53,7 +53,7 @@ roi_ids =  list(roi.gdf.id)
 print(f"Extracting shorelines for ROI with ID {roi_ids}")
 
 # extract the shorelines for the selected ROI and save them to the /sessions/session_name folder
-coastsegmap.extract_all_shorelines(roi_ids = roi_ids)
+# coastsegmap.extract_all_shorelines(roi_ids = roi_ids)
 
 
 # Tide Correction (optional)
@@ -67,8 +67,12 @@ coastsegmap.extract_all_shorelines(roi_ids = roi_ids)
 # Two Tide Models are available: 'FES2014' or 'FES2022'.
 #
 # Parameters:
-beach_slope = 0.02 # Slope of the beach (m)
-reference_elevation = 0 # Elevation of the beach Mean Sea Level (M.S.L) (m)
-#
+beach_slope = 0.02 # Slope of the beach (m/m)
+reference_elevation = 0 # Reference elevation (m, relative to user-specified vertical datum)
+tides_file = '' #(Optional) Enter the full path to the CSV file containing the tide data if you don't want to use the tide model. See accepted formats : https://satelliteshorelines.github.io/CoastSeg/tide-file-format/
+slopes_file ='' #(Optional) Enter the full path to the CSV file containing the beach slopes if you don't want to use a constant slope. See accepted formats: https://satelliteshorelines.github.io/CoastSeg/slope-file-format/
+if slopes_file:
+    beach_slope = slopes_file
+
 # Uncomment the line below to run the tide correction
-# coastsegmap.compute_tidal_corrections(roi_ids, beach_slope, reference_elevation,model='FES2022')
+coastsegmap.compute_tidal_corrections(roi_ids, beach_slope, reference_elevation,model='FES2022',tides_file=tides_file)

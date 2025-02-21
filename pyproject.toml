@@ -17,7 +17,7 @@ keywords = [
 description = "An interactive python package for satellite derived shoreline workflows"
 dependencies = [
   "h5py>=3.10.0",
-  "pyTMD >= 2.1.7",
+  "pyTMD <= 2.1.9",
   "coastsat-package>=0.1.74",
   "pooch",
   "area",

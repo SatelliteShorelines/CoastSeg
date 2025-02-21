@@ -5,6 +5,7 @@ import pathlib
 from pathlib import Path
 from typing import Collection, Dict, Tuple, Union
 import traceback
+import pytz
 
 from coastseg import file_utilities
 from coastseg.file_utilities import progress_bar_context
@@ -27,6 +28,325 @@ import pyTMD.utilities
 # Logger setup
 logger = logging.getLogger(__name__)
 
+def convert_col_to_ISO_8601(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
+    """
+    Converts a specified column in a DataFrame to ISO 8601 format and ensures the datetime objects are timezone-aware.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing the column to be converted.
+        col_name (str): The name of the column to be converted to ISO 8601 format.
+
+    Returns:
+        pd.DataFrame: The DataFrame with the specified column converted to ISO 8601 format and timezone-aware datetime objects.
+    """
+    if col_name not in df.columns:
+        return df
+    df[col_name] = pd.to_datetime(df[col_name],format='ISO8601')
+    # Specify the desired timezone (e.g., UTC)
+    timezone = pytz.timezone('UTC')
+    # Convert the naive datetime objects to timezone-aware datetime objects
+    df[col_name] = df[col_name].apply(lambda x: x if x.tzinfo is not None else timezone.localize(x))
+    return df
+
+def compute_distance_xy(x1, y1, x2, y2):
+    return np.sqrt((x1-x2)**2 + (y1-y2)**2)
+
+
+def _initialize_column(df, column_name):
+    """Initialize a new column with NaN values if it doesn't exist."""
+    if column_name not in df.columns:
+        df[column_name] = np.nan
+    return df
+
+def _find_closest_date(date, reference_dates):
+    """Find the closest date from a series of dates."""
+    copy_of_reference_dates = reference_dates.copy()
+    # reset index so that we can use the index to find the closest date
+    copy_of_reference_dates.reset_index(drop=True, inplace=True)
+    return copy_of_reference_dates.iloc[(copy_of_reference_dates - date).abs().argsort()[0]]
+
+
+
+def match_via_month(timeseries, df, column_name='slope'):
+    """
+    Matches the timeseries data with the dataframe based on the month and adds the slope.
+
+    Parameters:
+    timeseries (pd.DataFrame): DataFrame containing the timeseries data with a 'dates' column.
+    df (pd.DataFrame): DataFrame containing the slope data with a 'slope' column and a column for matching (default is 'month').
+    column_name (str): The name of the column to match on (default is 'slope').
+
+    Returns:
+    pd.DataFrame: The timeseries DataFrame with the slope added and the matching column removed.
+    """
+    # if the column already exists drop it else it will cause a duplicate column to appear after the merge
+    if column_name in timeseries.columns:
+        timeseries = timeseries.drop(columns=[column_name], errors='ignore')
+
+    median_val = df[column_name].median()
+    # For each transect, get the month of the date and add the slope
+    timeseries['month'] = timeseries['dates'].dt.month
+    timeseries = timeseries.merge(df, on='month', how='left')
+    timeseries[column_name] = timeseries[column_name].fillna(median_val)
+    # drop month column
+    timeseries = timeseries.drop(columns=['month'])
+    return timeseries
+
+# Only cares about column name, 'transect_id', and 'dates' column
+def match_via_id_and_month(timeseries, df, column_name):
+    """
+    Match values based on transect_id and closest month.
+    If slope is the column name, it will fill NaN values with the median slope.
+    
+    Args:
+        timeseries: DataFrame containing shoreline data
+        df: Reference DataFrame with matching data contains columns 'transect_id', 'month', column_name
+        column_name: Name of column to match
+    
+    Returns:
+        Updated timeseries DataFrame with matched values
+    """
+    # if the column already exists drop it else it will cause a duplicate column to appear after the merge
+    if column_name in timeseries.columns:
+        timeseries = timeseries.drop(columns=[column_name], errors='ignore')
+
+    df['transect_id'] = df['transect_id'].astype(str)
+    timeseries['month'] = timeseries['dates'].dt.month
+    timeseries = timeseries.merge(df, on=['month',"transect_id"], how='left')
+    timeseries = timeseries.drop(columns=['month'])
+
+    if column_name == 'slope':
+        median_slope = np.median(np.unique(df[column_name]))
+        # Fill NaN values in the 'slope' column with the calculated median
+        timeseries[column_name].fillna(median_slope, inplace=True)
+
+    return timeseries
+
+
+# Only cares about column name and 'dates' column
+def match_via_date(timeseries, df, column_name):
+    """
+    Match values based on closest date.
+    
+    Args:
+        timeseries: DataFrame containing shoreline data
+        df: Reference DataFrame with matching data
+        column_name: Name of column to match
+    
+    Returns:
+        Updated timeseries DataFrame with matched values
+    """
+    timeseries = _initialize_column(timeseries, column_name)
+    
+    # Loop through shoreline dates
+    for date in timeseries['dates']:
+        closest_date = _find_closest_date(date, df['dates'])
+        timeseries.loc[timeseries['dates'] == date, column_name] = (
+            df.loc[df['dates'] == closest_date, column_name].values[0]
+        )
+    
+    return timeseries
+
+# Only cares about column name, 'transect_id', and 'dates' column
+def match_via_id_and_date(timeseries, df, column_name):
+    """
+    Match values based on transect_id and closest date.
+    
+    Args:
+        timeseries: DataFrame containing shoreline data
+        df: Reference DataFrame with matching data
+        column_name: Name of column to match
+    
+    Returns:
+        Updated timeseries DataFrame with matched values
+    """
+    timeseries = _initialize_column(timeseries, column_name)
+    unique_ids = np.unique(df['transect_id'])
+
+    for transect_id in unique_ids:
+        matching_rows = df.loc[df['transect_id'] == transect_id]
+
+        if len(matching_rows) == 1:
+            # Single tide value case
+            matching_value = matching_rows[column_name].values[0]
+            timeseries.loc[timeseries['transect_id'] == transect_id, column_name] = matching_value
+        elif len(matching_rows) > 1:
+            # Multiple dates case
+            shoreline_dates = timeseries.loc[timeseries['transect_id'] == transect_id, 'dates']
+            for shoreline_date in shoreline_dates:
+                # gets the closest date from the df data for that transect_id
+                matching_date = _find_closest_date(shoreline_date, matching_rows['dates'])
+                matching_value = matching_rows.loc[matching_rows['dates'] == matching_date, column_name].values[0]
+                timeseries.loc[
+                    (timeseries['transect_id'] == transect_id) & 
+                    (timeseries['dates'] == shoreline_date), 
+                    column_name
+                ] = matching_value
+
+
+    if column_name == 'slope':
+        unique_ids = np.unique(timeseries['transect_id'])
+        median_slope = np.median(np.unique(df[column_name]))
+        # Fill NaN values in the 'slope' column with the calculated median
+        timeseries[column_name].fillna(median_slope, inplace=True)
+
+    return timeseries
+
+# Only cares about column name, 'transect_id', and 'dates' column
+def match_via_points_and_date(timeseries, df, column_name):
+    """
+    Matches measurements to transects based on closest spatial and temporal proximity.
+    
+    Parameters:
+    ----------
+    timeseries : DataFrame
+        Contains transect data with columns: 'transect_id', 'x', 'y', 'dates'
+    df : DataFrame
+        Contains data with columns: 'latitude', 'longitude', 'dates', column_name
+    column_name : str
+        Name of the column in df containing the values to match
+        
+    Returns:
+    -------
+    DataFrame
+        Input timeseries DataFrame with added column_name containing matched values
+    """
+    # Get unique transect IDs
+    df_transect_id = np.unique(timeseries['transect_id'])
+    
+    for transect_id in df_transect_id:
+        # Get transect coordinates
+        transect_x, transect_y = timeseries.loc[timeseries['transect_id']==transect_id, ['x', 'y']].values[0]
+        
+        df['distance'] = df.apply(lambda row: compute_distance_xy(transect_x, transect_y, row['longitude'], row['latitude']), axis=1)
+
+        # Find points with minimum distance
+        min_distance = np.min(df['distance'])
+        closest_tides = df.loc[df['distance']==min_distance]
+        
+        # For each date in this transect, find the closest tide temporally
+        for date in timeseries.loc[timeseries['transect_id']==transect_id, 'dates']:
+            closest_date = closest_tides.iloc[(closest_tides['dates']-date).abs().argsort()[:1]]
+            value = closest_date[column_name].values[0]
+            
+            # Assign the value to the matching transect and date
+            timeseries.loc[
+                (timeseries['transect_id']==transect_id) & 
+                (timeseries['dates']==date), 
+                column_name
+            ] = value
+            
+    return timeseries
+
+def melt_df(df,column_name:str):
+    """
+    Transforms a DataFrame by melting it, converting columns into rows.
+
+    Assumes the inputted df has 1 of 2 formats
+    1. The dates in an 'Unnamed: 0' column and the dates are in this column
+    2. The dates are the row index and the transect ids are the columns
+        Ex. 1,2,3,4
+            2021-01-01, 1.2, 1.3, 1.4, 1.5
+            2021-01-02, 1.3, 1.4, 1.5, 1.6
+
+    This function renames the 'Unnamed: 0' column to 'dates' if it exists,
+    or resets the index and names it 'dates' if it doesn't. It then converts
+    the 'dates' column to datetime format and melts the DataFrame, creating
+    two new columns: 'transect_id' and the specified column name.
+
+    Parameters:
+    df (pandas.DataFrame): The input DataFrame to be transformed.
+    column_name (str): The name to be assigned to the values column in the melted DataFrame.
+
+    Returns:
+    pandas.DataFrame: The melted DataFrame with 'dates', 'transect_id', and the specified column name.
+    """
+    if 'Unnamed: 0' in df.columns:
+        df.rename(columns = {'Unnamed: 0':'dates'}, inplace = True)
+    else:
+        df = df.reset_index(names='dates')
+    df['dates'] = pd.to_datetime(df['dates'])
+    df = pd.melt(df, id_vars=['dates'], var_name='transect_id', value_name=column_name)
+    return df
+
+def clean_dataframe(df,keep_columns=None,convert_to_lower=True,remove_s=True):
+    """
+    Cleans the dataframe by
+    1. Converting to lowercase
+    2. Dropping any 's' from end of column names
+    3. dropping extra columns
+
+    if no keep columns are provided, the function will return the dataframe at the end of step 2
+
+    Args:
+        df (pd.dataframe): dataframe to be cleaned
+    """
+    if convert_to_lower:
+        df.columns = df.columns.str.lower()
+
+    if remove_s:
+        # remove 's' from end of column names
+        df.columns = df.columns.str.replace(r's$', '',regex=True)
+    if keep_columns is None:
+        return df
+    cols_to_drop = [col for col in df.columns if col not in keep_columns]
+    df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
+    return df
+
+def read_content_csv(file,timeseries,column_name='tide'):
+    """
+    Read data from a CSV file and add it to the timeseries DataFrame under the specified column name.
+    
+    Args:
+        file: Path to the data CSV file containing the data to be added to the timeseries
+        timeseries: DataFrame containing shoreline data
+        column_name: Name of column to match
+    
+    Returns:
+        DataFrame containing tide data
+    """
+    df = pd.read_csv(file)
+
+    # clean the dataframe
+    df = clean_dataframe(df,keep_columns=None, remove_s=False)
+
+    # If any of the columns contain 'month' then use the logic for seasonal data matching 
+    if any(df.columns.str.contains(r'(?i)month')):
+        df = clean_dataframe(df,keep_columns=['transect_id','month',column_name])
+        if "transect_id" in df.columns and "month" in df.columns and column_name in df.columns:
+            merged_csv = match_via_id_and_month(timeseries, df, column_name)
+        elif "month" in df.columns and column_name in df.columns:
+            merged_csv = match_via_month(timeseries, df, column_name)
+        else:
+            raise ValueError(f'CSV format not supported. If you are using a CSV file with monthly data then the columns should be "month" and "{column_name}" or  "transect_id", "month" and "{column_name}"')
+    else:
+        # Convert dataframe to column based format so that transect_id, dates and column_name are columns
+        if 'dates' not in df.columns or 'Unnamed: 0' in df.columns:
+            df = melt_df(df,column_name)
+
+        df = clean_dataframe(df,keep_columns=['transect_id','dates',column_name,'latitude'],remove_s=False)
+            
+        # Convert the dates column to ISO 8601 format and ensure it is timezone-aware
+        df = convert_col_to_ISO_8601(df,'dates')
+
+        # if it has columns 'transect_id', 'tide', 'dates'
+        if 'transect_id' in df.columns:
+            timeseries[column_name] = np.nan
+            merged_csv = match_via_id_and_date(timeseries, df, column_name)
+        # if it has columns 'latitude', 'longitude', 'tide', 'dates'
+        elif 'latitude' in df.columns:
+            merged_csv = match_via_points_and_date(timeseries, df, column_name)
+        # if it has columns 'dates', 'tide'
+        elif 'dates' in df.columns and column_name in df.columns:
+            merged_csv = match_via_date(timeseries, df, column_name)
+        else:
+            if column_name == 'tide':
+                raise ValueError(f'CSV format not supported. Must be in one of the following formats as listed on the documentation: https://satelliteshorelines.github.io/CoastSeg/tide-file-format/')
+            else:
+                raise ValueError(f'CSV format not supported. Must be in one of the following formats as listed on the documentation: https://satelliteshorelines.github.io/CoastSeg/slope-file-format/')
+    return merged_csv
+
+
 # Check if transects and timeseries have any ids in common
 def check_transect_timeseries_ids(transects_gdf: gpd.GeoDataFrame, timeseries_df: pd.DataFrame) -> bool:
     # Read the id from the transects_gdf
@@ -41,13 +361,64 @@ def check_transect_timeseries_ids(transects_gdf: gpd.GeoDataFrame, timeseries_df
         return True
     return False
 
-
 def compute_tidal_corrections(
-    session_name, roi_ids: Collection, beach_slope: float, reference_elevation: float,only_keep_points_on_transects:bool=False,model:str="FES2022"
+    session_name,
+     roi_ids: Collection,
+      beach_slope: Union[float,str],
+       reference_elevation: float,
+       only_keep_points_on_transects:bool=False,
+       model:str="FES2022",
+       tides_file:str="",
+       use_progress_bar: bool = True,
 ):
+    """
+    Compute tidal corrections for the given regions of interest (ROIs).
+
+    Parameters:
+    session_name (str): The name of the session.
+    roi_ids (Collection): A collection of region of interest (ROI) identifiers.
+    
+    beach_slope (str or float): The slope of the beach or file containing the slopes of the beach
+        This can be either a file containing the slopes of the beach or a float value.
+        Available file formats for the beach slope:
+            - A CSV file containing the beach slope data with columns 'dates' and 'slope'.
+            - A CSV file containing the beach slope data with columns 'dates', 'transect_id', and 'slope'.
+            - A CSV file containing the beach slope data with columns 'dates', 'latitude', 'longitude', and 'slope'.
+            - A CSV file containing the transect ids as the columns and the dates as the row indices.
+
+    reference_elevation (float): The reference elevation in meters relative to MSL (Mean Sea Level). Defaults to 0.
+            
+    only_keep_points_on_transects (bool, optional): If True, only keep points that lie directly on the transects. Defaults to False.
+    
+    model (str, optional): The tidal model to use.To not use tide model set to "". Defaults to "FES2022".
+        - Other option is "FES2014". The tide model must be installed prior to use.
+        - If model = "" then the tide_file must be provided.
+
+    tides_file (str, optional): Path to the CSV file containing tide data. Defaults to an empty string.
+        - Acceptable tide formats:
+            - CSV file containing tide data with columns 'dates' and 'tide'.
+            - CSV file containing tide data with columns 'dates', 'transect_id', and 'tide'.
+            - CSV file containing tide data with columns 'dates', 'latitude', 'longitude', and 'tide'.
+            - CSV file containing the transect ids are the columns and the dates as the row indices
+
+    use_progress_bar (bool, optional): If True, display a progress bar during processing. Defaults to True.
+
+    Returns:
+    None
+
+    Raises:
+    Exception: If an error occurs during tidal correction computation.
+
+    Logs:
+    Logs information about the tidal correction process and any errors encountered.
+    """
     logger.info(
         f"Computing tides for ROIs {roi_ids} beach_slope: {beach_slope} reference_elevation: {reference_elevation}"
     )
+
+    if model == "" and tides_file == "":
+        raise ValueError("Cannot correct tides\nEither set model='FES2014'/model='FES2022' or a provide a file containing tides")
+
     try:
         correct_all_tides(
             roi_ids,
@@ -55,7 +426,9 @@ def compute_tidal_corrections(
             reference_elevation,
             beach_slope,
             only_keep_points_on_transects=only_keep_points_on_transects,
-            model=model
+            use_progress_bar=use_progress_bar,
+            model=model,
+            tides_file = tides_file,
         )
     except Exception as e:
         print(f"Tide Model Error \n {e}")
@@ -68,10 +441,11 @@ def correct_all_tides(
     roi_ids: Collection,
     session_name: str,
     reference_elevation: float,
-    beach_slope: float,
+    beach_slope: Union[float,str],
     only_keep_points_on_transects:bool=False,
     use_progress_bar: bool = True,
-    model:str="FES2022"
+    model:str="FES2022",
+    tides_file:str="",
 ):
     """
     Corrects the tides for all regions of interest (ROIs).
@@ -86,12 +460,16 @@ def correct_all_tides(
         beach_slope (float): The beach slope to use for the tide correction.
         use_progress_bar (bool, optional): Whether to display a progress bar. Defaults to True.
     """
+    model_location = ""
+    tide_regions_file = ""
     # validate tide model exists at CoastSeg/tide_model
-    model_location = get_tide_model_location(model=model.lower())
-    # load the regions the tide model was clipped to from geojson file
-    tide_regions_file = file_utilities.load_package_resource(
-        "tide_model", "tide_regions_map.geojson"
-    )
+    if model != "":
+        model_location = get_tide_model_location(model=model.lower())
+        # load the regions the tide model was clipped to from geojson file
+        tide_regions_file = file_utilities.load_package_resource(
+            "tide_model", "tide_regions_map.geojson"
+        )
+
     with progress_bar_context(
         use_progress_bar,
         total=len(roi_ids),
@@ -103,11 +481,12 @@ def correct_all_tides(
                 session_name,
                 reference_elevation,
                 beach_slope,
-                model_location,
-                tide_regions_file,
                 only_keep_points_on_transects = only_keep_points_on_transects,
                 use_progress_bar = use_progress_bar,
-                model=model
+                tides_file= tides_file,
+                model=model,
+                tide_regions_file = tide_regions_file,
+                model_location = model_location,
             )
             logger.info(f"{roi_id} was tidally corrected")
             update(f"{roi_id} was tidally corrected")
@@ -155,20 +534,145 @@ def save_transect_settings(
     transects_settings["beach_slope"] = beach_slope
     file_utilities.to_file(transects_settings, os.path.join(session_path, filename))
 
+def get_tides_from_model(
+        model_location: str,
+        transects_gdf: gpd.GeoDataFrame,
+        raw_timeseries_df: pd.DataFrame,
+        tide_regions_file: str,
+        model: str = "FES2022",
+):
+        """
+        Retrieves tide predictions from a specified tide model.
+
+        Parameters:
+        model_location (str): Path to the location of the tide model.
+        transects_gdf (gpd.GeoDataFrame): GeoDataFrame containing transect data.
+        raw_timeseries_df (pd.DataFrame): DataFrame containing raw timeseries data.
+            This should contain the columns :
+            - 'dates': The dates of the timeseries data in datetime format. This is the time of shoreline was captured.
+            - The columns should be transect ids
+        tide_regions_file (str): Path to the file containing tide regions information.
+        model (str, optional): Name of the tide model to use. Defaults to "FES2022".
+
+        Returns:
+        pd.DataFrame: DataFrame containing the predicted tides.
+            This dataframe contains the columns:
+            - 'dates': The dates of the tide predictions. This is the time of shoreline was captured & tide was predicted.
+            - 'transect_id': The transect ID for each tide prediction.
+            - 'tide': The predicted tide level at each date and transect.
+        """
+        # maybe print an error message if the tides model location and tide_regions file are not provided
+        tide_model_config = setup_tide_model_config(model_location,model=model)
+        predicted_tides_df = predict_tides(
+            transects_gdf,
+            raw_timeseries_df,
+            tide_regions_file,
+            tide_model_config,
+        )
+        return predicted_tides_df
+
+def apply_tide_correction_df(timeseries):
+    """
+    Apply tide correction to a timeseries DataFrame.
+    This assumes that the timeseries DataFrame has the following columns:
+    - 'tide': The tide level at each time point.
+    - 'reference_elevation': The reference elevation to compare the tide level against.
+    - 'slope': The slope of the beach.
+    - 'cross_distance': The original cross-shore distance. (This will be adjusted for tide correction.)
+
+    This function adjusts the 'cross_distance' in the timeseries DataFrame based on the tide level,
+    reference elevation, and beach slope. The correction is calculated as the difference between
+    the tide level and the reference elevation, divided by the beach slope.
+
+
+    Parameters:
+    timeseries (pd.DataFrame): A DataFrame containing the following columns:
+        - 'tide': The tide level at each time point.
+        - 'reference_elevation': The reference elevation to compare the tide level against.
+        - 'slope': The slope of the beach.
+        - 'cross_distance': The original cross-shore distance.
+
+    Returns:
+    pd.DataFrame: The modified DataFrame with the 'cross_distance' adjusted for tide correction.
+    """
+    reference_elevation = timeseries['reference_elevation']
+    beach_slope = timeseries['slope']
+    timeseries['correction'] = (timeseries['tide'] - reference_elevation) / beach_slope
+    timeseries["cross_distance"] = timeseries["cross_distance"] + timeseries['correction']
+    # drop correction
+    timeseries.drop(columns=['correction'],inplace=True)
+    return timeseries
+
+def save_to_transect_settings(session_name, roi_id, reference_elevation, beach_slope):
+    # optionally save to session location in ROI save the predicted tides to csv
+    session_path = file_utilities.get_session_contents_location(
+        session_name, roi_id
+    )
+
+    if isinstance(beach_slope,str):
+        beach_slope = np.nan
+    # read in transect_settings.json from session_path save the beach slope and reference shoreline
+    save_transect_settings(
+        session_path, reference_elevation, beach_slope, "transects_settings.json"
+    )
+     
+def save_predicted_tides_to_csv(session_path,  predicted_tides_df):
+    """
+    Saves the predicted tides DataFrame to a CSV file after pivoting it.
+
+    Args:
+        session_path (str): The directory path where the CSV file will be saved.
+        predicted_tides_df (pd.DataFrame): DataFrame containing predicted tides with columns 'dates', 'transect_id', and 'tide'.
+
+    Returns:
+        pd.DataFrame: The pivoted DataFrame with 'dates' as the index and 'transect_id' as columns.
+    """
+    pivot_df = predicted_tides_df.pivot_table(index='dates', columns='transect_id', values='tide', aggfunc='first')
+    # Reset index if you want 'dates' back as a column
+    pivot_df.reset_index(inplace=True)
+    pivot_df.to_csv(os.path.join(session_path, "predicted_tides.csv"),index=False)
+    return pivot_df 
+
+def get_matrix_timeseries(timeseries:pd.DataFrame):
+    """
+    Returns a timeseries DataFrame as a matrix to a CSV file.
+
+    This function takes a timeseries DataFrame, pivots it to create a matrix
+    where the rows are dates and the columns are transect IDs, and then saves
+    this matrix to a CSV file.
+
+    Parameters:
+    timeseries (pd.DataFrame): The input DataFrame containing the timeseries data.
+                                It must have columns 'dates', 'transect_id', and 'cross_distance'.
+
+    Returns:
+    pd.DataFrame: The pivoted DataFrame (matrix) with 'dates' as the index and 
+                    'transect_id' as the columns.
+                    Note : transect id is converted to string
+    """
+    matrix_timeseries = timeseries.copy()
+    # convert the transect ids to string
+    matrix_timeseries['transect_id'] = matrix_timeseries['transect_id'].astype(str)
+    matrix_timeseries.set_index('dates', inplace=True)
+    matrix_timeseries = matrix_timeseries.pivot_table(index='dates', columns='transect_id', values='cross_distance',)
+    # Reset index if you want 'dates' back as a column
+    matrix_timeseries.reset_index(inplace=True)
+    return matrix_timeseries
 
 def correct_tides(
     roi_id: str,
     session_name: str,
     reference_elevation: float,
-    beach_slope: float,
-    model_location: str,
-    tide_regions_file: str,
+    beach_slope: Union[float,str],
     only_keep_points_on_transects:bool = False,
     use_progress_bar: bool = True,
-    model: str = "FES2022",
+    tides_file:str ="",
+    model:str="FES2022",
+    tide_regions_file:str="",
+    model_location:str="",
 ) -> pd.DataFrame:
     """
-    Correct the tides for a given Region Of Interest (ROI) using a tide model.
+    Corrects the timeseries using the tide data provided
 
     Parameters:
     -----------
@@ -204,77 +708,95 @@ def correct_tides(
     - Tidally corrected time series data will be saved to the session location for the ROI.
     """
     with progress_bar_context(use_progress_bar, total=6) as update:
-        # create the settings used to run the tide_model
 
-        update(f"Setting up the tide model : {roi_id}")
-        tide_model_config = setup_tide_model_config(model_location,model=model)
         update(f"Getting time series for ROI : {roi_id}")
         # load the time series
         try:
-            raw_timeseries_df = get_timeseries(roi_id, session_name)
+            # read the merged csv
+            timeseries = get_timeseries_merged(roi_id, session_name)
         except FileNotFoundError as e:
             print(f"No time series data found for {roi_id} cannot perform tide correction")
             logger.warning(f"No time series data found for {roi_id} cannot perform tide correction")
             update(f"No time series data found for {roi_id} cannot perform tide correction")
             return pd.DataFrame()
         # this means that only the date column exists but no transects intersected any of the shorelines for any of these dates
-        if len(raw_timeseries_df.columns) < 2:
+        if timeseries.empty:
             print(f"No time series data found for {roi_id} cannot perform tide correction")
             logger.warning(f"No time series data found for {roi_id} cannot perform tide correction")
             update(f"No time series data found for {roi_id} cannot perform tide correction")
             return pd.DataFrame()
+        
+        session_path = file_utilities.get_session_contents_location(
+            session_name, roi_id
+        )
+        save_to_transect_settings(session_name, roi_id, reference_elevation, beach_slope)
         # read the transects from the config_gdf.geojson file
         update(f"Getting transects for ROI : {roi_id}")
         transects_gdf = get_transects(roi_id, session_name)
 
-        if not check_transect_timeseries_ids(transects_gdf, raw_timeseries_df):
-            print(f"None of the transect ids in the transects file were found in the raw_timeseries.csv file for ROI ID: {roi_id}")
-            raise Exception(f"None of the transect ids in the transects file were found in the raw_timeseries.csv file for ROI ID: {roi_id}")
+        # timeseries load from file
+        if tides_file != "":
+            if not os.path.exists(tides_file):
+                raise FileNotFoundError(f"Tide CSV file not found at {tides_file}")
+            update(f"Reading tides from file : {roi_id}")
+            timeseries = read_content_csv(tides_file,timeseries,column_name='tide')
+        else:
+            # predict tides
+            update(f"Predicting tides : {roi_id}")
+            timeseries_matrix = get_matrix_timeseries(timeseries)
+            tides = get_tides_from_model(
+                model_location=model_location,
+                transects_gdf=transects_gdf,
+                raw_timeseries_df=timeseries_matrix,
+                tide_regions_file=tide_regions_file,
+                model=model,
+            )
 
-        # predict the tides for each seaward transect point in the ROI
-        update(f"Predicting tides : {roi_id}")
-        predicted_tides_df = predict_tides(
-            transects_gdf,
-            raw_timeseries_df,
-            tide_regions_file,
-            tide_model_config,
-        )
-        # Apply tide correction to the time series using the tide predictions
+            # convert tides's transect id and timeseries transect id to str
+            tides['transect_id'] = tides['transect_id'].astype(str)
+            timeseries['transect_id'] = timeseries['transect_id'].astype(str)
+
+            # convert tides and timeseries columns to str
+            # if the tides dataframe has columns x and y drop them 
+            tides.drop(columns=['x','y'],inplace=True,errors='ignore')
+
+            timeseries = common.merge_dataframes(tides, timeseries)
+
+        # load the slopes if they are passed in
+        if isinstance(beach_slope,str):
+            timeseries['slope'] = np.nan
+            timeseries = read_content_csv(beach_slope,timeseries,column_name='slope')
+        else:
+            timeseries['slope'] = beach_slope 
+
+        # For any tides missing just skip tide correction and set the result as NaN
+        # drop rows with NaN values in 'tide' column
+        timeseries.dropna(subset=['tide'], inplace=True)
+        timeseries['reference_elevation'] = reference_elevation 
         update(f"Tidally correcting time series for ROI : {roi_id}")
+        # Apply tide correction to the time series using the tide predictions
+        # assumes columns are tide, reference_elevation and slope
+        tide_corrected_timeseries_df = apply_tide_correction_df(timeseries)
 
-        # optionally save to session location in ROI save the predicted tides to csv
-        session_path = file_utilities.get_session_contents_location(
-            session_name, roi_id
-        )
-        # read in transect_settings.json from session_path save the beach slope and reference shoreline
-        save_transect_settings(
-            session_path, reference_elevation, beach_slope, "transects_settings.json"
-        )
-        
-        # format the predicted tides as a matrix of date vs transect id with the tide as the values
-        # Pivot the table
-        pivot_df = predicted_tides_df.pivot_table(index='dates', columns='transect_id', values='tide', aggfunc='first')
-        # Reset index if you want 'dates' back as a column
-        pivot_df.reset_index(inplace=True)
-        pivot_df.to_csv(os.path.join(session_path, "predicted_tides.csv"),index=False)
-        
-        tide_corrected_timeseries_df = tidally_correct_timeseries(
-            raw_timeseries_df,
-            predicted_tides_df,
-            reference_elevation,
-            beach_slope,
-        )
-        
-        pivot_df = tide_corrected_timeseries_df.pivot_table(index='dates', columns='transect_id', values='cross_distance', aggfunc='first')
-        # Reset index if you want 'dates' back as a column
-        pivot_df.reset_index(inplace=True)
-        # add columns shore_x and shore_y to the tide_corrected_timeseries_df. Also save shorelines as vectors
+        # Saves the predicted tides as a csv file called 'predicted_tides.csv' in the session location
+        # predicted tides is a matrix of dates and transect ids with the tide values
+        tides_matrix = save_predicted_tides_to_csv(session_path, tide_corrected_timeseries_df)
+        tides_matrix.to_csv(os.path.join(session_path, "predicted_tides.csv"),index=False)
 
-        tide_corrected_timeseries_merged_df,timeseries_df  = common.add_lat_lon_to_timeseries(tide_corrected_timeseries_df, transects_gdf.to_crs('epsg:4326'),pivot_df,
-                                session_path,
-                                only_keep_points_on_transects,
-                                'tidally_corrected')
-        
+        # make the matrix of dates x transect_ids 
+        tide_corrected_matrix = get_matrix_timeseries(tide_corrected_timeseries_df)
+
+        # tidally corrected timeseries in format dates, transect_id, x, y, shore_x, shore_y, tide, reference_elevation, slope, correction, cross_distance
+
+        update(f"Saving tidally corrected time series for ROI : {roi_id}")
+        tide_corrected_timeseries_merged_df,timeseries_df  = common.add_lat_lon_to_timeseries(
+            tide_corrected_timeseries_df,
+            transects_gdf.to_crs('epsg:4326'),
+            tide_corrected_matrix,
+            session_path,
+            only_keep_points_on_transects,
+            'tidally_corrected')
+
         # Save the Tidally corrected time series
         sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
         timeseries_df = timeseries_df[sorted_columns]
@@ -327,12 +849,58 @@ def get_timeseries_location(ROI_ID: str, session_name: str,raw_or_tidecorrected 
     return time_series_location
 
 
+def get_timeseries_location_merged(ROI_ID: str, session_name: str,raw_or_tidecorrected = 'raw') -> str:
+    """
+    Retrieves the path to the time series CSV file for a given ROI ID and session name.
+    Note this does NOT return the merged timeseries file.
+
+    Note this retrieves the raw time series file by default.
+
+    Args:
+        ROI_ID (str): The ID of the region of interest.
+        session_name (str): The name of the session.
+        raw_or_tidecorrected (str): The type of time series to retrieve. Defaults to 'raw'.
+
+    Returns:
+        str: Path to the time series CSV file.
+
+    Raises:
+        FileNotFoundError: If the expected file is not found in the specified directory.
+    """
+    # get the contents of the session directory containing the data for the ROI id
+    session_path = file_utilities.get_session_contents_location(session_name, ROI_ID)
+    if raw_or_tidecorrected == 'raw':
+        try:
+            time_series_location = file_utilities.find_file_by_regex(
+                session_path, r"^raw_transect_time_series_merged\.csv$"
+            )
+        except FileNotFoundError:
+            # if the new file name is not found try the old file name format
+            time_series_location = file_utilities.find_file_by_regex(
+                session_path, r"^transect_time_series_merged\.csv$"
+            )
+    else:
+        time_series_location = file_utilities.find_file_by_regex(
+            session_path, r"^tidally_corrected_transect_time_series_merged\.csv$"
+        )
+    return time_series_location
+
 def get_timeseries(ROI_ID: str, session_name: str) -> pd.DataFrame:
     # get the contents of the session directory containing the data for the ROI id
     time_series_location = get_timeseries_location(ROI_ID, session_name)
     raw_timeseries_df = timeseries_read_csv(time_series_location)
     return raw_timeseries_df
 
+def get_timeseries_merged(ROI_ID: str, session_name: str) -> pd.DataFrame:
+    # get the contents of the session directory containing the data for the ROI id
+    time_series_location = get_timeseries_location_merged(ROI_ID, session_name)
+    timeseries_df = read_merged_timeseries(time_series_location)
+    return timeseries_df
+
+def read_merged_timeseries(file_path) -> pd.DataFrame:
+    df = pd.read_csv(file_path, parse_dates=["dates"])
+    df["dates"] = pd.to_datetime(df["dates"], utc=True)
+    return df
 
 def get_transects(roi_id: str, session_name: str):
     # open the sessions directory
@@ -509,6 +1077,11 @@ def get_tide_predictions(
         x (float): The x-coordinate of the location to predict tide for.
         y (float): The y-coordinate of the location to predict tide for.
         - timeseries_df: A DataFrame containing time series data for each transect.
+            - It expects a DataFrame with columns 'dates'
+                 - If a transect ID is available, it should be included as a column in the DataFrame.
+                 - It expects all the dates in a single column called dates in datetime format.
+                 - All the transect ids should be type string
+
        - model_region_directory: The path to the model region that will be used to compute the tide predictions
          ex."C:/development/doodleverse/CoastSeg/tide_model/region"
         transect_id (str): The ID of the transect. Pass "" if no transect ID is available.
@@ -518,11 +1091,17 @@ def get_tide_predictions(
             - pd.DataFrame: A DataFrame containing tide predictions for all the dates that the selected transect_id using the
     fes 2014 model region specified in the "region_id".
     """
-    # if the transect ID is not in the timeseries_df then return None
+    # Check if the transect id is available in the timeseries_df. Either as a column or in the 'transect_id' column
     if transect_id != "":
-        if transect_id not in timeseries_df.columns:
-            return None
-        dates_for_transect_id_df = timeseries_df[["dates", transect_id]].dropna()
+        # get unique dates for the transect_id and convert to a numpy array
+        if "transect_id" in timeseries_df.columns:
+            matching_rows = timeseries_df[timeseries_df["transect_id"] == transect_id]
+            # get the unique dates for the transect_id
+            dates_for_transect_id_df = matching_rows[["dates"]].dropna()
+        elif transect_id not in timeseries_df.columns:
+            return pd.DataFrame()
+        else:
+            dates_for_transect_id_df = timeseries_df[["dates", transect_id]].dropna()
     else:    
         dates_for_transect_id_df = timeseries_df[["dates"]].dropna()
 
@@ -580,49 +1159,6 @@ def predict_tides_for_df(
     all_tides_df = pd.concat(all_tides.tolist())
 
     return all_tides_df
-
-# def predict_tides_for_df(
-#     seaward_points_gdf: gpd.GeoDataFrame,
-#     timeseries_df: pd.DataFrame,
-#     config: dict,
-# ) -> pd.DataFrame:
-#     """
-#     Predict tides for a points in the DataFrame.
-
-#     Parameters:
-#     - seaward_points_gdf: A GeoDataFrame containing seaward points for each transect
-#     - timeseries_df: A DataFrame containing time series data for each transect. A DataFrame containing time series data for the transects
-#     - config: Configuration dictionary.
-#         Must contain key:
-#         "REGION_DIRECTORY" : contains full path to the fes  model region folder
-#         "MODEL" : The tide model to use. Defaults to 'FES2022'
-
-#     Returns:
-#     - pd.DataFrame: A DataFrame containing predicted tides.
-#     Contains columns dates,x,y,tide,transect_id
-#     """
-#     region_directory = config["REGION_DIRECTORY"]
-#     # Apply the get_tide_predictions over each row and collect results in a list
-#     all_tides = seaward_points_gdf.apply(
-#         lambda row: get_tide_predictions(row.geometry.x,
-#                                          row.geometry.y,
-#                                          timeseries_df,
-#                                          f"{region_directory}{row['region_id']}",
-#                                          row["transect_id"],
-#                                          model = config["MODEL"]),
-#                                         axis=1,              
-#     )
-#     # Filter out None values
-#     all_tides = all_tides.dropna()
-#     # if no tides are predicted return an empty dataframe
-#     if all_tides.empty:
-#         return pd.DataFrame(columns=["dates", "x", "y", "tide", "transect_id"])
-    
-#     # Concatenate all the results
-#     all_tides_df = pd.concat(all_tides.tolist())
-
-#     return all_tides_df
-
 
 def model_tides(
     x,
@@ -695,6 +1231,8 @@ def model_tides(
     Returns
     -------
     A pandas.DataFrame containing tide heights for all the xy points and their corresponding time
+    Contains the columns dates, x, y, tide, transect_id
+    
     """
     # Check tide directory is accessible
     if directory is not None:

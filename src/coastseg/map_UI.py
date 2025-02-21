@@ -6,38 +6,25 @@ import logging
 # Internal Python imports
 from coastseg import exception_handler
 from coastseg import common
+from coastseg import UI_elements
 from coastseg import core_utilities
 from coastseg import file_utilities
 from coastseg.extract_shorelines_widget import Extracted_Shoreline_widget
-
+from coastseg.settings_UI import Settings_UI
 
 # External Python imports
-import ipywidgets
+import ipywidgets as widgets
 import traitlets
-from IPython.display import display
+from IPython.display import display, clear_output
 from ipyfilechooser import FileChooser
 from google.auth import exceptions as google_auth_exceptions
-from ipywidgets import Button
-from ipywidgets import RadioButtons
-from ipywidgets import HBox
-from ipywidgets import VBox
-from ipywidgets import Layout
-from ipywidgets import HTML
-from ipywidgets import BoundedFloatText
-from ipywidgets import SelectMultiple
-from ipywidgets import Output
-from ipywidgets import FloatText
-from ipywidgets import Dropdown
-from ipywidgets import Accordion
 
-
-from coastseg.settings_UI import Settings_UI
 
 logger = logging.getLogger(__name__)
 
 # icons sourced from https://fontawesome.com/v4/icons/
 
-BOX_LAYOUT = Layout(
+BOX_LAYOUT = widgets.Layout(
     width="350px",
     min_height="0px",  # Initial height
     max_height="250px",  # Maximum height
@@ -47,13 +34,15 @@ BOX_LAYOUT = Layout(
     flex_grow=1,  # Allows the box to grow based on content
 )
 
-GRID_LAYOUT = Layout(
+GRID_LAYOUT = widgets.Layout(
   display= 'grid',
   grid_template_rows='20px 30px',
   grid_auto_flow= 'column', 
   grid_auto_columns = '87px',
   width="550px",
 )
+
+
 
 def str_to_bool(var: str) -> bool:
     return var == "True"
@@ -108,10 +97,10 @@ class UI:
     # all instances of UI will share the same debug_view
     # this means that UI and coastseg_map must have a 1:1 relationship
     # Output widget used to print messages and exceptions created by CoastSeg_Map
-    debug_view = Output(layout={"border": "1px solid black"})
+    debug_view = widgets.Output(layout={"border": "1px solid black"})
     # Output widget used to print messages and exceptions created by download progress
-    download_view = Output(layout={"border": "1px solid black"})
-    preview_view = Output()
+    download_view = widgets.Output(layout={"border": "1px solid black"})
+    preview_view = widgets.Output()
 
     def get_settings_dashboard(self, basic_settings: dict = {}):
         if not basic_settings:
@@ -133,27 +122,27 @@ class UI:
 
     def add_custom_widgets(self, settings_dashboard: Settings_UI):
         # create dropdown to select sand color
-        sand_dropdown = ipywidgets.Dropdown(
+        sand_dropdown = widgets.Dropdown(
             options=["default", "latest", "dark", "bright"],
             value="default",
             description="sand_color :",
             disabled=False,
         )
         # create dropdown to select mulitple satellites
-        satellite_selection = ipywidgets.SelectMultiple(
+        satellite_selection = widgets.SelectMultiple(
             options=["L5", "L7", "L8", "L9", "S2"],
             value=["L8"],
             description="Satellites",
             disabled=False,
         )
         # create checkbox to control image size filter
-        image_size_filter_checkbox = ipywidgets.Checkbox(
+        image_size_filter_checkbox = widgets.Checkbox(
             value=True,
             description="Enable image size filter",
             indent=False,  # To align the description with the label
         )
         # create toggle to select cloud mask issue
-        cloud_mask_issue = ipywidgets.ToggleButtons(
+        cloud_mask_issue = widgets.ToggleButtons(
             options=["False", "True"],
             description=" Switch to True if sand pixels are masked (in black) on many images",
             disabled=False,
@@ -238,14 +227,14 @@ class UI:
         )
 
         # add callbacks to the extract shorelines widget
-        # when the load button is clicked on the extract shorelines widget, load the selected shorelines on the map
+        # when the load widgets.Button is clicked on the extract shorelines widget, load the selected shorelines on the map
         self.extract_shorelines_widget.add_load_callback(
             coastseg_map.load_selected_shorelines_on_map
         )
         # when the ROI is changed on the extract shorelines widget, update the map
         self.extract_shorelines_widget.add_ROI_callback(coastseg_map.update_extracted_shorelines_display)
 
-        # when the delete button is clicked on the extract shorelines widget, remove the selected shorelines from the map
+        # when the delete widgets.Button is clicked on the extract shorelines widget, remove the selected shorelines from the map
         self.extract_shorelines_widget.add_remove_all_callback(
             coastseg_map.delete_selected_shorelines
         )
@@ -264,34 +253,34 @@ class UI:
             self.extract_shorelines_widget.roi_list_widget
         )
 
-        # create button styles
+        # create widgets.Button styles
         self.create_styles()
 
         # buttons to load configuration files
-        self.load_session_button = Button(
+        self.load_session_button = widgets.Button(
             description="Load Session", icon="files-o", style=self.load_style
         )
         self.load_session_button.on_click(self.on_load_session_clicked)
 
-        self.settings_button = Button(
+        self.settings_button = widgets.Button(
             description="Save Settings", icon="floppy-o", style=self.action_style
         )
         self.settings_button.on_click(self.save_settings_clicked)
 
-        self.load_file_instr = HTML(
+        self.load_file_instr = widgets.HTML(
             value="<h2>Load Feature from File</h2>\
                  Load a feature onto map from geojson file.\
                 ",
-            layout=Layout(padding="0px"),
+            layout=widgets.Layout(padding="0px"),
         )
 
-        self.load_file_radio = ipywidgets.Dropdown(
+        self.load_file_radio = widgets.Dropdown(
             options=["Shoreline", "Transects", "Bbox", "ROIs"],
             value="Shoreline",
             description="",
             disabled=False,
         )
-        self.load_file_button = Button(
+        self.load_file_button = widgets.Button(
             description=f"Load {self.load_file_radio.value} file",
             icon="file-o",
             style=self.load_style,
@@ -304,48 +293,48 @@ class UI:
         self.load_file_radio.observe(change_load_file_btn_name, "value")
 
         # Generate buttons
-        self.gen_button = Button(
+        self.gen_button = widgets.Button(
             description="Generate ROI", icon="globe", style=self.action_style
         )
         self.gen_button.on_click(self.gen_roi_clicked)
-        self.download_button = Button(
+        self.download_button = widgets.Button(
             description="Download Imagery", icon="download", style=self.action_style
         )
         self.download_button.on_click(self.download_button_clicked)
 
-        self.preview_button = Button(
+        self.preview_button = widgets.Button(
             description="Preview Imagery", icon="eye", style=self.action_style
         )
         self.preview_button.on_click(self.preview_button_clicked)
 
-        self.extract_shorelines_button = Button(
+        self.extract_shorelines_button = widgets.Button(
             description="Extract Shorelines", style=self.action_style
         )
         self.extract_shorelines_button.on_click(self.extract_shorelines_button_clicked)
 
-        # Clear  textbox button
-        self.clear_debug_button = Button(
+        # Clear  textbox widgets.Button
+        self.clear_debug_button = widgets.Button(
             description="Clear TextBox", style=self.clear_stlye
         )
         self.clear_debug_button.on_click(self.clear_debug_view)
-        # Clear download messages button
-        self.clear_downloads_button = Button(
+        # Clear download messages widgets.Button
+        self.clear_downloads_button = widgets.Button(
             description="Clear Downloads", style=self.clear_stlye
         )
         self.clear_downloads_button.on_click(self.clear_download_view)
 
         # create the HTML widgets containing the instructions
         self._create_HTML_widgets()
-        self.roi_slider_instr = HTML(value="<b>Choose Area of ROIs</b>")
+        self.roi_slider_instr = widgets.HTML(value="<b>Choose Area of ROIs</b>")
         # controls the ROI units displayed
-        self.units_radio = ipywidgets.Dropdown(
+        self.units_radio = widgets.Dropdown(
             options=["m²", "km²"],
             value="km²",
             description="Select Units:",
             disabled=False,
         )
         # create two float text boxes that will control size of ROI created
-        self.sm_area_textbox = BoundedFloatText(
+        self.sm_area_textbox = widgets.BoundedFloatText(
             value=0,
             min=0,
             max=98,
@@ -354,7 +343,7 @@ class UI:
             style={"description_width": "initial"},
             disabled=False,
         )
-        self.lg_area_textbox = BoundedFloatText(
+        self.lg_area_textbox = widgets.BoundedFloatText(
             value=20,
             min=0,
             max=98,
@@ -364,7 +353,7 @@ class UI:
             disabled=False,
         )
 
-        # called when unit radio button is clicked
+        # called when unit radio widgets.Button is clicked
         def units_radio_changed(change: dict):
             """
             Change the maximum area allowed and the description of the small and large ROI area
@@ -373,7 +362,7 @@ class UI:
             is 98.
 
             Parameters:
-            change (dict): event dictionary fired by clicking the units_radio button
+            change (dict): event dictionary fired by clicking the units_radio widgets.Button
             """
             try:
                 MAX_AREA = 980000000
@@ -407,7 +396,7 @@ class UI:
             except Exception as e:
                 print(e)
 
-        # when units radio button is clicked updated units for area textboxes
+        # when units radio widgets.Button is clicked updated units for area textboxes
         self.units_radio.observe(units_radio_changed)
 
     def create_styles(self):
@@ -433,28 +422,21 @@ class UI:
     def create_tidal_correction_widget(self, id_container: "traitlets.HasTraits"):
         load_style = dict(button_color="#69add1", description_width="initial")
 
-        correct_tides_html = HTML(
+        correct_tides_html = widgets.HTML(
             value="<h3><b>Apply Tide Correction</b></h3> \
                Only apply after extracting shorelines</br>",
-            layout=Layout(margin="0px 5px 0px 0px"),
+            layout=widgets.Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.beach_slope_text = FloatText(value=0.02, description="Beach Slope (m/m):",style={'description_width': 'initial'})
-        self.reference_elevation_text = FloatText(value=0.0, description="Beach Elevation (m, relative M.S.L.):",style={'description_width': 'initial'})
+        self.reference_elevation_text = widgets.FloatText(value=0.0, description="Reference Elevation (m, relative to user-specified vertical datum):",style={'description_width': 'initial'})
+        self.beach_slope_selector = UI_elements.BeachSlopeSelector()
+        self.tide_selector = UI_elements.TidesSelector()
 
-        self.scrollable_select = SelectMultiple(
+        self.scrollable_select = widgets.SelectMultiple(
             description="Select ROIs",
             options=id_container.ids,
-            layout=Layout(overflow_y="auto", height="100px"),
+            layout=widgets.Layout(overflow_y="auto", height="100px"),
         )
-        self.tide_model_selection = Dropdown(
-            options=['FES2014', 'FES2022',],
-            value='FES2022',
-            description='Tide Model:',
-            disabled=False,
-            style={'description_width': 'initial'},
-        )
-
         # Function to update widget options when the traitlet changes
         def update_widget_options(change):
             self.scrollable_select.options = change["new"]
@@ -462,26 +444,29 @@ class UI:
         # When the traitlet,id_container, trait 'ids' changes the update_widget_options will be updated
         id_container.observe(update_widget_options, names="ids")
 
-        self.tidally_correct_button = Button(
+        self.tidally_correct_button = widgets.Button(
             description="Correct Tides",
             style=load_style,
             icon="tint",
         )
+
+
+
         self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
 
-        return VBox(
+        return widgets.VBox(
             [
                 correct_tides_html,
-                self.tide_model_selection,
-                self.beach_slope_text,
                 self.reference_elevation_text,
+                self.beach_slope_selector,
+                self.tide_selector,
                 self.scrollable_select,
                 self.tidally_correct_button,
             ]
         )
 
     @debug_view.capture(clear_output=True)
-    def tidally_correct_button_clicked(self, button):
+    def tidally_correct_button_clicked(self, btn):
         # get the selected ROI IDs if none selected give an error message
         selected_rois = self.scrollable_select.value
         if not selected_rois:
@@ -492,13 +477,28 @@ class UI:
             return
 
         print("Correcting tides... please wait")
-        beach_slope = self.beach_slope_text.value
+        self.tide_selector
+        self.beach_slope_selector
+        beach_slope = self.beach_slope_selector.value
         reference_elevation = self.reference_elevation_text.value
-        
+        tides_file = self.tide_selector.tides_file
+        model = self.tide_selector.model
+
+        if beach_slope == "":
+            self.launch_error_box(
+                "Cannot correct tides",
+                "You must enter a beach slope value or upload a CSV file of slopes",
+            )
+            return
+
+        beach_slope = self.beach_slope_selector.value
+        reference_elevation = self.reference_elevation_text.value
+        model = self.tide_selector.model
+        tides_file = self.tide_selector.tides_file
+        # this is where the tide correction will be applied
         self.coastseg_map.compute_tidal_corrections(
-            selected_rois, beach_slope, reference_elevation,model=self.tide_model_selection.value
+            selected_rois, beach_slope, reference_elevation,model=model, tides_file = tides_file
         )
-        # load in shoreline settings, session directory with model outputs, and a new session name to store extracted shorelines
 
     def set_session_name(self, name: str):
         self.session_name = str(name).strip()
@@ -509,8 +509,8 @@ class UI:
         return self.session_name
 
     def get_session_selection(self):
-        output = Output()
-        box_layout = Layout(
+        output = widgets.Output()
+        box_layout = widgets.Layout(
             min_height="0px",  # Initial height
             width="350px",
             max_height="50px",
@@ -520,7 +520,7 @@ class UI:
             flex_grow=1,  # Allows the box to grow based on content
         )
 
-        self.session_name_text = ipywidgets.Text(
+        self.session_name_text = widgets.Text(
             value="",
             placeholder="Enter a session name",
             description="Session Name:",
@@ -528,9 +528,9 @@ class UI:
             style={"description_width": "initial"},
         )
 
-        enter_button = ipywidgets.Button(
+        enter_button = widgets.Button(
             description="Enter",
-            layout=Layout(
+            layout=widgets.Layout(
                 height="28px",
                 width="80px",
             ),
@@ -553,39 +553,39 @@ class UI:
             self.coastseg_map.set_session_name(session_name)
 
         enter_button.on_click(enter_clicked)
-        scrollable_output = ipywidgets.Box(children=[output], layout=box_layout)
-        session_name_controls = HBox([self.session_name_text, enter_button])
-        return VBox([session_name_controls, scrollable_output])
+        scrollable_output = widgets.Box(children=[output], layout=box_layout)
+        session_name_controls = widgets.HBox([self.session_name_text, enter_button])
+        return widgets.VBox([session_name_controls, scrollable_output])
 
-    def get_view_settings_vbox(self) -> VBox:
+    def get_view_settings_vbox(self) -> widgets.VBox:
         # update settings button
-        update_settings_btn = Button(
+        update_settings_btn = widgets.Button(
             description="Refresh Settings", icon="refresh", style=self.action_style
         )
         update_settings_btn.on_click(self.update_settings_btn_clicked)
         setting_content = format_as_html(self.coastseg_map.get_settings())
-        self.settings_html = HTML(
+        self.settings_html = widgets.HTML(
              f"<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>"
             f"{setting_content}"
             f"</div>"
         )
         
-        view_settings_vbox = VBox([self.settings_html, update_settings_btn])
-        html_settings_accordion = Accordion(children=[view_settings_vbox])
+        view_settings_vbox = widgets.VBox([self.settings_html, update_settings_btn])
+        html_settings_accordion = widgets.Accordion(children=[view_settings_vbox])
         html_settings_accordion.set_title(0, "View Settings")
         return html_settings_accordion
 
     def save_to_file_buttons(self):
         # save to file buttons
-        save_instr = HTML(
+        save_instr = widgets.HTML(
             value="<h2>Save to file</h2>\
                 Save feature on the map to a geojson file.\
                 <br>Geojson file will be saved to CoastSeg directory.\
             ",
-            layout=Layout(padding="0px"),
+            layout=widgets.Layout(padding="0px"),
         )
 
-        self.save_radio = ipywidgets.Dropdown(
+        self.save_radio = widgets.Dropdown(
             options=[
                 "Shoreline",
                 "Transects",
@@ -597,7 +597,7 @@ class UI:
             disabled=False,
         )
 
-        self.save_button = Button(
+        self.save_button = widgets.Button(
             description=f"Save {self.save_radio.value}",
             icon="floppy-o",
             style=self.save_style,
@@ -608,25 +608,25 @@ class UI:
             self.save_button.description = f"Save {str(change['new'])} to file"
 
         self.save_radio.observe(save_radio_changed, "value")
-        save_vbox = VBox([save_instr, self.save_radio, self.save_button])
+        save_vbox = widgets.VBox([save_instr, self.save_radio, self.save_button])
         return save_vbox
 
     def load_feature_on_map_buttons(self):
-        load_instr = HTML(
+        load_instr = widgets.HTML(
             value="<h2>Load Feature into Bounding Box</h2>\
                 Loads shoreline or transects into bounding box on map.\
                 </br>If no transects or shorelines exist in this area, then\
                </br> draw bounding box somewhere else\
                 ",
-            layout=Layout(padding="0px"),
+            layout=widgets.Layout(padding="0px"),
         )
-        self.load_radio = ipywidgets.Dropdown(
+        self.load_radio = widgets.Dropdown(
             options=["Shoreline", "Transects"],
             value="Transects",
             description="",
             disabled=False,
         )
-        self.load_button = Button(
+        self.load_button = widgets.Button(
             description=f"Load {self.load_radio.value}",
             icon="file-o",
             style=self.load_style,
@@ -637,20 +637,20 @@ class UI:
             self.load_button.description = f"Load {str(change['new'])}"
 
         self.load_radio.observe(handle_load_radio_change, "value")
-        load_buttons = VBox([load_instr, self.load_radio, self.load_button])
+        load_buttons = widgets.VBox([load_instr, self.load_radio, self.load_button])
         return load_buttons
 
     def draw_control_section(self):
-        load_instr = HTML(
+        load_instr = widgets.HTML(
             value="<h2>Draw Controls</h2>\
                 Select to draw either a bounding box or shoreline extraction area on the map.\
                 </br>Bounding boxes are green\
                </br>Shoreline extraction area is purple.(optional)\
                 ",
-            layout=Layout(padding="0px"),
+            layout=widgets.Layout(padding="0px"),
         )
         # Draw controls
-        self.draw_feature_controls = RadioButtons(
+        self.draw_feature_controls = widgets.RadioButtons(
             options=["Bounding Box","Shoreline Extraction Area",],
             value="Bounding Box",
             description="Draw Controls:",
@@ -662,17 +662,17 @@ class UI:
         self.draw_feature_controls.observe(self.on_draw_feature_controls_change, names="value")
 
 
-        load_buttons = VBox([load_instr,self.draw_feature_controls,])
+        load_buttons = widgets.VBox([load_instr,self.draw_feature_controls,])
         return load_buttons
 
     def remove_buttons(self):
         # define remove feature radio box button
-        remove_instr = HTML(
+        remove_instr = widgets.HTML(
             value="<h2>Remove Feature from Map</h2>",
-            layout=Layout(padding="0px"),
+            layout=widgets.Layout(padding="0px"),
         )
 
-        self.feature_dropdown = ipywidgets.Dropdown(
+        self.feature_dropdown = widgets.Dropdown(
             options=[
                 "Shoreline",
                 "Transects",
@@ -687,7 +687,7 @@ class UI:
             description="",
             disabled=False,
         )
-        self.remove_button = Button(
+        self.remove_button = widgets.Button(
             description=f"Remove {self.feature_dropdown.value}",
             icon="ban",
             style=self.remove_style,
@@ -699,12 +699,12 @@ class UI:
         self.remove_button.on_click(self.remove_feature_from_map)
         self.feature_dropdown.observe(handle_remove_radio_change, "value")
         # define remove all button
-        self.remove_all_button = Button(
+        self.remove_all_button = widgets.Button(
             description="Remove all", icon="trash-o", style=self.remove_style
         )
         self.remove_all_button.on_click(self.remove_all_from_map)
 
-        remove_buttons = VBox(
+        remove_buttons = widgets.VBox(
             [
                 remove_instr,
                 self.feature_dropdown,
@@ -719,16 +719,16 @@ class UI:
         widgets created: instr_create_ro, instr_save_roi, instr_load_btns
          instr_download_roi
         """
-        self.instr_create_roi = HTML(
+        self.instr_create_roi = widgets.HTML(
             value="<h2><b>Generate ROIs on Map</b></h2> \
                  <li>  Draw a bounding box, then click Generate Roi\
                 <li>ROIs (squares) are created within the bounding box along \n the shoreline.\
                 <li>If no shoreline exists within the bounding box then ROIs cannot be created.\
                 ",
-            layout=Layout(margin="0px 5px 0px 0px"),
+            layout=widgets.Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.instr_download_roi = HTML(
+        self.instr_download_roi = widgets.HTML(
             value="<h2><b>Download Imagery</b></h2> \
                 <li><b>You must click an ROI on the map before you can download ROIs</b> \
                 </br><h3><b><u>Where is my data?</u></b></br></h3> \
@@ -737,13 +737,13 @@ class UI:
                 </br>the time it was downloaded in the folder name\
                 </br><b>Example</b>: 'ID_1_datetime11-03-22__02_33_22'</li>\
                 ",
-            layout=Layout(margin="0px 0px 0px 5px"),
+            layout=widgets.Layout(margin="0px 0px 0px 5px"),
         )
 
-        self.instr_config_btns = HTML(
+        self.instr_config_btns = widgets.HTML(
             value="<h2><b>Load Sessions</b></h2>\
                 <b>Load Session</b>: Load rois, shorelines, transects, and bounding box from session directory",
-            layout=Layout(margin="0px 5px 0px 5px"),
+            layout=widgets.Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
 
     def create_dashboard(self):
@@ -754,10 +754,10 @@ class UI:
         remove_buttons = self.remove_buttons()
         save_to_file_buttons = self.save_to_file_buttons()
 
-        load_file_vbox = VBox(
+        load_file_vbox = widgets.VBox(
             [self.load_file_instr, self.load_file_radio, self.load_file_button]
         )
-        save_vbox = VBox(
+        save_vbox = widgets.VBox(
             [
                 save_to_file_buttons,
                 load_file_vbox,
@@ -765,18 +765,18 @@ class UI:
                 self.extract_shorelines_widget,
             ]
         )
-        config_vbox = VBox(
+        config_vbox = widgets.VBox(
             [
                 self.instr_config_btns,
                 self.load_session_button,
             ]
         )
-        download_vbox = VBox(
+        download_vbox = widgets.VBox(
             [
                 self.instr_download_roi,
                 self.download_button,
                 self.preview_button,
-                ipywidgets.Box(children=[UI.preview_view], layout=BOX_LAYOUT),
+                widgets.Box(children=[UI.preview_view], layout=BOX_LAYOUT),
                 self.extract_shorelines_button,
                 self.get_session_selection(),
                 self.create_tidal_correction_widget(self.coastseg_map.id_container),
@@ -784,7 +784,7 @@ class UI:
             ]
         )
 
-        area_control_box = VBox(
+        area_control_box = widgets.VBox(
             [
                 self.roi_slider_instr,
                 self.units_radio,
@@ -792,14 +792,14 @@ class UI:
                 self.lg_area_textbox,
             ]
         )
-        ROI_btns_box = VBox([area_control_box, self.gen_button])
-        roi_controls_box = VBox(
+        ROI_btns_box = widgets.VBox([area_control_box, self.gen_button])
+        roi_controls_box = widgets.VBox(
             [self.instr_create_roi, ROI_btns_box, load_buttons,draw_control_section],
-            layout=Layout(margin="0px 5px 5px 0px"),
+            layout=widgets.Layout(margin="0px 5px 5px 0px"),
         )
-        self.settings_row = HBox(
+        self.settings_row = widgets.HBox(
             [
-                VBox(
+                widgets.VBox(
                     [
                         self.settings_dashboard.render(),
                         self.settings_button,
@@ -808,13 +808,13 @@ class UI:
                 self.get_view_settings_vbox(),
             ]
         )
-        row_1 = HBox([roi_controls_box, save_vbox, download_vbox])
+        row_1 = widgets.HBox([roi_controls_box, save_vbox, download_vbox])
         # in this row prints are rendered with UI.debug_view
-        row_2 = VBox([self.clear_debug_button, UI.debug_view])
-        self.error_row = HBox([])
-        self.file_chooser_row = HBox([])
-        map_row = HBox([self.coastseg_map.map])
-        download_msgs_row = HBox([self.clear_downloads_button, UI.download_view])
+        row_2 = widgets.VBox([self.clear_debug_button, UI.debug_view])
+        self.error_row = widgets.HBox([])
+        self.file_chooser_row = widgets.HBox([])
+        map_row = widgets.HBox([self.coastseg_map.map])
+        download_msgs_row = widgets.HBox([self.clear_downloads_button, UI.download_view])
 
         return display(
             self.settings_row,
@@ -968,10 +968,10 @@ class UI:
         self.download_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
-    def clear_row(self, row: HBox):
+    def clear_row(self, row: widgets.HBox):
         """close widgets in row/column and clear all children
         Args:
-            row (HBox)(VBox): row or column
+            row (widgets.HBox)(widgets.VBox): row or column
         """
         for index in range(len(row.children)):
             row.children[index].close()

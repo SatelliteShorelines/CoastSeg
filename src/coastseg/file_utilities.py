@@ -233,7 +233,6 @@ def find_file_path_in_roi(roi_id, roi_settings, filename="image_classification_r
     # Construct the path to the expected file location
     expected_csv_path = os.path.join(roi_data_location, "jpg_files", "preprocessed", "RGB", filename)
     if os.path.exists(expected_csv_path):
-        print(f"Expected CSV file found: {expected_csv_path}")
         return expected_csv_path
     else:
         # Try to find the file recursively in the ROI data location
