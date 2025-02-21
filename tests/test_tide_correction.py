@@ -98,7 +98,8 @@ def test_get_tide_predictions():
                                                       "x": np.repeat(x, len(timeseries_df)),
                                                       "y": np.repeat(y, len(timeseries_df))})
         result = get_tide_predictions(x, y, timeseries_df, model_region_directory, transect_id)
-        assert result is None
+        # assert that the result is an empty dataframe
+        assert result.empty, "Result should be an empty dataframe"
         
     # Mock the model_tides function with no transect ID
     with patch('coastseg.tide_correction.model_tides') as mock_model_tides:
