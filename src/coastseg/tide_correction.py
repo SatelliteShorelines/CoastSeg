@@ -1231,6 +1231,8 @@ def model_tides(
     Returns
     -------
     A pandas.DataFrame containing tide heights for all the xy points and their corresponding time
+    Contains the columns dates, x, y, tide, transect_id
+    
     """
     # Check tide directory is accessible
     if directory is not None:
