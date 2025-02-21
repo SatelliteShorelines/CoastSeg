@@ -9,14 +9,13 @@ Note: The exact columns names (capitalizations too) must match
 - [Acceptable CSV formats for Specific Dates](#acceptable-csv-formats-for-specific-dates)
 - [Acceptable CSV formats for Seasonal Data](#acceptable-csv-formats-for-seasonal-data)
 
-
 ## Acceptable CSV formats for Specific Dates
 
 - Note: The exact columns names (capitalizations too) must match
 
 ### Acceptable Forms of Dates
 
-1. **Dates in ISO 8601** 
+1. **Dates in ISO 8601**
       - specify year-month-day followed by the time in 24-hour format with an offset from UTC (Coordinated Universal Time)
       - Example: `2023-12-25 18:40:14+00:00`
       - We recommend this format since this is the same format used to save the dates in the timeseries CSV files saved by CoastSeg
@@ -30,7 +29,7 @@ Note: The exact columns names (capitalizations too) must match
       > columns : transect_id, slope
 
       - Please be sure to supply a slope for each transect id
-      - All your transect ids can be found in the raw timeseries csv files
+      - All your transect ids can be found in the `raw_transect_time_series_merged.csv`  file
 
       | transect_id| slope |
       | --------   | ------|
@@ -44,6 +43,7 @@ Note: The exact columns names (capitalizations too) must match
 
       - Uses the slope for everything up to and including the date for that transect
       - For example for transect 2 slope `0.04` will be used for all tide corrections for dates before or on 2021-04-05, but for dates after 2021-04-05 the slope `0.03` will be used
+      - All your transect ids can be found in the `raw_transect_time_series_merged.csv`  file
 
       | transect_id | slope | dates      |
       |-------------|-------|------------|
@@ -70,9 +70,9 @@ Note: The exact columns names (capitalizations too) must match
 
       - This is a pivot of **format 2**
       - This format has the slope value for each transect id and date
-      - In the examples below transect_1, 1234, and 123456 are transect ids
+      - In the examples below `1`,`2`,`3` are transect ids
 
-      |  | transect_1 |transect_2 | transect_3 |
+      |  | 1 |2 | 3 |
       | -------- | ------- | ---------| ---------|
       | 2004-04-07 00:00:00+00:00          |  0.05                   | 0.04     | 0.04     |
       |2004-04-08 00:00:00+00:00       | 0.04       |0.05      | 0.08     |
