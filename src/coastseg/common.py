@@ -8,13 +8,11 @@ import random
 import re
 import shutil
 import string
-import pathlib
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from sysconfig import get_python_version
 
 # Third-party imports
-import ee
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -422,87 +420,6 @@ def get_missing_roi_dirs(roi_settings: dict, roi_ids: list = None) -> dict:
 
     return missing_directories
 
-def initialize_gee(
-    auth_mode: str = "",
-    print_mode: bool = True,
-    auth_args: dict = {},
-    project: str = "",
-    force:bool=False,
-    **kwargs,
-):
-    """
-    Initialize Google Earth Engine (GEE). If initialization fails due to authentication issues,prompt the user to authenticate and try again.
-
-    Arguments:
-    -----------
-    - auth_mode (str, optional): The authentication mode 
-      'gcloud' and 'colab' methods are not supported.
-       See https://developers.google.com/earth-engine/guides/auth for more details. 
-    - print_mode (bool, optional): Whether to print initialization messages. Defaults to True.
-    - auth_args (dict, optional): Additional arguments for authentication. Defaults to {}.
-    - project (str, optional): The project to initialize GEE with. Defaults to an empty string.
-    - force (bool, optional): Forces re-authentication if True. Defaults to False.
-    - **kwargs: Additional keyword arguments for `ee.Initialize()`.
-    
-    Raises:
-    - ValueError: If an unsupported authentication mode is specified.
-    - Exception: If initialization fails after authentication.
-    """
-    # Validate authentication mode
-    if auth_mode in ["gcloud", "colab"]:
-        raise ValueError(f"{auth_mode} authentication is not supported.")
-    
-    # separate the force argument from the auth_args
-    if 'force' in auth_args:
-        force = auth_args['force']
-        del auth_args['force']
-    
-    # Update authentication arguments
-    if auth_mode:
-        auth_args["auth_mode"] = auth_mode
-    if project:
-        kwargs["project"] = project
-        
-    # Authenticate and initialize
-    authenticate_and_initialize(print_mode, force, auth_args, kwargs)
-
-
-def authenticate_and_initialize(print_mode: bool, force: bool, auth_args: dict, kwargs: dict, attempt: int = 1, max_attempts: int = 2):
-    """
-    Handles the authentication and initialization of Google Earth Engine.
-
-    Args:
-        print_mode (bool): Flag indicating whether to print status messages.
-        force (bool): Flag indicating whether to force authentication.
-        auth_args (dict): Dictionary of authentication arguments for ee.Authenticate().
-        kwargs (dict): Dictionary of initialization arguments for ee.Initialize().
-        attempt (int): Current attempt number for authentication.
-        max_attempts (int): Maximum number of authentication attempts.
-    """
-    logger.info(f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}")
-    if print_mode:
-        print(f"{'Forcing authentication and ' if force else ''}Initializing Google Earth Engine...\n")
-    try:
-        if force or not ee.data._credentials:
-            ee.Authenticate(force=force, **auth_args)
-        ee.Initialize(**kwargs)
-        if print_mode:
-            print("Google Earth Engine initialized successfully.\n")
-    except Exception as e:
-        error_message = str(e)
-        if "Please refresh your Google authentication token" in error_message:
-            print("Please refresh your Google authentication token.\n")
-        elif "Credentials file not found" in error_message:
-            print("Credentials file not found. Please authenticate with Google Earth Engine:\n")
-        else:
-            print(f"An error occurred: {error_message}\n")
-
-        # Re-attempt authentication only if attempts are less than max_attempts
-        if attempt < max_attempts:
-            print(f"Re-attempting authentication (Attempt {attempt + 1}/{max_attempts})...\n")
-            authenticate_and_initialize(print_mode, True, auth_args, kwargs, attempt + 1, max_attempts)  # Force re-authentication on retry
-        else:
-            raise Exception(f"Failed to initialize Google Earth Engine after {attempt} attempts: {error_message}")
 
 def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict:
     """

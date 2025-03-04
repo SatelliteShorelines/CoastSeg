@@ -1,5 +1,5 @@
 from coastseg import coastseg_logs
-from coastseg.common import initialize_gee
+from coastseg.downloads import initialize_gee
 from coastseg import coastseg_map
 from coastseg import file_utilities
 import geopandas as gpd
