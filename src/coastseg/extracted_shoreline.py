@@ -1,73 +1,41 @@
 # Standard library imports
 import colorsys
 import copy
-import re
+import datetime
 import fnmatch
-import json
 import json
 import logging
 import os
-import datetime
+import re
 from glob import glob
-from time import perf_counter
-from typing import Optional, Union, List, Dict
+from itertools import islice
 from time import perf_counter
 from typing import Dict, List, Optional, Union
-from itertools import islice
+from datetime import timezone
 
 # External dependencies imports
 import dask
+import pytz
 import geopandas as gpd
+import numpy as np
+import pandas as pd
+from ipyleaflet import GeoJSON
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import get_cmap
-from matplotlib.colors import rgb2hex
-import numpy as np
-from ipyleaflet import GeoJSON
-from skimage import measure, morphology
-import skimage.measure as measure
-import skimage.morphology as morphology
-import pandas as pd
-from tqdm.auto import tqdm
-import matplotlib.gridspec as gridspec
-from shapely.geometry import MultiPoint, LineString
-
-# coastsat imports
-from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
-from coastseg import geodata_processing
-from coastseg import file_utilities
-import matplotlib.lines as mlines
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import skimage.measure as measure
-import skimage.morphology as morphology
-from coastseg.intersections import split_line
-
-from coastsat.SDS_download import get_metadata
-# from coastsat.SDS_shoreline import extract_shorelines
-from coastsat.SDS_tools import (
-    get_filenames,
-    get_filepath,
-    output_to_gdf,
-    remove_duplicates,
-    remove_inaccurate_georef,
-)
-from coastsat.SDS_transects import compute_intersection_QC
-from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
-from ipyleaflet import GeoJSON
 from matplotlib import gridspec
 from matplotlib.colors import rgb2hex
 from matplotlib.pyplot import get_cmap
 from skimage import measure, morphology
+from shapely.geometry import LineString, MultiPoint
 from tqdm.auto import tqdm
-
-# Internal dependencies imports
-from coastseg import common, exceptions
-
 from osgeo import gdal
+
+# Local project imports
+from coastseg import common, exceptions, file_utilities, geodata_processing
+from coastseg import core_utilities
+from coastseg.intersections import split_line
+from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools,SDS_transects
 gdal.UseExceptions()
 
 # Set pandas option
@@ -77,6 +45,74 @@ pd.set_option("mode.chained_assignment", None)
 logger = logging.getLogger(__name__)
 __all__ = ["Extracted_Shoreline"]
 
+def get_filepath(filepath_data, sitename, satname):
+    """
+    Create filepath to the different folders containing the satellite images.
+
+    Originally by KV WRL 2018
+    Modified by Sharon Batiste 2025
+
+    Arguments:
+    -----------
+    'filepath_data': str
+        filepath to the directory where the images are downloaded. Typically this is coastseg/data
+    'sitename': str
+        name of the site
+    satname: str
+        short name of the satellite mission ('L5','L7','L8','S2')
+
+    Returns:
+    -----------
+    filepath: str or list of str
+        contains the filepath(s) to the folder(s) containing the satellite images
+
+    """
+    # access the images
+    if satname == "L5":
+        # access downloaded Landsat 5 images
+        fp_ms = os.path.join(filepath_data, sitename, satname, "ms")
+        fp_mask = os.path.join(filepath_data, sitename, satname, "mask")
+        filepath = [fp_ms, fp_mask]
+    elif satname in ["L7", "L8", "L9"]:
+        # access downloaded Landsat 7 images
+        fp_ms = os.path.join(filepath_data, sitename, satname, "ms")
+        fp_pan = os.path.join(filepath_data, sitename, satname, "pan")
+        fp_mask = os.path.join(filepath_data, sitename, satname, "mask")
+        filepath = [fp_ms, fp_pan, fp_mask]
+    elif satname == "S2":
+        # access downloaded Sentinel 2 images
+        fp_ms = os.path.join(filepath_data, sitename, satname, "ms")
+        fp_swir = os.path.join(filepath_data, sitename, satname, "swir")
+        fp_mask = os.path.join(filepath_data, sitename, satname, "mask")
+        filepath = [fp_ms, fp_swir, fp_mask]
+
+    return filepath
+
+def get_data_folder(data_path:str="") -> str:
+    """
+    Returns the path to the data folder. If the provided data_path does not exist,
+    it checks if the data folder exists in the current coastseg directory.
+
+    Args:
+        data_path (str): The path to the data folder. Default is an empty string.
+
+    Returns:
+        str: The path to the data folder.
+
+    Raises:
+        FileNotFoundError: If the provided data_path does not exist and the data folder
+                            is not found in the current coastseg directory.
+    """
+    data_folder =  os.path.join(core_utilities.get_base_dir(),'data')
+    
+    if not os.path.exists(data_path):
+        # check if the data folder exists in the current coastseg directory (this is for docker containers/ data downloaded on someone elses computer)
+        if os.path.exists(data_folder):
+            # convert the data folder to an absolute path
+            return data_folder
+            # return os.path.abspath(data_folder)
+        raise FileNotFoundError(f"The directory {data_path} does not exist.")
+    return data_path
 
 def time_func(func):
     def wrapper(*args, **kwargs):
@@ -88,6 +124,227 @@ def time_func(func):
         return result
 
     return wrapper
+
+
+def parse_date_from_filename(filename: str) -> datetime.datetime:
+    """
+    Extracts and parses a UTC datetime from the start of a filename.
+
+    Args:
+        filename (str): The filename containing a datetime string at the start.
+
+    Returns:
+        datetime.datetime: The extracted datetime in UTC.
+
+    Raises:
+        ValueError: If the filename does not contain a valid date format.
+    """
+    try:
+        date_str = filename[0:19]  # Extract first 19 characters (YYYY-MM-DDTHH:MM:SS)
+        parsed_date = datetime.datetime(
+            int(date_str[:4]),  # Year
+            int(date_str[5:7]),  # Month
+            int(date_str[8:10]),  # Day
+            int(date_str[11:13]),  # Hour
+            int(date_str[14:16]),  # Minute
+            int(date_str[17:19])  # Second
+        )
+        return pytz.utc.localize(parsed_date)
+    except (ValueError, IndexError):
+        raise ValueError(f"Invalid datetime format in filename: {filename}")
+
+
+def read_metadata_file(filepath: str) -> Dict[str, Union[str, int, float]]:
+    metadata_keys = [
+        "filename",
+        "epsg",
+        "acc_georef",
+        "im_quality",
+        "im_width",
+        "im_height",
+    ]
+
+    # Mapping of actual file keys to metadata keys
+    key_mapping = {"image_quality": "im_quality"}
+
+    # Initialize the metadata dictionary with default values.
+    metadata = {
+        "filename": "",
+        "epsg": "",
+        "acc_georef": -1,
+        "im_quality": -1,
+        "im_width": -1,
+        "im_height": -1,
+    }
+
+    with open(filepath, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue  # Skip empty lines
+
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue  # Skip lines without a tab character
+
+            key = parts[0].strip()
+            value = parts[1].strip()
+
+            # Map the actual key in the file to the metadata key
+            key = key_mapping.get(key, key)
+
+            # If the mapped key is not in metadata_keys, then skip it.
+            if key not in metadata_keys:
+                continue
+
+            # Convert value to the appropriate type based on the key
+            if key in ["epsg", "im_width", "im_height"]:
+                try:
+                    value = int(value)
+                except ValueError:
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        print(
+                            f"Error: Unable to convert {key} {value} to a numeric value."
+                        )
+            elif key in ["acc_georef", "im_quality"]:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass  # Keep the value as a string if conversion to float fails
+
+            # Update the metadata dictionary with the extracted key-value pair.
+            metadata[key] = value
+
+    return metadata
+
+def format_date(date_str: Union[str, datetime.datetime]) -> datetime.datetime:
+    """
+    Converts a date string or datetime object to a datetime object in UTC timezone.
+
+    Args:
+        date_str (Union[str, datetime.datetime]): The date string or datetime object to be converted.
+
+    Returns:
+        datetime.datetime: The converted datetime object in UTC timezone.
+
+    Raises:
+        ValueError: If the date string is in an invalid format.
+    """
+
+    date_formats = ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]
+
+    # convert datetime object to string
+    if isinstance(date_str, datetime.datetime):
+        # converts the datetime object to a string
+        date_str = date_str.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # format the string to a datetime object 
+    for date_format in date_formats:
+        try:
+            # creates a datetime object from a string with the date in UTC timezone
+            start_date = datetime.datetime.strptime(date_str, date_format).replace(tzinfo=timezone.utc)
+            return start_date
+        except ValueError:
+            pass # Try the next format
+    else:
+        raise ValueError(f"Invalid date format: {date_str} not in {date_formats}")
+
+
+def get_metadata(inputs,data_folder_location:str=""):
+    """
+    Gets the metadata from the downloaded images by parsing .txt files located
+    in the \meta subfolder.
+
+    KV WRL 2018
+    modified by Sharon Fitzpatrick 2023
+
+    Arguments:
+    -----------
+    inputs: dict with the following fields
+        'sitename': str
+            name of the site
+        'filepath_data': str
+            filepath to the directory where the images are downloaded
+    data_folder_location: str
+        location of the data folder
+
+    Returns:
+    -----------
+    metadata: dict
+        contains the information about the satellite images that were downloaded:
+        date, filename, georeferencing accuracy and image coordinate reference system
+
+    """
+    # Construct the directory path containing the images
+    filepath = os.path.join(inputs["filepath"], inputs["sitename"])
+    if not os.path.exists(filepath):
+        if data_folder_location:
+            filepath = os.path.join(data_folder_location, inputs["sitename"])
+            if not os.path.exists(filepath):
+                raise FileNotFoundError(f"The directory {filepath} does not exist.")
+        else:
+            raise FileNotFoundError(f"The directory {filepath} does not exist.")
+    # initialize metadata dict
+    metadata = dict([])
+    # loop through the satellite missions that were specified in the inputs
+    satellite_list = inputs.get("sat_list", ["L5", "L7", "L8", "L9", "S2"])
+    for satname in satellite_list:
+        sat_path = os.path.join(filepath, satname)
+        # if a folder has been created for the given satellite mission
+        if satname in os.listdir(filepath):
+            # update the metadata dict
+            metadata[satname] = {
+                "filenames": [],
+                "dates": [],
+                "epsg": [],
+                "acc_georef": [],
+                "im_quality": [],
+                "im_dimensions": [],
+            }
+            # directory where the metadata .txt files are stored
+            filepath_meta = os.path.join(sat_path, "meta")
+            # get the list of filenames and sort it chronologically
+            if not os.path.exists(filepath_meta):
+                continue
+            # Get the list of filenames and sort it chronologically
+            filenames_meta = sorted(os.listdir(filepath_meta))
+            # loop through the .txt files
+            for im_meta in filenames_meta:
+                if inputs.get("dates", None) is None:
+                    raise ValueError("The 'dates' key is missing from the inputs.")
+                    
+                start_date = format_date(inputs['dates'][0])
+                end_date = format_date(inputs['dates'][1])
+                input_date = parse_date_from_filename(im_meta)
+                # if the image date is outside the specified date range, skip it
+                if input_date < start_date or input_date > end_date:
+                    continue
+                meta_filepath = os.path.join(filepath_meta, im_meta)
+                meta_info = read_metadata_file(meta_filepath)
+
+                # Append meta info to the appropriate lists in the metadata dictionary
+                metadata[satname]["filenames"].append(meta_info["filename"])
+                metadata[satname]["acc_georef"].append(meta_info["acc_georef"])
+                metadata[satname]["epsg"].append(meta_info["epsg"])
+                metadata[satname]["dates"].append(
+                    parse_date_from_filename(meta_info["filename"])
+                )
+                metadata[satname]["im_quality"].append(meta_info["im_quality"])
+                # if the metadata file didn't contain im_height or im_width set this as an empty list
+                if meta_info["im_height"] == -1 or meta_info["im_height"] == -1:
+                    metadata[satname]["im_dimensions"].append([])
+                else:
+                    metadata[satname]["im_dimensions"].append(
+                        [meta_info["im_height"], meta_info["im_width"]]
+                    )
+
+    # save a json file containing the metadata dict
+    metadata_json = os.path.join(filepath, f"{inputs['sitename']}_metadata.json")
+    SDS_preprocess.write_to_json(metadata_json, metadata)
+
+    return metadata
 
 def log_contents_of_shoreline_dict(extracted_shorelines_dict):
     # Check and log 'reference shoreline' if it exists
@@ -135,14 +392,15 @@ def get_metadata_from_session_jpg_files(shoreline_settings:dict):
         - Information about the length and sample values of various metadata fields for each satellite.
     """
     # gets metadata used to extract shorelines
-    metadata = get_metadata(shoreline_settings["inputs"])
+    filepath_data = get_data_folder(shoreline_settings["inputs"]["filepath"])
+    metadata = get_metadata(shoreline_settings["inputs"],filepath_data)
     sitename = shoreline_settings["inputs"]["sitename"]
-    filepath_data = shoreline_settings["inputs"]["filepath"]
     # filter out files that were removed from RGB directory
     try:
         RGB_directory = os.path.join(
             filepath_data, sitename, "jpg_files", "preprocessed", "RGB"
         )
+        print(f"RGB_directory: {RGB_directory}")
         metadata = common.filter_metadata_with_dates(metadata,RGB_directory,file_type="jpg") 
     except FileNotFoundError as e:
         logger.warning(f"No RGB files existed at {RGB_directory}")
@@ -597,7 +855,7 @@ def compute_transects_from_roi(
 
     transects = common.get_transect_points_dict(transects_gdf)
     # cross_distance: along-shore distance over which to consider shoreline points to compute median intersection (robust to outliers)
-    cross_distance = compute_intersection_QC(extracted_shorelines, transects, settings)
+    cross_distance = SDS_transects.compute_intersection_QC(extracted_shorelines, transects, settings)
     return cross_distance
 
 
@@ -709,7 +967,7 @@ def process_satellite(
             'along_dist': int
                 alongshore distance considered calculate the intersection
         metadata (dict): A dictionary containing metadata for the satellite imagery.
-            Metadata is the output of the get_metadata function in SDS_download.py.
+            Metadata is a dictionary created by reading the metadata files in the meta folder for each satellite.
             The metadata dictionary should have the following structure:
             ex.
             metadata = {
@@ -746,7 +1004,11 @@ def process_satellite(
     collection = settings["inputs"]["landsat_collection"]
     # deep copy settings
     settings = copy.deepcopy(settings)
-    filepath = get_filepath(settings["inputs"], satname)
+
+    # this will get the location of the data folder where the downloaded data exists
+    data_location = get_data_folder(settings["inputs"]['filepath'])
+    sitename = settings["inputs"]["sitename"]
+    filepath = get_filepath(data_location, sitename, satname)
     pixel_size = get_pixel_size_for_satellite(satname)
 
     # get the minimum beach area in number of pixels depending on the satellite
@@ -916,7 +1178,7 @@ def process_satellite_image(
     # get image date
     date = filename[:19]
     # get the filenames for each of the tif files (ms, pan, qa)
-    fn = get_filenames(filename, filepath, satname)
+    fn = SDS_tools.get_filenames(filename, filepath, satname)
     # preprocess image (cloud mask + pansharpening/downsampling)
     (
         im_ms,
@@ -2248,10 +2510,10 @@ class Extracted_Shoreline:
             raise Exception(f"Failed to extract any shorelines.")
 
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
-        extracted_shorelines_dict = remove_duplicates(
+        extracted_shorelines_dict = SDS_tools.remove_duplicates(
             extracted_shorelines_dict
         )  # removes duplicates (images taken on the same date by the same satellite
-        extracted_shorelines_dict = remove_inaccurate_georef(
+        extracted_shorelines_dict = SDS_tools.remove_inaccurate_georef(
             extracted_shorelines_dict, 10
         )  # remove inaccurate georeferencing (set threshold to 10 m)
 
@@ -2365,10 +2627,12 @@ class Extracted_Shoreline:
             settings, roi_settings, reference_shoreline
         )
         # gets metadata used to extract shorelines
-        metadata = get_metadata(self.shoreline_settings["inputs"])
+        print(f"self.shoreline_settings['inputs']['filepath']: {self.shoreline_settings['inputs']['filepath']}")
+        filepath_data = get_data_folder(self.shoreline_settings["inputs"]["filepath"])
+        print(f"filepath_data: {filepath_data}")
+        # data_folder =  os.path.join(core_utilities.get_base_dir(),'data')
+        metadata = get_metadata(self.shoreline_settings["inputs"],filepath_data)
         sitename = self.shoreline_settings["inputs"]["sitename"]
-        filepath_data = self.shoreline_settings["inputs"]["filepath"]
-
         # filter out files that were removed from RGB directory
         try:
             RGB_directory = os.path.join(
@@ -2409,10 +2673,10 @@ class Extracted_Shoreline:
         extracted_shorelines = SDS_shoreline.extract_shorelines(metadata, self.shoreline_settings,output_directory=output_directory, shoreline_extraction_area=shoreline_extraction_area)
         logger.info(f"extracted_shoreline_dict: {extracted_shorelines}")
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
-        extracted_shorelines = remove_duplicates(
+        extracted_shorelines = SDS_tools.remove_duplicates(
             extracted_shorelines
         )  # removes duplicates (images taken on the same date by the same satellite)
-        extracted_shorelines = remove_inaccurate_georef(
+        extracted_shorelines = SDS_tools.remove_inaccurate_georef(
             extracted_shorelines, 10
         )  # remove inaccurate georeferencing (set threshold to 10 m)
         return extracted_shorelines
@@ -2520,7 +2784,7 @@ class Extracted_Shoreline:
             converted to output_crs if provided otherwise geodataframe's crs will be
             input_crs
         """
-        extract_shoreline_gdf = output_to_gdf(self.dictionary, geomtype)
+        extract_shoreline_gdf = SDS_tools.output_to_gdf(self.dictionary, geomtype)
         if not extract_shoreline_gdf.crs:
             extract_shoreline_gdf.set_crs(input_crs, inplace=True)
         if output_crs is not None:
