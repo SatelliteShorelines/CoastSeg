@@ -1666,14 +1666,6 @@ def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
     return timeseries_data
 
     
-def convert_dates_to_UTC(df: pd.DataFrame, date_col: str,) -> pd.Series:
-    # Check and convert to UTC
-    if df[date_col].dt.tz is not None: # If the date column is timezone aware, convert it to UTC
-        df[date_col] = df[date_col].dt.tz_convert('UTC')
-    else: # If the date column is timezone naive, localize it to UTC, (this makes it timezone aware)
-        df[date_col] = df[date_col].dt.tz_localize('UTC')
-    return df[date_col]
-
 def make_timezone_naive(df, column_name):
     """
     Converts a specified column in a DataFrame from timezone aware or timezone naive

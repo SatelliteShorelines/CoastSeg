@@ -9,7 +9,7 @@ import warnings
 from coastseg import file_utilities
 from coastseg.common import get_transect_settings
 from coastseg.common import convert_date_gdf, convert_points_to_linestrings
-from shapely.geometry import Point, LineString
+from shapely.geometry import Point
 
 warnings.filterwarnings("ignore")
 
