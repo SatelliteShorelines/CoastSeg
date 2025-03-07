@@ -967,7 +967,7 @@ class Zoo_Model:
                     shutil.copy(good_bad_seg_csv, new_session_path)
                 except SameFileError as e:
                     pass # we don't care if the file is the same
-        # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
+        # save extracted shorelines as geojson, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
         # save the classification scores to the extracted shorelines geojson files
         shorelines_lines_location = os.path.join(session_path, "extracted_shorelines_lines.geojson")
