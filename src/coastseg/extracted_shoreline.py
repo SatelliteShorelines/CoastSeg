@@ -23,6 +23,8 @@ from ipyleaflet import GeoJSON
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Use a non-GUI backend
 from matplotlib import gridspec
 from matplotlib.colors import rgb2hex
 from matplotlib.pyplot import get_cmap
@@ -1007,8 +1009,10 @@ def process_satellite(
 
     # this will get the location of the data folder where the downloaded data exists
     data_location = get_data_folder(settings["inputs"]['filepath'])
+    logger.info(f"Data location {data_location}")
     sitename = settings["inputs"]["sitename"]
     filepath = get_filepath(data_location, sitename, satname)
+    logger.info(f"Loading data from {filepath}")
     pixel_size = get_pixel_size_for_satellite(satname)
 
     # get the minimum beach area in number of pixels depending on the satellite
@@ -1755,9 +1759,7 @@ def shoreline_detection_figures(
         filepath = os.path.join(save_location, "jpg_files", "detection")
     else:
         filepath_data = settings["inputs"]["filepath"]
-        filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection")
-        
-        
+        filepath = os.path.join(filepath_data, sitename, "jpg_files", "detection") 
     os.makedirs(filepath, exist_ok=True)
     logger.info(f"im_ref_buffer.shape: {im_ref_buffer.shape}")
 
@@ -1818,8 +1820,6 @@ def shoreline_detection_figures(
         class_mapping={0: "other", 1: "water"},
         additional_patches=additional_legend_items,
     )
-
-    # Plot images
     fig = plot_image_with_legend(
         im_RGB,
         im_merged,
@@ -1973,6 +1973,7 @@ def extract_shorelines_with_dask(
         filepath_jpg = os.path.join(filepath_data, sitename, "jpg_files", "detection")
         os.makedirs(filepath_jpg, exist_ok=True)
 
+    logger.info(f"Satellites in metadata that will have their shorelines extracted: {metadata.keys()}")
 
     shoreline_dict = {}
     for satname in metadata.keys():
@@ -2479,6 +2480,7 @@ class Extracted_Shoreline:
         # The metadata may be empty if there are no jpg files in at the location given by
         # shoreline_settings['inputs']['filepath'] (this is typically CoastSeg/data/ROI_id/jpg_files/RGB)
         if not metadata:
+            logger.warning(f"Metadata was empty after filtering for session jpg files.")
             self.dictionary = {}
             return self 
         
@@ -2489,6 +2491,7 @@ class Extracted_Shoreline:
             if apply_segmentation_filter:
                 from coastseg import classifier
                 classifier.check_tensorflow()
+                logger.info(f"Filtering segmentations using model for session {session_path}")
                 good_directory = classifier.filter_segmentations(session_path)
         except ImportError as e:
             logger.warning(f"Skipping segmentation filtering. Failed to import classifier module: {e}")
@@ -2496,6 +2499,9 @@ class Extracted_Shoreline:
 
         # Filter the metadata to only include the files with segmentations that are in the good_directory
         metadata= common.filter_metadata_with_dates(metadata,good_directory,file_type="npz")
+        logger.info(f"Filter metadata with good_directory {good_directory} and file_type npz")
+        # check if metadata is empty after filtering
+        logger.info(f"metadata length: {len(metadata)}")
 
         extracted_shorelines_dict = extract_shorelines_with_dask(
             session_path,
@@ -2507,6 +2513,7 @@ class Extracted_Shoreline:
             shoreline_extraction_area=shoreline_extraction_area,
         )
         if extracted_shorelines_dict == {}:
+            logger.error(f"Failed to extract any shorelines.")
             raise Exception(f"Failed to extract any shorelines.")
 
         # postprocessing by removing duplicates and removing in inaccurate georeferencing (set threshold to 10 m)
