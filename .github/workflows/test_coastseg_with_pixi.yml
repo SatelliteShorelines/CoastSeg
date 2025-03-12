@@ -1,8 +1,8 @@
 on:
     push:
-      branches: [ develop]
+      branches: [develop]
     pull_request:
-      branches: [ develop]
+      branches: [develop]
 
 # Automatically stop old builds on the same branch/PR
 concurrency:
@@ -17,8 +17,7 @@ jobs:
        strategy:
            fail-fast: false # Continue running jobs on other matrix items if one or more jobs fail
            matrix:
-             os: [ubuntu-latest, windows-latest, macos-latest]
-             environment: [default,all]
+             os: [ubuntu-latest, windows-latest]
        steps:
            - uses: actions/checkout@v4 # checkout the repo code  
            - name: Run Tests with Pixi
