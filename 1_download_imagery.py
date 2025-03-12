@@ -2,7 +2,7 @@ import os
 from coastseg import coastseg_logs
 from coastseg import coastseg_map
 from coastseg import core_utilities
-from coastseg.downloads import initialize_gee
+from coastseg.common import initialize_gee
 
 base_dir = core_utilities.get_base_dir()
 print(f"The base directory is {base_dir}")
