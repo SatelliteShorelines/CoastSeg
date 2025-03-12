@@ -1,13 +1,13 @@
 on:
     push:
-      branches: [develop]
+      branches: [main, develop]
     pull_request:
-      branches: [develop]
+      branches: [main, develop]
 
-# Automatically stop old builds on the same branch/PR
-concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+# # Automatically stop old builds on the same branch/PR
+# concurrency:
+#     group: ${{ github.workflow }}-${{ github.ref }}
+#     cancel-in-progress: true
   
 name: Test CoastSeg Pixi Installation (pixi run test)
 jobs:
