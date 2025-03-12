@@ -101,3 +101,6 @@ default = {features = [], solve-group = "default"}    # default base environment
 test = {features = ["test"], solve-group = "default"} # Test environment with pytest dependency
 ml = {features = ["ml"], solve-group = "default"}     # ML environment with TensorFlow and Transformers dependencies
 all = {features = ["ml", "test"], solve-group = "default"} # All features environment with all dependencies
+
+[tool.pixi.feature.test.tasks]
+run_tests = "pytest tests"

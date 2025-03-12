@@ -3866,7 +3866,7 @@ packages:
 - pypi: .
   name: coastseg
   version: 1.4.3
-  sha256: 6da5be8242a75e3061a40d558f089119a583e29ef2cbbcd68bab37d15337e02d
+  sha256: 86f80c1ddd7bfef23021a95d2e24bd71e89e845cbe1e573f8c2ee37cfe9c2576
   requires_dist:
   - aiohttp
   - area
@@ -9643,17 +9643,17 @@ packages:
   - termcolor>=1.1.0
   - typing-extensions>=3.6.6
   - wrapt>=1.11.0,<1.15
-  - tensorflow-io-gcs-filesystem>=0.23.1 ; platform_machine != 'arm64' or platform_system != 'Darwin'
-  - tensorflow-cpu-aws==2.12.0 ; (platform_machine == 'aarch64' and platform_system == 'Linux') or (platform_machine == 'arm64' and platform_system == 'Linux')
-  - tensorflow-intel==2.12.0 ; platform_system == 'Windows'
+  - tensorflow-io-gcs-filesystem>=0.23.1 ; platform_machine != 'arm64' or sys_platform != 'darwin'
+  - tensorflow-cpu-aws==2.12.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux')
+  - tensorflow-intel==2.12.0 ; sys_platform == 'win32'
   requires_python: '>=3.8'
 - pypi: https://files.pythonhosted.org/packages/cd/28/d60804f272dfe07c7e5334899abb6af61f6c7f3f7e68c1faf96780988b50/tensorflow-2.12.0-cp310-cp310-win_amd64.whl
   name: tensorflow
   version: 2.12.0
   sha256: c8001210df7202ef6267150865b0b79f834c3ca69ee3132277de8eeb994dffde
   requires_dist:
-  - tensorflow-cpu-aws==2.12.0 ; (platform_machine == 'aarch64' and platform_system == 'Linux') or (platform_machine == 'arm64' and platform_system == 'Linux')
-  - tensorflow-intel==2.12.0 ; platform_system == 'Windows'
+  - tensorflow-cpu-aws==2.12.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux')
+  - tensorflow-intel==2.12.0 ; sys_platform == 'win32'
   requires_python: '>=3.8'
 - pypi: https://files.pythonhosted.org/packages/d1/e1/c3596da404e2c47561a2bb392397208925e65be6f61bd3081e630371d5e8/tensorflow_estimator-2.12.0-py2.py3-none-any.whl
   name: tensorflow-estimator
@@ -9686,7 +9686,7 @@ packages:
   - tensorboard>=2.12,<2.13
   - tensorflow-estimator>=2.12.0,<2.13
   - keras>=2.12.0,<2.13
-  - tensorflow-io-gcs-filesystem>=0.23.1 ; platform_machine != 'arm64' or platform_system != 'Darwin'
+  - tensorflow-io-gcs-filesystem>=0.23.1 ; platform_machine != 'arm64' or sys_platform != 'darwin'
   requires_python: '>=3.8'
 - pypi: https://files.pythonhosted.org/packages/78/51/437068ed6b44162d54addb8ac0ddfe9e406d07ac6f9c8a6cf96869ec2262/tensorflow_io_gcs_filesystem-0.31.0-cp310-cp310-win_amd64.whl
   name: tensorflow-io-gcs-filesystem
