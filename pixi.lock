@@ -3866,7 +3866,7 @@ packages:
 - pypi: .
   name: coastseg
   version: 1.4.3
-  sha256: 86f80c1ddd7bfef23021a95d2e24bd71e89e845cbe1e573f8c2ee37cfe9c2576
+  sha256: 19d865da5baec932500a32aaf72bdc50d6279e82170ba6848f1fbdcd06fea5ba
   requires_dist:
   - aiohttp
   - area
@@ -3889,7 +3889,7 @@ packages:
   - tensorflow==2.12.0 ; extra == 'ml'
   - transformers>=4.48.3,<5 ; extra == 'ml'
   - pytest ; extra == 'test'
-  requires_python: ==3.10
+  requires_python: '>=3.10,<3.11'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
   sha256: ab29d57dc70786c1269633ba3dff20288b81664d3ff8d21af995742e2bb03287
