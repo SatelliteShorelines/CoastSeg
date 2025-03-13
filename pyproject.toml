@@ -32,7 +32,7 @@ dependencies = [
     "numpy==1.23.5",
     "pooch",
     "protobuf==3.20.3",
-    "pytmd==2.1.9",
+    "pytmd<=2.2.2",
     "xarray",]
 license = { file="LICENSE" }
 requires-python = ">=3.10,<3.11"

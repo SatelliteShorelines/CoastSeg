@@ -302,7 +302,18 @@ class UI_Models:
             layout=Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.reference_elevation_text = FloatText(value=0.0, description="Reference Elevation (m, relative to user-specified vertical datum):",style={'description_width': 'initial'})
+        self.instructions_ref_elv = HTML(value="Refence Elevation(m) relative to user-specified vertical datum)", 
+                style={'description_width': 'initial'},           
+                layout=Layout(
+                width='auto',         # allows the width to adjust automatically
+                min_width='100px',     # sets a minimum width
+                flex='1 1 auto'        # makes it flexible within a flex container
+            ))
+        self.reference_elevation_text = FloatText(
+            value=0.0,
+            description="Reference Elevation:",
+            style={'description_width': 'initial'},
+        )
         self.beach_slope_selector = UI_elements.BeachSlopeSelector()
         self.tide_selector = UI_elements.TidesSelector()
 
@@ -318,6 +329,7 @@ class UI_Models:
         return VBox(
             [
                 correct_tides_html,
+                self.instructions_ref_elv,
                 self.reference_elevation_text,
                 self.beach_slope_selector,
                 self.tide_selector,

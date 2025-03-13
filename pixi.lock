@@ -3865,8 +3865,8 @@ packages:
   requires_python: '>=3.8'
 - pypi: .
   name: coastseg
-  version: 1.4.3
-  sha256: 19d865da5baec932500a32aaf72bdc50d6279e82170ba6848f1fbdcd06fea5ba
+  version: 1.4.4
+  sha256: 7bdcbd4bc2b80398422254808d27c29600b94e39cb95130d6aa0c6060e6b39f5
   requires_dist:
   - aiohttp
   - area
@@ -3884,7 +3884,7 @@ packages:
   - numpy==1.23.5
   - pooch
   - protobuf==3.20.3
-  - pytmd==2.1.9
+  - pytmd<=2.2.2
   - xarray
   - tensorflow==2.12.0 ; extra == 'ml'
   - transformers>=4.48.3,<5 ; extra == 'ml'

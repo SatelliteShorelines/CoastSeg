@@ -424,11 +424,23 @@ class UI:
 
         correct_tides_html = widgets.HTML(
             value="<h3><b>Apply Tide Correction</b></h3> \
-               Only apply after extracting shorelines</br>",
+               Only apply tide correction after extracting shorelines.</br>",
             layout=widgets.Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.reference_elevation_text = widgets.FloatText(value=0.0, description="Reference Elevation (m, relative to user-specified vertical datum):",style={'description_width': 'initial'})
+        self.instructions_ref_elv = widgets.HTML(value="Refence Elevation(m) relative to user-specified vertical datum)", 
+                style={'description_width': 'initial'},           
+                layout=widgets.Layout(
+                width='auto',         # allows the width to adjust automatically
+                min_width='100px',     # sets a minimum width
+                flex='1 1 auto'        # makes it flexible within a flex container
+            ))
+        self.reference_elevation_text = widgets.FloatText(
+            value=0.0,
+            description="Reference Elevation:",
+            style={'description_width': 'initial'},
+        )
+        # style={'description_width': 'initial'}
         self.beach_slope_selector = UI_elements.BeachSlopeSelector()
         self.tide_selector = UI_elements.TidesSelector()
 
@@ -450,13 +462,12 @@ class UI:
             icon="tint",
         )
 
-
-
         self.tidally_correct_button.on_click(self.tidally_correct_button_clicked)
 
         return widgets.VBox(
             [
                 correct_tides_html,
+                self.instructions_ref_elv,
                 self.reference_elevation_text,
                 self.beach_slope_selector,
                 self.tide_selector,
