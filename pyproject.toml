@@ -13,27 +13,29 @@ keywords = [
     "coastseg",
     "coastsat",
 ]
-# find` directive with `include` or `exclude`
 description = "An interactive python package for satellite derived shoreline workflows"
+#these dependencies are the core dependencies of the package necessary for the coastsat workflow and the core functionality. Pixi reads these as pypi dependencies
 dependencies = [
-  "h5py>=3.10.0",
-  "pyTMD <= 2.1.9",
-  "coastsat-package>=0.1.74",
-  "pooch",
-  "area",
-  "aiohttp",
-  "chardet",
-  "dask",
-  "doodleverse-utils>=0.0.35",
-  "earthengine-api>=0.1.388",
-  "geojson",
-  "geopandas",
-  "jupyterlab>=3.0.0",
-  "leafmap>=0.14.0",
-  "nest-asyncio",
-  "xarray",]
+    "aiohttp",
+    "area",
+    "chardet",
+    "coastsat-package>=0.1.75",
+    "dask",
+    "doodleverse-utils>=0.0.35",
+    "geojson",
+    "geopandas",
+    "h5py",
+    "jupyterlab>=3.0.0",
+    "leafmap ==0.35",
+    "nest-asyncio",
+    "netcdf4",
+    "numpy==1.23.5",
+    "pooch",
+    "protobuf==3.20.3",
+    "pytmd==2.1.9",
+    "xarray",]
 license = { file="LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.11"
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -44,9 +46,48 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 
+[project.optional-dependencies]
+ml = ["tensorflow==2.12.0", "transformers>=4.48.3,<5"] # dependencies for the zoo based workflow
+test = ["pytest"]                                       # dependencies for testing
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = [ "win-64","linux-64"]
+
+[tool.pixi.pypi-dependencies]
+coastseg = { path = ".", editable = true }
+
+# this tells pixi to install these packages (they are the same as the dependencies) from the conda-forge channel
+# Note: pytmd is purposely not included here because it causes conflicts when installed from conda-forge
+[tool.pixi.dependencies]
+aiohttp = "*"
+area = "*"
+chardet = "*"
+dask = "*"
+doodleverse-utils = ">=0.0.35"
+gdal = "*"
+geojson = "*"
+geopandas = "*"
+ipyfilechooser = ">=0.6.0,<0.7"
+ipyleaflet = "*"
+jupyterlab = ">=3.0.0"
+leafmap = "==0.35"
+nest-asyncio = "*"
+numpy = "==1.23.5"
+pooch = "*"
+protobuf = "==3.20.3"
+scikit-image = ">=0.25.0,<0.26"
+xarray = "*"
+
 # tells setup tools to include the code in the coastseg directory within the src directory
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pixi.feature.test.dependencies]
+pytest = "*"
+
+[tool.pixi.feature.ml.tasks]
+run_notebook = "jupyter lab SDS_zoo_classifier.ipynb --ip=0.0.0.0 --allow-root --no-browser"
 
 
 [project.urls]
@@ -54,3 +95,12 @@ homepage = "https://github.com/SatelliteShorelines/CoastSeg"
 repository = "https://github.com/SatelliteShorelines/CoastSeg"
 documentation = "https://github.com/SatelliteShorelines/CoastSeg/wiki"
 "Bug Tracker" = "https://github.com/SatelliteShorelines/CoastSeg/issues"
+
+[tool.pixi.environments]
+default = {features = [], solve-group = "default"}    # default base environment with all the CoastSat workflow dependencies
+test = {features = ["test"], solve-group = "default"} # Test environment with pytest dependency
+ml = {features = ["ml"], solve-group = "default"}     # ML environment with TensorFlow and Transformers dependencies
+all = {features = ["ml", "test"], solve-group = "default"} # All features environment with all dependencies
+
+[tool.pixi.feature.test.tasks]
+run_tests = "pytest tests"

@@ -19,6 +19,7 @@ import pandas as pd
 import geojson
 import numpy as np
 from coastseg import core_utilities
+from coastseg import common
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -211,6 +212,11 @@ def join_model_scores_to_shorelines(shorelines_path,
     shorelines_gdf = shorelines_gdf.loc[:,~shorelines_gdf.columns.duplicated()]
 
     shorelines_gdf.drop(columns=['dates','dates_seg'], inplace=True, errors='ignore')
+
+    shorelines_gdf['date'] = pd.to_datetime(shorelines_gdf['date'])
+    shorelines_gdf['date'] = shorelines_gdf['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    shorelines_gdf = common.stringify_datetime_columns(shorelines_gdf)
 
     shorelines_gdf.to_file(shorelines_path)
 

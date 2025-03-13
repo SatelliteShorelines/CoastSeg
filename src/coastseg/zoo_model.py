@@ -5,8 +5,6 @@ from . import __version__
 import os
 import re
 import glob
-import asyncio
-import platform
 import json
 import logging
 from typing import List, Set, Tuple, Collection
@@ -17,12 +15,9 @@ import shutil
 import geopandas as gpd
 from osgeo import gdal
 import skimage
-import aiohttp
 import tqdm
 from PIL import Image
 import numpy as np
-import tqdm.asyncio
-import nest_asyncio
 from skimage.io import imread
 import tensorflow as tf
 from tensorflow.keras import mixed_precision
@@ -30,14 +25,13 @@ from tensorflow.keras import mixed_precision
 # Local imports
 from . import __version__
 from coastseg import common
-from coastseg import downloads
+from coastseg.ml import do_seg
 from coastseg import sessions
 from coastseg import extracted_shoreline
 from coastseg import geodata_processing
 from coastseg import file_utilities
 from coastseg import core_utilities
 from coastseg.intersections import transect_timeseries,save_transects
-from doodleverse_utils.prediction_imports import do_seg
 from doodleverse_utils.model_imports import (
     simple_resunet,
     custom_resunet,
@@ -54,6 +48,77 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+def download_url_dict(url_dict):
+    """
+    Downloads files from the given URLs and saves them to the specified paths.
+    Args:
+        url_dict (dict): A dictionary where the keys are file paths to save the downloaded content,
+                         and the values are the URLs to download the content from.
+    Raises:
+        Exception: If the response status code is 404 or 429, an exception is raised with an appropriate message.
+        requests.exceptions.HTTPError: If the response status code is not 200, an HTTPError is raised.
+    Returns:
+        bool: Returns False if the response status code is not 200, otherwise returns None.
+    """
+    for save_path, url in url_dict.items():
+        # get a response from the url
+        response = common.get_response(url, stream=True)
+        with response:
+            logger.info(f"response: {response}")
+            logger.info(f"response.status_code: {response.status_code}")
+            logger.info(f"response.headers: {response.headers}")
+            if response.status_code == 404:
+                logger.info(f"404 response for {url}")
+                raise Exception(
+                    f"404 response for {url}. Please raise an issue on GitHub."
+                )
+
+            # too many requests were made to the API
+            if response.status_code == 429:
+                content = response.text()
+                print(
+                    f"Response from API for status_code: {response.status_code}: {content}"
+                )
+                logger.info(
+                    f"Response from API for status_code: {response.status_code}: {content}"
+                )
+                raise Exception(
+                    f"Response from API for status_code: {response.status_code}: {content}"
+                )
+
+            # raise an exception if the response status_code is not 200
+            if response.status_code != 200:
+                print(f"response.status_code {response.status_code} for {url}")
+                logger.info(f"response.status_code {response.status_code} for {url}")
+                return False
+
+            response.raise_for_status()
+
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None:
+                content_length = int(content_length)
+                with open(save_path, "wb") as fd:
+                    with tqdm.auto.tqdm(
+                        total=content_length,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=f"Downloading {os.path.basename(save_path)}",
+                        initial=0,
+                        ascii=False,
+                        position=0,
+                    ) as pbar:
+                        for chunk in response.iter_content(1024):
+                            if not chunk:
+                                break
+                            fd.write(chunk)
+                            pbar.update(len(chunk))
+            else:
+                with open(save_path, "wb") as fd:
+                    for chunk in response.iter_content(1024):
+                        fd.write(chunk)
+
 
 def add_classifer_scores_to_shorelines(good_bad_csv, good_bad_seg_csv, files:Collection):
     """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
@@ -100,6 +165,16 @@ def add_classifer_scores_to_transects(session_path, good_bad_csv, good_bad_seg_c
 
 
 def filter_no_data_pixels(files: list[str], percent_no_data: float = 0.50) -> list[str]:
+    """
+    Filters out image files that have a percentage of black (no data) pixels greater than the specified threshold.
+    Args:
+        files (list[str]): A list of file paths to image files.
+        percent_no_data (float, optional): The maximum allowed percentage of black pixels in an image. 
+                                           Images with a higher percentage of black pixels will be filtered out. 
+                                           Defaults to 0.50 (50%).
+    Returns:
+        list[str]: A list of file paths to images that have a percentage of black pixels less than or equal to the specified threshold.
+    """
     def percentage_of_black_pixels(img: "PIL.Image") -> float:
         # Calculate the total number of pixels in the image
         num_total_pixels = img.size[0] * img.size[1]
@@ -469,62 +544,6 @@ def RGB_to_infrared(
 
     return output_path
 
-
-async def fetch(session, url: str, save_path: str):
-    model_name = url.split("/")[-1]
-    # chunk_size: int = 128
-    chunk_size: int = 2048
-    async with session.get(url, raise_for_status=True) as r:
-        content_length = r.headers.get("Content-Length")
-        if content_length is not None:
-            content_length = int(content_length)
-            with open(save_path, "wb") as fd:
-                with tqdm.auto.tqdm(
-                    total=content_length,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc=f"Downloading {model_name}",
-                    initial=0,
-                    ascii=False,
-                    position=0,
-                ) as pbar:
-                    async for chunk in r.content.iter_chunked(chunk_size):
-                        fd.write(chunk)
-                        pbar.update(len(chunk))
-        else:
-            with open(save_path, "wb") as fd:
-                async for chunk in r.content.iter_chunked(chunk_size):
-                    fd.write(chunk)
-
-
-async def fetch_all(session, url_dict):
-    tasks = []
-    for save_path, url in url_dict.items():
-        task = asyncio.create_task(fetch(session, url, save_path))
-        tasks.append(task)
-    await tqdm.asyncio.tqdm.gather(*tasks)
-
-
-async def async_download_urls(url_dict: dict) -> None:
-    async with aiohttp.ClientSession() as session:
-        await fetch_all(session, url_dict)
-
-
-def run_async_download(url_dict: dict):
-    logger.info("run_async_download")
-    if platform.system() == "Windows":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    logger.info("Scheduling task")
-    # apply a nested loop to jupyter's event loop for async downloading
-    nest_asyncio.apply()
-    # get nested running loop and wait for async downloads to complete
-    loop = asyncio.get_running_loop()
-    result = loop.run_until_complete(async_download_urls(url_dict))
-    logger.info("Scheduled task")
-    logger.info(f"result: {result}")
-
-
 def get_GPU(num_GPU: str) -> None:
     num_GPU = str(num_GPU)
     if num_GPU == "0":
@@ -568,31 +587,6 @@ def get_GPU(num_GPU: str) -> None:
             logger.info(
                 f"Number of distributed devices: {strategy.num_replicas_in_sync}"
             )
-
-
-def get_url_dict_to_download(models_json_dict: dict) -> dict:
-    """Returns dictionary of paths to save files to download
-    and urls to download file
-
-    ex.
-    {'C:\\Home\\Project\\file.json':"https://website/file.json"}
-
-    Args:
-        models_json_dict (dict): full path to files and links
-
-    Returns:
-        dict: full path to files and links
-    """
-    url_dict = {}
-    for save_path, link in models_json_dict.items():
-        if not os.path.isfile(save_path):
-            url_dict[save_path] = link
-        json_filepath = save_path.replace("_fullmodel.h5", ".json")
-        if not os.path.isfile(json_filepath):
-            json_link = link.replace("_fullmodel.h5", ".json")
-            url_dict[json_filepath] = json_link
-
-    return url_dict
 
 
 def get_sorted_files_with_extension(
@@ -782,7 +776,7 @@ class Zoo_Model:
         percent_no_data = settings.get('percent_no_data', 0.5)
         
         # make a progress bar to show the progress of the model and shoreline extraction
-        prog_bar = tqdm.auto.tqdm(range(2),
+        prog_bar = tqdm.auto.tqdm(range(2), # type: ignore
             desc=f"Running {model_name} model and extracting shorelines",
             leave=True,
         )
@@ -973,7 +967,7 @@ class Zoo_Model:
                     shutil.copy(good_bad_seg_csv, new_session_path)
                 except SameFileError as e:
                     pass # we don't care if the file is the same
-        # save extracted shorelines, detection jpgs, configs, model settings files to the session directory
+        # save extracted shorelines as geojson, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
         # save the classification scores to the extracted shorelines geojson files
         shorelines_lines_location = os.path.join(session_path, "extracted_shorelines_lines.geojson")
@@ -1608,7 +1602,7 @@ class Zoo_Model:
         logger.info(f"URLs to download: {download_dict}")
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
-            download_status = downloads.download_url_dict(download_dict)
+            download_status = download_url_dict(download_dict)
             if download_status == False:
                 raise Exception("Download failed")
 
@@ -1673,7 +1667,7 @@ class Zoo_Model:
         logger.info(f"download_dict: {download_dict}")
         # if any files are not found locally download them asynchronous
         if download_dict != {}:
-            download_status = downloads.download_url_dict(download_dict)
+            download_status = download_url_dict(download_dict)
             if download_status == False:
                 raise Exception("Download failed")
 

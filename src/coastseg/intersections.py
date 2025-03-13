@@ -9,7 +9,7 @@ import warnings
 from coastseg import file_utilities
 from coastseg.common import get_transect_settings
 from coastseg.common import convert_date_gdf, convert_points_to_linestrings
-from shapely.geometry import Point, LineString
+from shapely.geometry import Point
 
 warnings.filterwarnings("ignore")
 
@@ -550,11 +550,18 @@ def create_transect_dictionary(df):
     """
     df = df.sort_values(by=['dates'])
     transect_dictionary = {}
+    unique_dates = df['dates'].unique()
+    unique_dates = sorted(unique_dates)
+
+    # Loop through all the transect ids and create an array of size equal to the number of unique dates and fill with corresponding shoreline intersection or nans
     for transect_id in np.unique(df['transect_id']):
+        dates_mask = {date: np.nan for date in unique_dates}
+
         transect = df[df['transect_id'] == transect_id]
-        # get the cross_distancr values organized by date
-        cross_distance = transect['cross_distance']
-        transect_dictionary[transect_id]=  list(cross_distance.values)
+        # fill in the dates mask if the date is in the transect
+        for index, row in transect.iterrows():
+            dates_mask[row['dates']] = row['cross_distance']
+        transect_dictionary[transect_id]=  list(dates_mask.values())
     return transect_dictionary
 
 

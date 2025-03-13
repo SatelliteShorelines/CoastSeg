@@ -247,6 +247,9 @@ class UI_Models:
             return settings_accordion
 
     def create_dashboard(self):
+        self.file_row = HBox([])
+        self.extracted_shoreline_file_row = HBox([])
+        self.tidal_correct_file_row = HBox([])
         layout = Layout(max_width='270px', overflow='auto',padding='0px 10px 0px 0px')
         # step 1: Select a Model
         step_1 = HBox([HBox([self.step_1_instr],layout = layout), self.get_model_settings_accordion()])
@@ -269,14 +272,12 @@ class UI_Models:
         step_3 = HBox([HBox([self.step_3_instr],layout=layout), self.fileuploader.get_FileUploader_widget()])
         
         # step 4 : Extract Shorelines with Model
-        step_4 = VBox([self.step_4_instr, self.get_session_selection(), self.use_select_images_button,self.extract_shorelines_button])
+        step_4 = VBox([self.step_4_instr, self.get_session_selection(), self.use_select_images_button,self.file_row,self.extract_shorelines_button])
         
         # step 5 : Tidal Correction
-        step_5 = VBox([self.step_5_instr, self.select_extracted_shorelines_session_button, self.create_tidal_correction_widget()])
+        # Has the widgets: instructions, select session button,place to select session, and tidal correction widget
+        step_5 = VBox([self.step_5_instr, self.select_extracted_shorelines_session_button,self.tidal_correct_file_row, self.create_tidal_correction_widget()])
         
-        self.file_row = HBox([])
-        self.extracted_shoreline_file_row = HBox([])
-        self.tidal_correct_file_row = HBox([])
         display(
             step_1,
             step_2,
@@ -285,11 +286,9 @@ class UI_Models:
            HBox(
                 [self.clear_extract_shorelines_btn(), UI_Models.extract_shorelines_view]
             ),
-            self.file_row,
             self.warning_row1,
             self.line_widget,
             step_5,
-            self.tidal_correct_file_row,
             HBox([self.clear_tidal_correction_btn(), UI_Models.tidal_correction_view]),
             self.warning_row2,
         )
@@ -640,9 +639,6 @@ class UI_Models:
         common.clear_row(self.file_row)
         # add instance of file_chooser to self.file_row
         self.file_row.children = [file_chooser]
-        # udpate the settings in the model instance
-        # self.save_updated_settings()
-        # self.update_displayed_settings()
 
 
     @tidal_correction_view.capture(clear_output=True)
@@ -658,6 +654,7 @@ class UI_Models:
             title="Select extracted shorelines session",
             starting_directory="sessions",
         )
+        print(f"filechooser: {file_chooser}")
         # clear row and close all widgets in self.tidal_correct_file_row before adding new file_chooser
         common.clear_row(self.tidal_correct_file_row)
         # add instance of file_chooser to self.tidal_correct_file_row

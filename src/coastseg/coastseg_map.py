@@ -361,28 +361,30 @@ class CoastSeg_Map:
         # create a layer with the extracted shorelines selected
         points_gdf = extracted_shoreline.convert_linestrings_to_multipoints(gdf)
         projected_gdf = points_gdf.to_crs(map_crs)
-
         # convert date column to datetime
         projected_gdf["date"] = pd.to_datetime(projected_gdf["date"])
         # Sort the GeoDataFrame based on the 'date' column
         projected_gdf = projected_gdf.sort_values(by="date")
-        # normalize the dates to 0-1 scale
-        min_date = projected_gdf["date"].min()
-        max_date = projected_gdf["date"].max()
-        if min_date == max_date:
+        # normalize the dates to 0-1 scale so that we can use them to get colors from the colormap
+        unique_dates = projected_gdf["date"].unique()
+        if len(unique_dates) == 1:
             # If there's only one date, set delta to 0.25
-            delta = np.array([0.25])
+            date_to_delta = {unique_dates[0]: 0.25}
         else:
-            delta = (projected_gdf["date"] - min_date) / (max_date - min_date)
-        # get the colors from the colormap
-        colors = plt.get_cmap(colormap)(delta)
-
-        # convert RGBA colors to Hex
+            date_to_delta = {
+                date: (date - unique_dates.min()) / (unique_dates.max() - unique_dates.min())
+                for date in unique_dates
+            }
+        # get the colors from the colormap based on the assigned delta values
+        # Map the 'date' column to normalized delta values
+        projected_gdf["delta"] = projected_gdf["date"].map(date_to_delta)
+        # Get colors from colormap based on assigned delta values
+        colors = plt.get_cmap(colormap)(projected_gdf["delta"].to_numpy())
+        # Convert RGBA colors to Hex
         colors_hex = [
             "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
             for r, g, b, a in colors
         ]
-
         # add the colors to the GeoDataFrame
         projected_gdf["color"] = colors_hex
 
@@ -458,6 +460,14 @@ class CoastSeg_Map:
             Returns:
                 gpd.GeoDataFrame: The filtered GeoDataFrame containing the selected shorelines.
             """
+            # check if the dates column is in the format 2023-12-09 18:40:32
+            # If its not then convert the dates to datetime
+            # To ensure the gdf is in the expected format
+            gdf["date"] = pd.to_datetime(gdf["date"])
+            # strftime converts datetime to string and formats it to the expected format
+            gdf["date"] = gdf["date"].dt.strftime('%Y-%m-%d %H:%M:%S')
+            # then convert it back to datetime object
+            gdf["date"] = pd.to_datetime(gdf["date"])
             # Filtering criteria
             frames = []  # List to collect filtered frames
             # Loop through each dictionary in dates_tuple
@@ -483,13 +493,15 @@ class CoastSeg_Map:
         # load the extracted shorelines for the selected ROI ID
         if self.rois is not None:
             extracted_shorelines = self.rois.get_extracted_shoreline(selected_id)
+            if extracted_shoreline is None:
+                logger.warning(
+                    f"No extracted shorelines found for ROI ID {selected_id}. Selected ID was type({type(selected_id)})."
+                )
+                return
             # get the GeoDataFrame for the extracted shorelines
             if hasattr(extracted_shorelines, "gdf"):
                 selected_gdf = get_selected_shorelines(
                     extracted_shorelines.gdf, selected_shorelines
-                )
-                logger.info(
-                    f"load_selected_shorelines_on_map: selected_gdf.head() {selected_gdf.head()}"
                 )
                 if not selected_gdf.empty:
                     self.load_extracted_shoreline_layer(
@@ -2583,6 +2595,7 @@ class CoastSeg_Map:
         """
         # Get the list of the ROI IDs that have extracted shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
+        print(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
         logger.info(f"ids_with_extracted_shorelines: {ids_with_extracted_shorelines}")
         # if no ROIs have extracted shorelines, return otherwise load extracted shorelines for the first ROI ID with extracted shorelines
         if not ids_with_extracted_shorelines:
@@ -2627,16 +2640,18 @@ class CoastSeg_Map:
                 )
                 if extracted_shorelines.gdf["date"].dtype == "object":
                     # If the "date" column is already of string type, concatenate directly
-                    formatted_dates = extracted_shorelines.gdf["date"]
+                    # formatted_dates = extracted_shorelines.gdf["date"]
+                    formatted_dates = extracted_shorelines.gdf.apply(
+                    lambda row: f"{row['satname']}_{row['date']}", axis=1
+                )
                 else:
                     # If the "date" column is not of string type, convert to string with the required format
-                    formatted_dates = extracted_shorelines.gdf["date"].apply(
-                        lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
-                    )
+                    formatted_dates = extracted_shorelines.gdf.apply(
+                    lambda row: f"{row['satname']}_{row['date'].strftime('%Y-%m-%d %H:%M:%S')}", axis=1
+                )
                 self.extract_shorelines_container.load_list = []
-                self.extract_shorelines_container.load_list = (
-                    extracted_shorelines.gdf["satname"] + "_" + formatted_dates
-                ).tolist()
+                # only get the unique dates
+                self.extract_shorelines_container.load_list = np.unique(formatted_dates).tolist()
                 self.extract_shorelines_container.trash_list = []
         else:
             logger.warning(f"No shorelines extracted for ROI {selected_id}")
