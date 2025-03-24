@@ -26,7 +26,7 @@ pip install tensorflow
 pip install transformers
 ```
 
-# Model-Compatible Spectral Indices
+## Model-Compatible Spectral Indices
 
 The models currently available with CoastSeg can use the following spectral indices. We welcome contribution for models that use different spectral indices, or any combination of bands. However, our team prefers our models to apply equally to all Landsat and Sentinel imagery, so ideally models are trained on those data, not some other data source.
 
@@ -144,3 +144,11 @@ Each model has a Zenodo release which contains the model weights, metadata about
   - 1: whitewater,
   - 2: sediment,
   - 3: other
+
+## Data Sources
+
+1. Buscombe, D., Lundine, M.A., Janda, C.N., and Batiste, S., 2025, Labeled satellite imagery for training machine learning models that predict the suitability of imagery for shoreline extraction, U.S. Geological Survey data release, [https://doi.org/10.5066/P14MDKVJ](https://doi.org/10.5066/P14MDKVJ).
+
+2. Buscombe, D., Lundine, M.A., Batiste, S., and Janda, C.N., 2025, Labeled satellite imagery for training machine learning models that predict the suitability of semantic segmentation model outputs for shoreline extraction: U.S. Geological Survey data release, [https://doi.org/10.5066/P1N4VI7H](https://doi.org/10.5066/P1N4VI7H).
+
+3. Buscombe, D., Lundine, M.A., Janda, C.N., and Batiste, S., 2025, Labeled satellite imagery for training machine learning semantic segmentation models of coastal shorelines: U.S. Geological Survey data release, [https://doi.org/10.5066/P13EOBZQ](https://doi.org/10.5066/P13EOBZQ).
