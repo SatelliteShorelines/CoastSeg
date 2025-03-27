@@ -1,0 +1,36 @@
+services:
+  coastseg:
+    build: 
+      context: .
+      dockerfile: dockerfile
+    ports:
+      - "8888:8888"
+    runtime: nvidia
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    volumes:
+      - type: bind
+        source: //c/development/doodleverse/coastseg/CoastSeg/data
+        target: //coastseg/data
+      - type: bind
+        source: //c/development/doodleverse/coastseg/CoastSeg/sessions
+        target: //coastseg/sessions
+      - type: bind
+        source: //c/development/doodleverse/coastseg/CoastSeg/logs
+        target: //coastseg/logs
+      - type: bind
+        source: //c/development/doodleverse/coastseg/CoastSeg/tide_model
+        target: //coastseg/tide_model
+      - type: bind 
+        source: //c/development/doodleverse/coastseg/CoastSeg/src
+        target: //coastseg/src
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

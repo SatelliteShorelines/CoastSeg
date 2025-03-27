@@ -1,19 +1,19 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "coastseg"
-dynamic = ["readme"]
 version = "1.4.5" 
 authors = [
-  { name=" Sharon Fitzpatrick", email="sharon.fitzpatrick23@gmail.com" },
+  { name=" Sharon Fitzpatrick Batiste", email="sharon.fitzpatrick23@gmail.com" },
 ]
 keywords = [
     "coastseg",
     "coastsat",
 ]
 description = "An interactive python package for satellite derived shoreline workflows"
+readme = "README.md"
 #these dependencies are the core dependencies of the package necessary for the coastsat workflow and the core functionality. Pixi reads these as pypi dependencies
 dependencies = [
     "aiohttp",
@@ -45,6 +45,13 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 ]
+
+# Hatchling configuration for a src layout
+[tool.hatch.build]
+source = "src"
+
+[tool.hatch.build.targets.wheel]
+packages = ["coastseg"]
 
 [project.optional-dependencies]
 ml = ["tensorflow==2.12.0", "transformers>=4.48.3,<5"] # dependencies for the zoo based workflow
@@ -88,7 +95,6 @@ pytest = "*"
 
 [tool.pixi.feature.ml.tasks]
 run_notebook = "jupyter lab SDS_zoo_classifier.ipynb --ip=0.0.0.0 --allow-root --no-browser"
-
 
 [project.urls]
 homepage = "https://github.com/SatelliteShorelines/CoastSeg"
