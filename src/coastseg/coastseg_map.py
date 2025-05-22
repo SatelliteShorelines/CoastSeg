@@ -2058,7 +2058,6 @@ class CoastSeg_Map:
         roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
         # get the transects for the selected ROIs with extracted shorelines
         selected_roi_ids = list(set(roi_ids) & set(roi_ids_with_extracted_shorelines))
-        print(f"Selected ROIs with extracted shorelines: {selected_roi_ids}")
         if hasattr(self.transects, "gdf"):
             self.compute_transects(self.transects.gdf, self.get_settings(), selected_roi_ids)
             

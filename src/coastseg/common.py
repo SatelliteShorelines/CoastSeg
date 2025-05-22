@@ -3263,7 +3263,6 @@ def save_extracted_shorelines(
     points_gdf['date'] = pd.to_datetime(points_gdf['date'])
     points_gdf['date'] = points_gdf['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
     points_gdf['date'] = pd.to_datetime(points_gdf['date'])
-    print(f"points_gdf['date']: {points_gdf['date']}")
 
     projected_gdf = stringify_datetime_columns(points_gdf)
     # Save extracted shorelines as a GeoJSON file
@@ -3682,6 +3681,10 @@ def create_roi_settings(
             "sitename": sitename,
             "filepath": filepath,
             "include_T2": False,
+            "sentinel_1_properties":{
+                "transmitterReceiverPolarisation": ["VH"],
+                "instrumentMode": "IW",
+            }#@todo these are hardcoded for now because only the logic for handling the VH polarisation is implemented
         }
         roi_settings[roi_id] = inputs_dict
     return roi_settings
