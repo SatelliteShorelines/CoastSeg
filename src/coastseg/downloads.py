@@ -69,6 +69,7 @@ def get_collection_by_tier(
             "L8": "LANDSAT/LC08/C02/T1_TOA",
             "L9": "LANDSAT/LC09/C02/T1_TOA",
             "S2": "COPERNICUS/S2_HARMONIZED",
+            "S1": "COPERNICUS/S1_GRD",
         },
         2: {
             "L5": "LANDSAT/LT05/C02/T2_TOA",
@@ -93,6 +94,7 @@ def get_collection_by_tier(
         "L8": "CLOUD_COVER",
         "L9": "CLOUD_COVER",
         "S2": "CLOUDY_PIXEL_PERCENTAGE",
+        # Note: S1 (Sentinel-1) does not use a cloud property
     }
     cloud_property = cloud_properties.get(satellite)
 
@@ -106,8 +108,13 @@ def get_collection_by_tier(
         ee.ImageCollection(collection_name)
         .filterBounds(ee.Geometry.Polygon(polygon))
         .filterDate(ee.Date(start_date), ee.Date(end_date))
-        .filterMetadata(cloud_property, "less_than", max_cloud_cover)
     )
+
+    # Apply cloud cover filter only if available
+    if cloud_property:
+        collection = collection.filterMetadata(cloud_property, "less_than", max_cloud_cover)
+
+
     # apply the month filter to only include images from the months in the months_list
     collection = collection.filter(month_filter)
     
@@ -119,7 +126,7 @@ def count_images_in_ee_collection(
     start_date: Union[str, datetime],
     end_date: Union[str, datetime],
     max_cloud_cover: float = 95,
-    satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2"),
+    satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2", "S1"),
     tiers: list[int] = None,
     months_list:list[int] = None
 ) -> dict:
