@@ -130,7 +130,7 @@ class UI:
         )
         # create dropdown to select mulitple satellites
         satellite_selection = widgets.SelectMultiple(
-            options=["L5", "L7", "L8", "L9", "S2"],
+            options=["L5", "L7", "L8", "L9", "S2","S1"],
             value=["L8"],
             description="Satellites",
             disabled=False,
@@ -903,7 +903,6 @@ class UI:
         try:
             self.coastseg_map.set_settings(**settings)
             self.update_displayed_settings()
-            # self.settings_html.value = format_as_html(self.coastseg_map.get_settings())
             
         except Exception as error:
             # renders error message as a box on map
