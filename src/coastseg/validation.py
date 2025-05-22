@@ -8,12 +8,11 @@ class Satellite(Enum):
     L8 = 'L8'
     L9 = 'L9'
     S2 = 'S2'
+    S1 = 'S1'
     
     
 def is_valid_satellite(satellite_name: str) -> bool:
     return satellite_name.upper() in (sat.value.upper() for sat in Satellite)
-
-
 
 def find_satellite_in_filename(filename: str) -> str:
     """Use regex to find the satellite name in the filename.
