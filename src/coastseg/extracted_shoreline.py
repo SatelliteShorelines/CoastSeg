@@ -47,6 +47,142 @@ pd.set_option("mode.chained_assignment", None)
 logger = logging.getLogger(__name__)
 __all__ = ["Extracted_Shoreline"]
 
+
+class SegmentationFilter:
+    """
+    Handles optional filtering of segmentation files based on classifier model predictions.
+    """
+
+    def __init__(self, session_path: str):
+        """
+        Args:
+            session_path (str): Path to the saved session directory containing segmentation results.
+        """
+        self.session_path = session_path
+
+    def apply_filter(self, enable_filtering: bool = True) -> str:
+        """
+        Applies segmentation filtering using a classifier model if enabled.
+
+        Args:
+            enable_filtering (bool): Whether to apply filtering. Defaults to True.
+
+        Returns:
+            str: Directory path to the filtered segmentation files (could be same as session_path if not filtered).
+
+        Logs:
+            Warnings if filtering is skipped due to missing dependencies or errors.
+        """
+        if not enable_filtering:
+            logger.info("Segmentation filtering is disabled. Returning original session path.")
+            return self.session_path
+
+        try:
+            from coastseg import classifier
+            classifier.check_tensorflow()
+
+            logger.info(f"Applying segmentation filter for session: {self.session_path}")
+            filtered_dir = classifier.filter_segmentations(self.session_path)
+            logger.info(f"Segmentation filtering complete. Filtered files in: {filtered_dir}")
+            return filtered_dir
+
+        except ImportError as e:
+            logger.warning(f"Segmentation filter skipped: TensorFlow or 'classifier' module not available. Error: {e}")
+        except Exception as e:
+            logger.warning(f"Segmentation filtering failed due to runtime error: {e}")
+
+        # Return original path if filtering could not be applied
+        return self.session_path
+
+class MetadataManager:
+    """
+    Handles loading and filtering of metadata based on shoreline settings and session contents.
+    """
+
+    def __init__(self, shoreline_settings: dict):
+        """
+        Args:
+            shoreline_settings (dict): Configuration for shoreline extraction.
+                Requires 'inputs' key with 'filepath' and 'sitename'.
+                Example:
+                    {
+                        "inputs": {
+                            "filepath": "/path/to/data", # path to the data folder
+                            "sitename": "example_site"   # Name of folder in the data folder
+                        }
+                    }
+
+        """
+        self.shoreline_settings = shoreline_settings
+
+    def load_metadata(self) -> dict:
+        """
+        Loads the metadata from the session specified in the shoreline settings, then 
+        filters it based on the available RBG files.
+
+        Returns:
+            dict: Filtered metadata grouped by satellite.
+        """
+        inputs = self.shoreline_settings.get("inputs", {})
+        filepath = inputs.get("filepath")
+        if not filepath:
+            raise ValueError("The 'filepath' key in 'inputs' is missing or None.")
+        filepath_data = get_data_folder(filepath)
+        metadata = get_metadata(inputs, filepath_data)
+
+        sitename = inputs.get("sitename")
+        rgb_dir = os.path.join(filepath_data, sitename, "jpg_files", "preprocessed", "RGB")
+        # filter out files that were removed from RGB directory
+        try:
+            logger.info(f"Looking for RGB files in: {rgb_dir}")
+            metadata = common.filter_metadata_with_dates(metadata, rgb_dir, file_type="jpg")
+        except FileNotFoundError:
+            logger.warning(f"No RGB files found at {rgb_dir}")
+            return {}
+
+        self._log_metadata_summary(metadata)
+        return metadata
+
+    def filter_metadata_by_segmentations(
+        self, metadata: dict, segmentation_dir: str, file_type: str = "npz"
+    ) -> dict:
+        """
+        Filters metadata entries to match available segmentation files.
+
+        Args:
+            metadata (dict): Full metadata by satellite.
+            segmentation_dir (str): Directory containing valid segmentations.
+            file_type (str): File extension to filter by (default "npz").
+
+        Returns:
+            dict: Filtered metadata.
+        """
+        filtered = common.filter_metadata_with_dates(metadata, segmentation_dir, file_type)
+        logger.info(f"Metadata filtered to {len(filtered)} satellites using files in '{segmentation_dir}'")
+        return filtered
+
+    def _log_metadata_summary(self, metadata: dict):
+        """
+        Logs key stats for each satellite's metadata.
+
+        Args:
+            metadata (dict): Metadata by satellite.
+        """
+        for satname, satdata in metadata.items():
+            if not satdata:
+                logger.warning(f"metadata['{satname}'] is empty")
+                continue
+
+            def sample(lst, n=5): return list(islice(lst, n))
+
+            logger.info(f"Satellite: {satname}")
+            logger.info(f"  EPSG: {np.unique(satdata.get('epsg', []))}")
+            logger.info(f"  Dates: Sample {sample(satdata.get('dates', []))}")
+            logger.info(f"  Filenames: Sample {sample(satdata.get('filenames', []))}")
+            logger.info(f"  Image Dimensions: {np.unique(satdata.get('im_dimensions', []))}")
+            logger.info(f"  Accuracy Georef: {np.unique(satdata.get('acc_georef', []))}")
+            logger.info(f"  Image Quality: {np.unique(satdata.get('im_quality', []))}")
+
 def get_filepath(filepath_data, sitename, satname):
     """
     Create filepath to the different folders containing the satellite images.
@@ -291,7 +427,7 @@ def get_metadata(inputs,data_folder_location:str=""):
     # initialize metadata dict
     metadata = dict([])
     # loop through the satellite missions that were specified in the inputs
-    satellite_list = inputs.get("sat_list", ["L5", "L7", "L8", "L9", "S2"])
+    satellite_list = inputs.get("sat_list", ["L5", "L7", "L8", "L9", "S2","S1"])
     for satname in satellite_list:
         sat_path = os.path.join(filepath, satname)
         # if a folder has been created for the given satellite mission
@@ -371,67 +507,6 @@ def log_contents_of_shoreline_dict(extracted_shorelines_dict):
     logger.info(
         f"extracted_shorelines_dict length {len(extracted_shorelines_dict.get('filename',[]))} of filename[:3]: {list(islice(extracted_shorelines_dict.get('filename',[]),3))}"
     )
-
-def get_metadata_from_session_jpg_files(shoreline_settings:dict):
-    """
-    Extracts and filters metadata from session JPG files based on the provided shoreline settings.
-
-    Args:
-        shoreline_settings (dict): A dictionary containing settings for the shoreline extraction process.
-            Expected keys in the dictionary:
-            - "inputs": A dictionary with the following keys:
-                - "sitename" (str): The name of the site.
-                - "filepath" (str): The path to the data files.
-
-    Returns:
-        dict: A dictionary containing the filtered metadata. If no RGB files are found, an empty dictionary is returned.
-
-    Raises:
-        FileNotFoundError: If the RGB directory does not exist.
-
-    Logs:
-        - Warnings if no RGB files exist or if any metadata for a satellite is empty.
-        - Information about the length and sample values of various metadata fields for each satellite.
-    """
-    # gets metadata used to extract shorelines
-    filepath_data = get_data_folder(shoreline_settings["inputs"]["filepath"])
-    metadata = get_metadata(shoreline_settings["inputs"],filepath_data)
-    sitename = shoreline_settings["inputs"]["sitename"]
-    # filter out files that were removed from RGB directory
-    try:
-        RGB_directory = os.path.join(
-            filepath_data, sitename, "jpg_files", "preprocessed", "RGB"
-        )
-        print(f"RGB_directory: {RGB_directory}")
-        metadata = common.filter_metadata_with_dates(metadata,RGB_directory,file_type="jpg") 
-    except FileNotFoundError as e:
-        logger.warning(f"No RGB files existed at {RGB_directory}")
-        return {}
-    else:
-        # Log portions of the metadata because is massive
-        for satname in metadata.keys():
-            if not metadata[satname]:
-                logger.warning(f"metadata['{satname}'] is empty")
-            else:
-                logger.info(
-                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('epsg',[]))} of epsg: {np.unique(metadata[satname].get('epsg',[]))}"
-                )
-                logger.info(
-                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('dates',[]))} of dates Sample first five: {list(islice(metadata[satname].get('dates',[]),5))}"
-                )
-                logger.info(
-                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('filenames',[]))} of filenames Sample first five: {list(islice(metadata[satname].get('filenames',[]),5))}"
-                )
-                logger.info(
-                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_dimensions',[]))} of im_dimensions: {np.unique(metadata[satname].get('im_dimensions',[]))}"
-                )
-                logger.info(
-                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('acc_georef',[]))} of acc_georef: {np.unique(metadata[satname].get('acc_georef',[]))}"
-                )
-                logger.info(
-                    f"edit_metadata metadata['{satname}'] length {len(metadata[satname].get('im_quality',[]))} of im_quality: {np.unique(metadata[satname].get('im_quality',[]))}"
-                )
-        return metadata
 
 # preprocess_single
 # Main function to preprocess a satellite image (L5, L7, L8, L9 or S2)
@@ -2456,6 +2531,8 @@ class Extracted_Shoreline:
         self.shoreline_settings = self.create_shoreline_settings(
             settings, roi_settings, reference_shoreline
         )
+
+    
         logger.info(f"self.shoreline_settings['inputs'] {self.shoreline_settings['inputs']}")
         # Log all items except 'reference shoreline' and handle 'reference shoreline' separately
         logger.info(
@@ -2475,33 +2552,24 @@ class Extracted_Shoreline:
             f"Number of 'reference_shoreline': {len(ref_sl)} for ROI {roi_id}"
         )
 
-        # Filter the metadata based on the session's jpg files (typically CoastSeg/data/ROI_id/jpg_files/RGB)
-        metadata = get_metadata_from_session_jpg_files(self.shoreline_settings)
+        # Load then filter the metadata based on the session's jpg files (typically CoastSeg/data/ROI_id/jpg_files/RGB)
+        metadata_manager = MetadataManager(self.shoreline_settings)
+        metadata = metadata_manager.load_metadata()
+
         # The metadata may be empty if there are no jpg files in at the location given by
         # shoreline_settings['inputs']['filepath'] (this is typically CoastSeg/data/ROI_id/jpg_files/RGB)
         if not metadata:
             logger.warning(f"Metadata was empty after filtering for session jpg files.")
             self.dictionary = {}
             return self 
+
+        # Filter the segmentations into good/bad using the segmentation filter model if apply_segmentation_filter is True
+        segmentation_filter =SegmentationFilter(session_path)
+        good_directory = segmentation_filter.apply_filter(apply_segmentation_filter) # applies filter to the session folder
         
-        # Filter the segmentations to only include the good segmentations, then update the metadata to only include the files with the good segmentations
-        good_directory = session_path
-
-        try:
-            if apply_segmentation_filter:
-                from coastseg import classifier
-                classifier.check_tensorflow()
-                logger.info(f"Filtering segmentations using model for session {session_path}")
-                good_directory = classifier.filter_segmentations(session_path)
-        except ImportError as e:
-            logger.warning(f"Skipping segmentation filtering. Failed to import classifier module: {e}")
-            print(f"Tensorflow 2.12 is not installed. Skipping segmentation filtering.")
-
         # Filter the metadata to only include the files with segmentations that are in the good_directory
-        metadata= common.filter_metadata_with_dates(metadata,good_directory,file_type="npz")
-        logger.info(f"Filter metadata with good_directory {good_directory} and file_type npz")
-        # check if metadata is empty after filtering
-        logger.info(f"metadata length: {len(metadata)}")
+        metadata = metadata_manager.filter_metadata_by_segmentations(
+            metadata, good_directory, file_type="npz")
 
         extracted_shorelines_dict = extract_shorelines_with_dask(
             session_path,
@@ -2634,9 +2702,7 @@ class Extracted_Shoreline:
             settings, roi_settings, reference_shoreline
         )
         # gets metadata used to extract shorelines
-        print(f"self.shoreline_settings['inputs']['filepath']: {self.shoreline_settings['inputs']['filepath']}")
         filepath_data = get_data_folder(self.shoreline_settings["inputs"]["filepath"])
-        print(f"filepath_data: {filepath_data}")
         # data_folder =  os.path.join(core_utilities.get_base_dir(),'data')
         metadata = get_metadata(self.shoreline_settings["inputs"],filepath_data)
         sitename = self.shoreline_settings["inputs"]["sitename"]
@@ -2693,7 +2759,7 @@ class Extracted_Shoreline:
         settings: dict,
         roi_settings: dict,
         reference_shoreline: dict,
-    ) -> None:
+    ) -> dict:
         """Create and return a dictionary containing settings for shoreline.
         
 
