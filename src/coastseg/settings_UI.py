@@ -352,7 +352,7 @@ class Settings_UI:
                 description="Minimum Shoreline Length",
                 value=500,
                 min=50,
-                max=1000,
+                max=5000,
                 step=1,
                 style={"description_width": "initial"},
             )
