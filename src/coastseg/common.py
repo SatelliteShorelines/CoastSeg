@@ -738,7 +738,7 @@ def delete_selected_indexes(input_dict, selected_indexes):
 
 def load_settings(
     filepath: str = "",
-    keys: set = (
+    keys: set = {
         "months_list",
         "model_session_path",
         "apply_cloud_mask",
@@ -768,7 +768,7 @@ def load_settings(
         "min_chainage",
         "multiple_inter",
         "prc_multiple",
-    ),
+    },
     new_settings: dict={},
 ):
     """

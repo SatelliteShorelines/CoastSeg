@@ -1143,7 +1143,7 @@ class CoastSeg_Map:
         """
         # Get the location where the downloaded imagery will be saved
         if not file_path:
-            file_path = os.path.abspath(os.path.join(core_utilities.get_base_dir(), "data"))
+            file_path = os.path.abspath(os.path.join(os.path.abspath(core_utilities.get_base_dir()), "data"))
         # used to uniquely identify the folder where the imagery will be saved
         # example  ID_12_datetime06-05-23__04_16_45
         date_str = file_utilities.generate_datestring()
