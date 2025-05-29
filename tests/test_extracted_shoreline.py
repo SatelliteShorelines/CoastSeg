@@ -16,14 +16,6 @@ def test_is_list_empty():
     assert extracted_shoreline.is_list_empty(non_empty_list) == False
 
 
-def test_get_colors():
-    length = 4
-    actual_list = extracted_shoreline.get_colors(length)
-    assert len(actual_list) == length
-    assert isinstance(actual_list, list)
-    assert isinstance(actual_list[0], str)
-
-
 def test_init_invalid_inputs(valid_roi_settings, valid_shoreline_gdf, valid_settings):
     # Test initialize Extracted_Shoreline with invalid ROI id
     invalid_roi_id = 4
