@@ -56,7 +56,7 @@ class Shoreline_Extraction_Area(Feature):
                 crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
             else:
                 crs_info = "CRS: None"
-        return f"Reference Shoreline Buffer:\nself.gdf:\n\n{crs_info}\n- {self.gdf}"
+        return f"Shoreline Extraction Area:\n{crs_info}\n geodataframe{self.gdf}"
 
     def __repr__(self):
         # Get CRS information
@@ -67,4 +67,4 @@ class Shoreline_Extraction_Area(Feature):
                 crs_info = f"CRS: {self.gdf.crs}" if self.gdf.crs else "CRS: None"
             else:
                 crs_info = "CRS: None"
-        return f"Reference Shoreline Buffer:\nself.gdf:\n\n{crs_info}\n- {self.gdf}"
+        return f"Shoreline Extraction Area:\n{crs_info}\n geodataframe{self.gdf}"
