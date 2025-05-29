@@ -1,4 +1,3 @@
-
 from . import __version__
 
 # Standard library imports
@@ -18,7 +17,9 @@ import skimage
 import tqdm
 from PIL import Image
 import numpy as np
+import scipy
 from skimage.io import imread
+import skimage.io as io
 import tensorflow as tf
 from tensorflow.keras import mixed_precision
 
@@ -31,7 +32,7 @@ from coastseg import extracted_shoreline
 from coastseg import geodata_processing
 from coastseg import file_utilities
 from coastseg import core_utilities
-from coastseg.intersections import transect_timeseries,save_transects
+from coastseg.intersections import transect_timeseries, save_transects
 from doodleverse_utils.model_imports import (
     simple_resunet,
     custom_resunet,
@@ -44,10 +45,37 @@ from doodleverse_utils.model_imports import (
 from doodleverse_utils.model_imports import dice_coef_loss, iou_multi, dice_multi
 
 # Suppress TensorFlow warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "4"
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def apply_smooth_otsu_to_folder(folder):
+    """
+    Applies a median filter to all JPEG images in the specified folder, converts them to grayscale,
+    and saves the processed images to a new folder with '_smooth' appended to the original folder name.
+    Args:
+        folder (str): Path to the folder containing JPEG images to be processed.
+    Returns:
+        str: Path to the new folder containing the smoothed images.
+    """
+    new_folder_name = os.path.basename(folder) + "_smooth"
+    new_folder = os.path.join(os.path.dirname(folder), new_folder_name)
+    os.makedirs(new_folder, exist_ok=True)
+    # get all files in folder
+    files = glob.glob(os.path.join(folder, "*jpg"))
+    for file in files:
+        img = Image.open(file)
+        img = img.convert("L")  # convert to grayscale
+        img_arr = np.array(img)
+        img_arr_median_filter = scipy.ndimage.median_filter(img_arr, size=15)
+        # save the median filtered image to the new folder
+        new_file = os.path.join(new_folder, os.path.basename(file))
+        io.imsave(new_file, img_arr_median_filter)
+
+    return new_folder
+
 
 def download_url_dict(url_dict):
     """
@@ -120,7 +148,9 @@ def download_url_dict(url_dict):
                         fd.write(chunk)
 
 
-def add_classifer_scores_to_shorelines(good_bad_csv, good_bad_seg_csv, files:Collection):
+def add_classifer_scores_to_shorelines(
+    good_bad_csv, good_bad_seg_csv, files: Collection
+):
     """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
 
     Args:
@@ -132,10 +162,11 @@ def add_classifer_scores_to_shorelines(good_bad_csv, good_bad_seg_csv, files:Col
     """
     for file in files:
         if os.path.exists(file):
-            file_utilities.join_model_scores_to_shorelines(file,
-                                    good_bad_csv,
-                                    good_bad_seg_csv)
-            
+            file_utilities.join_model_scores_to_shorelines(
+                file, good_bad_csv, good_bad_seg_csv
+            )
+
+
 def add_classifer_scores_to_transects(session_path, good_bad_csv, good_bad_seg_csv):
     """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
 
@@ -144,24 +175,30 @@ def add_classifer_scores_to_transects(session_path, good_bad_csv, good_bad_seg_c
         good_bad_csv (str): The path to the image_classification_results.csv file
         good_bad_seg_csv (str): The path to the segmentation_classification_results.csv file
     """
-    timeseris_csv_location = os.path.join(session_path,"raw_transect_time_series_merged.csv" )
-    
+    timeseris_csv_location = os.path.join(
+        session_path, "raw_transect_time_series_merged.csv"
+    )
+
     list_of_files = [timeseris_csv_location]
     for file in list_of_files:
         if os.path.exists(file):
-            file_utilities.join_model_scores_to_time_series(file,
-                                    good_bad_csv,
-                                    good_bad_seg_csv)
-            
+            file_utilities.join_model_scores_to_time_series(
+                file, good_bad_csv, good_bad_seg_csv
+            )
+
     # Now add it to the geojson files that contain the transect intersections with the extracted shorelines
-    timeseries_lines_location = os.path.join(session_path,"raw_transect_time_series_vectors.geojson" )
-    timeseries_points_location = os.path.join(session_path,"raw_transect_time_series_points.geojson" )
+    timeseries_lines_location = os.path.join(
+        session_path, "raw_transect_time_series_vectors.geojson"
+    )
+    timeseries_points_location = os.path.join(
+        session_path, "raw_transect_time_series_points.geojson"
+    )
     files = [timeseries_lines_location, timeseries_points_location]
     for file in files:
         if os.path.exists(file):
-            file_utilities.join_model_scores_to_shorelines(file,
-                                    good_bad_csv,
-                                    good_bad_seg_csv)
+            file_utilities.join_model_scores_to_shorelines(
+                file, good_bad_csv, good_bad_seg_csv
+            )
 
 
 def filter_no_data_pixels(files: list[str], percent_no_data: float = 0.50) -> list[str]:
@@ -169,12 +206,13 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 0.50) -> li
     Filters out image files that have a percentage of black (no data) pixels greater than the specified threshold.
     Args:
         files (list[str]): A list of file paths to image files.
-        percent_no_data (float, optional): The maximum allowed percentage of black pixels in an image. 
-                                           Images with a higher percentage of black pixels will be filtered out. 
+        percent_no_data (float, optional): The maximum allowed percentage of black pixels in an image.
+                                           Images with a higher percentage of black pixels will be filtered out.
                                            Defaults to 0.50 (50%).
     Returns:
         list[str]: A list of file paths to images that have a percentage of black pixels less than or equal to the specified threshold.
     """
+
     def percentage_of_black_pixels(img: "PIL.Image") -> float:
         # Calculate the total number of pixels in the image
         num_total_pixels = img.size[0] * img.size[1]
@@ -182,7 +220,7 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 0.50) -> li
         # Count the number of black pixels in the image
         black_pixels = np.count_nonzero(np.all(img_array == 0, axis=-1))
         # Calculate the percentage of black pixels
-        percentage = (black_pixels / num_total_pixels) 
+        percentage = black_pixels / num_total_pixels
         return percentage
 
     valid_images = []
@@ -523,7 +561,7 @@ def RGB_to_infrared(
             infrared = common.scale(infrared, np.maximum(gx, nx), np.maximum(gy, ny))
 
         # output_img(MNDWI/NDWI) imagery formula (Green - SWIR) / (Green + SWIR)
-        output_img = (green_band-infrared) / (green_band + infrared )
+        output_img = (green_band - infrared) / (green_band + infrared)
         # Convert the NaNs to -1
         output_img[np.isnan(output_img)] = -1
         # Rescale to be between 0 - 255
@@ -543,6 +581,7 @@ def RGB_to_infrared(
         )
 
     return output_path
+
 
 def get_GPU(num_GPU: str) -> None:
     num_GPU = str(num_GPU)
@@ -652,7 +691,7 @@ class Zoo_Model:
             "use_GPU": "0",
             "implementation": "BEST",
             "model_type": "global_segformer_RGB_4class_14036903",
-            "local_model_path": "", # local path to the directory containing the model
+            "local_model_path": "",  # local path to the directory containing the model
             "use_local_model": False,  # Use local model (not one from zeneodo)
             "otsu": False,
             "tta": False,
@@ -680,16 +719,16 @@ class Zoo_Model:
             "percent_no_data": 50.0,  # percentage of no data pixels allowed in an image (doesn't work for npz)
             "model_session_path": "",  # path to model session file
             "apply_cloud_mask": True,  # whether to apply cloud mask to images or not
-            "drop_intersection_pts": False, # whether to drop intersection points not on the transect
+            "drop_intersection_pts": False,  # whether to drop intersection points not on the transect
             "coastseg_version": __version__,  # version of coastseg used to generate the data
             "apply_segmentation_filter": True,  # whether to apply to sort the segmentations as good or bad
         }
         if kwargs:
             self.settings.update({key: value for key, value in kwargs.items()})
-    
+
         for key, value in default_settings.items():
             self.settings.setdefault(key, value)
-            
+
         logger.info(f"Settings: {self.settings}")
         return self.settings.copy()
 
@@ -703,7 +742,7 @@ class Zoo_Model:
         return self.settings
 
     def preprocess_data(
-        self, src_directory: str, model_dict: dict, img_type: str
+        self, src_directory: str, model_dict: dict, img_type: str, functions: list
     ) -> dict:
         """
         Preprocesses the data in the source directory and updates the model dictionary with the processed data.
@@ -712,36 +751,38 @@ class Zoo_Model:
             src_directory (str): The path to the source directory containing the ROI's data
             model_dict (dict): The dictionary containing the model configuration and parameters.
             img_type (str): The type of imagery to generate. Must be one of "RGB", "NDWI", "MNDWI", or "RGB+MNDWI+NDWI".
+            functions (list): A list of preprocessing functions to apply sequentially to the data directory.
 
         Returns:
             dict: The updated model dictionary containing the paths to the processed data.
         """
-        # if configs do not exist then raise an error and do not save the session
-        if not file_utilities.validate_config_files_exist(src_directory):
-            logger.warning(
-                f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
-            )
-            raise FileNotFoundError(
-                f"Config files config.json or config_gdf.geojson do not exist in roi directory { src_directory}\n This means that the download did not complete successfully."
-            )
-        # get full path to directory named 'RGB' containing RGBs
+        # Step 1: Get full path to directory named 'RGB' containing RGBs
         RGB_path = file_utilities.find_directory_recursively(src_directory, name="RGB")
-        # convert RGB to MNDWI, NDWI,or 5 band
-        model_dict["sample_direc"] = get_imagery_directory(img_type, RGB_path)
+
+        # Step 2: Convert RGB to required imagery
+        current_path = get_imagery_directory(img_type, RGB_path)
+
+        # Step 3: Apply each function in sequence
+        for func in functions:
+            current_path = func(current_path)
+
+        # Step 4: Store the final processed directory in the model_dict
+        model_dict["sample_direc"] = current_path
         return model_dict
 
-    def run_model_and_extract_shorelines(self,
-                                         input_directory:str,
-                                         session_name:str,
-                                         shoreline_path:str="",
-                                         transects_path:str="",
-                                         shoreline_extraction_area_path:str="",
-                                         use_tta:bool =False,
-                                         use_otsu:bool = False,
-                                         percent_no_data:float = 50.0,
-                                         use_GPU:str="0",
-                                         coregistered:bool = False,
-                                         ):
+    def run_model_and_extract_shorelines(
+        self,
+        input_directory: str,
+        session_name: str,
+        shoreline_path: str = "",
+        transects_path: str = "",
+        shoreline_extraction_area_path: str = "",
+        use_tta: bool = False,
+        use_otsu: bool = False,
+        percent_no_data: float = 50.0,
+        use_GPU: str = "0",
+        coregistered: bool = False,
+    ):
         """
         Runs the model and extracts shorelines using the segmented imagery.
 
@@ -760,23 +801,24 @@ class Zoo_Model:
             percent_no_data (float, optional): The percentage of no-data pixels in the input images. Defaults to 50.0.
             use_GPU (str, optional): The GPU device to use. Defaults to "0".
             coregistered (bool, optional): Whether the input images are coregistered. Defaults to False.
-        """   
+        """
         settings = self.get_settings()
-        model_name = settings.get('model_type', None)
+        model_name = settings.get("model_type", None)
         if model_name is None:
             raise ValueError("Please select a model type.")
-        
-        img_type = settings.get('img_type', None)
+
+        img_type = settings.get("img_type", None)
         if img_type is None:
             raise ValueError("Please select an input image type.")
-        model_implementation = settings.get('implementation', "BEST")
-        use_GPU = settings.get('use_GPU', "0")
-        use_otsu = settings.get('otsu', False)
-        use_tta = settings.get('tta', False)
-        percent_no_data = settings.get('percent_no_data', 0.5)
-        
+        model_implementation = settings.get("implementation", "BEST")
+        use_GPU = settings.get("use_GPU", "0")
+        use_otsu = settings.get("otsu", False)
+        use_tta = settings.get("tta", False)
+        percent_no_data = settings.get("percent_no_data", 0.5)
+
         # make a progress bar to show the progress of the model and shoreline extraction
-        prog_bar = tqdm.auto.tqdm(range(2), # type: ignore
+        prog_bar = tqdm.auto.tqdm(
+            range(2),  # type: ignore
             desc=f"Running {model_name} model and extracting shorelines",
             leave=True,
         )
@@ -791,11 +833,11 @@ class Zoo_Model:
             use_otsu=use_otsu,
             use_tta=use_tta,
             percent_no_data=percent_no_data,
-            coregistered = coregistered,
+            coregistered=coregistered,
         )
         prog_bar.update(1)
         prog_bar.set_description_str(
-                                desc=f"Ran model now extracting shorelines", refresh=True
+            desc=f"Ran model now extracting shorelines", refresh=True
         )
         sessions_path = os.path.join(core_utilities.get_base_dir(), "sessions")
         session_directory = file_utilities.create_directory(sessions_path, session_name)
@@ -810,9 +852,8 @@ class Zoo_Model:
         )
         prog_bar.update(1)
         prog_bar.set_description_str(
-                                desc=f"Finished running model and extracting shorelines", refresh=True
+            desc=f"Finished running model and extracting shorelines", refresh=True
         )
-
 
     def extract_shorelines_with_unet(
         self,
@@ -850,7 +891,8 @@ class Zoo_Model:
 
         # create session path to store extracted shorelines and transects
         base_path = core_utilities.get_base_dir()
-        new_session_path = base_path / 'sessions' / session_name
+        new_session_path = base_path / "sessions" / session_name
+        # new_session_path = os.path.join(base_path, "sessions", session_name)
 
         new_session_path.mkdir(parents=True, exist_ok=True)
 
@@ -862,9 +904,11 @@ class Zoo_Model:
             # get the roi_id from the config file @todo this won't work for multiple ROIs
             if config.get("roi_ids"):
                 roi_id = config["roi_ids"][0]
-            roi_settings = {roi_id:config[roi_id]}
+            roi_settings = {roi_id: config[roi_id]}
             try:
-                good_bad_csv = file_utilities.find_file_path_in_roi(roi_id,roi_settings,"image_classification_results.csv")
+                good_bad_csv = file_utilities.find_file_path_in_roi(
+                    roi_id, roi_settings, "image_classification_results.csv"
+                )
             except Exception as e:
                 logger.error(f"good_bad_csv not found for ROI {roi_id}: {e}")
                 good_bad_csv = None
@@ -916,8 +960,17 @@ class Zoo_Model:
         )
         shoreline_extraction_area_gdf = None
         # load the shoreline extraction area from the geojson file
+        logger.info(f"shoreline_extraction_area_path: {shoreline_extraction_area_path}")
+        logger.info(
+            f"shoreline_extraction_area_path exists: {os.path.exists(shoreline_extraction_area_path)}"
+        )
         if os.path.exists(shoreline_extraction_area_path):
-            shoreline_extraction_area_gdf = geodata_processing.load_feature_from_file(shoreline_extraction_area_path, "shoreline_extraction_area")
+            shoreline_extraction_area_gdf = geodata_processing.load_feature_from_file(
+                shoreline_extraction_area_path, "shoreline_extraction_area"
+            )
+            logger.info(
+                f"shoreline_extraction_area_gdf: {shoreline_extraction_area_gdf}"
+            )
 
         # Update the CRS to the most accurate crs for the ROI this makes extracted shoreline more accurate
         new_espg = common.get_most_accurate_epsg(output_epsg, roi_gdf)
@@ -936,10 +989,9 @@ class Zoo_Model:
             shorelines_gdf=shoreline_gdf,
             roi_gdf=roi_gdf,
             epsg_code="epsg:4326",
-            shoreline_extraction_area_gdf = shoreline_extraction_area_gdf,
+            shoreline_extraction_area_gdf=shoreline_extraction_area_gdf,
         )
 
-        
         # extract shorelines
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         extracted_shorelines = (
@@ -951,31 +1003,39 @@ class Zoo_Model:
                 session_path,
                 new_session_path,
                 shoreline_extraction_area=shoreline_extraction_area_gdf,
-                apply_segmentation_filter=settings.get("apply_segmentation_filter", True),
+                apply_segmentation_filter=settings.get(
+                    "apply_segmentation_filter", True
+                ),
                 **kwargs,
             )
         )
 
-
         good_bad_seg_csv = ""
         # If the segmentation filter is applied read the model scores
-        if settings.get("apply_segmentation_filter",False):
-            if os.path.exists( os.path.join(session_path, "segmentation_classification_results.csv")):
-                good_bad_seg_csv =  os.path.join(session_path, "segmentation_classification_results.csv")
+        if settings.get("apply_segmentation_filter", False):
+            if os.path.exists(
+                os.path.join(session_path, "segmentation_classification_results.csv")
+            ):
+                good_bad_seg_csv = os.path.join(
+                    session_path, "segmentation_classification_results.csv"
+                )
                 # copy it to the new session path
                 try:
                     shutil.copy(good_bad_seg_csv, new_session_path)
                 except SameFileError as e:
-                    pass # we don't care if the file is the same
+                    pass  # we don't care if the file is the same
         # save extracted shorelines as geojson, detection jpgs, configs, model settings files to the session directory
         common.save_extracted_shorelines(extracted_shorelines, new_session_path)
         # save the classification scores to the extracted shorelines geojson files
-        shorelines_lines_location = os.path.join(session_path, "extracted_shorelines_lines.geojson")
-        shorelines_points_location = os.path.join(session_path, "extracted_shorelines_points.geojson")
+        shorelines_lines_location = os.path.join(
+            session_path, "extracted_shorelines_lines.geojson"
+        )
+        shorelines_points_location = os.path.join(
+            session_path, "extracted_shorelines_points.geojson"
+        )
 
         files = set([shorelines_lines_location, shorelines_points_location])
-        add_classifer_scores_to_shorelines(good_bad_csv,good_bad_seg_csv,files = files)
-
+        add_classifer_scores_to_shorelines(good_bad_csv, good_bad_seg_csv, files=files)
 
         # common.save_extracted_shoreline_figures(extracted_shorelines, new_session_path)
         print(f"Saved extracted shorelines to {new_session_path}")
@@ -986,13 +1046,23 @@ class Zoo_Model:
 
         # new method to compute intersections
         # Currently the method requires both the transects and extracted shorelines to be in the same CRS 4326
-        extracted_shorelines_gdf_lines =extracted_shorelines.gdf.copy().to_crs("EPSG:4326")
+        extracted_shorelines_gdf_lines = extracted_shorelines.gdf.copy().to_crs(
+            "EPSG:4326"
+        )
 
         # Compute the transect timeseries by intersecting each transect with each extracted shoreline
-        transect_timeseries_df = transect_timeseries(extracted_shorelines_gdf_lines,transects_gdf)
+        transect_timeseries_df = transect_timeseries(
+            extracted_shorelines_gdf_lines, transects_gdf
+        )
         # save two version of the transect timeseries, the transect settings and the transects as a dictionary
-        save_transects(new_session_path,transect_timeseries_df,settings,ext='raw',good_bad_csv= good_bad_csv, good_bad_seg_csv=good_bad_seg_csv )
-
+        save_transects(
+            new_session_path,
+            transect_timeseries_df,
+            settings,
+            ext="raw",
+            good_bad_csv=good_bad_csv,
+            good_bad_seg_csv=good_bad_seg_csv,
+        )
 
     def postprocess_data(
         self, preprocessed_data: dict, session: sessions.Session, roi_directory: str
@@ -1013,7 +1083,9 @@ class Zoo_Model:
         if not os.path.exists(outputs_path):
             logger.warning(f"No model outputs were generated")
             print(f"No model outputs were generated")
-            raise Exception(f"No model outputs were generated. Check if {roi_directory} contained enough data to run the model or try raising the percentage of no data allowed.")
+            raise Exception(
+                f"No model outputs were generated. Check if {roi_directory} contained enough data to run the model or try raising the percentage of no data allowed."
+            )
         logger.info(f"Moving from {outputs_path} files to {session_path}")
 
         # if configs do not exist then raise an error and do not save the session
@@ -1051,12 +1123,45 @@ class Zoo_Model:
         file_utilities.move_files(outputs_path, session_path, delete_src=True)
         session.save(session.path)
 
-    def get_weights_directory(self,model_implementation:str, model_id: str) -> str:
+    def postprocess_data_without_session(
+        self,
+        preprocessed_data: dict,
+        session: sessions.Session,
+    ):
+        """Moves the model outputs from
+        as well copies the config files from the roi directory to the session directory
+
+        Args:
+            preprocessed_data (dict): dictionary of inputs to the model
+            session (sessions.Session): session object that's used to keep track of session
+            saves the session to the sessions directory
+
+            typically starts with "ID_{roi_id}"
+        """
+        # get roi_ids
+        session_path = session.path
+        outputs_path = os.path.join(preprocessed_data["sample_direc"], "out")
+        if not os.path.exists(outputs_path):
+            logger.warning(f"No model outputs were generated")
+            print(f"No model outputs were generated")
+            raise Exception(
+                f"No model outputs were generated. Check if {outputs_path} contained enough data to run the model or try raising the percentage of no data allowed."
+            )
+        logger.info(f"Moving from {outputs_path} files to {session_path}")
+
+        model_settings_path = os.path.join(session_path, "model_settings.json")
+        file_utilities.write_to_json(model_settings_path, preprocessed_data)
+
+        # copy files from out to session folder
+        file_utilities.move_files(outputs_path, session_path, delete_src=True)
+        session.save(session.path)
+
+    def get_weights_directory(self, model_implementation: str, model_id: str) -> str:
         """
         Retrieves the directory path where the model weights are stored.
         This method determines whether to use a local model path or to download the model
-        from a remote source based on the settings provided. If the local model path is 
-        specified and exists, it will use that path. Otherwise, it will create a directory 
+        from a remote source based on the settings provided. If the local model path is
+        specified and exists, it will use that path. Otherwise, it will create a directory
         for the model and download the weights.
         Args:
             model_implementation (str): The implementation type of the model either 'BEST' or 'ENSEMBLE'
@@ -1071,7 +1176,9 @@ class Zoo_Model:
         LOCAL_MODEL_PATH = self.settings.get("local_model_path", "")
 
         if USE_LOCAL_MODEL and not os.path.exists(LOCAL_MODEL_PATH):
-            raise FileNotFoundError(f"The local model path does not exist at {LOCAL_MODEL_PATH}")
+            raise FileNotFoundError(
+                f"The local model path does not exist at {LOCAL_MODEL_PATH}"
+            )
 
         # check if a local model should be loaded or not
         if USE_LOCAL_MODEL == False or LOCAL_MODEL_PATH == "":
@@ -1093,7 +1200,9 @@ class Zoo_Model:
             model_id (str): The ID of the model.
         """
         # weights_directory is the directory that contains the model weights, the model card json files and the BEST_MODEL.txt file
-        self.weights_directory = self.get_weights_directory(model_implementation, model_id)
+        self.weights_directory = self.get_weights_directory(
+            model_implementation, model_id
+        )
         logger.info(f"self.weights_directory:{self.weights_directory}")
 
         weights_list = self.get_weights_list(model_implementation)
@@ -1112,101 +1221,179 @@ class Zoo_Model:
         logger.info(f"self.metadatadict: {self.metadata_dict}")
 
     def get_metadatadict(
-            self, weights_list: list, config_files: list, model_types: list
-        ) -> dict:
-            """
-            Returns a dictionary containing metadata information.
+        self, weights_list: list, config_files: list, model_types: list
+    ) -> dict:
+        """
+        Returns a dictionary containing metadata information.
 
-            Args:
-                weights_list (list): A list of model weights.
-                config_files (list): A list of configuration files.
-                model_types (list): A list of model types.
+        Args:
+            weights_list (list): A list of model weights.
+            config_files (list): A list of configuration files.
+            model_types (list): A list of model types.
 
-            Returns:
-                dict: A dictionary containing the metadata information.
-            """
-            metadatadict = {}
-            metadatadict["model_weights"] = weights_list
-            metadatadict["config_files"] = config_files
-            metadatadict["model_types"] = model_types
-            return metadatadict
+        Returns:
+            dict: A dictionary containing the metadata information.
+        """
+        metadatadict = {}
+        metadatadict["model_weights"] = weights_list
+        metadatadict["config_files"] = config_files
+        metadatadict["model_types"] = model_types
+        return metadatadict
+
+    def run_model_without_session(
+        self,
+        img_type: str,
+        model_implementation: str,
+        session_name: str,
+        src_directory: str,
+        model_name: str,
+        use_GPU: str,
+        use_otsu: bool,
+        use_tta: bool,
+        percent_no_data: float,
+        coregistered: bool = False,
+    ):
+        """
+        Runs the model for image segmentation.
+
+        Args:
+            img_type (str): The type of image.
+            model_implementation (str): The implementation of the model.
+            session_name (str): The name of the session.
+            src_directory (str): The directory of RGB images.
+            model_name (str): The name of the model.
+            use_GPU (str): Whether to use GPU or not.
+            use_otsu (bool): Whether to use Otsu thresholding or not.
+            use_tta (bool): Whether to use test-time augmentation or not.
+            percent_no_data (float): The percentage of no data allowed in the image.
+            coregistered (bool, optional): Whether the images are coregistered or not. Defaults to False.
+
+        Returns:
+            None
+        """
+        logger.info(f"Selected directory of RGBs: {src_directory}")
+        logger.info(f"session name: {session_name}")
+        logger.info(f"model_name: {model_name}")
+        logger.info(f"model_implementation: {model_implementation}")
+        logger.info(f"use_GPU: {use_GPU}")
+        logger.info(f"use_otsu: {use_otsu}")
+        logger.info(f"use_tta: {use_tta}")
+
+        print(f"Running model {model_name}")
+        # print(f"self.settings: {self.settings}")
+        self.prepare_model(model_implementation, model_name)
+
+        # create a session
+        session = sessions.Session()
+        sessions_path = file_utilities.create_directory(
+            core_utilities.get_base_dir(), "sessions"
+        )
+        session_path = file_utilities.create_directory(sessions_path, session_name)
+
+        session.path = session_path
+        session.name = session_name
+        model_dict = {
+            "use_GPU": use_GPU,
+            "sample_direc": "",
+            "implementation": model_implementation,
+            "model_type": model_name,
+            "otsu": use_otsu,
+            "tta": use_tta,
+            "percent_no_data": percent_no_data,
+        }
+
+        print(f"Preprocessing the data at {src_directory}")
+
+        model_dict = self.preprocess_data(
+            src_directory, model_dict, img_type, functions=[apply_smooth_otsu_to_folder]
+        )
+        logger.info(f"model_dict: {model_dict}")
+
+        self.compute_segmentation(model_dict, percent_no_data)
+        self.postprocess_data_without_session(model_dict, session)
+        print(f"\n Model results saved to {session.path}")
 
     def run_model(
-            self,
-            img_type: str,
-            model_implementation: str,
-            session_name: str,
-            src_directory: str,
-            model_name: str,
-            use_GPU: str,
-            use_otsu: bool,
-            use_tta: bool,
-            percent_no_data: float,
-            coregistered: bool = False,
-        ):
-            """
-            Runs the model for image segmentation.
+        self,
+        img_type: str,
+        model_implementation: str,
+        session_name: str,
+        src_directory: str,
+        model_name: str,
+        use_GPU: str,
+        use_otsu: bool,
+        use_tta: bool,
+        percent_no_data: float,
+        coregistered: bool = False,
+    ):
+        """
+        Runs the model for image segmentation.
 
-            Args:
-                img_type (str): The type of image.
-                model_implementation (str): The implementation of the model.
-                session_name (str): The name of the session.
-                src_directory (str): The directory of RGB images.
-                model_name (str): The name of the model.
-                use_GPU (str): Whether to use GPU or not.
-                use_otsu (bool): Whether to use Otsu thresholding or not.
-                use_tta (bool): Whether to use test-time augmentation or not.
-                percent_no_data (float): The percentage of no data allowed in the image.
-                coregistered (bool, optional): Whether the images are coregistered or not. Defaults to False.
+        Args:
+            img_type (str): The type of image.
+            model_implementation (str): The implementation of the model.
+            session_name (str): The name of the session.
+            src_directory (str): The directory of RGB images.
+            model_name (str): The name of the model.
+            use_GPU (str): Whether to use GPU or not.
+            use_otsu (bool): Whether to use Otsu thresholding or not.
+            use_tta (bool): Whether to use test-time augmentation or not.
+            percent_no_data (float): The percentage of no data allowed in the image.
+            coregistered (bool, optional): Whether the images are coregistered or not. Defaults to False.
 
-            Returns:
-                None
-            """
-            logger.info(f"Selected directory of RGBs: {src_directory}")
-            logger.info(f"session name: {session_name}")
-            logger.info(f"model_name: {model_name}")
-            logger.info(f"model_implementation: {model_implementation}")
-            logger.info(f"use_GPU: {use_GPU}")
-            logger.info(f"use_otsu: {use_otsu}")
-            logger.info(f"use_tta: {use_tta}")
+        Returns:
+            None
+        """
+        logger.info(f"Selected directory of RGBs: {src_directory}")
+        logger.info(f"session name: {session_name}")
+        logger.info(f"model_name: {model_name}")
+        logger.info(f"model_implementation: {model_implementation}")
+        logger.info(f"use_GPU: {use_GPU}")
+        logger.info(f"use_otsu: {use_otsu}")
+        logger.info(f"use_tta: {use_tta}")
 
-            print(f"Running model {model_name}")
-            # print(f"self.settings: {self.settings}")
-            self.prepare_model(model_implementation, model_name)
+        print(f"Running model {model_name}")
+        # print(f"self.settings: {self.settings}")
+        self.prepare_model(model_implementation, model_name)
 
-            # create a session
-            session = sessions.Session()
-            sessions_path = file_utilities.create_directory(core_utilities.get_base_dir(), "sessions")
-            session_path = file_utilities.create_directory(sessions_path, session_name)
+        # create a session
+        session = sessions.Session()
+        sessions_path = file_utilities.create_directory(
+            core_utilities.get_base_dir(), "sessions"
+        )
+        session_path = file_utilities.create_directory(sessions_path, session_name)
 
-            session.path = session_path
-            session.name = session_name
-            model_dict = {
-                "use_GPU": use_GPU,
-                "sample_direc": "",
-                "implementation": model_implementation,
-                "model_type": model_name,
-                "otsu": use_otsu,
-                "tta": use_tta,
-                "percent_no_data": percent_no_data,
-            }
-            # get parent roi_directory from the selected imagery directory
-            roi_directory = file_utilities.find_parent_directory(
-                src_directory, "ID_", "data"
-            )
+        session.path = session_path
+        session.name = session_name
+        model_dict = {
+            "use_GPU": use_GPU,
+            "sample_direc": "",
+            "implementation": model_implementation,
+            "model_type": model_name,
+            "otsu": use_otsu,
+            "tta": use_tta,
+            "percent_no_data": percent_no_data,
+        }
+        # get parent roi_directory from the selected imagery directory
+        roi_directory = file_utilities.find_parent_directory(
+            src_directory, "ID_", "data"
+        )
 
-            if coregistered:
-                roi_directory = os.path.join(roi_directory, "coregistered")
+        if coregistered:
+            roi_directory = os.path.join(roi_directory, "coregistered")
 
+        print(f"Preprocessing the data at {roi_directory}")
+        # DONT UNCOMMENT THE LINE BELOW: Logic to apply the smooth otsu filter to the RGB folder I didn't use it since I modified do_seg to apply the smooth otsu filter to the arrays instead
+        # model_dict = self.preprocess_data(src_directory, model_dict, img_type,functions=[apply_smooth_otsu_to_folder])
+        model_dict = self.preprocess_data(
+            roi_directory, model_dict, img_type, functions=[]
+        )
+        logger.info(f"model_dict: {model_dict}")
 
-            print(f"Preprocessing the data at {roi_directory}")
-            model_dict = self.preprocess_data(roi_directory, model_dict, img_type)
-            logger.info(f"model_dict: {model_dict}")
-
-            self.compute_segmentation(model_dict, percent_no_data)
-            self.postprocess_data(model_dict, session, roi_directory)
-            session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
-            print(f"\n Model results saved to {session.path}")
+        self.compute_segmentation(model_dict, percent_no_data)
+        self.postprocess_data(model_dict, session, roi_directory)
+        session.add_roi_ids([file_utilities.extract_roi_id(roi_directory)])
+        print(f"\n Model results saved to {session.path}")
 
     def get_model_directory(self, model_id: str):
         # Create a directory to hold the downloaded models
@@ -1247,60 +1434,63 @@ class Zoo_Model:
         # filter out files with no data pixels greater than percent_no_data
         len_before = len(model_ready_files)
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
-        print(f"{len_before - len(model_ready_files)}/{len_before} files were filtered out because the percentage of no data pixels in the image was greater than {percent_no_data}%.")
-        
+        print(
+            f"{len_before - len(model_ready_files)}/{len_before} files were filtered out because the percentage of no data pixels in the image was greater than {percent_no_data}%."
+        )
+
         return model_ready_files
 
     def compute_segmentation(
-            self,
-            preprocessed_data: dict,
-            percent_no_data: float = 0.50,
-        ):
-            """
-            Compute the segmentation for a given set of preprocessed data.
+        self,
+        preprocessed_data: dict,
+        percent_no_data: float = 0.50,
+    ):
+        """
+        Compute the segmentation for a given set of preprocessed data.
 
-            Args:
-                preprocessed_data (dict): A dictionary containing preprocessed data.
-                    This dictionary should contain the following keys:
-                    - sample_direc (str): The directory containing the sample images.
-                    - tta (bool): Whether to use test-time augmentation.
-                    - otsu (bool): Whether to use Otsu thresholding.
-                    
-                percent_no_data (float, optional): The max ercentage of no data pixels allowed in the image. Defaults to 0.50.
+        Args:
+            preprocessed_data (dict): A dictionary containing preprocessed data.
+                This dictionary should contain the following keys:
+                - sample_direc (str): The directory containing the sample images.
+                - tta (bool): Whether to use test-time augmentation.
+                - otsu (bool): Whether to use Otsu thresholding.
 
-            Returns:
-                None
-            """
-            sample_direc = preprocessed_data["sample_direc"]
-            use_tta = preprocessed_data["tta"]
-            use_otsu = preprocessed_data["otsu"]
-            # Create list of files of types .npz,.jpg, or .png to run model on
-            files_to_segment = self.get_files_for_seg(
-                sample_direc, avoid_patterns=[], percent_no_data=percent_no_data
+            percent_no_data (float, optional): The max ercentage of no data pixels allowed in the image. Defaults to 0.50.
+
+        Returns:
+            None
+        """
+        sample_direc = preprocessed_data["sample_direc"]
+        use_tta = preprocessed_data["tta"]
+        use_otsu = preprocessed_data["otsu"]
+        # Create list of files of types .npz,.jpg, or .png to run model on
+        files_to_segment = self.get_files_for_seg(
+            sample_direc, avoid_patterns=[], percent_no_data=percent_no_data
+        )
+        logger.info(f"files_to_segment: {files_to_segment}")
+        if self.model_types[0] != "segformer":
+            ### mixed precision
+            from tensorflow.keras import mixed_precision
+
+            mixed_precision.set_global_policy("mixed_float16")
+        # Compute the segmentation for each of the files
+        print(f"Found {len(files_to_segment)} files to run on model on")
+        for file_to_seg in tqdm.auto.tqdm(files_to_segment, desc="Applying Model"):
+            do_seg(
+                file_to_seg,
+                self.model_list,
+                self.metadata_dict,
+                self.model_types[0],
+                sample_direc=sample_direc,
+                NCLASSES=self.NCLASSES,
+                N_DATA_BANDS=self.N_DATA_BANDS,
+                TARGET_SIZE=self.TARGET_SIZE,
+                TESTTIMEAUG=use_tta,
+                WRITE_MODELMETADATA=False,
+                OTSU_THRESHOLD=use_otsu,
+                profile="meta",
+                apply_smooth=True if "S1" in file_to_seg else False,
             )
-            logger.info(f"files_to_segment: {files_to_segment}")
-            if self.model_types[0] != "segformer":
-                ### mixed precision
-                from tensorflow.keras import mixed_precision
-
-                mixed_precision.set_global_policy("mixed_float16")
-            # Compute the segmentation for each of the files
-            print(f"Found {len(files_to_segment)} files to run on model on")
-            for file_to_seg in tqdm.auto.tqdm(files_to_segment, desc="Applying Model"):
-                do_seg(
-                    file_to_seg,
-                    self.model_list,
-                    self.metadata_dict,
-                    self.model_types[0],
-                    sample_direc=sample_direc,
-                    NCLASSES=self.NCLASSES,
-                    N_DATA_BANDS=self.N_DATA_BANDS,
-                    TARGET_SIZE=self.TARGET_SIZE,
-                    TESTTIMEAUG=use_tta,
-                    WRITE_MODELMETADATA=False,
-                    OTSU_THRESHOLD=use_otsu,
-                    profile="meta",
-                )
 
     def get_model(self, weights_list: list):
         model_list = []
