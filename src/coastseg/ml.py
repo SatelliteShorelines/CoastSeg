@@ -1,10 +1,10 @@
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from skimage.io import imsave,imread
 from skimage.transform import resize
 from skimage.filters import threshold_otsu
 import matplotlib.pyplot as plt
+import scipy.ndimage
 
 import tensorflow as tf  # numerical operations on gpu
 import tensorflow.keras.backend as K
@@ -72,33 +72,6 @@ def standardize(img):
 
     return img
 
-
-def seg_file2tensor_ND(f, TARGET_SIZE):  
-    """
-    "seg_file2tensor(f)"
-    This function reads a NPZ image from file into a cropped and resized tensor,
-    for use in prediction with a trained segmentation model
-    INPUTS:
-        * f [string] file name of npz
-    OPTIONAL INPUTS: None
-    OUTPUTS:
-        * image [tensor array]: unstandardized image
-    GLOBAL INPUTS: TARGET_SIZE
-    """
-
-    with np.load(f) as data:
-        bigimage = data["arr_0"].astype("uint8")
-
-    smallimage = resize(
-        bigimage, (TARGET_SIZE[0], TARGET_SIZE[1]), preserve_range=True, clip=True
-    )
-    smallimage = np.array(smallimage)
-    smallimage = tf.cast(smallimage, tf.uint8)
-
-    w = tf.shape(bigimage)[0]
-    h = tf.shape(bigimage)[1]
-
-    return smallimage, w, h, bigimage
 
 def est_label_binary(image,M,MODEL,TESTTIMEAUG,NCLASSES,TARGET_SIZE,w,h):
 
@@ -239,7 +212,8 @@ def do_seg(
     NCLASSES, N_DATA_BANDS, TARGET_SIZE, TESTTIMEAUG, WRITE_MODELMETADATA,
     OTSU_THRESHOLD,
     out_dir_name='out',
-    profile='minimal'
+    profile='minimal',
+    apply_smooth=False,
 ):
     
     if profile=='meta':
@@ -276,7 +250,7 @@ def do_seg(
 
     if NCLASSES == 2:
 
-        image, w, h, bigimage = get_image(f,N_DATA_BANDS,TARGET_SIZE,MODEL)
+        image, w, h, bigimage = get_image(f,N_DATA_BANDS,TARGET_SIZE,MODEL, smooth_fn=median_smooth if apply_smooth else None)
 
         if np.std(image)==0:
 
@@ -320,7 +294,7 @@ def do_seg(
 
     else:  ###NCLASSES>2
 
-        image, w, h, bigimage = get_image(f,N_DATA_BANDS,TARGET_SIZE,MODEL)
+        image, w, h, bigimage = get_image(f,N_DATA_BANDS,TARGET_SIZE,MODEL,smooth_fn=median_smooth if apply_smooth else None)
 
         if np.std(image)==0:
 
@@ -385,34 +359,32 @@ def do_seg(
     if WRITE_MODELMETADATA:
         metadatadict["color_segmentation_output"] = segfile
 
-    try:
-        color_label = label_to_colors(
-            est_label,
-            bigimage.numpy()[:, :, 0] == 0,
-            alpha=128,
-            colormap=class_label_colormap,
-            color_class_offset=0,
-            do_alpha=False,
-        )
-    except:
+    # Ensure bigimage is a NumPy array
+    if hasattr(bigimage, 'numpy'):
+        bigimage = bigimage.numpy()
+
+    # Try progressively simpler masks
+    masks_to_try = [
+        lambda img: img[:, :, 0] == 0, # mask for first channel
+        lambda img: img == 0   , #mask for all channels
+    ]
+
+
+    for mask_func in masks_to_try:
         try:
             color_label = label_to_colors(
                 est_label,
-                bigimage[:, :, 0] == 0,
+                mask_func(bigimage),
                 alpha=128,
                 colormap=class_label_colormap,
                 color_class_offset=0,
                 do_alpha=False,
             )
-        except:
-            color_label = label_to_colors(
-                est_label,
-                bigimage == 0,
-                alpha=128,
-                colormap=class_label_colormap,
-                color_class_offset=0,
-                do_alpha=False,
-            )        
+            break  # Success, exit loop
+        except Exception:
+            continue
+    else:
+        raise RuntimeError("Failed to compute color_label with all mask strategies.")  
 
     imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
     
@@ -476,53 +448,74 @@ def do_seg(
             plt.savefig(tmpfile, dpi=200, bbox_inches="tight")
             plt.close("all")
 
-def seg_file2tensor_3band(f, TARGET_SIZE):  
-    """
-    "seg_file2tensor(f)"
-    This function reads a jpeg image from file into a cropped and resized tensor,
-    for use in prediction with a trained segmentation model
-    INPUTS:
-        * f [string] file name of jpeg
-    OPTIONAL INPUTS: None
-    OUTPUTS:
-        * image [tensor array]: unstandardized image
-    GLOBAL INPUTS: TARGET_SIZE
-    """
 
-    bigimage = imread(f)  
-    smallimage = resize(
-        bigimage, (TARGET_SIZE[0], TARGET_SIZE[1]), preserve_range=True, clip=True
-    )
-    smallimage = np.array(smallimage)
-    smallimage = tf.cast(smallimage, tf.uint8)
+def median_smooth(img, size=15):
+    """
+    Apply median filter per channel if image is 3D, else apply to 2D.
+    """
+    if img.ndim == 3:
+        return np.stack([scipy.ndimage.median_filter(img[..., i], size=size) for i in range(img.shape[2])], axis=-1)
+    return scipy.ndimage.median_filter(img, size=size)
+
+def load_image(f, N_DATA_BANDS):
+    """
+    Load an image from file. JPG if <=3 bands, NPZ otherwise.
+    Returns a NumPy uint8 array.
+    """
+    if N_DATA_BANDS <= 3:
+        return imread(f)#.astype('uint8')
+    else: # if N_DATA_BANDS > 3
+        with np.load(f) as data:
+            return data["arr_0"].astype("uint8")
+
+def resize_and_cast(image:np.ndarray, target_size)->tf.Tensor:
+    """
+    Resize image to target size, preserving range and clipping.
+    Returns a TensorFlow uint8 tensor that can be used for prediction.
+    This function is used to resize images before passing them to a model for prediction.
+
+    Args:
+        image (np.ndarray): Input image to resize.
+        target_size (tuple): Target size for resizing (height, width).
+
+    Returns:
+        tf.Tensor: Resized image tensor.
+
+    """
+    resized = resize(image, (target_size[0], target_size[1]), preserve_range=True, clip=True)
+    return tf.cast(np.array(resized), tf.uint8)
+
+def get_image(f, N_DATA_BANDS, TARGET_SIZE, MODEL, smooth_fn=None):
+    """
+    Load, optionally smooth, and prepare an image for a segmentation model.
+    """
+    # Load image (3-band JPG or ND npz)
+    bigimage = load_image(f, N_DATA_BANDS)
+
+    # Optionally apply smoothing
+    if smooth_fn is not None:
+        bigimage = smooth_fn(bigimage)
+
+    # Resize to model input size
+    smallimage = resize_and_cast(bigimage, TARGET_SIZE)
+
+    # Crop extra channels if necessary
+    if N_DATA_BANDS <= 3:
+        if smallimage.ndim == 3 and smallimage.shape[-1] > 3:
+            smallimage = smallimage[:, :, :3]
+        if bigimage.ndim == 3 and bigimage.shape[-1] > 3:
+            bigimage = bigimage[:, :, :3]
+
+    # Standardize and format for model
+    image = standardize(smallimage.numpy()).squeeze()
+
+    if MODEL == 'segformer':
+        # Create a 4D tensor with shape (1,3,TARGET_SIZE[0], TARGET_SIZE[1])
+        if np.ndim(image) == 2:
+            image = np.dstack((image, image, image))
+        image = tf.transpose(image, (2, 0, 1))
 
     w = tf.shape(bigimage)[0]
     h = tf.shape(bigimage)[1]
 
-    return smallimage, w, h, bigimage
-
-
-def get_image(f,N_DATA_BANDS,TARGET_SIZE,MODEL):
-    if N_DATA_BANDS <= 3:
-        image, w, h, bigimage = seg_file2tensor_3band(f, TARGET_SIZE)
-    else:
-        image, w, h, bigimage = seg_file2tensor_ND(f, TARGET_SIZE)
-
-    try: ##>3 bands
-        if N_DATA_BANDS<=3:
-            if image.shape[-1]>3:
-                image = image[:,:,:3]
-
-            if bigimage.shape[-1]>3:
-                bigimage = bigimage[:,:,:3]
-    except:
-        pass
-
-    image = standardize(image.numpy()).squeeze()
-
-    if MODEL=='segformer':
-        if np.ndim(image)==2:
-            image = np.dstack((image, image, image))
-        image = tf.transpose(image, (2, 0, 1))
-
-    return image, w, h, bigimage 
+    return image, w, h, bigimage
