@@ -56,6 +56,7 @@ def progress_bar_context(
         # If not using a progress bar, just yield a no-op function
         yield lambda message: None
 
+
 def drop_columns_if_exist(df, columns):
     """
     Drop columns from a DataFrame if they exist.
@@ -72,9 +73,9 @@ def drop_columns_if_exist(df, columns):
     return df
 
 
-def join_model_scores_to_time_series(transect_time_series_merged_path,
-                                     good_bad_csv=None,
-                                     good_bad_seg_csv=None):
+def join_model_scores_to_time_series(
+    transect_time_series_merged_path, good_bad_csv=None, good_bad_seg_csv=None
+):
     """
     Joins model scores to time series transect data based on the provided CSVs.
     Parameters:
@@ -88,65 +89,92 @@ def join_model_scores_to_time_series(transect_time_series_merged_path,
 
     # Load transect time series data
     transect_time_series_merged = pd.read_csv(transect_time_series_merged_path)
-    transect_time_series_merged['dates'] = pd.to_datetime(transect_time_series_merged['dates'], utc=True)
+    transect_time_series_merged["dates"] = pd.to_datetime(
+        transect_time_series_merged["dates"], utc=True
+    )
 
     if good_bad_csv:
 
-        drop_columns_if_exist(transect_time_series_merged, ['classifier_model_score', 'classifier_threshold'])
-        
+        drop_columns_if_exist(
+            transect_time_series_merged,
+            ["classifier_model_score", "classifier_threshold"],
+        )
+
         # Load and process good_bad CSV
         good_bad = pd.read_csv(good_bad_csv)
-        good_bad['dates'] = good_bad['im_paths'].apply(lambda x: pd.to_datetime(os.path.basename(x).split('_')[0], utc=True, format='%Y-%m-%d-%H-%M-%S'))
-        
+        good_bad["dates"] = good_bad["im_paths"].apply(
+            lambda x: pd.to_datetime(
+                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
+            )
+        )
+
         # Prepare merge and rename directly
-        merge_columns = ['dates', 'model_scores']
-        if 'threshold' in good_bad.columns:
-            merge_columns.append('threshold')
-        merged_df = good_bad[merge_columns]    
-        
-        transect_time_series_merged = transect_time_series_merged.merge(merged_df,
-                                                                       on='dates',
-                                                           how='left',
-                                                                       suffixes=('_ts', '_image'))
+        merge_columns = ["dates", "model_scores"]
+        if "threshold" in good_bad.columns:
+            merge_columns.append("threshold")
+        merged_df = good_bad[merge_columns]
+
+        transect_time_series_merged = transect_time_series_merged.merge(
+            merged_df, on="dates", how="left", suffixes=("_ts", "_image")
+        )
         # Optional: drop additional unnamed columns if present
-        transect_time_series_merged.drop(columns=[col for col in transect_time_series_merged if 'Unnamed:' in col], errors='ignore', inplace=True)
+        transect_time_series_merged.drop(
+            columns=[col for col in transect_time_series_merged if "Unnamed:" in col],
+            errors="ignore",
+            inplace=True,
+        )
         # rename model_scores column to classifier_model_score
-        transect_time_series_merged.rename(columns={'model_scores': 'classifier_model_score'}, inplace=True)
+        transect_time_series_merged.rename(
+            columns={"model_scores": "classifier_model_score"}, inplace=True
+        )
         if "threshold" in transect_time_series_merged:
-            transect_time_series_merged.rename(columns={'threshold': 'classifier_threshold'}, inplace=True)
+            transect_time_series_merged.rename(
+                columns={"threshold": "classifier_threshold"}, inplace=True
+            )
 
     if good_bad_seg_csv:
 
-        drop_columns_if_exist(transect_time_series_merged, ['segmentation_model_score', 'segmentation_threshold'])
+        drop_columns_if_exist(
+            transect_time_series_merged,
+            ["segmentation_model_score", "segmentation_threshold"],
+        )
 
         # Load and process good_bad_seg CSV
         good_bad_seg = pd.read_csv(good_bad_seg_csv)
-        good_bad_seg['dates'] = good_bad_seg['im_paths'].apply(lambda x: pd.to_datetime(os.path.basename(x).split('_')[0], utc=True, format='%Y-%m-%d-%H-%M-%S'))
-        
+        good_bad_seg["dates"] = good_bad_seg["im_paths"].apply(
+            lambda x: pd.to_datetime(
+                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
+            )
+        )
+
         # Prepare merge and rename directly
-        merge_columns = ['dates', 'model_scores']
-        if 'threshold' in good_bad_seg.columns:
-            merge_columns.append('threshold')
-        merged_df = good_bad_seg[merge_columns]       
-            
-        transect_time_series_merged = transect_time_series_merged.merge(merged_df,
-                                                                       on='dates',
-                                                                       how='left',
-                                                                       suffixes=('', '_seg'))
+        merge_columns = ["dates", "model_scores"]
+        if "threshold" in good_bad_seg.columns:
+            merge_columns.append("threshold")
+        merged_df = good_bad_seg[merge_columns]
+
+        transect_time_series_merged = transect_time_series_merged.merge(
+            merged_df, on="dates", how="left", suffixes=("", "_seg")
+        )
         # rename model_scores column to segmentation_model_score
-        transect_time_series_merged.rename(columns={'model_scores': 'segmentation_model_score'}, inplace=True)
+        transect_time_series_merged.rename(
+            columns={"model_scores": "segmentation_model_score"}, inplace=True
+        )
         if "threshold" in transect_time_series_merged:
-            transect_time_series_merged.rename(columns={'threshold': 'segmentation_threshold'}, inplace=True)
+            transect_time_series_merged.rename(
+                columns={"threshold": "segmentation_threshold"}, inplace=True
+            )
 
     # Save updated DataFrame
-    transect_time_series_merged.to_csv(transect_time_series_merged_path,index=False)
+    transect_time_series_merged.to_csv(transect_time_series_merged_path, index=False)
     print(f"Saved updated transect time series to {transect_time_series_merged_path}")
 
     return transect_time_series_merged_path
 
-def join_model_scores_to_shorelines(shorelines_path,
-                                    good_bad_csv=None,
-                                    good_bad_seg_csv=None):
+
+def join_model_scores_to_shorelines(
+    shorelines_path, good_bad_csv=None, good_bad_seg_csv=None
+):
     """
     Joins model scores to shoreline points based on the provided CSVs.
     Parameters:
@@ -159,62 +187,84 @@ def join_model_scores_to_shorelines(shorelines_path,
     """
     # Load shorelines data
     shorelines_gdf = gpd.read_file(shorelines_path)
-    shorelines_gdf['date'] = pd.to_datetime(shorelines_gdf['date'], utc=True)
+    shorelines_gdf["date"] = pd.to_datetime(shorelines_gdf["date"], utc=True)
 
     if good_bad_csv:
         good_bad_df = pd.read_csv(good_bad_csv)
-        good_bad_df['dates'] = good_bad_df['im_paths'].apply(lambda x: pd.to_datetime(os.path.basename(x).split('_')[0], utc=True, format='%Y-%m-%d-%H-%M-%S'))
-        
+        good_bad_df["dates"] = good_bad_df["im_paths"].apply(
+            lambda x: pd.to_datetime(
+                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
+            )
+        )
+
         # Drop old scores if they exist
-        drop_columns_if_exist(shorelines_gdf, ['classifier_model_score', 'classifier_threshold'])
+        drop_columns_if_exist(
+            shorelines_gdf, ["classifier_model_score", "classifier_threshold"]
+        )
 
         # Prepare merge and rename directly
-        merge_columns = ['dates', 'model_scores']
-        if 'threshold' in good_bad_df.columns:
-            merge_columns.append('threshold')
+        merge_columns = ["dates", "model_scores"]
+        if "threshold" in good_bad_df.columns:
+            merge_columns.append("threshold")
         merged_df = good_bad_df[merge_columns]
-        
-        shorelines_gdf = shorelines_gdf.merge(merged_df,
-                                              left_on='date', right_on='dates',
-                                              suffixes=('', '_image'))
-        
-        #rename model_scores to classifer_model_score
-        shorelines_gdf.rename(columns={'model_scores': 'classifier_model_score'}, inplace=True)
-        
-        shorelines_gdf.drop(columns=['dates','dates_seg'], inplace=True, errors='ignore')
+
+        shorelines_gdf = shorelines_gdf.merge(
+            merged_df, left_on="date", right_on="dates", suffixes=("", "_image")
+        )
+
+        # rename model_scores to classifer_model_score
+        shorelines_gdf.rename(
+            columns={"model_scores": "classifier_model_score"}, inplace=True
+        )
+
+        shorelines_gdf.drop(
+            columns=["dates", "dates_seg"], inplace=True, errors="ignore"
+        )
 
         if "threshold" in shorelines_gdf:
-            shorelines_gdf.rename(columns={'threshold': 'classifier_threshold'}, inplace=True)
+            shorelines_gdf.rename(
+                columns={"threshold": "classifier_threshold"}, inplace=True
+            )
 
     if good_bad_seg_csv:
         good_bad_seg_df = pd.read_csv(good_bad_seg_csv)
-        good_bad_seg_df['dates'] = good_bad_seg_df['im_paths'].apply(lambda x: pd.to_datetime(os.path.basename(x).split('_')[0], utc=True, format='%Y-%m-%d-%H-%M-%S'))
-        
+        good_bad_seg_df["dates"] = good_bad_seg_df["im_paths"].apply(
+            lambda x: pd.to_datetime(
+                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
+            )
+        )
+
         # Drop old scores if they exist
-        drop_columns_if_exist(shorelines_gdf, ['segmentation_model_score', 'segmentation_threshold'])
+        drop_columns_if_exist(
+            shorelines_gdf, ["segmentation_model_score", "segmentation_threshold"]
+        )
 
         # Prepare merge and rename directly
-        merge_columns = ['dates', 'model_scores']
-        if 'threshold' in good_bad_seg_df.columns:
-            merge_columns.append('threshold')
-        merged_df = good_bad_seg_df[merge_columns]       
-        
-        shorelines_gdf = shorelines_gdf.merge(merged_df,
-                                              left_on='date', right_on='dates',
-                                              suffixes=('', '_seg'))
+        merge_columns = ["dates", "model_scores"]
+        if "threshold" in good_bad_seg_df.columns:
+            merge_columns.append("threshold")
+        merged_df = good_bad_seg_df[merge_columns]
+
+        shorelines_gdf = shorelines_gdf.merge(
+            merged_df, left_on="date", right_on="dates", suffixes=("", "_seg")
+        )
         # rename model_scores column to segmentation_model_score
-        shorelines_gdf.rename(columns={'model_scores': 'segmentation_model_score'}, inplace=True)
+        shorelines_gdf.rename(
+            columns={"model_scores": "segmentation_model_score"}, inplace=True
+        )
         if "threshold" in shorelines_gdf:
-            shorelines_gdf.rename(columns={'threshold': 'segmentation_threshold'}, inplace=True)
+            shorelines_gdf.rename(
+                columns={"threshold": "segmentation_threshold"}, inplace=True
+            )
 
     # Save modified GeoDataFrame
     # drop any duplicate columns
-    shorelines_gdf = shorelines_gdf.loc[:,~shorelines_gdf.columns.duplicated()]
+    shorelines_gdf = shorelines_gdf.loc[:, ~shorelines_gdf.columns.duplicated()]
 
-    shorelines_gdf.drop(columns=['dates','dates_seg'], inplace=True, errors='ignore')
+    shorelines_gdf.drop(columns=["dates", "dates_seg"], inplace=True, errors="ignore")
 
-    shorelines_gdf['date'] = pd.to_datetime(shorelines_gdf['date'])
-    shorelines_gdf['date'] = shorelines_gdf['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    shorelines_gdf["date"] = pd.to_datetime(shorelines_gdf["date"])
+    shorelines_gdf["date"] = shorelines_gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
     shorelines_gdf = common.stringify_datetime_columns(shorelines_gdf)
 
@@ -222,7 +272,10 @@ def join_model_scores_to_shorelines(shorelines_path,
 
     return shorelines_path
 
-def find_file_path_in_roi(roi_id, roi_settings, filename="image_classification_results.csv"):
+
+def find_file_path_in_roi(
+    roi_id, roi_settings, filename="image_classification_results.csv"
+):
     """
     Finds the file path of a specified file within a region of interest (ROI) directory.
     Args:
@@ -233,22 +286,26 @@ def find_file_path_in_roi(roi_id, roi_settings, filename="image_classification_r
         str: The path to the file if found, otherwise an empty string.
     """
     # Read the ROI Settings to get the location of the original downloaded data
-    roi_data_location = os.path.join(roi_settings[roi_id]['filepath'], roi_settings[roi_id]['sitename'])
+    roi_data_location = os.path.join(
+        roi_settings[roi_id]["filepath"], roi_settings[roi_id]["sitename"]
+    )
     print(f"roi_data_location: {roi_data_location}")
 
     # Construct the path to the expected file location
-    expected_csv_path = os.path.join(roi_data_location, "jpg_files", "preprocessed", "RGB", filename)
+    expected_csv_path = os.path.join(
+        roi_data_location, "jpg_files", "preprocessed", "RGB", filename
+    )
     if os.path.exists(expected_csv_path):
         return expected_csv_path
     else:
         # Try to find the file recursively in the ROI data location
         try:
             found_file_path = find_file_recursively(roi_data_location, filename)
-            print(f"File found recursively: {found_file_path}")
             return found_file_path
         except FileNotFoundError:
             print(f"File not found: {filename}")
             return ""  # Return an empty string if the file is not found
+
 
 def get_ROI_ID_from_session(session_name: str) -> str:
     """
@@ -264,15 +321,16 @@ def get_ROI_ID_from_session(session_name: str) -> str:
         Exception: If the session directory does not exist.
     """
     # need to read the ROI ID from the config.json file found in the extracted shoreline session directory
-    session_directory = os.path.join(core_utilities.get_base_dir(), "sessions", session_name)
+    session_directory = os.path.join(
+        core_utilities.get_base_dir(), "sessions", session_name
+    )
     if not os.path.exists(session_directory):
         raise Exception(f"The session directory {session_directory} does not exist")
-    config_json_location = find_file_recursively(
-        session_directory, "config.json"
-    )
+    config_json_location = find_file_recursively(session_directory, "config.json")
     config = load_data_from_json(config_json_location)
     roi_id = config.get("roi_id", "")
     return roi_id
+
 
 def load_package_resource(
     resource_name: str,
@@ -571,7 +629,7 @@ def config_to_file(config: Union[dict, gpd.GeoDataFrame], filepath: str):
         save_path = os.path.abspath(os.path.join(filepath, filename))
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         config.to_file(save_path, driver="GeoJSON")
-        
+
     logger.info(f"Saved {filename} saved to {save_path}")
 
 
@@ -750,7 +808,7 @@ def create_session_path(session_name: str, ROI_directory_name: str) -> str:
 
     Note:
     - This function assumes the presence of a function named `create_directory` and a logger object named `logger`.
-    """    
+    """
     base_dir = os.path.abspath(core_utilities.get_base_dir())
     session_path = os.path.join(base_dir, "sessions", session_name)
     session_path = create_directory(session_path, ROI_directory_name)
@@ -858,7 +916,7 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
         for dirpath, dirnames, filenames in os.walk(path):
             if name in dirnames:
                 dir_location = os.path.join(dirpath, name)
-                break # stop searching once the first directory is found
+                break  # stop searching once the first directory is found
 
     if not os.listdir(dir_location):
         raise Exception(f"{name} directory is empty.")
@@ -896,6 +954,7 @@ def find_files_recursively(
 
     return file_locations
 
+
 def find_files_in_directory(
     path: str = ".", search_pattern: str = "*RGB*", raise_error: bool = False
 ) -> List[str]:
@@ -922,6 +981,7 @@ def find_files_in_directory(
         raise Exception(f"No files matching {search_pattern} could be found at {path}")
 
     return file_locations
+
 
 def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
     """
