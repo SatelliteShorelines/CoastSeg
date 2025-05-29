@@ -16,6 +16,18 @@ from typing import List, Callable, Any
 logger = logging.getLogger(__name__)
 
 
+FEATURE_TYPE_MAP = {
+    "transect": transects.Transects,
+    "transects": transects.Transects,
+    "shoreline": shoreline.Shoreline,
+    "shorelines": shoreline.Shoreline,
+    "reference_shoreline": shoreline.Shoreline,
+    "reference_shorelines": shoreline.Shoreline,
+    "shoreline_extraction_area": shoreline_extraction_area.Shoreline_Extraction_Area,
+    "shoreline extraction area": shoreline_extraction_area.Shoreline_Extraction_Area,
+}
+
+
 def edit_geojson_files(
     filepaths: List[str],
     filter_function: Callable[[List[Any], gpd.GeoDataFrame], gpd.GeoDataFrame],
@@ -109,16 +121,6 @@ def create_geofeature_geodataframe(
     geofeature_gdf = geofeature_gdf.to_crs(epsg_code)
     return geofeature_gdf
 
-
-FEATURE_TYPE_MAP = {
-    "transect": transects.Transects,
-    "transects": transects.Transects,
-    "shoreline": shoreline.Shoreline,
-    "shorelines": shoreline.Shoreline,
-    "reference_shoreline": shoreline.Shoreline,
-    "reference_shorelines": shoreline.Shoreline,
-    "shoreline_extraction_area": shoreline_extraction_area.Shoreline_Extraction_Area,
-}
 
 def load_geofeatures_from_roi(
     roi_gdf: gpd.GeoDataFrame, feature_type: str
@@ -216,6 +218,8 @@ def create_feature(feature_type: str, gdf):
     if feature_type in FEATURE_TYPE_MAP:
         if "transect" in feature_type:
             feature_object = FEATURE_TYPE_MAP[feature_type](transects=gdf)
+        elif "shoreline_extraction_area" in feature_type:
+            feature_object = FEATURE_TYPE_MAP[feature_type](gdf)
         elif "shoreline" in feature_type:
             feature_object = FEATURE_TYPE_MAP[feature_type](shoreline=gdf)
         elif "roi" in feature_type:
