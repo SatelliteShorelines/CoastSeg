@@ -35,7 +35,7 @@ def get_collection_by_tier(
     satellite: str,
     tier: int,
     max_cloud_cover: float = 95,
-    months_list = None
+    months_list=None,
 ) -> Union[ee.ImageCollection, None]:
     """
     This function takes the required parameters and returns an ImageCollection from
@@ -100,10 +100,10 @@ def get_collection_by_tier(
 
     # Create a filter to select images with system:time_start month in the monthsToKeep list
     def filter_by_month(month):
-        return ee.Filter.calendarRange(month, month, 'month') # type: ignore
+        return ee.Filter.calendarRange(month, month, "month")  # type: ignore
 
     month_filters = [filter_by_month(month) for month in months_list]
-    month_filter = ee.Filter.Or(month_filters) # type: ignore
+    month_filter = ee.Filter.Or(month_filters)  # type: ignore
     collection = (
         ee.ImageCollection(collection_name)
         .filterBounds(ee.Geometry.Polygon(polygon))
@@ -112,12 +112,13 @@ def get_collection_by_tier(
 
     # Apply cloud cover filter only if available
     if cloud_property:
-        collection = collection.filterMetadata(cloud_property, "less_than", max_cloud_cover)
-
+        collection = collection.filterMetadata(
+            cloud_property, "less_than", max_cloud_cover
+        )
 
     # apply the month filter to only include images from the months in the months_list
     collection = collection.filter(month_filter)
-    
+
     return collection
 
 
@@ -128,7 +129,7 @@ def count_images_in_ee_collection(
     max_cloud_cover: float = 95,
     satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2", "S1"),
     tiers: list[int] = None,
-    months_list:list[int] = None
+    months_list: list[int] = None,
 ) -> dict:
     """
     Count the number of images in specified satellite collections over a certain area and time period.
@@ -158,7 +159,7 @@ def count_images_in_ee_collection(
     >>> count_images(polygon, start_date, end_date)
     """
     if months_list is None:
-        months_list = [1,2,3,4,5,6,7,8,9,10,11,12]
+        months_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     # Check types of start_date and end_date
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, "%Y-%m-%d")
@@ -169,16 +170,20 @@ def count_images_in_ee_collection(
         end_date = datetime.strptime(end_date, "%Y-%m-%d")
     elif not isinstance(end_date, datetime):
         raise ValueError("end_date must be a string or datetime object")
-    
+
     # Check that end_date is after start_date
     if end_date <= start_date:
-        raise ValueError(f"End date: {end_date.strftime('%Y-%m-%d')} must be after start date: {start_date.strftime('%Y-%m-%d')}")
+        raise ValueError(
+            f"End date: {end_date.strftime('%Y-%m-%d')} must be after start date: {start_date.strftime('%Y-%m-%d')}"
+        )
 
     # Check if EE was initialized or not
     try:
         ee.ImageCollection("LANDSAT/LC08/C02/T1_TOA")
     except Exception as e:
-        raise Exception(f"Earth Engine not initialized. Please run ee.Initialize(project='gee project id') before calling this function.{e}")
+        raise Exception(
+            f"Earth Engine not initialized. Please run ee.Initialize(project='gee project id') before calling this function.{e}"
+        )
 
     if tiers is None:
         tiers = [1, 2]
@@ -189,7 +194,13 @@ def count_images_in_ee_collection(
         images_in_tier_count = 0
         for tier in tiers:
             collection = get_collection_by_tier(
-                polygon, start_date, end_date, satellite, tier, max_cloud_cover,months_list=months_list
+                polygon,
+                start_date,
+                end_date,
+                satellite,
+                tier,
+                max_cloud_cover,
+                months_list=months_list,
             )
             if collection:
                 images_in_tier_count += collection.size().getInfo()
