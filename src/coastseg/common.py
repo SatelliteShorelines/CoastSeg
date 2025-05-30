@@ -21,7 +21,7 @@ import shapely
 import ee
 from area import area
 from ipyfilechooser import FileChooser
-from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox,Button
+from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox, Button
 from PIL import Image
 from requests.exceptions import SSLError
 from shapely import geometry
@@ -45,7 +45,7 @@ def initialize_gee(
     print_mode: bool = True,
     auth_args: dict = {},
     project: str = "",
-    force:bool=False,
+    force: bool = False,
     **kwargs,
 ):
     """
@@ -53,15 +53,15 @@ def initialize_gee(
 
     Arguments:
     -----------
-    - auth_mode (str, optional): The authentication mode 
+    - auth_mode (str, optional): The authentication mode
       'gcloud' and 'colab' methods are not supported.
-       See https://developers.google.com/earth-engine/guides/auth for more details. 
+       See https://developers.google.com/earth-engine/guides/auth for more details.
     - print_mode (bool, optional): Whether to print initialization messages. Defaults to True.
     - auth_args (dict, optional): Additional arguments for authentication. Defaults to {}.
     - project (str, optional): The project to initialize GEE with. Defaults to an empty string.
     - force (bool, optional): Forces re-authentication if True. Defaults to False.
     - **kwargs: Additional keyword arguments for `ee.Initialize()`.
-    
+
     Raises:
     - ValueError: If an unsupported authentication mode is specified.
     - Exception: If initialization fails after authentication.
@@ -69,23 +69,30 @@ def initialize_gee(
     # Validate authentication mode
     if auth_mode in ["gcloud", "colab"]:
         raise ValueError(f"{auth_mode} authentication is not supported.")
-    
+
     # separate the force argument from the auth_args
-    if 'force' in auth_args:
-        force = auth_args['force']
-        del auth_args['force']
-    
+    if "force" in auth_args:
+        force = auth_args["force"]
+        del auth_args["force"]
+
     # Update authentication arguments
     if auth_mode:
         auth_args["auth_mode"] = auth_mode
     if project:
         kwargs["project"] = project
-        
+
     # Authenticate and initialize
     authenticate_and_initialize(print_mode, force, auth_args, kwargs)
 
 
-def authenticate_and_initialize(print_mode: bool, force: bool, auth_args: dict, kwargs: dict, attempt: int = 1, max_attempts: int = 2):
+def authenticate_and_initialize(
+    print_mode: bool,
+    force: bool,
+    auth_args: dict,
+    kwargs: dict,
+    attempt: int = 1,
+    max_attempts: int = 2,
+):
     """
     Handles the authentication and initialization of Google Earth Engine.
 
@@ -97,10 +104,16 @@ def authenticate_and_initialize(print_mode: bool, force: bool, auth_args: dict, 
         attempt (int): Current attempt number for authentication.
         max_attempts (int): Maximum number of authentication attempts.
     """
-    print(f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}")
-    logger.info(f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}")
+    print(
+        f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}"
+    )
+    logger.info(
+        f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}"
+    )
     if print_mode:
-        print(f"{'Forcing authentication and ' if force else ''}Initializing Google Earth Engine...\n")
+        print(
+            f"{'Forcing authentication and ' if force else ''}Initializing Google Earth Engine...\n"
+        )
     try:
         if force or not ee.data._credentials:
             ee.Authenticate(force=force, **auth_args)
@@ -113,70 +126,92 @@ def authenticate_and_initialize(print_mode: bool, force: bool, auth_args: dict, 
         if "Please refresh your Google authentication token" in error_message:
             print("Please refresh your Google authentication token.\n")
         elif "Credentials file not found" in error_message:
-            print("Credentials file not found. Please authenticate with Google Earth Engine:\n")
+            print(
+                "Credentials file not found. Please authenticate with Google Earth Engine:\n"
+            )
         else:
             print(f"An error occurred: {error_message}\n")
 
         # Re-attempt authentication only if attempts are less than max_attempts
         if attempt < max_attempts:
-            print(f"Re-attempting authentication (Attempt {attempt + 1}/{max_attempts})...\n")
-            authenticate_and_initialize(print_mode, True, auth_args, kwargs, attempt + 1, max_attempts)  # Force re-authentication on retry
+            print(
+                f"Re-attempting authentication (Attempt {attempt + 1}/{max_attempts})...\n"
+            )
+            authenticate_and_initialize(
+                print_mode, True, auth_args, kwargs, attempt + 1, max_attempts
+            )  # Force re-authentication on retry
         else:
-            raise Exception(f"Failed to initialize Google Earth Engine after {attempt} attempts: {error_message}")
+            raise Exception(
+                f"Failed to initialize Google Earth Engine after {attempt} attempts: {error_message}"
+            )
 
 
-def merge_tide_corrected_with_raw_timeseries(session_path,tide_timeseries):
+def merge_tide_corrected_with_raw_timeseries(session_path, tide_timeseries):
     """
     Merges tide-corrected timeseries data with raw timeseries data to add columns such as the classifier scores,thresholds
     and other relevant information to the tide-corrected timeseries data.
 
-    If the timeseries passed in is not the tide corrected one then it is returned as is. 
+    If the timeseries passed in is not the tide corrected one then it is returned as is.
 
-    This function takes a session path and a tide timeseries DataFrame, 
-    converts the 'dates' column in the tide timeseries to datetime format, 
-    and attempts to find and read a raw timeseries CSV file in the specified 
-    session path. It then merges the tide timeseries with the raw timeseries 
-    on the 'dates' and 'transect_id' columns, excluding certain columns from 
+    This function takes a session path and a tide timeseries DataFrame,
+    converts the 'dates' column in the tide timeseries to datetime format,
+    and attempts to find and read a raw timeseries CSV file in the specified
+    session path. It then merges the tide timeseries with the raw timeseries
+    on the 'dates' and 'transect_id' columns, excluding certain columns from
     the raw timeseries.
 
     Parameters:
-    session_path (str): The file path to the session directory where the raw 
+    session_path (str): The file path to the session directory where the raw
                         timeseries CSV file is located.
-    tide_timeseries (pd.DataFrame): A DataFrame containing the tide-corrected 
+    tide_timeseries (pd.DataFrame): A DataFrame containing the tide-corrected
                                     timeseries data with a 'dates' column.
 
     Returns:
-    pd.DataFrame: A DataFrame containing the merged timeseries data. If the 
-                    raw timeseries file is not found, returns the original 
+    pd.DataFrame: A DataFrame containing the merged timeseries data. If the
+                    raw timeseries file is not found, returns the original
                     tide_timeseries DataFrame.
     """
     # if the tides dataframe already has the columns from the model scores then we don't need to merge
-    model_cols = ['classifier_model_score','classifier_threshold','segmentation_model_score','segmentation_threshold',]
+    model_cols = [
+        "classifier_model_score",
+        "classifier_threshold",
+        "segmentation_model_score",
+        "segmentation_threshold",
+    ]
     if any(col in tide_timeseries.columns for col in model_cols):
         return tide_timeseries
     tide_timeseries["dates"] = pd.to_datetime(tide_timeseries["dates"], utc=True)
     # check if the tide timseries has a column called 'tide'
-    if 'tide' not in tide_timeseries.columns:
+    if "tide" not in tide_timeseries.columns:
         return tide_timeseries
     try:
         raw_time_series_location = file_utilities.find_file_by_regex(
-                    session_path, r"^raw_transect_time_series_merged\.csv$"
-                )
+            session_path, r"^raw_transect_time_series_merged\.csv$"
+        )
     except FileNotFoundError as e:
-        logger.warning(f"Could not find raw_transect_time_series_merged.csv in {session_path}")
+        logger.warning(
+            f"Could not find raw_transect_time_series_merged.csv in {session_path}"
+        )
         return tide_timeseries
-    
+
     df = pd.read_csv(raw_time_series_location)
     df["dates"] = pd.to_datetime(df["dates"], utc=True)
     # Drop the columns we don't want to include in the final merged dataframe
-    raw_timseries = df.drop(columns=['shore_x', 'shore_y','x','y','cross_distance'], errors='ignore')
-    #drop any unnamed columns
-    raw_timseries = raw_timseries.loc[:, ~raw_timseries.columns.str.contains('^Unnamed')]
+    raw_timseries = df.drop(
+        columns=["shore_x", "shore_y", "x", "y", "cross_distance"], errors="ignore"
+    )
+    # drop any unnamed columns
+    raw_timseries = raw_timseries.loc[
+        :, ~raw_timseries.columns.str.contains("^Unnamed")
+    ]
 
     # convert both transect_id columns to string to avoid merge issues
-    tide_timeseries['transect_id'] = tide_timeseries['transect_id'].astype(str)
-    raw_timseries['transect_id'] = raw_timseries['transect_id'].astype(str)
-    return pd.merge(tide_timeseries, raw_timseries, on=['dates','transect_id'], how='left')
+    tide_timeseries["transect_id"] = tide_timeseries["transect_id"].astype(str)
+    raw_timseries["transect_id"] = raw_timseries["transect_id"].astype(str)
+    return pd.merge(
+        tide_timeseries, raw_timseries, on=["dates", "transect_id"], how="left"
+    )
+
 
 def delete_unmatched_rows(
     data_dict: Dict[str, Union[List[Any], pd.Series]],
@@ -217,14 +252,15 @@ def delete_unmatched_rows(
     df = df[df["dates"].isin(dates_list) & df["satname"].isin(sat_list)]
 
     # Convert DataFrame back to dictionary
-    updated_dict = df.to_dict('list')
+    updated_dict = df.to_dict("list")
 
     return updated_dict
+
 
 def filter_extract_dict(
     gdf: gpd.GeoDataFrame,
     extracted_shorelines_dict: Dict[str, Union[List[np.ndarray], np.ndarray]],
-    output_crs:str
+    output_crs: str,
 ) -> Dict[str, Union[List[np.ndarray], np.ndarray]]:
     """
     Filters and updates the extracted shorelines dictionary based on the selected indexes from a GeoDataFrame.
@@ -242,17 +278,23 @@ def filter_extract_dict(
 
     """
     sats = np.array(gdf.satname)
-    dates = np.array(pd.to_datetime(gdf['date']).dt.tz_localize('UTC'))
-    selected_indexes = get_selected_indexes(extracted_shorelines_dict, dates_list=dates, sat_list=sats)
+    dates = np.array(pd.to_datetime(gdf["date"]).dt.tz_localize("UTC"))
+    selected_indexes = get_selected_indexes(
+        extracted_shorelines_dict, dates_list=dates, sat_list=sats
+    )
     # convert gdf to the output epsg otherwise output dict will not be in correct crs
     projected_gdf = gdf.to_crs(output_crs)
 
     # update the extracted_shorelines_dict with the selected indexes
     for idx in selected_indexes:
-        extracted_shorelines_dict['shorelines'][idx] = np.array(projected_gdf.iloc[idx].geometry.coords)
+        extracted_shorelines_dict["shorelines"][idx] = np.array(
+            projected_gdf.iloc[idx].geometry.coords
+        )
 
     # Check if any shorelines were removed from the gdf that are still in the extracted_shorelines_dict
-    extracted_shorelines_dict = delete_unmatched_rows(extracted_shorelines_dict, dates_list=dates, sat_list=sats)
+    extracted_shorelines_dict = delete_unmatched_rows(
+        extracted_shorelines_dict, dates_list=dates, sat_list=sats
+    )
     return extracted_shorelines_dict
 
 
@@ -262,13 +304,14 @@ def arr_to_LineString(coords):
     inputs: coords
     outputs: line
     """
-    points = [None]*len(coords)
-    i=0
+    points = [None] * len(coords)
+    i = 0
     for xy in coords:
         points[i] = shapely.geometry.Point(xy)
-        i=i+1
+        i = i + 1
     line = shapely.geometry.LineString(points)
     return line
+
 
 def LineString_to_arr(line):
     """
@@ -283,8 +326,9 @@ def LineString_to_arr(line):
     return nparray
 
 
-
-def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDataFrame)->gpd.GeoDataFrame:
+def ref_poly_filter(
+    ref_poly_gdf: gpd.GeoDataFrame, raw_shorelines_gdf: gpd.GeoDataFrame
+) -> gpd.GeoDataFrame:
     """
     Filters shorelines that are within a reference polygon.
     filters extracted shorelines that are not contained within a reference region/polygon
@@ -298,10 +342,10 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
     """
     if ref_poly_gdf.empty:
         return raw_shorelines_gdf
-    
+
     ##First need to get rid of lines that are completely outside of the ref polygon
     ref_polygon = ref_poly_gdf.geometry
-    buffer_vals = [None]*len(raw_shorelines_gdf)
+    buffer_vals = [None] * len(raw_shorelines_gdf)
     for i in range(len(raw_shorelines_gdf)):
         line_entry = raw_shorelines_gdf.iloc[i]
         line = line_entry.geometry
@@ -309,17 +353,17 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
         bool_val = np.any(ref_polygon.intersects(line).values)
         buffer_vals[i] = bool_val
     # add whether the line is within the buffer to the GeoDataFrame
-    raw_shorelines_gdf['buffer_vals'] = buffer_vals
+    raw_shorelines_gdf["buffer_vals"] = buffer_vals
     # filter out lines that are not within the buffer
-    shorelines_gdf_filter = raw_shorelines_gdf[raw_shorelines_gdf['buffer_vals']]
+    shorelines_gdf_filter = raw_shorelines_gdf[raw_shorelines_gdf["buffer_vals"]]
 
     ##Now get rid of points that lie outside ref polygon but preserve the rest of the shoreline
-    new_lines = [None]*len(shorelines_gdf_filter)
+    new_lines = [None] * len(shorelines_gdf_filter)
     for i in range(len(shorelines_gdf_filter)):
         line_entry = shorelines_gdf_filter.iloc[i]
         line = line_entry.geometry
         line_arr = LineString_to_arr(line)
-        bool_vals = [None]*len(line_arr)
+        bool_vals = [None] * len(line_arr)
         j = 0
         for point in line_arr:
             point = geometry.Point(point)
@@ -327,16 +371,19 @@ def ref_poly_filter(ref_poly_gdf:gpd.GeoDataFrame, raw_shorelines_gdf:gpd.GeoDat
             # if the point is within any of the polygons, then it is within the buffer
             bool_val = contains_series.any()
             bool_vals[j] = bool_val
-            j=j+1
+            j = j + 1
         new_line_arr = line_arr[bool_vals]
         new_line_LineString = arr_to_LineString(new_line_arr)
         new_lines[i] = new_line_LineString
 
     ##Assign the new geometries, save the output
-    shorelines_gdf_filter['geometry'] = new_lines
-    shorelines_gdf_filter = shorelines_gdf_filter.drop(columns=['buffer_vals'],errors='ignore')
+    shorelines_gdf_filter["geometry"] = new_lines
+    shorelines_gdf_filter = shorelines_gdf_filter.drop(
+        columns=["buffer_vals"], errors="ignore"
+    )
 
     return shorelines_gdf_filter
+
 
 def merge_dataframes(df1, df2, columns_to_merge_on=set(["transect_id", "dates"])):
     """
@@ -371,7 +418,7 @@ def update_config(config_json: dict, roi_settings: dict) -> dict:
     return config_json
 
 
-def update_downloaded_configs(roi_settings: dict, roi_ids: list =None):
+def update_downloaded_configs(roi_settings: dict, roi_ids: list = None):
     """
     Update the downloaded configuration files for the specified ROI(s).
     Args:
@@ -382,22 +429,24 @@ def update_downloaded_configs(roi_settings: dict, roi_ids: list =None):
     """
     if not isinstance(roi_settings, dict):
         raise ValueError("Invalid roi_settings provided.")
-    
+
     if not roi_ids:
         roi_ids = list(roi_settings.keys())
     if isinstance(roi_ids, str):
         roi_ids = [roi_ids]
-    
+
     for roi_id in roi_ids:
         try:
             # read the settings for the current ROI
-            settings = roi_settings.get(roi_id,{})
+            settings = roi_settings.get(roi_id, {})
             if not settings:
                 logging.warning(f"No settings found for ROI {roi_id}. Skipping.")
                 continue
 
-            config_path = os.path.join(settings["filepath"], settings["sitename"], "config.json")
-            
+            config_path = os.path.join(
+                settings["filepath"], settings["sitename"], "config.json"
+            )
+
             if not os.path.exists(config_path):
                 logging.warning(f"Config file not found for ROI {roi_id}. Skipping.")
                 continue
@@ -407,11 +456,16 @@ def update_downloaded_configs(roi_settings: dict, roi_ids: list =None):
             # Update the ROI data for each ROI in config.json
             updated_config = update_config(config_json, roi_settings)
             file_utilities.config_to_file(updated_config, config_path)
-            logging.info(f"Successfully updated config for ROI {roi_id} at {config_path}")
+            logging.info(
+                f"Successfully updated config for ROI {roi_id} at {config_path}"
+            )
         except IOError as e:
             logging.error(f"Failed to update config for ROI {roi_id}: {e}")
 
-def extract_roi_settings(json_data: dict,fields_of_interest: set = set(),roi_ids: list = None) -> dict:
+
+def extract_roi_settings(
+    json_data: dict, fields_of_interest: set = set(), roi_ids: list = None
+) -> dict:
     """
     Extracts the settings for regions of interest (ROI) from the given JSON data.
     Overwrites the filepath attribute for each ROI with the data_path provided.
@@ -426,14 +480,14 @@ def extract_roi_settings(json_data: dict,fields_of_interest: set = set(),roi_ids
     """
     if not fields_of_interest:
         fields_of_interest = {
-                "dates",
-                "sitename",
-                "polygon",
-                "roi_id",
-                "sat_list",
-                "landsat_collection",
-                "filepath",
-            }
+            "dates",
+            "sitename",
+            "polygon",
+            "roi_id",
+            "sat_list",
+            "landsat_collection",
+            "filepath",
+        }
     if not roi_ids:
         roi_ids = json_data.get("roi_ids", [])
     roi_settings = {}
@@ -442,6 +496,7 @@ def extract_roi_settings(json_data: dict,fields_of_interest: set = set(),roi_ids
         roi_data = extract_roi_data(json_data, roi_id, fields_of_interest)
         roi_settings[str(roi_id)] = roi_data
     return roi_settings
+
 
 def update_roi_settings(roi_settings, key, value):
     """
@@ -461,7 +516,8 @@ def update_roi_settings(roi_settings, key, value):
             settings[key] = value
     return roi_settings
 
-def process_roi_settings(json_data, data_path)->dict:
+
+def process_roi_settings(json_data, data_path) -> dict:
     """
     Process the ROI settings from the given JSON data and update the filepath to be the data_path.
 
@@ -474,8 +530,9 @@ def process_roi_settings(json_data, data_path)->dict:
     """
     roi_ids = json_data.get("roi_ids", [])
     roi_settings = extract_roi_settings(json_data, roi_ids=roi_ids)
-    roi_settings = update_roi_settings(roi_settings, 'filepath', data_path)
+    roi_settings = update_roi_settings(roi_settings, "filepath", data_path)
     return roi_settings
+
 
 def get_missing_roi_dirs(roi_settings: dict, roi_ids: list = None) -> dict:
     """
@@ -591,7 +648,7 @@ def extract_dates_and_sats(
 
 
 def transform_data_to_nested_arrays(
-    data_dict: Dict[str, Union[List[Union[int, float, np.ndarray]], np.ndarray]]
+    data_dict: Dict[str, Union[List[Union[int, float, np.ndarray]], np.ndarray]],
 ) -> Dict[str, np.ndarray]:
     """
     Convert a dictionary of data to a new dictionary with nested NumPy arrays.
@@ -690,7 +747,9 @@ def update_extracted_shorelines_dict_transects_dict(
                             transects_dict, transect_cross_distances_path
                         )
                     except IndexError as index_err:
-                        logger.warning(f"Failed to delete selected indexes from transects_dict.This was likely due to an error in the construction of the transects dict from an older version of Coastseg see issue #290\n {index_err}")
+                        logger.warning(
+                            f"Failed to delete selected indexes from transects_dict.This was likely due to an error in the construction of the transects dict from an older version of Coastseg see issue #290\n {index_err}"
+                        )
 
             # Delete the selected indexes from the extracted_shorelines_dict
             extracted_shorelines_dict = delete_selected_indexes(
@@ -769,7 +828,7 @@ def load_settings(
         "multiple_inter",
         "prc_multiple",
     },
-    new_settings: dict={},
+    new_settings: dict = {},
 ):
     """
     Loads settings from a JSON file and applies them to the object.
@@ -808,7 +867,7 @@ def load_settings(
             f"all of new settings read from file : {filepath} \n {new_settings.keys()}"
         )
     elif new_settings:
-        logger.info(f"all of new settings read from dict : {new_settings.keys()}") 
+        logger.info(f"all of new settings read from dict : {new_settings.keys()}")
     # if no keys are passed then use all of the keys in the settings file
     if not keys:
         keys = new_settings.keys()
@@ -825,7 +884,10 @@ def load_settings(
     filtered_settings.update(**nested_settings)
     return filtered_settings
 
-def update_roi_settings_with_global_settings(roi_settings: dict, global_settings: dict) -> dict:
+
+def update_roi_settings_with_global_settings(
+    roi_settings: dict, global_settings: dict
+) -> dict:
     """
     Update the ROI settings with the global settings.
 
@@ -843,6 +905,7 @@ def update_roi_settings_with_global_settings(roi_settings: dict, global_settings
     updated_roi_settings = update_roi_settings(roi_settings, "sat_list", sat_list)
     updated_roi_settings = update_roi_settings(updated_roi_settings, "dates", dates)
     return updated_roi_settings
+
 
 def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
     """
@@ -969,7 +1032,7 @@ def filter_images_by_roi(roi_settings: list[dict]):
     it constructs a GeoDataFrame and filters images located in a predefined directory based
     on the constructed ROI. The function logs a warning and skips to the next ROI
     if the specified directory for an ROI does not exist.
-    
+
     This function assumes the ROI coordinates are in EPSG:4326.
 
     Args:
@@ -1024,6 +1087,7 @@ def filter_images_by_roi(roi_settings: list[dict]):
         roi_gdf = gpd.GeoDataFrame(index=[0], geometry=[polygon], crs="EPSG:4326")
         bad_images = filter_partial_images(roi_gdf, ROI_jpg_location)
         logger.info(f"Partial images filtered out: {bad_images}")
+
 
 def delete_jpg_files(
     dates_list: List[datetime], sat_list: List[str], jpg_path: str
@@ -1250,7 +1314,7 @@ def validate_geometry_types(
         ValueError: If any geometry in the GeoDataFrame is not of a type in valid_types.
     """
     # if the geodataframe is empty or does not contain a geometry column, return
-    if not hasattr(gdf, 'geometry'):
+    if not hasattr(gdf, "geometry"):
         return
     # Get the unique geometry types in the GeoDataFrame
     geometry_types = gdf.geometry.geom_type.unique()
@@ -1358,8 +1422,8 @@ def get_response(url, stream=True):
 
 def extract_date_from_filename(filename: str) -> str:
     """Extracts the first instance date string "YYYY-MM-DD-HH-MM-SS" from a filename.
-     - The date string is expected to be in the format "YYYY-MM-DD-HH-MM-SS".
-     - Example 2024-05-28-22-18-07 would be extracted from "2024-05-28-22-18-07_S2_ID_1_datetime11-04-24__04_30_52_ms.tif"
+    - The date string is expected to be in the format "YYYY-MM-DD-HH-MM-SS".
+    - Example 2024-05-28-22-18-07 would be extracted from "2024-05-28-22-18-07_S2_ID_1_datetime11-04-24__04_30_52_ms.tif"
     """
     pattern = r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}"
     match = re.match(pattern, filename)
@@ -1368,7 +1432,11 @@ def extract_date_from_filename(filename: str) -> str:
     else:
         return ""
 
-def get_filtered_dates_dict(directory: str, file_type: str, ) -> dict:
+
+def get_filtered_dates_dict(
+    directory: str,
+    file_type: str,
+) -> dict:
     """
     Scans the directory for files with the given file_type and extracts the date from the filename and returns a dictionary with the satellite name as the key and a set of dates as the value.
 
@@ -1387,7 +1455,7 @@ def get_filtered_dates_dict(directory: str, file_type: str, ) -> dict:
     --------
     dict
         a dictionary where each key is a satellite name and each value is a set of the dates in the format "YYYY-MM-DD-HH-MM-SS" that represents the time the scene was captured.
-    
+
     Example:
         {
         "L5":{'2014-12-19-18-22-40',},
@@ -1396,7 +1464,7 @@ def get_filtered_dates_dict(directory: str, file_type: str, ) -> dict:
         "L9":{},
         "S2":{},
     }
-    
+
     """
     satellites = {"L5": set(), "L7": set(), "L8": set(), "L9": set(), "S2": set()}
     # loop over the generator of files in the directory
@@ -1415,13 +1483,16 @@ def get_filtered_dates_dict(directory: str, file_type: str, ) -> dict:
                 f"Skipping file with unexpected name format which was missing a satname: {filename}"
             )
             continue
-        
+
         if satname in satellites:
             satellites[satname].add(date)
 
     return satellites
 
-def filter_metadata_with_dates(metadata: dict, directory:str,file_type:str="jpg") -> dict[str]:
+
+def filter_metadata_with_dates(
+    metadata: dict, directory: str, file_type: str = "jpg"
+) -> dict[str]:
     """
     This function filters metadata to include only those files that exist in the given directory.
 
@@ -1436,7 +1507,7 @@ def filter_metadata_with_dates(metadata: dict, directory:str,file_type:str="jpg"
 
     file_type : str
         The filetype of the files in the directory. Default is 'jpg'.
-        
+
     Returns:
     --------
     dict
@@ -1512,11 +1583,14 @@ def edit_metadata_by_dates(
 
             # basically instead of matching the filenames directory check if the dates match
             # 1. convert the satellite_metadata["filenames"] to dates
-            metadata_dates = [extract_date_from_filename(filename) for filename in satellite_metadata["filenames"]]
+            metadata_dates = [
+                extract_date_from_filename(filename)
+                for filename in satellite_metadata["filenames"]
+            ]
             # 2. get the matching indices
             indices_to_keep = [
                 idx
-                for idx, metadata_date in  enumerate(metadata_dates)
+                for idx, metadata_date in enumerate(metadata_dates)
                 if metadata_date in filtered_dates
             ]
 
@@ -1595,10 +1669,18 @@ def generate_ids(num_ids, prefix_length):
     prefix = random_prefix(prefix_length)
     return [prefix + str(i) for i in range(1, num_ids + 1)]
 
-def export_dataframe_as_geojson(data:pd.DataFrame, output_file_path:str, x_col:str, y_col:str, id_col:str,columns_to_keep:List[str] = None)->str:
+
+def export_dataframe_as_geojson(
+    data: pd.DataFrame,
+    output_file_path: str,
+    x_col: str,
+    y_col: str,
+    id_col: str,
+    columns_to_keep: List[str] = None,
+) -> str:
     """
     Export specified columns from a CSV file to a GeoJSON format, labeled by a unique identifier.
-    
+
     Parameters:
     - data: pd.DataFrame, the input data.
     - output_file_path: str, path for the output GeoJSON file.
@@ -1606,35 +1688,34 @@ def export_dataframe_as_geojson(data:pd.DataFrame, output_file_path:str, x_col:s
     - y_col: str, column name for the y coordinates (latitude).
     - id_col: str, column name for the unique identifier (transect id).
     - columns_to_keep: List[str], list of columns to keep in the output GeoJSON file. Defaults to None.
-    
+
     Returns:
     - str, path for the created GeoJSON file.
     """
 
     # Convert to GeoDataFrame
     gdf = gpd.GeoDataFrame(
-        data, 
-        geometry=[Point(xy) for xy in zip(data[x_col], data[y_col])], 
-        crs="EPSG:4326"
+        data,
+        geometry=[Point(xy) for xy in zip(data[x_col], data[y_col])],
+        crs="EPSG:4326",
     )
-    
+
     if columns_to_keep:
         columns_to_keep.append(id_col)
-        columns_to_keep.append('geometry')
+        columns_to_keep.append("geometry")
         gdf = gdf[columns_to_keep].copy()
-        if 'dates' in gdf.columns:
-            gdf['dates'] = pd.to_datetime(gdf['dates']).dt.tz_convert(None)
-        if 'date' in gdf.columns:
-            gdf['date'] = pd.to_datetime(gdf['date']).dt.tz_convert(None)
+        if "dates" in gdf.columns:
+            gdf["dates"] = pd.to_datetime(gdf["dates"]).dt.tz_convert(None)
+        if "date" in gdf.columns:
+            gdf["date"] = pd.to_datetime(gdf["date"]).dt.tz_convert(None)
         gdf = stringify_datetime_columns(gdf)
     else:
         # Keep only necessary columns
-        gdf = gdf[[id_col, 'geometry']].copy()
-        
-    
+        gdf = gdf[[id_col, "geometry"]].copy()
+
     # Export to GeoJSON
-    gdf.to_file(output_file_path, driver='GeoJSON')
-    
+    gdf.to_file(output_file_path, driver="GeoJSON")
+
     # Return the path to the output file
     return output_file_path
 
@@ -1656,11 +1737,11 @@ def create_complete_line_string(points):
     """
     # Ensure all points are unique to avoid redundant looping
     unique_points = np.unique(points, axis=0)
-    
+
     # Start with the first point in the list
     if len(unique_points) == 0:
         return None  # Return None if there are no points
-    
+
     starting_point = unique_points[0]
     current_point = starting_point
     sorted_points = [starting_point]
@@ -1693,7 +1774,8 @@ def create_complete_line_string(points):
 
     return LineString(sorted_points)
 
-def order_linestrings_gdf(gdf, output_crs='epsg:4326'):
+
+def order_linestrings_gdf(gdf, output_crs="epsg:4326"):
     """
     Orders the linestrings in a GeoDataFrame by creating complete line strings from the given points.
 
@@ -1712,71 +1794,82 @@ def order_linestrings_gdf(gdf, output_crs='epsg:4326'):
     else:
         gdf.set_crs(output_crs, inplace=True)
 
-    gdf['geometry'] = gdf['geometry'].apply(lambda geom: create_complete_line_string(list(geom.coords)) if isinstance(geom, LineString) else geom)
-    
+    gdf["geometry"] = gdf["geometry"].apply(
+        lambda geom: (
+            create_complete_line_string(list(geom.coords))
+            if isinstance(geom, LineString)
+            else geom
+        )
+    )
+
     return gdf
 
 
-def add_shore_points_to_timeseries(timeseries_data: pd.DataFrame,
-                                 transects: gpd.GeoDataFrame,)->pd.DataFrame:
+def add_shore_points_to_timeseries(
+    timeseries_data: pd.DataFrame,
+    transects: gpd.GeoDataFrame,
+) -> pd.DataFrame:
     """
     Edits the transect_timeseries_merged.csv or transect_timeseries_tidally_corrected.csv
     so that there are additional columns with lat (shore_y) and lon (shore_x).
-    
-    
+
+
     inputs:
     timeseries_data (pd.DataFrame): dataframe containing the data from transect_timeseries_merged.csv
-    transects (gpd.GeoDataFrame): geodataframe containing the transects 
-    
+    transects (gpd.GeoDataFrame): geodataframe containing the transects
+
     returns:
     pd.DataFrame: the new timeseries_data with the lat and lon columns
     """
-    
+
     ##Gonna do this in UTM to keep the math simple...problems when we get to longer distances (10s of km)
     org_crs = transects.crs
     utm_crs = transects.estimate_utm_crs()
     transects_utm = transects.to_crs(utm_crs)
-    
+
     # Initialize shore_x and shore_y columns
-    timeseries_data['shore_x'] = np.nan
-    timeseries_data['shore_y'] = np.nan
+    timeseries_data["shore_x"] = np.nan
+    timeseries_data["shore_y"] = np.nan
 
     ##loop over all transects
     for i, transect in transects_utm.iterrows():
-        transect_id = transect['id']
+        transect_id = transect["id"]
         first = transect.geometry.coords[0]
         last = transect.geometry.coords[-1]
-        
+
         # Filter timeseries data for the current transect_id
-        idx = timeseries_data['transect_id'] == transect_id
+        idx = timeseries_data["transect_id"] == transect_id
         if not np.any(idx):
             continue
-        
+
         timeseries_data_filter = timeseries_data[idx]
-        distances = timeseries_data_filter['cross_distance'].values
+        distances = timeseries_data_filter["cross_distance"].values
         # idxes = timeseries_data_filter.index
         # distances = timeseries_data_filter['cross_distance']
 
         angle = np.arctan2(last[1] - first[1], last[0] - first[0])
 
-        shore_x_utm = first[0]+distances*np.cos(angle)
-        shore_y_utm = first[1]+distances*np.sin(angle)
+        shore_x_utm = first[0] + distances * np.cos(angle)
+        shore_y_utm = first[1] + distances * np.sin(angle)
         # points_utm = [shapely.Point(xy) for xy in zip(shore_x_utm, shore_y_utm)]
 
-        #conversion from utm to wgs84, put them in the transect_timeseries csv and utm gdf
-        points_utm = gpd.GeoDataFrame({'geometry': [Point(x, y) for x, y in zip(shore_x_utm, shore_y_utm)]}, crs=utm_crs)
+        # conversion from utm to wgs84, put them in the transect_timeseries csv and utm gdf
+        points_utm = gpd.GeoDataFrame(
+            {"geometry": [Point(x, y) for x, y in zip(shore_x_utm, shore_y_utm)]},
+            crs=utm_crs,
+        )
         # Convert shore points to WGS84
         points_wgs84 = points_utm.to_crs(org_crs)
         # dummy_gdf_wgs84 = dummy_gdf_utm.to_crs(org_crs)
         coords_wgs84 = np.array([point.coords[0] for point in points_wgs84.geometry])
-        
+
         # Update timeseries data with shore_x and shore_y
-        timeseries_data.loc[idx, 'shore_x'] = coords_wgs84[:, 0]
-        timeseries_data.loc[idx, 'shore_y'] = coords_wgs84[:, 1]
+        timeseries_data.loc[idx, "shore_x"] = coords_wgs84[:, 0]
+        timeseries_data.loc[idx, "shore_y"] = coords_wgs84[:, 1]
 
     return timeseries_data
 
-    
+
 def make_timezone_naive(df, column_name):
     """
     Converts a specified column in a DataFrame from timezone aware or timezone naive
@@ -1799,49 +1892,61 @@ def make_timezone_naive(df, column_name):
         df[column_name] = df[column_name].dt.tz_convert(None)
 
     # If already timezone naive, no action needed
-    
+
+
 def convert_date_gdf(gdf):
     """
-   Converts the date columns in a GeoDataFrame to string format.
-   Converts either 'dates' or 'date' columns to string format after converting it to naive timezone.
+    Converts the date columns in a GeoDataFrame to string format.
+    Converts either 'dates' or 'date' columns to string format after converting it to naive timezone.
 
-    Args:
-        gdf (GeoDataFrame): The input GeoDataFrame.
+     Args:
+         gdf (GeoDataFrame): The input GeoDataFrame.
 
-    Returns:
-        GeoDataFrame: The converted GeoDataFrame with date columns in datetime format.
+     Returns:
+         GeoDataFrame: The converted GeoDataFrame with date columns in datetime format.
     """
     gdf = gdf.copy()
-    if 'dates' in gdf.columns:
-        make_timezone_naive(gdf, 'dates')
-    if 'date' in gdf.columns:
-        make_timezone_naive(gdf, 'date')
+    if "dates" in gdf.columns:
+        make_timezone_naive(gdf, "dates")
+    if "date" in gdf.columns:
+        make_timezone_naive(gdf, "date")
     gdf = stringify_datetime_columns(gdf)
     return gdf
 
-def intersect_with_buffered_transects(points_gdf, transects, buffer_distance = 0.00000001):
+
+def intersect_with_buffered_transects(
+    points_gdf, transects, buffer_distance=0.00000001
+):
     """
     Intersects points from a GeoDataFrame with another GeoDataFrame and exports the result to a new GeoDataFrame, retaining all original attributes.
     Additionally, returns the points that do not intersect with the buffered transects.
-    
+
     Parameters:
     - points_gdf: GeoDataFrame - The input GeoDataFrame containing the points to be intersected.
     - transects: GeoDataFrame - The GeoDataFrame representing the transects to intersect with.
     - buffer_distance: float - The buffer distance to apply to the transects (default: 0.00000001).
-    
+
     Returns:
     - filtered: GeoDataFrame - The resulting GeoDataFrame containing the intersected points within the buffered transects.
     - dropped_rows: GeoDataFrame - The rows that were filtered out during the intersection process.
     """
-    
+
     buffered_lines_gdf = transects.copy()  # Create a copy to preserve the original data
-    buffered_lines_gdf['geometry'] = transects.geometry.buffer(buffer_distance)
-    points_within_buffer = points_gdf[points_gdf.geometry.within(buffered_lines_gdf.unary_union)]
-    
-    grouped = points_within_buffer.groupby('transect_id')
-    
+    buffered_lines_gdf["geometry"] = transects.geometry.buffer(buffer_distance)
+    points_within_buffer = points_gdf[
+        points_gdf.geometry.within(buffered_lines_gdf.unary_union)
+    ]
+
+    grouped = points_within_buffer.groupby("transect_id")
+
     # Filter out points not within their respective buffered transect
-    filtered = grouped.filter(lambda x: x.geometry.within(buffered_lines_gdf[buffered_lines_gdf['id'].isin(x['transect_id'])].unary_union).all())
+    filtered = grouped.filter(
+        lambda x: x.geometry.within(
+            buffered_lines_gdf[
+                buffered_lines_gdf["id"].isin(x["transect_id"])
+            ].unary_union
+        ).all()
+    )
 
     # Identify the dropped rows by comparing the original dataframe within the buffer and the filtered results
     dropped_rows = points_gdf[~points_gdf.index.isin(filtered.index)]
@@ -1849,29 +1954,35 @@ def intersect_with_buffered_transects(points_gdf, transects, buffer_distance = 0
     return filtered, dropped_rows
 
 
-def sort_transects(gdf, sort_by='start_lon'):
+def sort_transects(gdf, sort_by="start_lon"):
     """
     Sorts a GeoDataFrame of transects based on the starting points.
 
     Args:
         gdf (GeoDataFrame): The GeoDataFrame containing the transects.
-        sort_by (str, optional): The attribute to sort the transects by. 
-            Defaults to 'start_lon'. Can be either 'start_lon' for west to east sorting 
+        sort_by (str, optional): The attribute to sort the transects by.
+            Defaults to 'start_lon'. Can be either 'start_lon' for west to east sorting
             or 'start_lat' for south to north sorting.
 
     Returns:
         GeoDataFrame: The sorted GeoDataFrame.
 
     """
-    gdf['start_lon'] = gdf.geometry.apply(lambda x: x.coords[0][0])  # Longitude of the starting point
-    gdf['start_lat'] = gdf.geometry.apply(lambda x: x.coords[0][1])  # Latitude of the starting point
+    gdf["start_lon"] = gdf.geometry.apply(
+        lambda x: x.coords[0][0]
+    )  # Longitude of the starting point
+    gdf["start_lat"] = gdf.geometry.apply(
+        lambda x: x.coords[0][1]
+    )  # Latitude of the starting point
 
     # Now, sort the GeoDataFrame by these starting points
     # For west to east, sort by 'start_lon'; for south to north, sort by 'start_lat'
-    if sort_by == 'start_lon':
-        gdf_sorted = gdf.sort_values(by='start_lon')  # or 'start_lat' for south to north
+    if sort_by == "start_lon":
+        gdf_sorted = gdf.sort_values(
+            by="start_lon"
+        )  # or 'start_lat' for south to north
     else:
-        gdf_sorted = gdf.sort_values(by='start_lat')
+        gdf_sorted = gdf.sort_values(by="start_lat")
     return gdf_sorted
 
 
@@ -1923,7 +2034,10 @@ def convert_transect_ids_to_rows(df):
     )
     return reshaped_df.dropna()
 
-def filter_dropped_points_out_of_timeseries(timeseries_df:pd.DataFrame, dropped_points_df:pd.DataFrame)->pd.DataFrame:
+
+def filter_dropped_points_out_of_timeseries(
+    timeseries_df: pd.DataFrame, dropped_points_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Filter out dropped points from a timeseries dataframe.
 
@@ -1935,16 +2049,23 @@ def filter_dropped_points_out_of_timeseries(timeseries_df:pd.DataFrame, dropped_
         pandas.DataFrame: The filtered timeseries dataframe with dropped points set to NaN.
     """
     # Iterate through unique transect ids from drop_df to avoid setting the same column multiple times
-    for t_id in dropped_points_df['transect_id'].unique():
+    for t_id in dropped_points_df["transect_id"].unique():
         # Find all the dates associated with this transect_id in dropped_points_df
-        dates_to_drop = dropped_points_df.loc[dropped_points_df['transect_id'] == t_id, 'dates']
-        timeseries_df.loc[timeseries_df['dates'].isin(dates_to_drop), t_id] = np.nan
+        dates_to_drop = dropped_points_df.loc[
+            dropped_points_df["transect_id"] == t_id, "dates"
+        ]
+        timeseries_df.loc[timeseries_df["dates"].isin(dates_to_drop), t_id] = np.nan
     return timeseries_df
 
-def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
-                              save_location:str,
-                              only_keep_points_on_transects:bool=False,
-                              extension:str=""):
+
+def add_lat_lon_to_timeseries(
+    merged_timeseries_df,
+    transects_gdf,
+    timeseries_df,
+    save_location: str,
+    only_keep_points_on_transects: bool = False,
+    extension: str = "",
+):
     """
     Adds latitude and longitude coordinates to a timeseries dataframe based on shoreline positions.
 
@@ -1953,41 +2074,54 @@ def add_lat_lon_to_timeseries(merged_timeseries_df, transects_gdf,timeseries_df,
         transects_gdf (geopandas.GeoDataFrame): The geodataframe containing transect information.
         timeseries_df (pandas.DataFrame): The original timeseries dataframe.This is a matrix of dates x transect id with the cross shore distance as the values.
         save_location (str): The directory path to save the output files.
-        only_keep_points_on_transects (bool, optional): Whether to keep only the points that fall on the transects. 
+        only_keep_points_on_transects (bool, optional): Whether to keep only the points that fall on the transects.
                                                   Defaults to False.
         extension (str, optional): An extension to add to the output filenames. Defaults to "".
-        
+
 
     Returns:
         pandas.DataFrame: The updated timeseries dataframe with latitude and longitude coordinates.
 
     """
-    ext = "" if extension=="" else f'{extension}'
-    
+    ext = "" if extension == "" else f"{extension}"
+
     # add the shoreline position as an x and y coordinate to the csv called shore_x and shore_y
-    merged_timeseries_df = add_shore_points_to_timeseries(merged_timeseries_df, transects_gdf)
+    merged_timeseries_df = add_shore_points_to_timeseries(
+        merged_timeseries_df, transects_gdf
+    )
 
     # The following code is for the zoo workflow but it shouldn't impact coastseg workflow ( adds models scores to merged_timeseries_df)
-    if 'tide' in merged_timeseries_df.columns:
-        merged_timeseries_df = merge_tide_corrected_with_raw_timeseries(save_location,merged_timeseries_df)
+    if "tide" in merged_timeseries_df.columns:
+        merged_timeseries_df = merge_tide_corrected_with_raw_timeseries(
+            save_location, merged_timeseries_df
+        )
 
     if only_keep_points_on_transects:
-        merged_timeseries_df,timeseries_df = filter_points_not_on_transects(merged_timeseries_df,timeseries_df,transects_gdf,save_location,ext)
+        merged_timeseries_df, timeseries_df = filter_points_not_on_transects(
+            merged_timeseries_df, timeseries_df, transects_gdf, save_location, ext
+        )
 
     # convert merged timeseries to a geodataframe in crs 4326, that is because the the transects gdf has its points in epsg 4326
     merged_timeseries_gdf = create_merged_timeseries_gdf(merged_timeseries_df)
 
     if merged_timeseries_gdf.empty:
-        logger.warning(f"No extracted shorelines intersected the transects. Will not create '{ext}_transect_time_series_vectors.geojson' and '{ext}_transect_time_series_points.geojson' .")
-        print((f"No extracted shorelines intersected the transects. Will not create '{ext}_transect_time_series_vectors.geojson' and '{ext}_transect_time_series_points.geojson'."))
-        return merged_timeseries_df,timeseries_df
+        logger.warning(
+            f"No extracted shorelines intersected the transects. Will not create '{ext}_transect_time_series_vectors.geojson' and '{ext}_transect_time_series_points.geojson' ."
+        )
+        print(
+            (
+                f"No extracted shorelines intersected the transects. Will not create '{ext}_transect_time_series_vectors.geojson' and '{ext}_transect_time_series_points.geojson'."
+            )
+        )
+        return merged_timeseries_df, timeseries_df
 
     # saves the merged_timeseries to a geojson file called '{ext}_transect_time_series_points.geojson'. with the shore_x and shore_y values as points
-    save_timeseries_points_as_geojson(merged_timeseries_gdf,ext,save_location)
+    save_timeseries_points_as_geojson(merged_timeseries_gdf, ext, save_location)
     # saves the merged_timeseries to a geojson file called '{ext}_transect_time_series_vectors.geojson'. with the shore_x and shore_y values as points
-    save_timeseries_vectors_as_geojson(merged_timeseries_gdf,ext,save_location)
+    save_timeseries_vectors_as_geojson(merged_timeseries_gdf, ext, save_location)
 
-    return merged_timeseries_df,timeseries_df
+    return merged_timeseries_df, timeseries_df
+
 
 def points_to_linestrings(gdf, date_column):
     """
@@ -2012,7 +2146,9 @@ def points_to_linestrings(gdf, date_column):
             # Handle a single point by creating a slightly modified copy
             original_point = group.geometry.iloc[0]
             if isinstance(original_point, Point):
-                modified_point = Point(original_point.x + offset, original_point.y + offset)
+                modified_point = Point(
+                    original_point.x + offset, original_point.y + offset
+                )
                 linestring = LineString([original_point, modified_point])
             else:
                 # Skip if geometry is not a point
@@ -2027,18 +2163,21 @@ def points_to_linestrings(gdf, date_column):
         # Copy attributes from the first row, ensure modifications don't impact the original group
         attributes = group.iloc[0].copy().to_dict()
         attributes[date_column] = date  # Ensure the date is correctly assigned
-        attributes['geometry'] = linestring  # Set the geometry to the linestring
+        attributes["geometry"] = linestring  # Set the geometry to the linestring
 
         # Append the attributes as a dictionary to the data list
         data.append(attributes)
 
     # Create a new GeoDataFrame from the list of dictionaries
     new_gdf = gpd.GeoDataFrame(data, crs=gdf.crs)
-    new_gdf.reset_index(inplace=True,drop=True)
+    new_gdf.reset_index(inplace=True, drop=True)
 
     return new_gdf
 
-def create_merged_timeseries_gdf(merged_timeseries_df: pd.DataFrame) -> gpd.GeoDataFrame:
+
+def create_merged_timeseries_gdf(
+    merged_timeseries_df: pd.DataFrame,
+) -> gpd.GeoDataFrame:
     """
     Convert a DataFrame containing timeseries data into a GeoDataFrame with geometry based on shore_x and shore_y columns.
     Geodataframe is in crs 4326.
@@ -2050,14 +2189,22 @@ def create_merged_timeseries_gdf(merged_timeseries_df: pd.DataFrame) -> gpd.GeoD
     """
     # convert to geodataframe
     merged_timeseries_gdf = gpd.GeoDataFrame(
-        merged_timeseries_df, 
-        geometry=[Point(xy) for xy in zip(merged_timeseries_df['shore_x'], merged_timeseries_df['shore_y'])], 
-        crs="EPSG:4326"
+        merged_timeseries_df,
+        geometry=[
+            Point(xy)
+            for xy in zip(
+                merged_timeseries_df["shore_x"], merged_timeseries_df["shore_y"]
+            )
+        ],
+        crs="EPSG:4326",
     )
-    merged_timeseries_gdf.to_crs("EPSG:4326",inplace=True)
+    merged_timeseries_gdf.to_crs("EPSG:4326", inplace=True)
     return merged_timeseries_gdf
 
-def save_timeseries_points_as_geojson(merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None) -> gpd.GeoDataFrame:
+
+def save_timeseries_points_as_geojson(
+    merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None
+) -> gpd.GeoDataFrame:
     """
     Save the merged timeseries that includes the shore_x and shore_y columns to a GeoJSON file.
 
@@ -2070,22 +2217,37 @@ def save_timeseries_points_as_geojson(merged_timeseries_gdf: gpd.GeoDataFrame, e
         gpd.GeoDataFrame: The timeseries points GeoDataFrame.
     """
     if merged_timeseries_gdf.empty:
-        raise ValueError(f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty.")
-    
+        raise ValueError(
+            f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty."
+        )
+
     timeseries_points_gdf = convert_date_gdf(
         merged_timeseries_gdf.drop(
-            columns=['x', 'y', 'shore_x', 'shore_y', 'cross_distance', 'tide', 'transect_id'],
-            errors='ignore'
-        ).rename(columns={'dates': 'date'}).to_crs('epsg:4326')
+            columns=[
+                "x",
+                "y",
+                "shore_x",
+                "shore_y",
+                "cross_distance",
+                "tide",
+                "transect_id",
+            ],
+            errors="ignore",
+        )
+        .rename(columns={"dates": "date"})
+        .to_crs("epsg:4326")
     )
     if os.path.exists(save_location):
         timeseries_points_gdf.to_file(
             os.path.join(save_location, f"{ext}_transect_time_series_points.geojson"),
-            driver='GeoJSON'
+            driver="GeoJSON",
         )
     return timeseries_points_gdf
 
-def save_timeseries_vectors_as_geojson(merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None) -> gpd.GeoDataFrame:
+
+def save_timeseries_vectors_as_geojson(
+    merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None
+) -> gpd.GeoDataFrame:
     """
     Save the time series of along shore points as vectors to a GeoJSON file called '{ext}_transect_time_series_vectors.geojson'.
 
@@ -2099,27 +2261,45 @@ def save_timeseries_vectors_as_geojson(merged_timeseries_gdf: gpd.GeoDataFrame, 
     """
     if merged_timeseries_gdf.empty:
         # raise ValueError(f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty.")
-        logger.warning(f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty.")
+        logger.warning(
+            f"Cannot create '{ext}_transect_time_series_vectors.geojson'. The input GeoDataFrame is empty."
+        )
         return merged_timeseries_gdf
 
     cross_shore_pts = convert_date_gdf(
         merged_timeseries_gdf.drop(
-            columns=['x', 'y', 'shore_x', 'shore_y', 'cross_distance','transect_id',],
-            errors='ignore'
-        ).to_crs('epsg:4326').rename(columns={'dates': 'date'})
+            columns=[
+                "x",
+                "y",
+                "shore_x",
+                "shore_y",
+                "cross_distance",
+                "transect_id",
+            ],
+            errors="ignore",
+        )
+        .to_crs("epsg:4326")
+        .rename(columns={"dates": "date"})
     )
-    timeseries_lines_gdf = convert_points_to_linestrings(cross_shore_pts, group_col='date', output_crs='epsg:4326')
+    timeseries_lines_gdf = convert_points_to_linestrings(
+        cross_shore_pts, group_col="date", output_crs="epsg:4326"
+    )
     if os.path.exists(save_location):
-        timeseries_lines_gdf_path = os.path.join(save_location, f'{ext}_transect_time_series_vectors.geojson')
-        
+        timeseries_lines_gdf_path = os.path.join(
+            save_location, f"{ext}_transect_time_series_vectors.geojson"
+        )
+
         timeseries_lines_gdf.to_file(timeseries_lines_gdf_path)
     return timeseries_lines_gdf
 
-def filter_points_not_on_transects(merged_timeseries_df: pd.DataFrame,
-                                   timeseries_df: pd.DataFrame,
-                                   transects_gdf: gpd.GeoDataFrame,
-                                   save_location: str,
-                                   ext: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+
+def filter_points_not_on_transects(
+    merged_timeseries_df: pd.DataFrame,
+    timeseries_df: pd.DataFrame,
+    transects_gdf: gpd.GeoDataFrame,
+    save_location: str,
+    ext: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Filter out points from the timeseries that do not land on the transects.
     Returns both the modified merged timeseries and timeseries dataframes after dropping the points that
@@ -2137,22 +2317,35 @@ def filter_points_not_on_transects(merged_timeseries_df: pd.DataFrame,
     """
     # create a geodataframe from the merged timeseries dataframe
     merged_timeseries_gdf = create_merged_timeseries_gdf(merged_timeseries_df)
-    merged_timeseries_gdf,dropped_points_df = filter_points_outside_transects(merged_timeseries_gdf,transects_gdf,save_location,ext)
+    merged_timeseries_gdf, dropped_points_df = filter_points_outside_transects(
+        merged_timeseries_gdf, transects_gdf, save_location, ext
+    )
     if not dropped_points_df.empty:
-        timeseries_df = filter_dropped_points_out_of_timeseries(timeseries_df, dropped_points_df)
-        merged_timeseries_df = merged_timeseries_df[~merged_timeseries_df.set_index(['dates', 'transect_id']).index.isin(dropped_points_df.set_index(['dates', 'transect_id']).index)]
+        timeseries_df = filter_dropped_points_out_of_timeseries(
+            timeseries_df, dropped_points_df
+        )
+        merged_timeseries_df = merged_timeseries_df[
+            ~merged_timeseries_df.set_index(["dates", "transect_id"]).index.isin(
+                dropped_points_df.set_index(["dates", "transect_id"]).index
+            )
+        ]
         if len(merged_timeseries_df) == 0:
-            logger.warning("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
-            print("All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points.")
-    return merged_timeseries_df,timeseries_df
+            logger.warning(
+                "All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points."
+            )
+            print(
+                "All points were dropped from the timeseries. This means all of the detected shoreline points were not on the transects. Turn off the only_keep_points_on_transects parameter to keep all points."
+            )
+    return merged_timeseries_df, timeseries_df
+
 
 def save_transects(
     save_location: str,
     cross_distance_transects: dict,
     extracted_shorelines: dict,
     settings: dict,
-    transects_gdf:gpd.GeoDataFrame,
-    drop_intersection_pts = False,
+    transects_gdf: gpd.GeoDataFrame,
+    drop_intersection_pts=False,
 ) -> None:
     """
     Save transect data, including raw timeseries, intersection data, and cross distances.
@@ -2169,38 +2362,52 @@ def save_transects(
 
     Returns:
         None.
-    """    
+    """
     cross_distance_df = get_cross_distance_df(
         extracted_shorelines, cross_distance_transects
     )
     cross_distance_df.dropna(axis="columns", how="all", inplace=True)
-    
+
     # get the last point (aka the seaward point) from each transect
     seaward_points = get_seaward_points_gdf(transects_gdf)
     timeseries_df = convert_transect_ids_to_rows(cross_distance_df)
-    timeseries_df = timeseries_df.sort_values('dates')
-    merged_timeseries_df=merge_dataframes(timeseries_df, seaward_points,columns_to_merge_on=["transect_id"])
-    merged_timeseries_df['x'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.x)
-    merged_timeseries_df['y'] = merged_timeseries_df['geometry'].apply(lambda geom: geom.y)
-    merged_timeseries_df.drop('geometry', axis=1, inplace=True)
+    timeseries_df = timeseries_df.sort_values("dates")
+    merged_timeseries_df = merge_dataframes(
+        timeseries_df, seaward_points, columns_to_merge_on=["transect_id"]
+    )
+    merged_timeseries_df["x"] = merged_timeseries_df["geometry"].apply(
+        lambda geom: geom.x
+    )
+    merged_timeseries_df["y"] = merged_timeseries_df["geometry"].apply(
+        lambda geom: geom.y
+    )
+    merged_timeseries_df.drop("geometry", axis=1, inplace=True)
 
     # re-order columns
-    merged_timeseries_df = merged_timeseries_df[['dates', 'x', 'y', 'transect_id', 'cross_distance']]
+    merged_timeseries_df = merged_timeseries_df[
+        ["dates", "x", "y", "transect_id", "cross_distance"]
+    ]
     # add the shore_x and shore_y columns to the merged time series which are the x and y coordinates of the shore points along the transects
-    merged_timeseries_df,timeseries_df = add_lat_lon_to_timeseries(merged_timeseries_df,
-                                                                    transects_gdf.to_crs('epsg:4326'),cross_distance_df,save_location,
-                              drop_intersection_pts,
-                              "raw")
+    merged_timeseries_df, timeseries_df = add_lat_lon_to_timeseries(
+        merged_timeseries_df,
+        transects_gdf.to_crs("epsg:4326"),
+        cross_distance_df,
+        save_location,
+        drop_intersection_pts,
+        "raw",
+    )
     # save the raw transect time series which contains the columns ['dates', 'x', 'y', 'transect_id', 'cross_distance','shore_x','shore_y']  to file
     filepath = os.path.join(save_location, "raw_transect_time_series_merged.csv")
-    merged_timeseries_df.to_csv(filepath, sep=",",index=False) 
-    
+    merged_timeseries_df.to_csv(filepath, sep=",", index=False)
+
     # sort the columns
-    sorted_columns = [timeseries_df.columns[0]] + sorted(timeseries_df.columns[1:], key=lambda x: int(''.join(filter(str.isdigit, x))))
+    sorted_columns = [timeseries_df.columns[0]] + sorted(
+        timeseries_df.columns[1:], key=lambda x: int("".join(filter(str.isdigit, x)))
+    )
     timeseries_df = timeseries_df[sorted_columns]
 
     filepath = os.path.join(save_location, "raw_transect_time_series.csv")
-    timeseries_df.to_csv(filepath, sep=",",index=False)
+    timeseries_df.to_csv(filepath, sep=",", index=False)
 
     # save transect settings to file
     transect_settings = get_transect_settings(settings)
@@ -2209,7 +2416,13 @@ def save_transects(
     save_path = os.path.join(save_location, "transects_cross_distances.json")
     file_utilities.to_file(cross_distance_transects, save_path)
 
-def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, transects_gdf:gpd.GeoDataFrame, save_location: str, name: str = ""):
+
+def filter_points_outside_transects(
+    merged_timeseries_gdf: gpd.GeoDataFrame,
+    transects_gdf: gpd.GeoDataFrame,
+    save_location: str,
+    name: str = "",
+):
     """
     Filters points outside of transects from a merged timeseries GeoDataFrame.
 
@@ -2223,22 +2436,34 @@ def filter_points_outside_transects(merged_timeseries_gdf:gpd.GeoDataFrame, tran
         tuple: A tuple containing the filtered merged timeseries GeoDataFrame and a DataFrame of dropped points.
 
     """
-    extension = "" if name == "" else f'{name}_'
+    extension = "" if name == "" else f"{name}_"
     timeseries_df = pd.DataFrame(merged_timeseries_gdf)
-    timeseries_df.drop(columns=['geometry'], inplace=True)
+    timeseries_df.drop(columns=["geometry"], inplace=True)
     # estimate crs of transects
     utm_crs = merged_timeseries_gdf.estimate_utm_crs()
     # intersect the points with the transects
-    filtered_merged_timeseries_gdf_utm, dropped_points_df = intersect_with_buffered_transects(
-        merged_timeseries_gdf.to_crs(utm_crs), transects_gdf.to_crs(utm_crs))
+    filtered_merged_timeseries_gdf_utm, dropped_points_df = (
+        intersect_with_buffered_transects(
+            merged_timeseries_gdf.to_crs(utm_crs), transects_gdf.to_crs(utm_crs)
+        )
+    )
     # Get a dataframe containing the points that were filtered out from the time series because they were not on the transects
-    dropped_points_df.drop(columns=['geometry']).to_csv(os.path.join(save_location, f"{extension}dropped_points_time_series.csv"), index=False)
+    dropped_points_df.drop(columns=["geometry"]).to_csv(
+        os.path.join(save_location, f"{extension}dropped_points_time_series.csv"),
+        index=False,
+    )
     # convert back to same crs as original merged_timeseries_gdf
-    merged_timeseries_gdf = filtered_merged_timeseries_gdf_utm.to_crs(merged_timeseries_gdf.crs)
+    merged_timeseries_gdf = filtered_merged_timeseries_gdf_utm.to_crs(
+        merged_timeseries_gdf.crs
+    )
     return merged_timeseries_gdf, dropped_points_df
 
 
-def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326',) -> gpd.GeoDataFrame:
+def convert_points_to_linestrings(
+    gdf,
+    group_col="date",
+    output_crs="epsg:4326",
+) -> gpd.GeoDataFrame:
     """
     Convert points to LineStrings.
 
@@ -2259,15 +2484,15 @@ def convert_points_to_linestrings(gdf, group_col='date', output_crs='epsg:4326',
         gdf.to_crs(output_crs, inplace=True)
     else:
         gdf.set_crs(output_crs, inplace=True)
-    
 
     # Create a new GeoDataFrame from the LineStrings
     linestrings_gdf = points_to_linestrings(gdf, group_col)
-    
+
     # order the linestrings so that they are continuous
-    linestrings_gdf = order_linestrings_gdf(linestrings_gdf,output_crs=output_crs)
-    
+    linestrings_gdf = order_linestrings_gdf(linestrings_gdf, output_crs=output_crs)
+
     return linestrings_gdf
+
 
 def get_downloaded_models_dir() -> str:
     """returns full path to downloaded_models directory and
@@ -2304,7 +2529,7 @@ def get_value_by_key_pattern(d: dict, patterns: list | set | tuple):
         for pattern in patterns:
             if re.search(pattern, key, re.IGNORECASE):
                 return d[key]
-    raise KeyError(f"None of {patterns} matched keys in {d.keys()}")
+    raise KeyError(f"None of {patterns} matched keys in {list(d.keys())}")
 
 
 def copy_configs(src: str, dst: str) -> None:
@@ -2331,6 +2556,7 @@ def copy_configs(src: str, dst: str) -> None:
             dst_file = os.path.join(dst, "config.json")
             logger.info(f"Copying {config_json_path} to {dst_file}")
             shutil.copy(config_json_path, dst_file)
+
 
 def create_file_chooser_with_clear(
     callback,
@@ -2360,9 +2586,11 @@ def create_file_chooser_with_clear(
     file_chooser = FileChooser(initial_path)
 
     file_chooser.dir_icon = os.sep
-    file_chooser.filter_pattern = ["*.geojson"] if not filter_pattern else [filter_pattern]
+    file_chooser.filter_pattern = (
+        ["*.geojson"] if not filter_pattern else [filter_pattern]
+    )
     file_chooser.title = f"<b>{title or 'Select a geojson file'}</b>"
-    
+
     # callback function is called when a file is selected
     file_chooser.register_callback(callback)
 
@@ -2370,7 +2598,7 @@ def create_file_chooser_with_clear(
         description="Clear",
         tooltip="Clear the selected file",
         button_style="warning",
-        layout=Layout(height="28px", padding=padding)
+        layout=Layout(height="28px", padding=padding),
     )
 
     def clear_selection(b):
@@ -2380,6 +2608,7 @@ def create_file_chooser_with_clear(
 
     chooser = HBox([file_chooser, clear_button], layout=Layout(width="100%"))
     return chooser, file_chooser
+
 
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
@@ -2457,6 +2686,7 @@ def get_most_accurate_epsg(epsg_code: int, polygon: gpd.GeoDataFrame):
         geometry = polygon.iloc[0]["geometry"]
         epsg_code = get_epsg_from_geometry(geometry)
     return epsg_code
+
 
 def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
     """
@@ -2631,7 +2861,9 @@ def mount_google_drive(name: str = "CoastSeg") -> None:
         print("Not running in Google Colab.")
 
 
-def create_hover_box(title: str, feature_html: HTML = HTML(""),default_msg: str = "Hover over a feature") -> VBox:
+def create_hover_box(
+    title: str, feature_html: HTML = HTML(""), default_msg: str = "Hover over a feature"
+) -> VBox:
     """
     Creates a box with a title and optional HTML containing information about the feature that was
     last hovered over.
@@ -2650,8 +2882,10 @@ def create_hover_box(title: str, feature_html: HTML = HTML(""),default_msg: str 
     padding = "0px 0px 4px 0px"  # upper, right, bottom, left
     # create title
     # title = HTML(f"<b>{title}</b>")
-    title_html = HTML(f"<b>{title}</b>", layout=Layout(margin="0px 8px"))  # Adjust 10px as needed for left and right margins
-    
+    title_html = HTML(
+        f"<b>{title}</b>", layout=Layout(margin="0px 8px")
+    )  # Adjust 10px as needed for left and right margins
+
     # Default message shown when nothing has been hovered
     msg = HTML(f"{default_msg}<br/>")
     # open button allows user to see hover data
@@ -2659,7 +2893,7 @@ def create_hover_box(title: str, feature_html: HTML = HTML(""),default_msg: str 
         value=False,
         tooltip="Show hover data",
         icon="angle-down",
-        button_style='primary',
+        button_style="primary",
         layout=Layout(height="28px", width="28px", padding=padding),
     )
 
@@ -2680,7 +2914,7 @@ def create_hover_box(title: str, feature_html: HTML = HTML(""),default_msg: str 
         container_content.children = [feature_html]
 
     # default configuration for container is in collapsed mode
-    container_header = HBox([uncollapse_button,title_html])
+    container_header = HBox([uncollapse_button, title_html])
     container = VBox([container_header])
 
     def uncollapse_click(change: dict):
@@ -2688,11 +2922,11 @@ def create_hover_box(title: str, feature_html: HTML = HTML(""),default_msg: str 
             container_content.children = [msg]
         elif feature_html.value != "":
             container_content.children = [feature_html]
-        container_header.children = [close_button,title_html]
+        container_header.children = [close_button, title_html]
         container.children = [container_header, container_content]
 
     def collapse_click(change: dict):
-        container_header.children = [uncollapse_button,title_html]
+        container_header.children = [uncollapse_button, title_html]
         container.children = [container_header]
 
     close_button.observe(collapse_click, "value")
@@ -2758,7 +2992,12 @@ def create_warning_box(
     # create vertical box to hold title and msg
     warning_content = VBox(
         [warning_title, warning_msg, instructions_msg, close_button],
-        layout=Layout(width=msg_width, max_width="95%",padding='0px 0px 10px 0px',margin='4px 4px 4px 4px'),
+        layout=Layout(
+            width=msg_width,
+            max_width="95%",
+            padding="0px 0px 10px 0px",
+            margin="4px 4px 4px 4px",
+        ),
     )
 
     def close_click(change):
@@ -2772,7 +3011,7 @@ def create_warning_box(
     x_button.observe(close_click, "value")
     warning_box = HBox(
         [warning_content, x_button],
-        layout=Layout(width=box_width, height='100%', border="4px solid red"),
+        layout=Layout(width=box_width, height="100%", border="4px solid red"),
     )
     return warning_box
 
@@ -2844,8 +3083,6 @@ def get_center_point(coords: list) -> tuple:
     x2, y2 = coords[2][0], coords[2][1]
     center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
     return center_x, center_y
-
-
 
 
 def get_epsg_from_geometry(geometry: "shapely.geometry.polygon.Polygon") -> int:
@@ -2937,7 +3174,7 @@ def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = No
     return roi_data
 
 
-def extract_fields(data: dict, key=None, fields_of_interest:list=None)->dict:
+def extract_fields(data: dict, key=None, fields_of_interest: list = None) -> dict:
     """
     Extracts specified fields from a given dictionary.
 
@@ -3092,6 +3329,7 @@ def get_cross_distance_df(
     # df['satname'] = extracted_shorelines["satname"]
     return pd.DataFrame(transects_csv)
 
+
 def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """If the GeoDataFrame has z coordinates in any rows, the z coordinates are dropped.
     Otherwise the original GeoDataFrame is returned.
@@ -3176,7 +3414,7 @@ def save_extracted_shoreline_figures(settings: dict, save_path: str):
     Args:
         settings (dict): A dictionary containing the settings for the extraction process.
         Settings must contain the 'filepath' and 'sitename' keys.
-        Where 'filepath' is the path to the ROI within /data and 'sitename' is the name of the ROI. 
+        Where 'filepath' is the path to the ROI within /data and 'sitename' is the name of the ROI.
         save_path (str): The path where the extracted shoreline figures will be saved.
         This is the session path where the extracted shorelines are saved.
     """
@@ -3229,7 +3467,6 @@ def convert_linestrings_to_multipoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFram
     return gdf
 
 
-
 def save_extracted_shorelines(
     extracted_shorelines: "Extracted_Shoreline", save_path: str
 ):
@@ -3257,12 +3494,14 @@ def save_extracted_shorelines(
         save_path, "extracted_shorelines_lines.geojson", extracted_shorelines_gdf_lines
     )
     # convert linestrings to multipoints
-    points_gdf = convert_linestrings_to_multipoints(extracted_shorelines_gdf_lines.copy())
+    points_gdf = convert_linestrings_to_multipoints(
+        extracted_shorelines_gdf_lines.copy()
+    )
 
     # fix the dates column so that the format is "%Y-%m-%d %H:%M:%S"
-    points_gdf['date'] = pd.to_datetime(points_gdf['date'])
-    points_gdf['date'] = points_gdf['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    points_gdf['date'] = pd.to_datetime(points_gdf['date'])
+    points_gdf["date"] = pd.to_datetime(points_gdf["date"])
+    points_gdf["date"] = points_gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    points_gdf["date"] = pd.to_datetime(points_gdf["date"])
 
     projected_gdf = stringify_datetime_columns(points_gdf)
     # Save extracted shorelines as a GeoJSON file
@@ -3366,6 +3605,7 @@ def set_crs_or_initialize_empty(gdf: gpd.GeoDataFrame, epsg_code: str):
         # Transform the CRS of the non-empty GeoDataFrame
         return gdf.to_crs(epsg_code)
 
+
 def create_config_gdf(
     rois_gdf: gpd.GeoDataFrame,
     shorelines_gdf: gpd.GeoDataFrame = None,
@@ -3386,7 +3626,7 @@ def create_config_gdf(
       the CRS of rois_gdf will be used. If not provided and rois_gdf is empty, an error will be raised.
     - shoreline_extraction_area_gdf (gpd.GeoDataFrame, optional): The GeoDataFrame containing a reference polygon used to only keep shoreline vector that intersect with this region.
        Defaults to None.
-    
+
     Returns:
     - gpd.GeoDataFrame: A concatenated GeoDataFrame with a consistent CRS, and a "type" column
       indicating the type of each geometry (either "roi", "shoreline", "transect", or "bbox").
@@ -3432,7 +3672,7 @@ def get_jpgs_from_data() -> str:
     This is where the model will save the computed segmentations."""
     # Data folder location
     base_path = os.path.abspath(core_utilities.get_base_dir())
-    src_path = os.path.join(base_path,  "data")
+    src_path = os.path.join(base_path, "data")
     if os.path.exists(src_path):
         rename_jpgs(src_path)
         # Create a new folder to hold all the data
@@ -3502,7 +3742,7 @@ def save_config_files(
         shorelines_gdf=shorelines_gdf,
         transects_gdf=transects_gdf,
         epsg_code=epsg_code,
-        shoreline_extraction_area_gdf = shoreline_extraction_area_gdf
+        shoreline_extraction_area_gdf=shoreline_extraction_area_gdf,
     )
     file_utilities.config_to_file(config_gdf, save_location)
 
@@ -3681,13 +3921,14 @@ def create_roi_settings(
             "sitename": sitename,
             "filepath": filepath,
             "include_T2": False,
-            "sentinel_1_properties":{
+            "sentinel_1_properties": {
                 "transmitterReceiverPolarisation": ["VH"],
                 "instrumentMode": "IW",
-            }#@todo these are hardcoded for now because only the logic for handling the VH polarisation is implemented
+            },  # @todo these are hardcoded for now because only the logic for handling the VH polarisation is implemented
         }
         roi_settings[roi_id] = inputs_dict
     return roi_settings
+
 
 def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
     """returns resized matrix with shape(rows,cols)
@@ -3712,6 +3953,7 @@ def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
     ]
     return np.array(tmp).reshape((rows, cols))
 
+
 def rescale_array(dat, mn, mx):
     """
     rescales an input dat between mn and mx
@@ -3721,6 +3963,3 @@ def rescale_array(dat, mn, mx):
     m = min(dat.flatten())
     M = max(dat.flatten())
     return (mx - mn) * (dat - m) / (M - m) + mn
-
-
-    
