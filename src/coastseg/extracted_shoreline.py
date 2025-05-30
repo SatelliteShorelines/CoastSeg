@@ -1,5 +1,4 @@
 # Standard library imports
-import colorsys
 import copy
 import datetime
 import fnmatch
@@ -20,15 +19,9 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from ipyleaflet import GeoJSON
-import matplotlib.lines as mlines
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
 import matplotlib
 
 matplotlib.use("Agg")  # Use a non-GUI backend
-from matplotlib import gridspec
-from matplotlib.colors import rgb2hex
-from matplotlib.pyplot import get_cmap
 from skimage import measure, morphology
 from shapely.geometry import LineString, MultiPoint
 from tqdm.auto import tqdm
@@ -37,6 +30,7 @@ from osgeo import gdal
 # Local project imports
 from coastseg import common, exceptions, file_utilities, geodata_processing, plotting
 from coastseg import core_utilities
+from coastseg.model_info import ModelInfo
 from coastseg.intersections import split_line
 from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools, SDS_transects
 
@@ -1183,11 +1177,11 @@ def process_satellite(
     settings: dict,
     metadata: dict,
     session_path: str,
-    class_indices: List[int] = None,
-    class_mapping: Dict[int, str] = None,
+    class_indices: Optional[List[int]] = None,
+    class_mapping: Optional[Dict[int, str]] = None,
     save_location: str = "",
     batch_size: int = 10,
-    shoreline_extraction_area: gpd.GeoDataFrame = None,
+    shoreline_extraction_area: Optional[gpd.GeoDataFrame] = None,
     **kwargs: dict,
 ):
     """
@@ -1393,11 +1387,11 @@ def process_satellite_image(
     image_epsg: int,
     pixel_size: float,
     session_path: str,
-    class_indices: List[int] = None,
-    class_mapping: Dict[int, str] = None,
+    class_indices: Optional[List[int]] = None,
+    class_mapping: Optional[Dict[int, str]] = None,
     save_location: str = "",
     apply_cloud_mask: bool = True,
-    shoreline_extraction_area: gpd.GeoDataFrame = None,
+    shoreline_extraction_area: Optional[gpd.GeoDataFrame] = None,
 ) -> Optional[Dict[str, Union[gpd.GeoDataFrame, float]]]:
     """
     Processes a single satellite image to extract the shoreline.
@@ -1415,6 +1409,7 @@ def process_satellite_image(
         class_mapping (dict, optional): A dictionary mapping class indices to class names. Defaults to None.
         save_location (str, optional): The path to save the extracted shorelines. Defaults to "".
         apply_cloud_mask (bool, optional): Whether to apply the cloud mask. Defaults to True.
+        shoreline_extraction_area (gpd.GeoDataFrame, optional): A GeoDataFrame containing the extraction area for the shorelines. Defaults to None.
 
     Returns:
         dict: A dictionary containing the extracted shoreline and cloud cover percentage.
@@ -1433,7 +1428,9 @@ def process_satellite_image(
     )
 
     # if percentage of no data pixels are greater than allowed, skip
-    percent_no_data_allowed = settings.get("percent_no_data", None)
+    percent_no_data_allowed = settings.get(
+        "percent_no_data", None
+    )  # @todo I think this should be 1.0 (aka 100%)  if nothing is set
     if not check_percent_no_data_allowed(
         percent_no_data_allowed, cloud_mask, im_nodata
     ):
@@ -1451,7 +1448,8 @@ def process_satellite_image(
     # compute cloud cover percentage (without no data pixels)
     cloud_cover = get_cloud_cover(cloud_mask, im_nodata)
     # skip image if cloud cover is above user-defined threshold
-    if cloud_cover > settings.get("cloud_thresh", 1.0):
+    cloud_thresh = float(settings.get("cloud_thresh", 1.0))
+    if cloud_cover > cloud_thresh:
         logger.info(f"Cloud thresh exceeded for {filename}")
         return None
     # calculate a buffer around the reference shoreline (if any has been digitised)
@@ -1534,78 +1532,108 @@ def process_satellite_image(
     return output
 
 
-def get_model_card_classes(model_card_path: str) -> dict:
-    """return the classes dictionary from the model card
-        example classes dictionary {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
+def get_model_card_classes(
+    model_card_path: str, default_class_mapping: Optional[dict[int, str]] = None
+) -> dict:
+    """
+    Return the classes dictionary from the model card
+
+    Example classes dictionary {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
+
     Args:
-        model_card_path (str): path to model card
+        model_card_path (str): Path to the model card JSON file.
+        default_class_mapping (dict[int | str, str], optional): A fallback class mapping to use
+            if the model card doesn't include one. Keys can be str or int and will be cast to int.
 
     Returns:
-        dict: dictionary of classes in model card and their corresponding index
+        dict[int, str]: Dictionary mapping class indices (as integers) to class names.
     """
+    if default_class_mapping is None:
+        default_class_mapping = {
+            0: "water",
+            1: "whitewater",
+            2: "sediment",
+            3: "other",
+        }
+
+    # Ensure default_class_mapping keys are ints
+    default_class_mapping = {int(k): v for k, v in default_class_mapping.items()}
+
     model_card_data = file_utilities.read_json_file(model_card_path, raise_error=True)
+
     # read the classes the model was trained with from either the dictionary under key "DATASET" or "DATASET1"
     try:
-        model_card_dataset = common.get_value_by_key_pattern(
-            model_card_data, patterns=("DATASET", "DATASET1")
+        dataset_info = common.get_value_by_key_pattern(
+            model_card_data, ("DATASET", "DATASET1")
         )
-        model_card_classes = model_card_dataset["CLASSES"]
+        classes = dataset_info["CLASSES"]
     except KeyError:
         try:
-            model_card_classes = common.get_value_by_key_pattern(
-                model_card_data, patterns=("CLASSES",)
-            )
+            classes = common.get_value_by_key_pattern(model_card_data, ("CLASSES",))
         except KeyError:
             # use the default classes below if the model card does not have the classes
             # This is the case for the ak only model and the global models (11/05/2024)
-            model_card_classes = {
-                "0": "water",
-                "1": "whitewater",
-                "2": "sediment",
-                "3": "other",
-            }
-    return model_card_classes
+            classes = default_class_mapping
+
+    return {int(k): v for k, v in classes.items()}
 
 
 def get_class_mapping(
-    model_card_path: str,
-) -> dict:
-    # example dictionary {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
-    model_card_classes = get_model_card_classes(model_card_path)
+    model_card_path: str, default_class_mapping: Optional[dict[int, str]] = None
+) -> dict[int, str]:
+    """
+    Retrieves the class index-to-name mapping from a model card.
 
-    class_mapping = {}
-    # get index of each class in class_mapping to match model card classes
-    for index, class_name in model_card_classes.items():
-        class_mapping[index] = class_name
-    # return list of indexes of selected_class_names that were found in model_card_classes
-    return class_mapping
+    Args:
+        model_card_path (str): Path to the model card JSON file.
+        default_class_mapping (dict[int, str], optional): A fallback mapping to use
+            if the model card doesn't define one. Keys will be cast to integers.
+
+
+    Returns:
+        dict[int, str]: A dictionary mapping class indices to class names.
+                        Example: {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
+    """
+    # example dictionary {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
+    model_class_mapping = get_model_card_classes(model_card_path, default_class_mapping)
+
+    return model_class_mapping
 
 
 def get_indices_of_classnames(
-    model_card_path: str,
+    class_mapping: Dict[int, str],
     selected_class_names: List[str],
 ) -> List[int]:
     """
-    Given the path to a model card and a list of selected class names, returns a list of indices of the selected classes
-    in the model card. The model card should be a dictionary that maps class indices to class names.
+    Given a class mapping and a list of selected class names, returns a list of indices
+    corresponding to the selected classes, in the same order as the input list.
 
-    :param model_card_path: a string specifying the path to the model card.
-    :param selected_class_names: a list of strings specifying the names of the selected classes.
-    :return: a list of integers specifying the indices of the selected classes in the model card.
+    Args:
+        class_mapping (Dict[int, str]): Dictionary mapping class indices to class names.
+        selected_class_names (List[str]): List of class names to retrieve indices for.
+
+    Returns:
+        List[int]: List of indices for the selected class names, preserving the input order.
+
+    Example:
+        class_mapping = {
+            0: 'sand',
+            1: 'sediment',
+            2: 'whitewater',
+            3: 'water'
+        }
+        selected_class_names = ['whitewater', 'water']
+
+        get_indices_of_classnames(class_mapping, selected_class_names)
+        # Returns: [2, 3]
     """
-    # example dictionary {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
-    model_card_classes = get_model_card_classes(model_card_path)
+    # Create a reverse lookup from class name to index
+    name_to_index = {name: index for index, name in class_mapping.items()}
 
-    class_indices = []
-    # get index of each class in class_mapping to match model card classes
-    for index, class_name in model_card_classes.items():
-        # see if the class name is in selected_class_names
-        for selected_class_name in selected_class_names:
-            if class_name == selected_class_name:
-                class_indices.append(int(index))
-                break
-    # return list of indexes of selected_class_names that were found in model_card_classes
-    return class_indices
+    # Build result list in order of selected_class_names
+    return [
+        name_to_index[name] for name in selected_class_names if name in name_to_index
+    ]
 
 
 def load_image_labels(npz_file: str) -> np.ndarray:
@@ -1645,7 +1673,7 @@ def merge_classes(im_labels: np.ndarray, classes_to_merge: list) -> np.ndarray:
 
 
 def load_merged_image_labels(
-    npz_file: str, class_indices: list = [2, 1, 0]
+    npz_file: str, class_indices: Optional[List[int]] = None
 ) -> np.ndarray:
     """
     Load and process image labels from a .npz file.
@@ -1654,11 +1682,14 @@ def load_merged_image_labels(
 
     Parameters:
     npz_file (str): The path to the .npz file containing the image labels.
-    class_indices (list): The indexes of the classes to merge.
+    class_indices (list): The indexes of the classes to merge. If None, defaults to [2, 1, 0] which merges water, whitewater and sediment classes.
 
     Returns:
     np.ndarray: A 2D numpy array containing the image labels as 1 for the merged classes and 0 for all other classes.
     """
+    if not class_indices:
+        class_indices = [2, 1, 0]
+
     if not os.path.isfile(npz_file) or not npz_file.endswith(".npz"):
         raise ValueError(f"{npz_file} is not a valid .npz file.")
 
@@ -2155,6 +2186,7 @@ class Extracted_Shoreline:
 
     def create_extracted_shorelines_from_session(
         self,
+        model_info: ModelInfo,
         roi_id: str = None,
         shoreline: gpd.GeoDataFrame = None,
         roi_settings: dict = None,
@@ -2205,32 +2237,8 @@ class Extracted_Shoreline:
 
         logger.info(f"Extracting shorelines for ROI id: {roi_id}")
 
-        # read model settings from session path
-        model_settings_path = os.path.join(session_path, "model_settings.json")
-        model_settings = file_utilities.read_json_file(
-            model_settings_path, raise_error=True
-        )
-        # get model type from model settings
-        model_type = model_settings.get("model_type", "")
-        if model_type == "":
-            raise ValueError(
-                f"Model type cannot be empty.{model_settings_path} did not contain model_type key."
-            )
-        # read model card from downloaded models path
-        downloaded_models_dir = common.get_downloaded_models_dir()
-        downloaded_models_path = os.path.join(downloaded_models_dir, model_type)
-        logger.info(
-            f"Searching for model card in downloaded_models_path: {downloaded_models_path}"
-        )
-        model_card_path = file_utilities.find_file_by_regex(
-            downloaded_models_path, r".*modelcard\.json$"
-        )
-        # get the water index from the model card
-        water_classes_indices = get_indices_of_classnames(
-            model_card_path, ["water", "whitewater"]
-        )
-        # Sample class mapping {0:'water',  1:'whitewater', 2:'sand', 3:'rock'}
-        class_mapping = get_class_mapping(model_card_path)
+        class_mapping = model_info.class_mapping
+        water_classes_indices = model_info.water_class_indices
 
         # # get the reference shoreline
         reference_shoreline = get_reference_shoreline(
@@ -2268,6 +2276,9 @@ class Extracted_Shoreline:
         # shoreline_settings['inputs']['filepath'] (this is typically CoastSeg/data/ROI_id/jpg_files/RGB)
         if not metadata:
             logger.warning(f"Metadata was empty after filtering for session jpg files.")
+            print(
+                f"Metadata was empty after filtering for session jpg files. Check the RGB folders in the folder loaded"
+            )
             self.dictionary = {}
             return self
 
