@@ -25,6 +25,7 @@ from tensorflow.keras import mixed_precision
 
 # Local imports
 from . import __version__
+from coastseg.model_info import ModelInfo
 from coastseg import common
 from coastseg.ml import do_seg
 from coastseg import sessions
@@ -49,6 +50,152 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "4"
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def create_new_session_path(session_name: str) -> str:
+    """
+    Create a new session directory for storing extracted shorelines and transects.
+
+    The session path is created under the base directory returned by core_utilities.get_base_dir(),
+    inside a 'sessions' folder. If the directory already exists, it is not recreated.
+
+    Parameters:
+        session_name (str): The name of the session to create a directory for.
+
+    Returns:
+        str: The absolute path to the newly created (or existing) session directory.
+    """
+    base_path = core_utilities.get_base_dir()
+    session_path = base_path / "sessions" / session_name
+    session_path.mkdir(parents=True, exist_ok=True)
+    return str(session_path.resolve())
+
+
+def load_roi_gdf_from_session(session_path, roi_id, config_geojson_location=None):
+    """
+    Load the GeoDataFrame for a specific ROI from a config_gdf.geojson file.
+
+    Parameters:
+        session_path (str): Path to the session directory. Used to locate the geojson file
+                            if config_geojson_location is not provided.
+        roi_id (str): The Region of Interest (ROI) identifier to extract.
+        config_geojson_location (str, optional): Optional full path to the config_gdf.geojson file.
+                                                 If not provided, the file is searched for in session_path.
+
+    Returns:
+        GeoDataFrame: A GeoDataFrame containing only the row corresponding to the ROI ID.
+
+    Raises:
+        KeyError: If the 'id' column is not present in the GeoDataFrame.
+        ValueError: If no matching ROI ID is found in the GeoDataFrame.
+    """
+    # Use provided geojson location or discover it
+    if config_geojson_location is None:
+        config_geojson_location = file_utilities.find_file_recursively(
+            session_path, "config_gdf.geojson"
+        )
+    logger.info(f"config_geojson_location: {config_geojson_location}")
+
+    config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
+
+    # Check for required 'id' column
+    if "id" not in config_gdf.columns:
+        logger.error(
+            f"'id' column missing in config_gdf.geojson: {config_geojson_location}"
+        )
+        raise KeyError(
+            f"'id' column missing in config_gdf.geojson: {config_geojson_location}"
+        )
+
+    # Filter for the specified ROI ID
+    roi_gdf = config_gdf[config_gdf["id"] == roi_id]
+
+    if roi_gdf.empty:
+        logger.error(
+            f"{roi_id} ROI ID did not exist in config_gdf.geojson: {config_geojson_location}"
+        )
+        raise ValueError(
+            f"{roi_id} ROI ID did not exist in config_gdf.geojson: {config_geojson_location}"
+        )
+
+    return roi_gdf
+
+
+def load_good_bad_csv(roi_id, roi_settings):
+    """
+    Locate and return the file path for the image classification results CSV file
+    for a given ROI.
+
+    Parameters:
+        roi_id (str): The Region of Interest (ROI) identifier.
+        roi_settings (dict): The settings dictionary for the ROI, typically loaded
+                             from a session config file.
+
+    Returns:
+        str or None: The full file path to 'image_classification_results.csv' if found,
+                     otherwise None.
+
+    Logs:
+        An error message if the file could not be located.
+    """
+    try:
+        return file_utilities.find_file_path_in_roi(
+            roi_id, roi_settings, "image_classification_results.csv"
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to locate 'image_classification_results.csv' for ROI '{roi_id}': {e}"
+        )
+        return None
+
+
+def load_roi_settings(session_path: str, roi_id=None):
+    """
+    Load Region of Interest (ROI) settings from a session configuration file.
+
+    Parameters:
+        session_path (str): The file path to the session directory containing config.json.
+        roi_id (str, optional): The specific ROI ID to load. If None, the first ROI ID from
+                                the 'roi_ids' list in the config is used.
+
+    Returns:
+        tuple: A tuple containing:
+            - dict: A dictionary with the ROI ID as the key and its settings as the value.
+            - str: The ROI ID that was loaded.
+
+    Raises:
+        Exception: If the ROI ID is missing, not found in the config, or the config is malformed.
+    """
+    try:
+        # Load configuration from config.json
+        config = file_utilities.load_json_data_from_file(session_path, "config.json")
+
+        # If roi_id is not provided, try to get the first one from the config
+        if roi_id is None:
+            roi_ids = config.get("roi_ids")
+            if not roi_ids:
+                raise KeyError("No ROI IDs found in configuration.")
+            roi_id = roi_ids[0]
+
+        # Ensure the specified roi_id exists in the config
+        if roi_id not in config:
+            raise KeyError(f"ROI ID '{roi_id}' not found in config.")
+
+        roi_settings = {roi_id: config[roi_id]}
+        return roi_settings, roi_id
+
+    except (KeyError, ValueError) as e:
+        logger.error(f"Error loading ROI settings: {e}")
+        if roi_id is None:
+            logger.error(f"roi_id was None. Full config: {config}")
+            raise Exception(f"The session loaded had no valid roi_id. Config: {config}")
+        else:
+            logger.error(
+                f"ROI ID '{roi_id}' not found in config. Full config: {config}"
+            )
+            raise Exception(
+                f"The ROI ID '{roi_id}' did not exist in config.json.\nConfig: {config}"
+            )
 
 
 def apply_smooth_otsu_to_folder(folder):
@@ -804,7 +951,7 @@ class Zoo_Model:
         """
         settings = self.get_settings()
         model_name = settings.get("model_type", None)
-        if model_name is None:
+        if not model_name:
             raise ValueError("Please select a model type.")
 
         img_type = settings.get("img_type", None)
@@ -835,6 +982,25 @@ class Zoo_Model:
             percent_no_data=percent_no_data,
             coregistered=coregistered,
         )
+
+        # if a local model path was use then load the model info from the local path
+        # Otherwise load the model info using the model_type (aka the model folder name) that was downloaded
+        print(f"settings: {settings}")
+
+        if settings.get("use_local_model", False):
+            model_path = settings.get("local_model_path", "")
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(
+                    f"The model folder specific by 'local_model_path' {model_path} does not exist."
+                )
+            model_info = ModelInfo(model_directory=model_path)
+            model_info.load()  # this will load the model info, it will check the model directory for the model card and attempt to read the model info from it
+        else:
+            model_info = ModelInfo(model_name=model_name)
+            model_info.load()  # this will load the model info from the downloaded models folder
+
+        print(f"Model info: {model_info}")
+
         prog_bar.update(1)
         prog_bar.set_description_str(
             desc=f"Ran model now extracting shorelines", refresh=True
@@ -846,9 +1012,10 @@ class Zoo_Model:
             settings,
             session_directory,
             session_name,
-            shoreline_path,
-            transects_path,
-            shoreline_extraction_area_path,
+            model_info=model_info,
+            shoreline_path=shoreline_path,
+            transects_path=transects_path,
+            shoreline_extraction_area_path=shoreline_extraction_area_path,
         )
         prog_bar.update(1)
         prog_bar.set_description_str(
@@ -860,13 +1027,15 @@ class Zoo_Model:
         settings: dict,
         session_path: str,
         session_name: str,
+        model_info: ModelInfo,
         shoreline_path: str = "",
         transects_path: str = "",
         shoreline_extraction_area_path: str = "",
         **kwargs: dict,
     ) -> None:
         """
-        Extracts shorelines using the U-Net model.
+        Extracts shorelines using the outputs of running any of the Zoo models.
+        This function saves the extracted shorelines and transects to a new session directory.
 
         Args:
             settings (dict): A dictionary containing the settings for shoreline extraction.
@@ -890,56 +1059,18 @@ class Zoo_Model:
         good_bad_csv = None
 
         # create session path to store extracted shorelines and transects
-        base_path = core_utilities.get_base_dir()
-        new_session_path = base_path / "sessions" / session_name
-        # new_session_path = os.path.join(base_path, "sessions", session_name)
-
-        new_session_path.mkdir(parents=True, exist_ok=True)
+        new_session_path = create_new_session_path(session_name)
 
         # load the ROI settings from the config file
-        try:
-            config = file_utilities.load_json_data_from_file(
-                session_path, "config.json"
-            )
-            # get the roi_id from the config file @todo this won't work for multiple ROIs
-            if config.get("roi_ids"):
-                roi_id = config["roi_ids"][0]
-            roi_settings = {roi_id: config[roi_id]}
-            try:
-                good_bad_csv = file_utilities.find_file_path_in_roi(
-                    roi_id, roi_settings, "image_classification_results.csv"
-                )
-            except Exception as e:
-                logger.error(f"good_bad_csv not found for ROI {roi_id}: {e}")
-                good_bad_csv = None
-        except (KeyError, ValueError) as e:
-            logger.error(f"{roi_id} ROI settings did not exist: {e}")
-            if roi_id is None:
-                logger.error(f"roi_id was None config: {config}")
-                raise Exception(f"The session loaded was \n config: {config}")
-            else:
-                logger.error(
-                    f"roi_id {roi_id} existed but not found in config: {config}"
-                )
-                raise Exception(
-                    f"The roi ID {roi_id} did not exist is the config.json \n config.json: {config}"
-                )
+        # @todo by default only the first ROI is loaded change this in the future to allow any ROI ID to be loaded
+        roi_settings, roi_id = load_roi_settings(
+            session_path, roi_id=kwargs.get("roi_id", None)
+        )
+        good_bad_csv = load_good_bad_csv(roi_id, roi_settings)
         logger.info(f"roi_settings: {roi_settings}")
 
         # read ROI from config geojson file
-        config_geojson_location = file_utilities.find_file_recursively(
-            session_path, "config_gdf.geojson"
-        )
-        logger.info(f"config_geojson_location: {config_geojson_location}")
-        config_gdf = geodata_processing.read_gpd_file(config_geojson_location)
-        roi_gdf = config_gdf[config_gdf["id"] == roi_id]
-        if roi_gdf.empty:
-            logger.error(
-                f"{roi_id} ROI ID did not exist in geodataframe: {config_geojson_location}"
-            )
-            raise ValueError(
-                f"{roi_id} ROI ID did not exist in geodataframe: {config_geojson_location}"
-            )
+        roi_gdf = load_roi_gdf_from_session(session_path, roi_id)
 
         # get roi_id from source directory path in model settings
         model_settings = file_utilities.load_json_data_from_file(
@@ -996,6 +1127,7 @@ class Zoo_Model:
         extracted_shorelines = extracted_shoreline.Extracted_Shoreline()
         extracted_shorelines = (
             extracted_shorelines.create_extracted_shorelines_from_session(
+                model_info,
                 roi_id,
                 shoreline_gdf,
                 roi_settings[roi_id],
@@ -1373,6 +1505,8 @@ class Zoo_Model:
             "otsu": use_otsu,
             "tta": use_tta,
             "percent_no_data": percent_no_data,
+            "use_local_model": self.settings.get("use_local_model", False),
+            "local_model_path": self.settings.get("local_model_path", ""),
         }
         # get parent roi_directory from the selected imagery directory
         roi_directory = file_utilities.find_parent_directory(
