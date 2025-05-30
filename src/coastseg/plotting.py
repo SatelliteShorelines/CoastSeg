@@ -577,10 +577,6 @@ def plot_sar_detection(
     if not titles or len(titles) != 3:
         titles = ["Original Image", "Merged Classes", "All Classes"]
 
-    # fig = plt.figure(figsize=(18, 9))
-    # gs = gridspec.GridSpec(1, 3)
-    # ax1, ax2, ax3 = [fig.add_subplot(gs[0, i]) for i in range(3)]
-
     # Normalize the multispectral image for display
     im_display = _normalize_grayscale(im_ms)
 
