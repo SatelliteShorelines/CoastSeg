@@ -289,7 +289,7 @@ def find_file_path_in_roi(
     roi_data_location = os.path.join(
         roi_settings[roi_id]["filepath"], roi_settings[roi_id]["sitename"]
     )
-    print(f"roi_data_location: {roi_data_location}")
+    logger.info(f"roi_data_location: {roi_data_location}")
 
     # Construct the path to the expected file location
     expected_csv_path = os.path.join(
