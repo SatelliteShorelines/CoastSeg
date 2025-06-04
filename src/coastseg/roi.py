@@ -141,7 +141,7 @@ class ROI(Feature):
         rois_gdf = common.create_unique_ids(rois_gdf, prefix_length=3)
         # convert the ids to strings
         rois_gdf["id"] = rois_gdf["id"].astype(str)
-        
+
         # get row ids of ROIs with area that's too large
         drop_ids = common.get_ids_with_invalid_area(
             rois_gdf, max_area=ROI.MAX_SIZE, min_area=ROI.MIN_SIZE
@@ -206,7 +206,7 @@ class ROI(Feature):
         If the ROI ID is not found, an empty dictionary will be returned.
 
         Args:
-            roi_id (Union[str, Iterable[str]], optional): The ID of the ROI to retrieve settings for, or a collection of ROI IDs. 
+            roi_id (Union[str, Iterable[str]], optional): The ID of the ROI to retrieve settings for, or a collection of ROI IDs.
                 If not provided, all ROI settings will be returned. Defaults to "".
 
         Returns:
@@ -221,9 +221,13 @@ class ROI(Feature):
                 logger.info(f"self.roi_settings: {self.roi_settings}")
                 return self.roi_settings
             else:
-                logger.info(f"self.roi_settings[roi_id]: {self.roi_settings.get(roi_id, {})}")
-                return self.roi_settings.get(roi_id, {})   
-        elif isinstance(roi_id, collections.abc.Iterable) and not isinstance(roi_id, (str, bytes)):
+                logger.info(
+                    f"self.roi_settings[roi_id]: {self.roi_settings.get(roi_id, {})}"
+                )
+                return self.roi_settings.get(roi_id, {})
+        elif isinstance(roi_id, collections.abc.Iterable) and not isinstance(
+            roi_id, (str, bytes)
+        ):
             roi_settings = {}
             for id in roi_id:
                 if not isinstance(id, str):
@@ -232,7 +236,7 @@ class ROI(Feature):
                     roi_settings[id] = self.roi_settings.get(id, {})
             return roi_settings
         else:
-            raise TypeError("roi_id must be a string or a collection of strings")         
+            raise TypeError("roi_id must be a string or a collection of strings")
 
     def set_roi_settings(self, roi_settings: dict) -> None:
         """Sets the ROI settings dictionary to the specified value.
@@ -273,7 +277,7 @@ class ROI(Feature):
         Returns:
             Union[None, dict]: The extracted shoreline dictionary for the specified ROI ID, or None if it does not exist.
         """
-        return self.extracted_shorelines.get(roi_id,None)
+        return self.extracted_shorelines.get(roi_id, None)
 
     def get_ids(self) -> list:
         """Returns list of all roi ids"""
@@ -287,16 +291,16 @@ class ROI(Feature):
 
     def add_geodataframe(self, gdf: gpd.GeoDataFrame) -> "ROI":
         """
-            Adds a GeoDataFrame to the existing ROI object.
+        Adds a GeoDataFrame to the existing ROI object.
 
-            Args:
-                gdf (gpd.GeoDataFrame): The GeoDataFrame to be added.
+        Args:
+            gdf (gpd.GeoDataFrame): The GeoDataFrame to be added.
 
-            Returns:
-                ROI: The updated ROI object.
+        Returns:
+            ROI: The updated ROI object.
 
-            Raises:
-                None
+        Raises:
+            None
         """
         # check if geodataframe column has 'id' column and add one if one doesn't exist
         if "id" not in gdf.columns:
@@ -490,7 +494,11 @@ class ROI(Feature):
         Returns:
             "ipyleaflet.GeoJSON": ROIs as GeoJson layer styled with yellow dashes
         """
-        return super().style_layer(geojson, layer_name,hover_style={"color": "red", "fillOpacity": 0.1, "color": "crimson"})
+        return super().style_layer(
+            geojson,
+            layer_name,
+            hover_style={"color": "red", "fillOpacity": 0.1, "color": "crimson"},
+        )
 
     def fishnet_intersection(
         self, fishnet: gpd.GeoDataFrame, data: gpd.GeoDataFrame
