@@ -1,64 +1,65 @@
 [build-system]
-requires = ["hatchling"]
 build-backend = "hatchling.build"
+requires = ["hatchling"]
 
 [project]
-name = "coastseg"
-version = "1.4.5" 
 authors = [
-  { name=" Sharon Fitzpatrick Batiste", email="sharon.fitzpatrick23@gmail.com" },
-]
-keywords = [
-    "coastseg",
-    "coastsat",
+  {name = " Sharon Fitzpatrick Batiste", email = "sharon.fitzpatrick23@gmail.com"},
 ]
 description = "An interactive python package for satellite derived shoreline workflows"
-readme = "README.md"
-#these dependencies are the core dependencies of the package necessary for the coastsat workflow and the core functionality. Pixi reads these as pypi dependencies
-dependencies = [
-    "aiohttp",
-    "area",
-    "chardet",
-    "dask",
-    "doodleverse-utils>=0.0.35",
-    "coastsat-package>=0.2.0,<0.3",
-    "geojson",
-    "geopandas",
-    "h5py",
-    "jupyterlab>=3.0.0",
-    "leafmap ==0.35",
-    "nest-asyncio",
-    "netcdf4",
-    "numpy==1.23.5",
-    "pooch",
-    "protobuf==3.20.3",
-    "pytmd<2.2.0",
-    "xarray",]
-license = { file="LICENSE" }
-requires-python = ">=3.10,<3.11"
-classifiers = [
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3 :: Only",
-    "Topic :: Scientific/Engineering :: GIS",
-    "Natural Language :: English",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+keywords = [
+  "coastseg",
+  "coastsat",
 ]
+name = "coastseg"
+readme = "README.md"
+version = "1.5.0"
+#these dependencies are the core dependencies of the package necessary for the coastsat workflow and the core functionality. Pixi reads these as pypi dependencies
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+  "aiohttp",
+  "area",
+  "chardet",
+  "dask",
+  "doodleverse-utils>=0.0.35",
+  "coastsat-package>=0.2.0,<0.3",
+  "geojson",
+  "geopandas",
+  "h5py",
+  "jupyterlab>=3.0.0",
+  "leafmap ==0.35",
+  "nest-asyncio",
+  "netcdf4",
+  "numpy==1.23.5",
+  "pooch",
+  "protobuf==3.20.3",
+  "pytmd<2.2.0",
+  "xarray",
+]
+license = {file = "LICENSE"}
+requires-python = ">=3.10,<3.11"
 # this is needed to tell hatchling to use the src directory as the source directory for the package
 [tool.hatch.build.targets.wheel]
 packages = ["src/coastseg"]
 
 [project.optional-dependencies]
 ml = ["tensorflow==2.12.0", "transformers>=4.48.3,<5"] # dependencies for the zoo based workflow
-test = ["pytest"]                                       # dependencies for testing
+test = ["pytest"] # dependencies for testing
 
 [tool.pixi.project]
 channels = ["conda-forge"]
-platforms = [ "win-64","linux-64"]
+platforms = ["win-64", "linux-64"]
 
 [tool.pixi.pypi-dependencies]
-coastseg = { path = ".", editable = true }
+coastseg = {path = ".", editable = true}
 
 # this tells pixi to install these packages (they are the same as the dependencies) from the conda-forge channel
 # Note: pytmd is purposely not included here because it causes conflicts when installed from conda-forge
@@ -93,16 +94,16 @@ pytest = "*"
 run_notebook = "jupyter lab SDS_zoo_classifier.ipynb --ip=0.0.0.0 --allow-root --no-browser"
 
 [project.urls]
+"Bug Tracker" = "https://github.com/SatelliteShorelines/CoastSeg/issues"
+documentation = "https://github.com/SatelliteShorelines/CoastSeg/wiki"
 homepage = "https://github.com/SatelliteShorelines/CoastSeg"
 repository = "https://github.com/SatelliteShorelines/CoastSeg"
-documentation = "https://github.com/SatelliteShorelines/CoastSeg/wiki"
-"Bug Tracker" = "https://github.com/SatelliteShorelines/CoastSeg/issues"
 
 [tool.pixi.environments]
-default = {features = [], solve-group = "default"}    # default base environment with all the CoastSat workflow dependencies
-test = {features = ["test"], solve-group = "default"} # Test environment with pytest dependency
-ml = {features = ["ml"], solve-group = "default"}     # ML environment with TensorFlow and Transformers dependencies
-all = {features = ["ml", "test"], solve-group = "default"} # All features environment with all dependencies
+all = {features = ["ml", "test"], solve-group = "default"}# All features environment with all dependencies
+default = {features = [], solve-group = "default"}# default base environment with all the CoastSat workflow dependencies
+ml = {features = ["ml"], solve-group = "default"}# ML environment with TensorFlow and Transformers dependencies
+test = {features = ["test"], solve-group = "default"}# Test environment with pytest dependency
 
 [tool.pixi.feature.test.tasks]
 run_tests = "pytest tests"
