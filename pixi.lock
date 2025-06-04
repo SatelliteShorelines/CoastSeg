@@ -337,7 +337,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/2b/03/13dde6512ad7b4557eb792fbcf0c653af6076b81e5941d36ec61f7ce6028/astunparse-1.6.3-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/aa/f62ce24417ecb19f5ba1aa1dbe72394d11f11f5e53fc53497ccfaab83d3c/cftime-1.6.4.post1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b8/25/155f9f080d5e4bc0082edfda032ea2bc2b8fab3f4d25d46c1e9dd22a1a89/flatbuffers-25.2.10-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b6/48/583c032b79ae5b3daa02225a675aeb673e58d2cb698e78510feceb11958c/gast-0.4.0-py3-none-any.whl
@@ -714,7 +714,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/2b/03/13dde6512ad7b4557eb792fbcf0c653af6076b81e5941d36ec61f7ce6028/astunparse-1.6.3-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/68/0f/95ce359a3bd91a8ec9b79d4961753053c72a5115e820a072d451568684c3/cftime-1.6.4.post1-cp310-cp310-win_amd64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b8/25/155f9f080d5e4bc0082edfda032ea2bc2b8fab3f4d25d46c1e9dd22a1a89/flatbuffers-25.2.10-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b6/48/583c032b79ae5b3daa02225a675aeb673e58d2cb698e78510feceb11958c/gast-0.4.0-py3-none-any.whl
@@ -1102,7 +1102,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e0/cb/2aa653699d126b701122518aacb22fed11c7552ee6d743e3205ca680e3ba/astropy_iers_data-0.2025.3.3.0.34.45-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/aa/f62ce24417ecb19f5ba1aa1dbe72394d11f11f5e53fc53497ccfaab83d3c/cftime-1.6.4.post1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b1/a6/8e30ddfd3d39ee6d2c76d3d4f64a83f77ac86a4cab67b286ae35ce9e4369/google_api_core-2.24.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/91/3d/203d1c18cb239313ac125721f284e94c01c7eee947adb2ef2d9a85ac8d66/google_api_python_client-2.163.0-py2.py3-none-any.whl
@@ -1447,7 +1447,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e0/cb/2aa653699d126b701122518aacb22fed11c7552ee6d743e3205ca680e3ba/astropy_iers_data-0.2025.3.3.0.34.45-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/68/0f/95ce359a3bd91a8ec9b79d4961753053c72a5115e820a072d451568684c3/cftime-1.6.4.post1-cp310-cp310-win_amd64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b1/a6/8e30ddfd3d39ee6d2c76d3d4f64a83f77ac86a4cab67b286ae35ce9e4369/google_api_core-2.24.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/91/3d/203d1c18cb239313ac125721f284e94c01c7eee947adb2ef2d9a85ac8d66/google_api_python_client-2.163.0-py2.py3-none-any.whl
@@ -1809,7 +1809,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/2b/03/13dde6512ad7b4557eb792fbcf0c653af6076b81e5941d36ec61f7ce6028/astunparse-1.6.3-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/aa/f62ce24417ecb19f5ba1aa1dbe72394d11f11f5e53fc53497ccfaab83d3c/cftime-1.6.4.post1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b8/25/155f9f080d5e4bc0082edfda032ea2bc2b8fab3f4d25d46c1e9dd22a1a89/flatbuffers-25.2.10-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b6/48/583c032b79ae5b3daa02225a675aeb673e58d2cb698e78510feceb11958c/gast-0.4.0-py3-none-any.whl
@@ -2183,7 +2183,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/2b/03/13dde6512ad7b4557eb792fbcf0c653af6076b81e5941d36ec61f7ce6028/astunparse-1.6.3-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/68/0f/95ce359a3bd91a8ec9b79d4961753053c72a5115e820a072d451568684c3/cftime-1.6.4.post1-cp310-cp310-win_amd64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b8/25/155f9f080d5e4bc0082edfda032ea2bc2b8fab3f4d25d46c1e9dd22a1a89/flatbuffers-25.2.10-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b6/48/583c032b79ae5b3daa02225a675aeb673e58d2cb698e78510feceb11958c/gast-0.4.0-py3-none-any.whl
@@ -2574,7 +2574,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e0/cb/2aa653699d126b701122518aacb22fed11c7552ee6d743e3205ca680e3ba/astropy_iers_data-0.2025.3.3.0.34.45-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/aa/f62ce24417ecb19f5ba1aa1dbe72394d11f11f5e53fc53497ccfaab83d3c/cftime-1.6.4.post1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b1/a6/8e30ddfd3d39ee6d2c76d3d4f64a83f77ac86a4cab67b286ae35ce9e4369/google_api_core-2.24.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/91/3d/203d1c18cb239313ac125721f284e94c01c7eee947adb2ef2d9a85ac8d66/google_api_python_client-2.163.0-py2.py3-none-any.whl
@@ -2922,7 +2922,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e0/cb/2aa653699d126b701122518aacb22fed11c7552ee6d743e3205ca680e3ba/astropy_iers_data-0.2025.3.3.0.34.45-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/68/0f/95ce359a3bd91a8ec9b79d4961753053c72a5115e820a072d451568684c3/cftime-1.6.4.post1-cp310-cp310-win_amd64.whl
-      - pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/c9/d2bc0f0bcc4eb04eb7b8f5ab9f756952b14f10b739bf301993d1d9337e77/earthengine_api-1.5.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b1/a6/8e30ddfd3d39ee6d2c76d3d4f64a83f77ac86a4cab67b286ae35ce9e4369/google_api_core-2.24.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/91/3d/203d1c18cb239313ac125721f284e94c01c7eee947adb2ef2d9a85ac8d66/google_api_python_client-2.163.0-py2.py3-none-any.whl
@@ -3844,10 +3844,10 @@ packages:
   - pkg:pypi/cloudpickle?source=hash-mapping
   size: 25870
   timestamp: 1736947650712
-- pypi: https://files.pythonhosted.org/packages/77/15/77c76f648a3f3fac2278165cafdf291f15ee4d44add695a0b74f25b424d5/coastsat_package-0.1.75-py3-none-any.whl
+- pypi: https://files.pythonhosted.org/packages/bb/9b/c4ef25799986c56720eeca304a2d0f6076a979900a09b521c0dac68b0268/coastsat_package-0.2.2-py3-none-any.whl
   name: coastsat-package
-  version: 0.1.75
-  sha256: fcd393e24c5b98d1c1477c26e0231df7c12f57815d2eb36ed639490542b24b4d
+  version: 0.2.2
+  sha256: e713a99c04d8904ee947b974c6b32b03a7411361d03483a91b752d90cc42af85
   requires_dist:
   - scikit-image
   - earthengine-api>=0.1.304
@@ -3865,15 +3865,15 @@ packages:
   requires_python: '>=3.8'
 - pypi: .
   name: coastseg
-  version: 1.4.5
-  sha256: 7c1cb803a5ca0e6dc495a7b85cd94cc75c8cbe35a8007cb27ed3b114ff9d85f1
+  version: 1.5.0
+  sha256: 8dce325719d6a9934923588bdf70f24ffc31a3434f2fc1bf8eeececf04b660a5
   requires_dist:
   - aiohttp
   - area
   - chardet
-  - coastsat-package>=0.1.75
   - dask
   - doodleverse-utils>=0.0.35
+  - coastsat-package>=0.2.0,<0.3
   - geojson
   - geopandas
   - h5py

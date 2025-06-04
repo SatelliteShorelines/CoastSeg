@@ -107,3 +107,41 @@ test = {features = ["test"], solve-group = "default"}# Test environment with pyt
 
 [tool.pixi.feature.test.tasks]
 run_tests = "pytest tests"
+
+[tool.hatch.build]
+exclude = [
+  #  Development and CI files/folders
+  "paper/**",
+  "debug/**",
+  "debug_scripts/**",
+  "docker_files/**",
+  "old_docker/**",
+  "ci/**",
+  ".github/**",
+  ".gitignore",
+  ".gitattributes",
+  "scripts/**", # Testing and docs
+  "tests/**",
+  "docs/**", # Build-related and environment files
+  "requirements.txt",
+  "requirements_dev.txt",
+  "*pixi*",
+  "*.lock", #  Bytecode and metadata
+  "**/__pycache__/**",
+  "*.egg-info/**", # Source code and notebooks
+  "*.ipynb", # Jupyter notebooks
+  "*docker*", # Any docker-related files
+  # Data and models
+  "*.h5",
+  "*.npy",
+  "models/**", # Scripts
+  "0_test_download_imagery_workflow.py",
+  "1_download_imagery.py",
+  "2_extract_shorelines.py",
+  "3_zoo_workflow.py",
+  "5_zoo_workflow_local_model.py",
+  "6_zoo_workflow_with_coregistration.py",
+  "7_automatic_image_sorter.py",
+  "run_image_classifier.py",
+  "run_shoreline_segmentation_classifier.py",
+]
