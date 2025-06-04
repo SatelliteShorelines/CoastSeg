@@ -5,7 +5,7 @@ import shutil
 import json
 import logging
 import datetime
-from typing import Union, Collection
+from typing import Union, Collection, Optional
 
 # Specific classes/functions from modules
 from typing import List, Union
@@ -74,203 +74,139 @@ def drop_columns_if_exist(df, columns):
 
 
 def join_model_scores_to_time_series(
-    transect_time_series_merged_path, good_bad_csv=None, good_bad_seg_csv=None
-):
-    """
-    Joins model scores to time series transect data based on the provided CSVs.
-    Parameters:
-    transect_time_series_merged_path (str): Path to transect time series CSV.
-    good_bad_csv (str, optional): Path to the image suitability output CSV.
-    good_bad_seg_csv (str, optional): Path to the seg filter output CSV.
-
-    Returns:
-    str: Path to the updated transect time series CSV with model scores joined.
-    """
-
-    # Load transect time series data
-    transect_time_series_merged = pd.read_csv(transect_time_series_merged_path)
-    transect_time_series_merged["dates"] = pd.to_datetime(
-        transect_time_series_merged["dates"], utc=True
-    )
+    time_series_csv_path: str,
+    good_bad_csv: Optional[str] = None,
+    good_bad_seg_csv: Optional[str] = None,
+) -> str:
+    df = pd.read_csv(time_series_csv_path)
+    df["dates"] = pd.to_datetime(df["dates"], utc=True)
 
     if good_bad_csv:
-
-        drop_columns_if_exist(
-            transect_time_series_merged,
-            ["classifier_model_score", "classifier_threshold"],
+        df = merge_model_scores(
+            df, good_bad_csv, model_type="classifier", date_col="dates"
         )
-
-        # Load and process good_bad CSV
-        good_bad = pd.read_csv(good_bad_csv)
-        good_bad["dates"] = good_bad["im_paths"].apply(
-            lambda x: pd.to_datetime(
-                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
-            )
-        )
-
-        # Prepare merge and rename directly
-        merge_columns = ["dates", "model_scores"]
-        if "threshold" in good_bad.columns:
-            merge_columns.append("threshold")
-        merged_df = good_bad[merge_columns]
-
-        transect_time_series_merged = transect_time_series_merged.merge(
-            merged_df, on="dates", how="left", suffixes=("_ts", "_image")
-        )
-        # Optional: drop additional unnamed columns if present
-        transect_time_series_merged.drop(
-            columns=[col for col in transect_time_series_merged if "Unnamed:" in col],
+        df.drop(
+            columns=[col for col in df.columns if "Unnamed:" in col],
             errors="ignore",
             inplace=True,
         )
-        # rename model_scores column to classifier_model_score
-        transect_time_series_merged.rename(
-            columns={"model_scores": "classifier_model_score"}, inplace=True
-        )
-        if "threshold" in transect_time_series_merged:
-            transect_time_series_merged.rename(
-                columns={"threshold": "classifier_threshold"}, inplace=True
-            )
 
     if good_bad_seg_csv:
-
-        drop_columns_if_exist(
-            transect_time_series_merged,
-            ["segmentation_model_score", "segmentation_threshold"],
+        df = merge_model_scores(
+            df, good_bad_seg_csv, model_type="segmentation", date_col="dates"
         )
 
-        # Load and process good_bad_seg CSV
-        good_bad_seg = pd.read_csv(good_bad_seg_csv)
-        good_bad_seg["dates"] = good_bad_seg["im_paths"].apply(
-            lambda x: pd.to_datetime(
-                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
-            )
-        )
-
-        # Prepare merge and rename directly
-        merge_columns = ["dates", "model_scores"]
-        if "threshold" in good_bad_seg.columns:
-            merge_columns.append("threshold")
-        merged_df = good_bad_seg[merge_columns]
-
-        transect_time_series_merged = transect_time_series_merged.merge(
-            merged_df, on="dates", how="left", suffixes=("", "_seg")
-        )
-        # rename model_scores column to segmentation_model_score
-        transect_time_series_merged.rename(
-            columns={"model_scores": "segmentation_model_score"}, inplace=True
-        )
-        if "threshold" in transect_time_series_merged:
-            transect_time_series_merged.rename(
-                columns={"threshold": "segmentation_threshold"}, inplace=True
-            )
-
-    # Save updated DataFrame
-    transect_time_series_merged.to_csv(transect_time_series_merged_path, index=False)
-    print(f"Saved updated transect time series to {transect_time_series_merged_path}")
-
-    return transect_time_series_merged_path
+    df.to_csv(time_series_csv_path, index=False)
+    print(f"Saved updated transect time series to {time_series_csv_path}")
+    return time_series_csv_path
 
 
-def join_model_scores_to_shorelines(
-    shorelines_path, good_bad_csv=None, good_bad_seg_csv=None
-):
+def merge_model_scores(
+    df: pd.DataFrame,
+    score_csv: str,
+    model_type: str,
+    date_col: str = "dates",
+    merge_on_col: str = "dates",
+) -> pd.DataFrame:
     """
-    Joins model scores to shoreline points based on the provided CSVs.
+    Processes a model score CSV and merges into a provided DataFrame based on date.
+    Merges model score data from a CSV into a Dataframe/GeoDataFrame of based on date.
+
+    Drops the merge_on_col if it is not the same as date_col after merging. Example:
+    If date_col is "date" and merge_on_col is "dates", then "dates" will be dropped
+
     Parameters:
-    shorelines_path (str): path to the extracted shorelines geojson.
-    good_bad_csv (str, optional): path to the image suitability output CSV.
-    good_bad_seg_csv (str, optional): path to the seg filter output CSV.
+        df (DataFrame): The target DataFrame (Pandas or GeoPandas).
+        score_csv (str): Path to model score CSV.
+        model_type (str): 'classifier' or 'segmentation'.
+        date_col (str): Name of the datetime column in the target df.
+        merge_on_col (str): Name to use for joining on date from the CSV.
 
     Returns:
-    str: path to the shoreline points with model scores joined.
+        DataFrame: Merged DataFrame with model scores added.
     """
-    # Load shorelines data
-    shorelines_gdf = gpd.read_file(shorelines_path)
-    shorelines_gdf["date"] = pd.to_datetime(shorelines_gdf["date"], utc=True)
+    score_data = pd.read_csv(score_csv)
+
+    if "im_paths" not in score_data or "model_scores" not in score_data:
+        raise ValueError(f"Missing required columns in {score_csv}")
+
+    # Extract datetime from image path
+    score_data[merge_on_col] = score_data["im_paths"].apply(
+        lambda x: pd.to_datetime(
+            os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
+        )
+    )
+
+    score_col = f"{model_type}_model_score"
+    threshold_col = f"{model_type}_threshold"
+
+    drop_columns_if_exist(df, [score_col, threshold_col])
+
+    merge_cols = [merge_on_col, "model_scores"]
+    if "threshold" in score_data.columns:
+        merge_cols.append("threshold")
+
+    score_subset = score_data[merge_cols]
+
+    df = df.merge(
+        score_subset,
+        left_on=date_col,
+        right_on=merge_on_col,
+        how="left",
+        suffixes=("", f"_{model_type}"),
+    )
+
+    df.rename(columns={"model_scores": score_col}, inplace=True)
+    if "threshold" in df.columns:
+        df.rename(columns={"threshold": threshold_col}, inplace=True)
+
+    # Only drop the merge_on_col if it is NOT the same as date_col
+    if merge_on_col != date_col:
+        df.drop(columns=[merge_on_col], errors="ignore", inplace=True)
+    return df
+
+
+def join_model_scores_to_geodataframe(
+    geodataframe_path: str,
+    good_bad_csv: Optional[str] = None,
+    good_bad_seg_csv: Optional[str] = None,
+    output_path: Optional[str] = None,
+) -> str:
+    """
+    Joins model scores to features in the geodataframe from optional CSVs.
+    All features are retained; missing scores are marked NaN.
+
+    Parameters:
+        geodataframe_path (str): Path to the GeoJSON file containing the features.
+        good_bad_csv (str, optional): Path to image classifier scores.
+        good_bad_seg_csv (str, optional): Path to segmentation scores.
+        output_path (str, optional): Output path to save the updated GeoJSON file.
+            By default, it overwrites the input file, geodataframe_path
+
+    Returns:
+        str: Path to updated GeoJSON with model scores.
+    """
+    if not os.path.exists(geodataframe_path):
+        raise FileNotFoundError(f"Shoreline file not found: {geodataframe_path}")
+
+    gdf = gpd.read_file(geodataframe_path)
+    gdf["date"] = pd.to_datetime(gdf["date"], utc=True)
 
     if good_bad_csv:
-        good_bad_df = pd.read_csv(good_bad_csv)
-        good_bad_df["dates"] = good_bad_df["im_paths"].apply(
-            lambda x: pd.to_datetime(
-                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
-            )
+        gdf = merge_model_scores(
+            gdf, good_bad_csv, model_type="classifier", date_col="date"
         )
-
-        # Drop old scores if they exist
-        drop_columns_if_exist(
-            shorelines_gdf, ["classifier_model_score", "classifier_threshold"]
-        )
-
-        # Prepare merge and rename directly
-        merge_columns = ["dates", "model_scores"]
-        if "threshold" in good_bad_df.columns:
-            merge_columns.append("threshold")
-        merged_df = good_bad_df[merge_columns]
-
-        shorelines_gdf = shorelines_gdf.merge(
-            merged_df, left_on="date", right_on="dates", suffixes=("", "_image")
-        )
-
-        # rename model_scores to classifer_model_score
-        shorelines_gdf.rename(
-            columns={"model_scores": "classifier_model_score"}, inplace=True
-        )
-
-        shorelines_gdf.drop(
-            columns=["dates", "dates_seg"], inplace=True, errors="ignore"
-        )
-
-        if "threshold" in shorelines_gdf:
-            shorelines_gdf.rename(
-                columns={"threshold": "classifier_threshold"}, inplace=True
-            )
-
     if good_bad_seg_csv:
-        good_bad_seg_df = pd.read_csv(good_bad_seg_csv)
-        good_bad_seg_df["dates"] = good_bad_seg_df["im_paths"].apply(
-            lambda x: pd.to_datetime(
-                os.path.basename(x).split("_")[0], utc=True, format="%Y-%m-%d-%H-%M-%S"
-            )
+        gdf = merge_model_scores(
+            gdf, good_bad_seg_csv, model_type="segmentation", date_col="date"
         )
 
-        # Drop old scores if they exist
-        drop_columns_if_exist(
-            shorelines_gdf, ["segmentation_model_score", "segmentation_threshold"]
-        )
+    gdf["date"] = gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    gdf = common.stringify_datetime_columns(gdf)
 
-        # Prepare merge and rename directly
-        merge_columns = ["dates", "model_scores"]
-        if "threshold" in good_bad_seg_df.columns:
-            merge_columns.append("threshold")
-        merged_df = good_bad_seg_df[merge_columns]
-
-        shorelines_gdf = shorelines_gdf.merge(
-            merged_df, left_on="date", right_on="dates", suffixes=("", "_seg")
-        )
-        # rename model_scores column to segmentation_model_score
-        shorelines_gdf.rename(
-            columns={"model_scores": "segmentation_model_score"}, inplace=True
-        )
-        if "threshold" in shorelines_gdf:
-            shorelines_gdf.rename(
-                columns={"threshold": "segmentation_threshold"}, inplace=True
-            )
-
-    # Save modified GeoDataFrame
-    # drop any duplicate columns
-    shorelines_gdf = shorelines_gdf.loc[:, ~shorelines_gdf.columns.duplicated()]
-
-    shorelines_gdf.drop(columns=["dates", "dates_seg"], inplace=True, errors="ignore")
-
-    shorelines_gdf["date"] = pd.to_datetime(shorelines_gdf["date"])
-    shorelines_gdf["date"] = shorelines_gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
-
-    shorelines_gdf = common.stringify_datetime_columns(shorelines_gdf)
-
-    shorelines_gdf.to_file(shorelines_path)
-
-    return shorelines_path
+    output_path = output_path or geodataframe_path
+    gdf.to_file(output_path)
+    return output_path
 
 
 def find_file_path_in_roi(

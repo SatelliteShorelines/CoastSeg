@@ -1466,7 +1466,14 @@ def get_filtered_dates_dict(
     }
 
     """
-    satellites = {"L5": set(), "L7": set(), "L8": set(), "L9": set(), "S2": set()}
+    satellites = {
+        "L5": set(),
+        "L7": set(),
+        "L8": set(),
+        "L9": set(),
+        "S2": set(),
+        "S1": set(),
+    }
     # loop over the generator of files in the directory
     for filepath in glob.iglob(os.path.join(directory, f"*.{file_type}")):
         filename = os.path.basename(filepath)
@@ -3524,29 +3531,29 @@ def save_extracted_shorelines(
     )
 
 
-def stringify_datetime_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def stringify_datetime_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Check if any of the columns in a GeoDataFrame have the type pandas timestamp and convert them to string.
+    Convert all datetime columns in a DataFrame or GeoDataFrame to string.
 
     Args:
-        gdf: A GeoDataFrame.
+        df: A pandas DataFrame or GeoPandas GeoDataFrame.
 
     Returns:
-        A new GeoDataFrame with the same data as the original, but with any timestamp columns converted to string.
+        A copy of the input with datetime columns converted to string.
     """
     timestamp_cols = [
-        col for col in gdf.columns if pd.api.types.is_datetime64_any_dtype(gdf[col])
+        col for col in df.columns if pd.api.types.is_datetime64_any_dtype(df[col])
     ]
 
     if not timestamp_cols:
-        return gdf
+        return df
 
-    gdf = gdf.copy()
+    df = df.copy()
 
     for col in timestamp_cols:
-        gdf[col] = gdf[col].astype(str)
+        df[col] = df[col].astype(str)
 
-    return gdf
+    return df
 
 
 def create_json_config(

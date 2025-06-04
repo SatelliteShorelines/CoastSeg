@@ -309,12 +309,12 @@ def add_classifer_scores_to_shorelines(
     """
     for file in files:
         if os.path.exists(file):
-            file_utilities.join_model_scores_to_shorelines(
+            file_utilities.join_model_scores_to_geodataframe(
                 file, good_bad_csv, good_bad_seg_csv
             )
 
 
-def add_classifer_scores_to_transects(session_path, good_bad_csv, good_bad_seg_csv):
+def add_classifier_scores_to_transects(session_path, good_bad_csv, good_bad_seg_csv):
     """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
 
     Args:
@@ -343,7 +343,7 @@ def add_classifer_scores_to_transects(session_path, good_bad_csv, good_bad_seg_c
     files = [timeseries_lines_location, timeseries_points_location]
     for file in files:
         if os.path.exists(file):
-            file_utilities.join_model_scores_to_shorelines(
+            file_utilities.join_model_scores_to_geodataframe(
                 file, good_bad_csv, good_bad_seg_csv
             )
 
@@ -863,7 +863,7 @@ class Zoo_Model:
             "min_chainage": -100,  # largest negative value along transect (landwards of transect origin)
             "multiple_inter": "auto",  # mode for removing outliers ('auto', 'nan', 'max')
             "prc_multiple": 0.1,  # percentage of the time that multiple intersects are present to use the max
-            "percent_no_data": 50.0,  # percentage of no data pixels allowed in an image (doesn't work for npz)
+            "percent_no_data": 0.50,  # percentage of no data pixels allowed in an image (doesn't work for npz)
             "model_session_path": "",  # path to model session file
             "apply_cloud_mask": True,  # whether to apply cloud mask to images or not
             "drop_intersection_pts": False,  # whether to drop intersection points not on the transect
@@ -924,87 +924,48 @@ class Zoo_Model:
         shoreline_path: str = "",
         transects_path: str = "",
         shoreline_extraction_area_path: str = "",
-        use_tta: bool = False,
-        use_otsu: bool = False,
-        percent_no_data: float = 50.0,
-        use_GPU: str = "0",
         coregistered: bool = False,
     ):
         """
         Runs the model and extracts shorelines using the segmented imagery.
 
+        Assumes the settings have been set using `set_settings` method.
+
         Args:
-            input_directory (str): The directory containing the input images.
-            session_name (str): The name of the session.
-            shoreline_settings (dict): A dictionary containing shoreline extraction settings.
-            img_type (str): The type of input images.
-            model_implementation (str): The implementation of the model.
-            model_name (str): The name of the model.
+            input_directory (str): The directory containing the input images to run the model on. Typically the RGB directory.
+            session_name (str): The name of the session to save the model outputs and extracted shorelines.
+                - This will create a new session directory in the sessions directory.
             shoreline_path (str, optional): The path to save the extracted shorelines. Defaults to "".
             transects_path (str, optional): The path to save the extracted transects. Defaults to "".
             shoreline_extraction_area_path (str, optional): The path to the shoreline extraction area. Defaults to "".
-            use_tta (bool, optional): Whether to use test-time augmentation. Defaults to False.
-            use_otsu (bool, optional): Whether to use Otsu thresholding. Defaults to False.
-            percent_no_data (float, optional): The percentage of no-data pixels in the input images. Defaults to 50.0.
-            use_GPU (str, optional): The GPU device to use. Defaults to "0".
             coregistered (bool, optional): Whether the input images are coregistered. Defaults to False.
+
+        Raises:
+            ValueError: If the model type is not set in the settings.
+            ValueError: If the input image type is not set in the settings.
+
         """
+
         settings = self.get_settings()
-        model_name = settings.get("model_type", None)
-        if not model_name:
-            raise ValueError("Please select a model type.")
 
-        img_type = settings.get("img_type", None)
-        if img_type is None:
-            raise ValueError("Please select an input image type.")
-        model_implementation = settings.get("implementation", "BEST")
-        use_GPU = settings.get("use_GPU", "0")
-        use_otsu = settings.get("otsu", False)
-        use_tta = settings.get("tta", False)
-        percent_no_data = settings.get("percent_no_data", 0.5)
-
-        # make a progress bar to show the progress of the model and shoreline extraction
-        prog_bar = tqdm.auto.tqdm(
+        progress_bar = tqdm.auto.tqdm(
             range(2),  # type: ignore
-            desc=f"Running {model_name} model and extracting shorelines",
             leave=True,
         )
-        # run the model
-        self.run_model(
-            img_type,
-            model_implementation,
-            session_name,
-            input_directory,
-            model_name=model_name,
-            use_GPU=use_GPU,
-            use_otsu=use_otsu,
-            use_tta=use_tta,
-            percent_no_data=percent_no_data,
+
+        # Step 1: Run model
+        self.run_model_step(
+            settings=settings,
+            input_directory=input_directory,
+            session_name=session_name,
             coregistered=coregistered,
+            progress=progress_bar,
         )
 
-        # if a local model path was use then load the model info from the local path
-        # Otherwise load the model info using the model_type (aka the model folder name) that was downloaded
-        print(f"settings: {settings}")
+        # Step 2: Load model info
+        model_info = self.load_model_info(settings)
 
-        if settings.get("use_local_model", False):
-            model_path = settings.get("local_model_path", "")
-            if not os.path.exists(model_path):
-                raise FileNotFoundError(
-                    f"The model folder specific by 'local_model_path' {model_path} does not exist."
-                )
-            model_info = ModelInfo(model_directory=model_path)
-            model_info.load()  # this will load the model info, it will check the model directory for the model card and attempt to read the model info from it
-        else:
-            model_info = ModelInfo(model_name=model_name)
-            model_info.load()  # this will load the model info from the downloaded models folder
-
-        print(f"Model info: {model_info}")
-
-        prog_bar.update(1)
-        prog_bar.set_description_str(
-            desc=f"Ran model now extracting shorelines", refresh=True
-        )
+        # Step 3: Extract shorelines
         sessions_path = os.path.join(core_utilities.get_base_dir(), "sessions")
         session_directory = file_utilities.create_directory(sessions_path, session_name)
         # extract shorelines using the segmented imagery
@@ -1017,8 +978,8 @@ class Zoo_Model:
             transects_path=transects_path,
             shoreline_extraction_area_path=shoreline_extraction_area_path,
         )
-        prog_bar.update(1)
-        prog_bar.set_description_str(
+        progress_bar.update(1)
+        progress_bar.set_description_str(
             desc=f"Finished running model and extracting shorelines", refresh=True
         )
 
@@ -1305,7 +1266,7 @@ class Zoo_Model:
         """
 
         USE_LOCAL_MODEL = self.settings.get("use_local_model", False)
-        LOCAL_MODEL_PATH = self.settings.get("local_model_path", "")
+        LOCAL_MODEL_PATH = self.get_local_model_path()
 
         if USE_LOCAL_MODEL and not os.path.exists(LOCAL_MODEL_PATH):
             raise FileNotFoundError(
@@ -1497,6 +1458,7 @@ class Zoo_Model:
 
         session.path = session_path
         session.name = session_name
+        local_model_path = self.get_local_model_path()
         model_dict = {
             "use_GPU": use_GPU,
             "sample_direc": "",
@@ -1506,7 +1468,7 @@ class Zoo_Model:
             "tta": use_tta,
             "percent_no_data": percent_no_data,
             "use_local_model": self.settings.get("use_local_model", False),
-            "local_model_path": self.settings.get("local_model_path", ""),
+            "local_model_path": local_model_path,
         }
         # get parent roi_directory from the selected imagery directory
         roi_directory = file_utilities.find_parent_directory(
@@ -1561,18 +1523,135 @@ class Zoo_Model:
         model_ready_files = get_sorted_files_with_extension(
             sample_direc, file_extensions
         )
+
+        if not model_ready_files:
+            raise FileNotFoundError(
+                f"No files found in {sample_direc} with extensions {file_extensions}"
+            )
+
         # filter out files whose filenames match any of the avoid_patterns
         model_ready_files = file_utilities.filter_files(
             model_ready_files, avoid_patterns
         )
+
+        # Filter based on no-data pixel percentage
+        initial_count = len(model_ready_files)
         # filter out files with no data pixels greater than percent_no_data
-        len_before = len(model_ready_files)
         model_ready_files = filter_no_data_pixels(model_ready_files, percent_no_data)
+        filtered_count = initial_count - len(model_ready_files)
+
         print(
-            f"{len_before - len(model_ready_files)}/{len_before} files were filtered out because the percentage of no data pixels in the image was greater than {percent_no_data}%."
+            f"{filtered_count}/{initial_count} files filtered out "
+            f"due to > {percent_no_data:.0%} no-data pixels."
         )
 
         return model_ready_files
+
+    def get_model_name(self) -> str:
+        model_name = self.settings.get("model_type")
+        if not model_name:
+            raise ValueError(
+                "Model type (aka the model name) must be specified in settings."
+            )
+        return model_name
+
+    def get_local_model_path(self) -> str:
+        """
+        Returns the local model path if it exists, otherwise returns an empty string.
+
+        Returns:
+            str: The local model path or an empty string if not set.
+        """
+        model_path = self.settings.get("local_model_path", "")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"The model folder specified by 'local_model_path' does not exist: {model_path}"
+            )
+        return model_path
+
+    def load_model_info(self, settings: dict) -> ModelInfo:
+        """
+        Load the model information based on settings.
+
+        Args:
+            settings (dict): Settings dictionary.
+
+        Returns:
+            ModelInfo: Loaded model information.
+
+        Raises:
+            FileNotFoundError: If a local model path is specified but does not exist.
+        """
+        # if a local model path was use then load the model info from the local path
+        # Otherwise load the model info using the model_type (aka the model folder name) that was downloaded
+
+        if settings.get("use_local_model", False):
+            model_path = self.get_local_model_path()
+            model_info = ModelInfo(model_directory=model_path)
+        else:
+            model_name = settings.get("model_type")
+            model_info = ModelInfo(
+                model_name=model_name
+            )  # this will load the model info from the downloaded models folder
+
+        model_info.load()
+        return model_info
+
+    def run_model_step(
+        self,
+        settings: dict,
+        input_directory: str,
+        session_name: str,
+        coregistered: bool,
+        progress: tqdm.tqdm,
+    ) -> None:
+        """
+        Executes a single step of the model using the provided settings and parameters.
+        This method retrieves model configuration from the `settings` dictionary and
+        runs the model with the specified options. It also provides progress feedback
+        using a tqdm progress bar.
+        Args:
+            settings (dict): Dictionary containing model configuration options.
+                Expected keys include:
+                    - "model_type": Name of the model to use (required).
+                    - "img_type": Type of input images (required).
+                    - "implementation": Model implementation variant (optional, default "BEST").
+                    - "use_GPU": The GPU device to use. Defaults to "0" (optional).
+                    - "otsu": Whether to use Otsu thresholding (optional).
+                    - "tta": Whether to use test-time augmentation (optional).
+                    - "percent_no_data": Allowed percentage of no-data pixels (optional).
+            input_directory (str): Path to the directory containing input images.
+            session_name (str): Name of the current session for output organization.
+            coregistered (bool): Whether the input images are coregistered.
+            progress: tqdm progress bar for tracking the execution progress.
+        Raises:
+            ValueError: If required settings ("model_type" or "img_type") are missing.
+        Returns:
+            None
+        """
+        model_name = self.get_model_name()
+
+        img_type = settings.get("img_type")
+        if img_type is None:
+            raise ValueError("Input image type must be specified in settings.")
+
+        model_implementation = settings.get("implementation", "BEST")
+
+        progress.set_description(f"Running {model_name} model")
+        self.run_model(
+            img_type=img_type,
+            model_implementation=model_implementation,
+            session_name=session_name,
+            src_directory=input_directory,
+            model_name=model_name,
+            use_GPU=settings.get("use_GPU", "0"),
+            use_otsu=settings.get("otsu", False),
+            use_tta=settings.get("tta", False),
+            percent_no_data=settings.get("percent_no_data", 0.50),
+            coregistered=coregistered,
+        )
+        progress.set_description("Model run complete. Extracting shorelines")
+        progress.update(1)
 
     def compute_segmentation(
         self,
