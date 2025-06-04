@@ -149,8 +149,10 @@ Contributions:
 - [@venuswku](https://github.com/venuswku)
 - [@robbibt](https://github.com/robbibt)
 - [@edlazarus](https://github.com/edlazarus)
+- [@krd57](https://github.com/krd57) 
+- Dylan L. Anderson
 - Beta testers: Catherine Janda, Ann Gibbs, Jon Warrick, Andrea O’Neill, Kathryn Weber, Julia Heslin (USGS)
-- We would like to express our gratitude to all the contributors who made this release possible. Thank you to everyone who tested the beta versions of coastseg and provided us with the feedback we needed to improve coastseg. Thanks also to the developers and maintainers of pyTMD, DEA-tools, xarray, and GDAL, without which this project would be impossible
+- We would like to express our gratitude to all the contributors who made this release possible. Thank you to everyone who tested the beta versions of coastseg and provided us with the feedback we needed to improve coastseg. Thanks also to the developers and maintainers of pyTMD, DEA-tools,CoastSeg.Arctic, xarray, and GDAL, without which this project would be impossible.
 
 
 # Related Packages
