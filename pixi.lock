@@ -3865,8 +3865,8 @@ packages:
   requires_python: '>=3.8'
 - pypi: .
   name: coastseg
-  version: 1.5.0
-  sha256: 8dce325719d6a9934923588bdf70f24ffc31a3434f2fc1bf8eeececf04b660a5
+  version: 1.5.1
+  sha256: 42a1160a516075b5badf7c89a15084761ca42838256d01cc2534581d63aba656
   requires_dist:
   - aiohttp
   - area
