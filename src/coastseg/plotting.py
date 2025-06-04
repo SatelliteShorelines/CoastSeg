@@ -118,7 +118,7 @@ def plot_shared_panels(
     # plot the reference shoreline buffer on top of the merged classes
     if im_ref_buffer is not None:
         mask = np.ma.masked_where(im_ref_buffer == False, im_ref_buffer)
-        ax2.imshow(mask, cmap="PiYG", alpha=0.30)
+        ax2.imshow(mask, cmap="PiYG", alpha=0.40)
     ax2.plot(sl_pix[:, 0], sl_pix[:, 1], "k.", markersize=1)
     for idx in range(len(shoreline_extraction_area)):
         ax2.plot(
