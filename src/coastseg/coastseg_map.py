@@ -10,6 +10,7 @@ from datetime import datetime
 from collections import defaultdict
 from typing import Any, Collection, Dict, List, Optional, Tuple, Union
 import traceback
+from pathlib import Path
 
 # Third-party imports
 import geopandas as gpd
@@ -111,7 +112,7 @@ class ExtractShorelinesContainer(traitlets.HasTraits):
         self.roi_ids_list = []
 
 
-def find_shorelines_directory(path:str, roi_id:str):
+def find_shorelines_directory(path: str, roi_id: str):
     """
     Find the directory containing the extracted shorelines geojson file.
 
@@ -207,13 +208,13 @@ def delete_extracted_shorelines_files(session_path: str, selected_items: List):
     )
     # delete the extracted shorelines from the transect_time_series.csv files
     filenames = [
-        "transect_time_series.csv", # old name for  raw_transect_time_series.csv
-        "raw_transect_time_series.csv", # time series as matrix of dates x transects
+        "transect_time_series.csv",  # old name for  raw_transect_time_series.csv
+        "raw_transect_time_series.csv",  # time series as matrix of dates x transects
         "transect_time_series_merged.csv",  # old name for  raw_transect_time_series_merged.csv
         "raw_transect_time_series_merged.csv",  # timeseries with columns dates, transect_id, x,y, shore_x, shore_y,cross_distance, along_distance
-        "transect_time_series_tidally_corrected.csv", # old name for tidally_corrected_transect_time_series_merged.csv
-        "tidally_corrected_transect_time_series_merged.csv", # tidally corrected timeseries with columns dates, transect_id, x,y, shore_x, shore_y,cross_distance, along_distance
-        "tidally_corrected_transect_time_series.csv", # tidally corrected time series as matrix of dates x transects
+        "transect_time_series_tidally_corrected.csv",  # old name for tidally_corrected_transect_time_series_merged.csv
+        "tidally_corrected_transect_time_series_merged.csv",  # tidally corrected timeseries with columns dates, transect_id, x,y, shore_x, shore_y,cross_distance, along_distance
+        "tidally_corrected_transect_time_series.csv",  # tidally corrected time series as matrix of dates x transects
     ]
     filepaths = [
         os.path.join(session_path, filename)
@@ -228,7 +229,7 @@ def delete_extracted_shorelines_files(session_path: str, selected_items: List):
 
 
 class CoastSeg_Map:
-    def __init__(self,create_map:bool=True):
+    def __init__(self, create_map: bool = True):
         # Basic settings and configurations
         self.settings = {}
         self.map = None
@@ -243,7 +244,7 @@ class CoastSeg_Map:
         self.drawing_shoreline_extraction_area = False
         # Optional: a user drawn polygon only keep extracted shorelines within this polygon
         self.shoreline_extraction_area = None
-        
+
         self.set_settings()
         self.session_name = ""
 
@@ -266,7 +267,7 @@ class CoastSeg_Map:
             # Warning and information boxes that appear on top of the map
             self._init_info_boxes()
 
-    def print_features(self):  
+    def print_features(self):
         """
         Prints the number of each kind of feature currently loaded in the object.
 
@@ -291,8 +292,16 @@ class CoastSeg_Map:
         if self.bbox is not None:
             print(f"Number of bounding boxes: {len(self.bbox.gdf)}")
         if self.shoreline_extraction_area is not None:
-            print(f"Number of shoreline extraction areas: {len(self.shoreline_extraction_area.gdf)}")
-        if self.rois is None and self.shoreline is None and self.transects is None and self.bbox is None and self.shoreline_extraction_area is None:
+            print(
+                f"Number of shoreline extraction areas: {len(self.shoreline_extraction_area.gdf)}"
+            )
+        if (
+            self.rois is None
+            and self.shoreline is None
+            and self.transects is None
+            and self.bbox is None
+            and self.shoreline_extraction_area is None
+        ):
             print("No features loaded")
 
     def get_map(self):
@@ -302,7 +311,7 @@ class CoastSeg_Map:
 
     def _init_map_components(self):
         """Initialize map-related attributes and settings.
-        
+
         This method initializes the map-related attributes and settings for the CoastSeg application.
         It creates a draw control and adds it to the map instance.
         It also adds a layers control to the map instance.
@@ -314,35 +323,37 @@ class CoastSeg_Map:
         map_instance.add(LayersControl(position="topright"))
 
     def _init_info_boxes(self):
-            """
-            Initialize info and warning boxes for the map.
+        """
+        Initialize info and warning boxes for the map.
 
-            This method initializes the warning box, ROI box, and hover box for the map.
-            The warning box displays warning messages, the ROI box displays information about the region of interest,
-            and the hover box displays information about the selected feature on the map.
-            Available selected features include extracted shorelines, shorelines, and transects.
+        This method initializes the warning box, ROI box, and hover box for the map.
+        The warning box displays warning messages, the ROI box displays information about the region of interest,
+        and the hover box displays information about the selected feature on the map.
+        Available selected features include extracted shorelines, shorelines, and transects.
 
-            Parameters:
-                None
+        Parameters:
+            None
 
-            Returns:
-                None
-            """
-            self.warning_box = HBox([],layout=Layout(height='242px'))
-            self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
-            self.map.add(self.warning_widget)
+        Returns:
+            None
+        """
+        self.warning_box = HBox([], layout=Layout(height="242px"))
+        self.warning_widget = WidgetControl(widget=self.warning_box, position="topleft")
+        self.map.add(self.warning_widget)
 
-            self.roi_html = HTML("""""")
-            self.roi_box = common.create_hover_box(title="ROI", feature_html=self.roi_html,default_msg="Hover over a ROI")
-            self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
-            self.map.add(self.roi_widget)
+        self.roi_html = HTML("""""")
+        self.roi_box = common.create_hover_box(
+            title="ROI", feature_html=self.roi_html, default_msg="Hover over a ROI"
+        )
+        self.roi_widget = WidgetControl(widget=self.roi_box, position="topright")
+        self.map.add(self.roi_widget)
 
-            self.feature_html = HTML("""""")
-            self.hover_box = common.create_hover_box(
-                title="Feature", feature_html=self.feature_html
-            )
-            self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
-            self.map.add(self.hover_widget)
+        self.feature_html = HTML("""""")
+        self.hover_box = common.create_hover_box(
+            title="Feature", feature_html=self.feature_html
+        )
+        self.hover_widget = WidgetControl(widget=self.hover_box, position="topright")
+        self.map.add(self.hover_widget)
 
     def __str__(self):
         return f"CoastSeg: roi={self.rois}\n shoreline={self.shoreline}\n  transects={self.transects}\n bbox={self.bbox}"
@@ -372,7 +383,8 @@ class CoastSeg_Map:
             date_to_delta = {unique_dates[0]: 0.25}
         else:
             date_to_delta = {
-                date: (date - unique_dates.min()) / (unique_dates.max() - unique_dates.min())
+                date: (date - unique_dates.min())
+                / (unique_dates.max() - unique_dates.min())
                 for date in unique_dates
             }
         # get the colors from the colormap based on the assigned delta values
@@ -413,10 +425,15 @@ class CoastSeg_Map:
                 "radius": 1,
                 "opacity": 1,
             },
-            hover_style={"color": "red"}
+            hover_style={"color": "red"},
         )
         # this will add the new layer on map and update the widget on the side with the extracted shoreline information
-        self.replace_layer_by_name(layer_name, new_layer, on_hover=self.update_extracted_shoreline_html, on_click=None)
+        self.replace_layer_by_name(
+            layer_name,
+            new_layer,
+            on_hover=self.update_extracted_shoreline_html,
+            on_click=None,
+        )
 
     def delete_selected_shorelines(
         self, layer_name: str, selected_id: str, selected_shorelines: List = None
@@ -465,7 +482,7 @@ class CoastSeg_Map:
             # To ensure the gdf is in the expected format
             gdf["date"] = pd.to_datetime(gdf["date"])
             # strftime converts datetime to string and formats it to the expected format
-            gdf["date"] = gdf["date"].dt.strftime('%Y-%m-%d %H:%M:%S')
+            gdf["date"] = gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
             # then convert it back to datetime object
             gdf["date"] = pd.to_datetime(gdf["date"])
             # Filtering criteria
@@ -548,18 +565,18 @@ class CoastSeg_Map:
     def compute_tidal_corrections(
         self,
         roi_ids: Collection,
-        beach_slope: Union[str,float]=0.02,
-        reference_elevation: float=0,
-        model:str="FES2014",
-        tides_file:str="",
-        use_progress_bar:bool=True,
+        beach_slope: Union[str, float] = 0.02,
+        reference_elevation: float = 0,
+        model: str = "FES2014",
+        tides_file: str = "",
+        use_progress_bar: bool = True,
     ):
         """
         Computes tidal corrections for the specified region of interest (ROI) IDs.
 
         Args:
             roi_ids (Collection): A collection of ROI IDs for which tidal corrections need to be computed.
-            
+
             beach_slope (str or float): The slope of the beach or file containing the slopes of the beach
                 This can be either a file containing the slopes of the beach or a float value.
                 Available file formats for the beach slope:
@@ -569,7 +586,7 @@ class CoastSeg_Map:
                     - A CSV file containing the transect ids as the columns and the dates as the row indices.
 
             reference_elevation (float, optional): The reference elevation in meters relative to MSL (Mean Sea Level). Defaults to 0.
-            
+
             only_keep_points_on_transects (bool, optional): If True, only keep points that lie directly on the transects. Defaults to False.
                                                             - This value is read from the settings under the name 'drop_intersection_pts'.
 
@@ -593,7 +610,9 @@ class CoastSeg_Map:
 
         session_name = self.get_session_name()
         # if True then only the intersection point ON the transect are kept. If False all intersection points are kept.
-        only_keep_points_on_transects = self.get_settings().get('drop_intersection_pts',False)
+        only_keep_points_on_transects = self.get_settings().get(
+            "drop_intersection_pts", False
+        )
         try:
             tide_correction.correct_all_tides(
                 roi_ids,
@@ -602,7 +621,7 @@ class CoastSeg_Map:
                 beach_slope,
                 use_progress_bar=use_progress_bar,
                 only_keep_points_on_transects=only_keep_points_on_transects,
-                model = model,
+                model=model,
                 tides_file=tides_file,
             )
         except Exception as e:
@@ -676,7 +695,7 @@ class CoastSeg_Map:
         else:
             raise Exception(f"Must provide settings or list of IDs to load metadata.")
 
-    def load_session_files(self, dir_path: str,data_path:str="") -> None:
+    def load_session_files(self, dir_path: str, data_path: str = "") -> None:
         """
         Load the configuration files from the given directory.
 
@@ -701,7 +720,9 @@ class CoastSeg_Map:
             config_geojson_path = os.path.join(dir_path, "config_gdf.geojson")
             config_json_path = os.path.join(dir_path, "config.json")
             # load the config files if they exist
-            config_loaded = self.load_config_files(data_path, config_geojson_path, config_json_path)
+            config_loaded = self.load_config_files(
+                data_path, config_geojson_path, config_json_path
+            )
             # create metadata files for each ROI loaded in using coastsat's get_metadata()
             if self.rois and getattr(self.rois, "roi_settings"):
                 self.load_metadata(ids=list(self.rois.roi_settings.keys()))
@@ -742,7 +763,7 @@ class CoastSeg_Map:
             if not config_loaded:
                 logger.info(f"Not all config files not found at {dir_path}")
 
-    def load_session_from_directory(self, dir_path: str,data_path:str="") -> None:
+    def load_session_from_directory(self, dir_path: str, data_path: str = "") -> None:
         """
         Loads a session from a specified directory path.
         Loads config files, extracted shorelines, and transects & extracted shoreline intersections.
@@ -753,7 +774,7 @@ class CoastSeg_Map:
         Returns:
             None. The function updates the coastseg instance with ROIs, extracted shorelines, and transects
         """
-        self.load_session_files(dir_path,data_path)
+        self.load_session_files(dir_path, data_path)
         # for every directory load extracted shorelines
         extracted_shorelines = extracted_shoreline.load_extracted_shoreline_from_files(
             dir_path
@@ -777,7 +798,7 @@ class CoastSeg_Map:
             # add extracted shoreline and transect intersections to ROI they were extracted from
             self.rois.add_cross_shore_distances(cross_distances, roi_id)
 
-    def load_data_from_directory(self, dir_path: str,data_path:str="") -> None:
+    def load_data_from_directory(self, dir_path: str, data_path: str = "") -> None:
         """
         Clears the previous session and loads data from the specified directory.
         This will load the config_gdf.geojson, config.json, shoreline_settings.json, and transects_settings.json files
@@ -798,8 +819,7 @@ class CoastSeg_Map:
         # remove all the old features from the map
         self.remove_all()
         # only load data from the directory
-        self.load_session_files(dir_path,data_path)
-
+        self.load_session_files(dir_path, data_path)
 
     def load_fresh_session(self, session_path: str) -> None:
         """
@@ -817,7 +837,7 @@ class CoastSeg_Map:
         self.remove_all()
         self.load_session(session_path)
 
-    def load_session(self, session_path: str,data_path:str="") -> None:
+    def load_session(self, session_path: str, data_path: str = "") -> None:
         """
         Load a session from the given path.
 
@@ -857,11 +877,12 @@ class CoastSeg_Map:
 
         session_path = os.path.abspath(session_path)
         # load the session name
-        
+
         session_name = get_parent_session_name(session_path)
         if session_name == "":
-            raise Exception(f"A session can only be loaded from the /sessions or /data directory. The {session_path} directory is not a valid session directory.")
-
+            raise Exception(
+                f"A session can only be loaded from the /sessions or /data directory. The {session_path} directory is not a valid session directory."
+            )
 
         logger.info(f"session_name: {session_name} session_path: {session_path}")
         self.set_session_name(session_name)
@@ -870,7 +891,7 @@ class CoastSeg_Map:
         # load the session from the parent directory and subdirectories within session path
         directories_to_load = file_utilities.get_all_subdirectories(session_path)
         for directory in directories_to_load:
-            self.load_session_from_directory(directory,data_path)
+            self.load_session_from_directory(directory, data_path)
 
         # update the list of roi's ids who have extracted shorelines
         ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
@@ -881,8 +902,8 @@ class CoastSeg_Map:
         logger.info(
             f"Available roi_ids from extracted shorelines: {ids_with_extracted_shorelines}"
         )
-         
-        # get the ROIs and check if they have settings 
+
+        # get the ROIs and check if they have settings
         if self.rois is not None:
             roi_settings = self.rois.get_roi_settings()
             logger.info(f"Checking roi_settings for missing ROIs: {roi_settings}")
@@ -890,7 +911,7 @@ class CoastSeg_Map:
             missing_directories = common.get_missing_roi_dirs(roi_settings)
             logger.info(f"Missing directories: {missing_directories}")
             # raise a warning message if any of the ROIs were missing in the data directory
-            exception_handler.check_if_dirs_missing(missing_directories,data_path)
+            exception_handler.check_if_dirs_missing(missing_directories, data_path)
 
     def load_gdf_config(self, filepath: str) -> None:
         """Load features from GeoDataFrame located in geojson file at filepath onto map.
@@ -903,15 +924,15 @@ class CoastSeg_Map:
         """
 
         gdf = geodata_processing.read_gpd_file(filepath)
-        gdf = common.stringify_datetime_columns(gdf)    
+        gdf = common.stringify_datetime_columns(gdf)
 
         # each possible type of feature and the columns that should be loaded
         feature_types = {
             "bbox": ["geometry"],
             "roi": ["id", "geometry"],
             "transect": list(Transects.COLUMNS_TO_KEEP),
-            "shoreline": ["geometry","id"],
-            "shoreline": ["geometry","id"],
+            "shoreline": ["geometry", "id"],
+            "shoreline": ["geometry", "id"],
             "shoreline_extraction_area": ["geometry"],
         }
 
@@ -919,7 +940,14 @@ class CoastSeg_Map:
             "bbox": ["bbox"],
             "roi": ["roi"],
             "transect": ["transect", "transects"],
-            "shoreline": ["shoreline", "shorelines", "reference_shoreline", "reference_shorelines","reference shoreline","reference shorelines"],
+            "shoreline": [
+                "shoreline",
+                "shorelines",
+                "reference_shoreline",
+                "reference_shorelines",
+                "reference shoreline",
+                "reference shorelines",
+            ],
             "shoreline_extraction_area": ["shoreline_extraction_area"],
         }
 
@@ -927,7 +955,14 @@ class CoastSeg_Map:
             "bbox": ["bbox"],
             "roi": ["roi"],
             "transect": ["transect", "transects"],
-            "shoreline": ["shoreline", "shorelines", "reference_shoreline", "reference_shorelines","reference shoreline","reference shorelines"],
+            "shoreline": [
+                "shoreline",
+                "shorelines",
+                "reference_shoreline",
+                "reference_shorelines",
+                "reference shoreline",
+                "reference shorelines",
+            ],
             "shoreline_extraction_area": ["shoreline_extraction_area"],
         }
 
@@ -943,8 +978,8 @@ class CoastSeg_Map:
                     continue
                 # append all the features into a single geodataframe
                 feature_gdf = pd.concat([feature_gdf, new_feature_gdf])
-            
-             # Step 2: Load each feature gdf as a separate kind of feature eg. roi, shoreline, transect, bbox
+
+            # Step 2: Load each feature gdf as a separate kind of feature eg. roi, shoreline, transect, bbox
             # create an empty geodataframe to store the features
             feature_gdf = gpd.GeoDataFrame()
 
@@ -955,28 +990,32 @@ class CoastSeg_Map:
                     continue
                 # append all the features into a single geodataframe
                 feature_gdf = pd.concat([feature_gdf, new_feature_gdf])
-            
-             # Step 2: Load each feature gdf as a separate kind of feature eg. roi, shoreline, transect, bbox
+
+            # Step 2: Load each feature gdf as a separate kind of feature eg. roi, shoreline, transect, bbox
             # if the feature is not an ROI use the load_feature_on_map method to load it. (eg. shorelines, transects, bbox)
             if feature_name != "roi":
-                self.load_feature_on_map(feature_name, gdf=feature_gdf, zoom_to_bounds=True)
+                self.load_feature_on_map(
+                    feature_name, gdf=feature_gdf, zoom_to_bounds=True
+                )
                 continue
-            
+
             # at this point assume the feature is an ROI
-            exception_handler.check_if_gdf_empty(feature_gdf, "ROIs", "Cannot load empty ROIs onto map")
+            exception_handler.check_if_gdf_empty(
+                feature_gdf, "ROIs", "Cannot load empty ROIs onto map"
+            )
 
             if self.rois is None:
                 # if no ROIs exist on the map, create a new ROI object and load the ROIs onto the map
                 self.rois = ROI(rois_gdf=feature_gdf)
                 self.load_feature_on_map(
-                        feature_name, gdf=feature_gdf, zoom_to_bounds=True
+                    feature_name, gdf=feature_gdf, zoom_to_bounds=True
                 )
             else:
                 # add the new roi to the existing rois
                 self.rois = self.rois.add_geodataframe(feature_gdf)
                 # load the new rois onto the map
-                self.add_feature_on_map(self.rois, feature_name)  
-            
+                self.add_feature_on_map(self.rois, feature_name)
+
         del gdf
 
     def _extract_feature_gdf(
@@ -1013,11 +1052,11 @@ class CoastSeg_Map:
             )
 
         # select only the features that are of the correct type and have the correct columns
-        feature_gdf =  common.extract_feature_from_geodataframe(gdf, feature_type)
+        feature_gdf = common.extract_feature_from_geodataframe(gdf, feature_type)
         feature_gdf = feature_gdf[keep_columns]
         return feature_gdf
 
-    def preview_available_images(self,selected_ids: set = None):
+    def preview_available_images(self, selected_ids: set = None):
         """
         Preview the available satellite images for selected regions of interest (ROIs).
 
@@ -1028,9 +1067,9 @@ class CoastSeg_Map:
         satellite.
 
         It provides a progress bar using `tqdm` to indicate the processing of each ROI.
-        
+
         Args:
-        selected_ids (set, optional): A set of selected ROI IDs. Defaults to None. 
+        selected_ids (set, optional): A set of selected ROI IDs. Defaults to None.
                                       These ids are used to select the ROIs to preview available images for.
 
         Attributes:
@@ -1059,17 +1098,19 @@ class CoastSeg_Map:
         S2: 11 images
         """
         # Get the months list from the settings or use the default list
-        months_list = self.settings.get("months_list", [1,2,3,4,5,6,7,8,9,10,11,12])
-        
+        months_list = self.settings.get(
+            "months_list", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        )
+
         # check that ROIs exist and one has been clicked
         exception_handler.check_if_None(self.rois, "ROI")
         exception_handler.check_if_gdf_empty(self.rois.gdf, "ROI")
-        
+
         if selected_ids is None:
             selected_ids = self.get_selected_ids()
-            
+
         exception_handler.check_selected_set(selected_ids)
-            
+
         # get the start and end date to check available images
         start_date, end_date = self.settings["dates"]
         # for each selected ID return the images available for each site
@@ -1123,11 +1164,13 @@ class CoastSeg_Map:
                 raise Exception("selected_ids must be a set or list of ROI IDs")
         return selected_ids
 
-    def make_roi_settings(self,
-                          rois: gpd.GeoDataFrame=gpd.GeoDataFrame(), 
-                          settings: dict = {},
-                          selected_ids: set = None,
-                          file_path: str = None) -> None:
+    def make_roi_settings(
+        self,
+        rois: gpd.GeoDataFrame = gpd.GeoDataFrame(),
+        settings: dict = {},
+        selected_ids: set = None,
+        file_path: str = None,
+    ) -> None:
         """
         Create ROI settings for downloading imagery based on the provided inputs.
 
@@ -1143,12 +1186,15 @@ class CoastSeg_Map:
         """
         # Get the location where the downloaded imagery will be saved
         if not file_path:
-            file_path = os.path.abspath(os.path.join(os.path.abspath(core_utilities.get_base_dir()), "data"))
+            file_path = os.path.abspath(
+                os.path.join(os.path.abspath(core_utilities.get_base_dir()), "data")
+            )
+
         # used to uniquely identify the folder where the imagery will be saved
         # example  ID_12_datetime06-05-23__04_16_45
         date_str = file_utilities.generate_datestring()
         # get only the ROIs whose IDs are in the selected_ids
-        filtered_gdf = rois[rois['id'].isin(selected_ids)]
+        filtered_gdf = rois[rois["id"].isin(selected_ids)]
         geojson_str = filtered_gdf.to_json()
         geojson_dict = json.loads(geojson_str)
         # Create a list of download settings for each ROI
@@ -1156,10 +1202,14 @@ class CoastSeg_Map:
             settings, geojson_dict, file_path, date_str
         )
         return roi_settings
-       
 
-
-    def download_imagery(self,rois:gpd.GeoDataFrame=None, settings:dict={},selected_ids:set=None,file_path:str=None) -> None:
+    def download_imagery(
+        self,
+        rois: gpd.GeoDataFrame = None,
+        settings: dict = {},
+        selected_ids: set = None,
+        file_path: str = None,
+    ) -> None:
         """
         Downloads all images for the selected ROIs  from Landsat 5, Landsat 7, Landsat 8 and Sentinel-2  covering the area of interest and acquired between the specified dates.
         The downloaded imagery for each ROI is stored in a directory that follows the convention
@@ -1175,9 +1225,13 @@ class CoastSeg_Map:
         # if the map does not exist and the settings are not provided, raise an error
         if not settings:
             settings = self.get_settings()
-        else: # if settings were provided then update the settings
-            settings =self.set_settings(**settings)
-        
+        else:  # if settings were provided then update the settings
+            settings = self.set_settings(**settings)
+
+        # if filepath is not a string but is a Path object, convert it to a string
+        if file_path and isinstance(file_path, Path):
+            file_path = str(file_path)
+
         # get the selected_ids from the map or the selected_ids passed in
         selected_ids = self.get_selected_ids(selected_ids)
         # should the selected ids be a set or a list?
@@ -1185,29 +1239,41 @@ class CoastSeg_Map:
         # Create an ROI object from the ROI geodataframe passed in
         if rois is not None:
             self.rois = ROI(rois_gdf=rois)
-        
+
         # get the ROIs geodataframe from the ROI object
-        rois = self.rois.gdf    
+        rois = self.rois.gdf
         # check if the settings have the necessary keys, and that the selected_ids are in the ROIs
-        self.validate_download_imagery_inputs(settings,selected_ids,rois)
-        
+        self.validate_download_imagery_inputs(settings, selected_ids, rois)
+
         # Does the ROI loaded in have the settings for the selected ROIs?
         roi_settings = self.rois.get_roi_settings(selected_ids)
+        print(f"roi_settings: {roi_settings}")
         # if the roi id is missing from the ROI settings then it will contain {roi_id:{}}
         if roi_settings:
             # Its possible not all the ROIs selected on the map have been downloaded before so it may be necessary to add their settings to the ROI settings so they get downloaded
             missing_ids = set(selected_ids) - set(roi_settings.keys())
-            missing_roi_settings = self.make_roi_settings(rois=rois,settings=settings,selected_ids=missing_ids,file_path=file_path)
+            missing_roi_settings = self.make_roi_settings(
+                rois=rois,
+                settings=settings,
+                selected_ids=missing_ids,
+                file_path=file_path,
+            )
+            print(f"missing_roi_settings: {missing_roi_settings}")
             roi_settings.update(missing_roi_settings)
             # the user might have updated the date range or other settings so update the ROI settings
-            roi_settings = common.update_roi_settings_with_global_settings(roi_settings,settings)
+            roi_settings = common.update_roi_settings_with_global_settings(
+                roi_settings, settings
+            )
         if not roi_settings:
             # if ROI settings is empty it means the ROIs have ALL not been download before and weren't loaded in from a download session
             # create the ROI settings for the selected ROIs
-            roi_settings = self.make_roi_settings(rois,settings,selected_ids,file_path)
-            
+            roi_settings = self.make_roi_settings(
+                rois, settings, selected_ids, file_path
+            )
+
         # update the ROI settings with the settings for the selected ROIs
         self.rois.set_roi_settings(roi_settings)
+
         # create a list of settings for each ROI, which will be used to download the imagery
         inputs_list = list(roi_settings.values())
         logger.info(f"inputs_list {inputs_list}")
@@ -1221,20 +1287,28 @@ class CoastSeg_Map:
         for inputs_for_roi in tqdm(inputs_list, desc="Downloading ROIs"):
             SDS_download.retrieve_images(
                 inputs_for_roi,
-                cloud_threshold=settings.get("cloud_thresh",0.80), # no more than 80% of valid portion the image can be cloud
-                cloud_mask_issue=settings.get("cloud_mask_issue",False),
+                cloud_threshold=settings.get(
+                    "cloud_thresh", 0.80
+                ),  # no more than 80% of valid portion the image can be cloud
+                cloud_mask_issue=settings.get("cloud_mask_issue", False),
                 save_jpg=True,
                 apply_cloud_mask=settings.get("apply_cloud_mask", True),
-                months_list = settings.get("months_list",[1,2,3,4,5,6,7,8,9,10,11,12]),
-                max_cloud_no_data_cover=settings.get('percent_no_data',0.80), # no more than 80% of the image cloud or no data
+                months_list=settings.get(
+                    "months_list", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                ),
+                max_cloud_no_data_cover=settings.get(
+                    "percent_no_data", 0.80
+                ),  # no more than 80% of the image cloud or no data
             )
         if settings.get("image_size_filter", True):
             common.filter_images_by_roi(roi_settings)
 
         logger.info("Done downloading")
 
-
-    def load_json_config(self, filepath: str,) -> dict:
+    def load_json_config(
+        self,
+        filepath: str,
+    ) -> dict:
         """
         Loads a .json configuration file specified by the user.
         Updates the coastseg_map.settings with the settings from the config file.
@@ -1252,7 +1326,7 @@ class CoastSeg_Map:
 
         """
         logger.info(f"Loading json config from filepath: {filepath}")
-        exception_handler.check_if_None(self.rois,"rois")
+        exception_handler.check_if_None(self.rois, "rois")
 
         json_data = file_utilities.read_json_file(filepath, raise_error=True)
         json_data = json_data or {}
@@ -1262,10 +1336,10 @@ class CoastSeg_Map:
         )
         self.set_settings(**settings)
         return json_data
-        
 
-    
-    def load_config_files(self,  data_path: str,config_geojson_path:str, config_json_path:str) -> None:
+    def load_config_files(
+        self, data_path: str, config_geojson_path: str, config_json_path: str
+    ) -> None:
         """Loads the configuration files from the specified directory
             Loads config_gdf.geojson first, then config.json.
         - config.json relies on config_gdf.geojson to load the rois on the map
@@ -1297,14 +1371,15 @@ class CoastSeg_Map:
             self.rois.update_roi_settings(roi_settings)
 
         logger.info(f"roi_settings: {roi_settings} loaded from {config_json_path}")
-        
+
         # update the config.json files with the filepath of the data directory on this computer
         common.update_downloaded_configs(roi_settings)
         # return true if both config files exist
         return True
 
-                
-    def save_config(self, filepath: str = None,selected_only:bool=True,roi_ids:list=None) -> None:
+    def save_config(
+        self, filepath: str = None, selected_only: bool = True, roi_ids: list = None
+    ) -> None:
         """saves the configuration settings of the map into two files
             config.json and config_gdf.geojson
             Saves the inputs such as dates, landsat_collection, satellite list, an  d ROIs
@@ -1313,7 +1388,7 @@ class CoastSeg_Map:
             file_path (str, optional): path to directory to save config files. Defaults to None.
             selected_only (bool, optional): If True, only the selected ROIs will be saved. Defaults to True.
             roi_ids (list, optional): A list of ROI IDs to save. Defaults to None.
-            
+
         Raises:
             Exception: raised if self.settings is missing
             ValueError: raised if any of "dates", "sat_list", "landsat_collection" is missing from self.settings
@@ -1321,13 +1396,13 @@ class CoastSeg_Map:
             Exception: raised if selected_layer is missing
         """
         settings = self.get_settings()
-        
+
         # if no rois exist on the map do not allow configs to be saved
         exception_handler.config_check_if_none(self.rois, "ROIs")
-        
+
         if roi_ids == []:
             roi_ids = None
-        
+
         # Only get the selected ROIs if selected_only is True
         if selected_only:
             if roi_ids is None:
@@ -1336,22 +1411,24 @@ class CoastSeg_Map:
         else:
             if roi_ids is None:
                 roi_ids = self.get_roi_ids()
-                
+
         if isinstance(roi_ids, str):
             roi_ids = [roi_ids]
         # if the rois do not have any settings then save the currently loaded settings to the ROIs
         if not self.rois.get_roi_settings():
-            filtered_gdf = self.rois.gdf[self.rois.gdf['id'].isin(roi_ids)]
+            filtered_gdf = self.rois.gdf[self.rois.gdf["id"].isin(roi_ids)]
             geojson_str = filtered_gdf.to_json()
             geojson_dict = json.loads(geojson_str)
             base_path = os.path.abspath(core_utilities.get_base_dir())
             filepath_data = filepath or os.path.abspath(os.path.join(base_path, "data"))
             roi_settings = common.create_roi_settings(
-                settings, geojson_dict, filepath_data,
-                )
+                settings,
+                geojson_dict,
+                filepath_data,
+            )
             self.rois.set_roi_settings(roi_settings)
-            
-         # create dictionary of settings for each ROI to be saved to config.json
+
+        # create dictionary of settings for each ROI to be saved to config.json
         selected_roi_settings = {
             roi_id: self.rois.roi_settings[roi_id] for roi_id in roi_ids
         }
@@ -1363,8 +1440,12 @@ class CoastSeg_Map:
         )
         transects_gdf = getattr(self.transects, "gdf", None) if self.transects else None
         bbox_gdf = getattr(self.bbox, "gdf", None) if self.bbox else None
-        ref_polygon_gdf = getattr(self.shoreline_extraction_area, "gdf", None) if self.shoreline_extraction_area else None
-        
+        ref_polygon_gdf = (
+            getattr(self.shoreline_extraction_area, "gdf", None)
+            if self.shoreline_extraction_area
+            else None
+        )
+
         # get the GeoDataFrame containing all the selected rois
         selected_rois = self.rois.gdf[self.rois.gdf["id"].isin(roi_ids)]
         logger.info(f"selected_rois: {selected_rois}")
@@ -1374,14 +1455,14 @@ class CoastSeg_Map:
             if not selected_rois.empty:
                 epsg_code = selected_rois.crs
         # config should always be in epsg 4326
-        epsg_code = '4326'        
+        epsg_code = "4326"
         config_gdf = common.create_config_gdf(
             selected_rois,
             shorelines_gdf=shorelines_gdf,
             transects_gdf=transects_gdf,
             bbox_gdf=bbox_gdf,
             epsg_code=epsg_code,
-            shoreline_extraction_area_gdf = ref_polygon_gdf
+            shoreline_extraction_area_gdf=ref_polygon_gdf,
         )
         logger.info(f"config_gdf: {config_gdf} ")
 
@@ -1395,7 +1476,9 @@ class CoastSeg_Map:
             save_config_files(config_json, config_gdf, filepath)
             print(f"Saved config files to {filepath}")
         else:
-            is_downloaded = common.were_rois_downloaded(self.rois.get_roi_settings(), roi_ids)
+            is_downloaded = common.were_rois_downloaded(
+                self.rois.get_roi_settings(), roi_ids
+            )
             # if  data has been downloaded before then inputs have keys 'filepath' and 'sitename'
             if is_downloaded:
                 # write config_json file to each directory where a roi was saved
@@ -1432,7 +1515,7 @@ class CoastSeg_Map:
         self.default_settings = {
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
-            "months_list":[1,2,3,4,5,6,7,8,9,10,11,12],
+            "months_list": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
             "sat_list": ["L8"],
             "cloud_thresh": 0.8,
             "percent_no_data": 0.8,
@@ -1457,7 +1540,7 @@ class CoastSeg_Map:
             "apply_cloud_mask": True,
             "image_size_filter": True,
             "drop_intersection_pts": False,
-            "coastseg_version":__version__,
+            "coastseg_version": __version__,
         }
 
         # Function to parse dates with flexibility for different formats
@@ -1741,7 +1824,7 @@ class CoastSeg_Map:
         rois_gdf: gpd.GeoDataFrame,
         shoreline_gdf: gpd.GeoDataFrame,
         settings: dict,
-        session_path: str=None,
+        session_path: str = None,
         shoreline_extraction_area: gpd.GeoDataFrame = None,
     ) -> Optional[extracted_shoreline.Extracted_Shoreline]:
         """
@@ -1774,7 +1857,7 @@ class CoastSeg_Map:
                 roi_settings,
                 settings,
                 output_directory=session_path,
-                shoreline_extraction_area = shoreline_extraction_area
+                shoreline_extraction_area=shoreline_extraction_area,
             )
             logger.info(f"extracted_shoreline_dict[{roi_id}]: {extracted_shorelines}")
             return extracted_shorelines
@@ -1796,12 +1879,12 @@ class CoastSeg_Map:
 
         return None
 
-    def update_settings_with_accurate_epsg(self,gdf:gpd.GeoDataFrame):
+    def update_settings_with_accurate_epsg(self, gdf: gpd.GeoDataFrame):
         """Updates settings with the most accurate epsg code based on lat and lon if output epsg
         was 4326 or 4327.
         """
         settings = self.get_settings()
-        if hasattr(gdf,"crs"):
+        if hasattr(gdf, "crs"):
             new_espg = common.get_most_accurate_epsg(
                 settings.get("output_epsg", 4326), gdf
             )
@@ -1809,7 +1892,6 @@ class CoastSeg_Map:
         else:
             raise Exception("The GeoDataFrame does not have a crs attribute")
         return self.get_settings()
-        
 
     def validate_transect_inputs(self, settings: dict, roi_ids: list = None):
         """
@@ -1841,12 +1923,12 @@ class CoastSeg_Map:
         )
         exception_handler.check_if_list_empty(roi_ids)
 
-
-
-    def validate_extract_shoreline_inputs(self,roi_ids:list=None,settings:dict=None):
+    def validate_extract_shoreline_inputs(
+        self, roi_ids: list = None, settings: dict = None
+    ):
         """
         Validates the inputs required for extracting shorelines.
-        
+
         Ensures that the required settings are present and that the selected layer contains the selected ROI.
         It also validates that the ROIs have been downloaded before by checking for the presence roi_settings and ensures
         that the directories for the ROIs exist.
@@ -1877,7 +1959,9 @@ class CoastSeg_Map:
         if hasattr(self.rois, "roi_settings"):
             exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")
         else:
-            raise Exception("None of the ROIs have been downloaded on this machine or the location where they were downloaded has been moved. Please download the ROIs again.")
+            raise Exception(
+                "None of the ROIs have been downloaded on this machine or the location where they were downloaded has been moved. Please download the ROIs again."
+            )
 
         # settings must contain keys "dates", "sat_list", "landsat_collection"
         superset = set(list(settings.keys()))
@@ -1894,12 +1978,18 @@ class CoastSeg_Map:
         # get only the rois with missing directories that are selected on the map
         roi_ids = self.get_roi_ids(is_selected=True)
         # check if any of the ROIs are missing their downloaded data directory
-        missing_directories = common.get_missing_roi_dirs(self.rois.get_roi_settings(),roi_ids)
-        # raise an warning if any of the selected ROIs were not downloaded 
+        missing_directories = common.get_missing_roi_dirs(
+            self.rois.get_roi_settings(), roi_ids
+        )
+        # raise an warning if any of the selected ROIs were not downloaded
         exception_handler.check_if_dirs_missing(missing_directories)
-        
 
-    def validate_download_imagery_inputs(self,settings:dict=None,selected_ids:set=None,roi_gdf:gpd.GeoDataFrame=None):
+    def validate_download_imagery_inputs(
+        self,
+        settings: dict = None,
+        selected_ids: set = None,
+        roi_gdf: gpd.GeoDataFrame = None,
+    ):
         """
         Validates the inputs required for downloading imagery.
 
@@ -1916,30 +2006,39 @@ class CoastSeg_Map:
         required_settings_keys = set(["dates", "sat_list", "landsat_collection"])
         superset = set(list(settings.keys()))
         exception_handler.check_if_subset(required_settings_keys, superset, "settings")
-        dates=settings.get("dates", [])
+        dates = settings.get("dates", [])
         if dates == []:
-            raise Exception('No dates provided to download imagery. Please provide a start date and end date in the format "YYYY-MM-DD". Example  ["2017-12-01", "2018-01-01"]')
+            raise Exception(
+                'No dates provided to download imagery. Please provide a start date and end date in the format "YYYY-MM-DD". Example  ["2017-12-01", "2018-01-01"]'
+            )
         dates = [datetime.strptime(_, "%Y-%m-%d") for _ in dates]
         if dates[1] <= dates[0]:
-            raise Exception("Verify that your dates are in the correct chronological order")
+            raise Exception(
+                "Verify that your dates are in the correct chronological order"
+            )
         if settings.get("sat_list", []) == []:
             raise Exception("No satellite list provided to download imagery")
         if settings.get("landsat_collection", "") == "":
             raise Exception("No landsat collection provided to download imagery")
         if settings.get("landsat_collection", "") == "CO2":
-            raise Exception("Error CO2 is not a valid collection. Did you mean to use the landsat collection 'C02'?")
-        
+            raise Exception(
+                "Error CO2 is not a valid collection. Did you mean to use the landsat collection 'C02'?"
+            )
+
         if not selected_ids:
-             raise Exception("No ROIs have been selected. Please enter the IDs of the ROIs you want to download imagery for")
-        
+            raise Exception(
+                "No ROIs have been selected. Please enter the IDs of the ROIs you want to download imagery for"
+            )
+
         if roi_gdf is None:
             raise Exception("No ROIs provided to download imagery")
         if roi_gdf.empty:
             raise Exception("No ROIs provided to download imagery")
-        filtered_gdf = roi_gdf[roi_gdf['id'].isin(selected_ids)]
+        filtered_gdf = roi_gdf[roi_gdf["id"].isin(selected_ids)]
         if filtered_gdf.empty:
-            raise Exception("None of the selected ids were ids in ROIs. Please enter the IDs of the ROIs you want to download imagery for")
-        
+            raise Exception(
+                "None of the selected ids were ids in ROIs. Please enter the IDs of the ROIs you want to download imagery for"
+            )
 
     def get_roi_ids(
         self, is_selected: bool = False, has_shorelines: bool = False
@@ -1962,9 +2061,8 @@ class CoastSeg_Map:
         if is_selected:
             roi_ids = list(set(roi_ids) & self.selected_set)
         return roi_ids
-        
 
-    def extract_all_shorelines(self,roi_ids:list=None) -> None:
+    def extract_all_shorelines(self, roi_ids: list = None) -> None:
         """
         Extracts shorelines for all selected regions of interest (ROIs).
 
@@ -1993,28 +2091,31 @@ class CoastSeg_Map:
         # if ROI ids are not provided then get the selected ROI ids from the map
         if not roi_ids:
             roi_ids = self.get_roi_ids(is_selected=True)
-            
-        # get the ROIs and check if they have settings 
+
+        # get the ROIs and check if they have settings
         if self.rois is not None:
             roi_settings = self.rois.get_roi_settings()
             # the user might have updated the date range or satellite list to extract shorelines from so update the ROI settings
-            roi_settings = common.update_roi_settings_with_global_settings(roi_settings,self.get_settings())
+            roi_settings = common.update_roi_settings_with_global_settings(
+                roi_settings, self.get_settings()
+            )
             self.rois.set_roi_settings(roi_settings)
             logger.info(f"Checking roi_settings for missing ROIs: {roi_settings}")
             # check if any of the ROIs were missing in in the data directory
             missing_directories = common.get_missing_roi_dirs(roi_settings)
             logger.info(f"missing_directories: {missing_directories}")
-            
-        
+
         # remove the ROI IDs that are missing directories from the list of ROI IDs
         if len(missing_directories) > 0:
             original_roi_ids = roi_ids
             roi_ids = list(set(roi_ids) - set(missing_directories.keys()))
             if len(roi_ids) == 0:
-                raise Exception(f"None of the selected ROIs {original_roi_ids} have been downloaded. Please download the ROIs again.")
-        
+                raise Exception(
+                    f"None of the selected ROIs {original_roi_ids} have been downloaded. Please download the ROIs again."
+                )
+
         logger.info(f"roi_ids to extract shorelines from: {roi_ids}")
-        #2. update the settings with the most accurate epsg
+        # 2. update the settings with the most accurate epsg
         if self.bbox:
             self.update_settings_with_accurate_epsg(self.bbox.gdf)
         else:
@@ -2022,24 +2123,35 @@ class CoastSeg_Map:
             roi_id = roi_ids[0]
             single_roi = common.extract_roi_by_id(self.rois.gdf, roi_id)
             self.update_settings_with_accurate_epsg(single_roi)
-            
-        shoreline_extraction_area_gdf = getattr(self.shoreline_extraction_area, "gdf", None) if self.shoreline_extraction_area else None
 
-        #3. get selected ROIs on map and extract shoreline for each of them
+        shoreline_extraction_area_gdf = (
+            getattr(self.shoreline_extraction_area, "gdf", None)
+            if self.shoreline_extraction_area
+            else None
+        )
+
+        # 3. get selected ROIs on map and extract shoreline for each of them
         for roi_id in tqdm(roi_ids, desc="Extracting Shorelines"):
             # Create the session for the selected ROIs
-            session_path = self.create_session(self.get_session_name(), roi_id, save_config=True)
+            session_path = self.create_session(
+                self.get_session_name(), roi_id, save_config=True
+            )
             print(f"Extracting shorelines from ROI with the id:{roi_id}")
             extracted_shorelines = self.extract_shoreline_for_roi(
-                roi_id, self.rois.gdf, self.shoreline.gdf, self.get_settings(),session_path, shoreline_extraction_area_gdf
+                roi_id,
+                self.rois.gdf,
+                self.shoreline.gdf,
+                self.get_settings(),
+                session_path,
+                shoreline_extraction_area_gdf,
             )
             self.rois.add_extracted_shoreline(extracted_shorelines, roi_id)
-            
+
             # update the extracted shorelines on the map if the map is available
             if extracted_shorelines is not None and self.map is not None:
                 self.update_extracted_shorelines_display(roi_id)
 
-        #4. save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
+        # 4. save the ROI IDs that had extracted shoreline to observable variable roi_ids_with_extracted_shorelines
         ids_with_extracted_shorelines = self.get_roi_ids(
             is_selected=False, has_shorelines=True
         )
@@ -2051,16 +2163,18 @@ class CoastSeg_Map:
         else:
             self.id_container.ids = ids_with_extracted_shorelines
 
-        #4. save a session for each ROI under one session name
+        # 4. save a session for each ROI under one session name
         self.save_session(roi_ids, save_transects=False)
-            
-        #5. Get ROI ids with retrieved shorelines and compute the shoreline transect intersections
+
+        # 5. Get ROI ids with retrieved shorelines and compute the shoreline transect intersections
         roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
         # get the transects for the selected ROIs with extracted shorelines
         selected_roi_ids = list(set(roi_ids) & set(roi_ids_with_extracted_shorelines))
         if hasattr(self.transects, "gdf"):
-            self.compute_transects(self.transects.gdf, self.get_settings(), selected_roi_ids)
-            
+            self.compute_transects(
+                self.transects.gdf, self.get_settings(), selected_roi_ids
+            )
+
         # update the available ROI IDs and this will update the extracted shorelines on the map
         ids_with_extracted_shorelines = self.update_roi_ids_with_shorelines()
         logger.info(
@@ -2096,9 +2210,9 @@ class CoastSeg_Map:
         """
         failure_reason = ""
         cross_distance = 0
-        
+
         transects_in_roi_gdf = transects_in_roi_gdf.loc[:, ["id", "geometry"]]
-        
+
         if transects_in_roi_gdf.empty:
             failure_reason = f"No transects intersect for the ROI {roi_id}"
             return cross_distance, failure_reason
@@ -2123,7 +2237,14 @@ class CoastSeg_Map:
 
         return cross_distance, failure_reason
 
-    def compute_transects_per_roi(self, roi_gdf: gpd.GeoDataFrame, transects_gdf: gpd.GeoDataFrame, settings: dict, roi_id: str, output_epsg: int) -> None:
+    def compute_transects_per_roi(
+        self,
+        roi_gdf: gpd.GeoDataFrame,
+        transects_gdf: gpd.GeoDataFrame,
+        settings: dict,
+        roi_id: str,
+        output_epsg: int,
+    ) -> None:
         """
         Computes the cross distance for transects within a specific region of interest (ROI).
 
@@ -2150,7 +2271,6 @@ class CoastSeg_Map:
             logger.warning(f"{failure_reason} for ROI {roi_id}")
             print(f"{failure_reason} for ROI {roi_id}")
         return cross_distance
-
 
     def compute_transects(
         self, transects_gdf: gpd.GeoDataFrame, settings: dict, roi_ids: list[str]
@@ -2183,42 +2303,49 @@ class CoastSeg_Map:
             { roi_id :  dict
                 time-series of cross-shore distance along each of the transects. Not tidally corrected. }
         """
-        
-        self.validate_transect_inputs(settings,roi_ids)
+
+        self.validate_transect_inputs(settings, roi_ids)
         # user selected output projection
         output_epsg = "epsg:" + str(settings["output_epsg"])
         # for each ROI save cross distances for each transect that intersects each extracted shoreline
         for roi_id in tqdm(roi_ids, desc="Computing Cross Distance Transects"):
-            cross_distance = self.compute_transects_per_roi(self.rois.gdf,transects_gdf, settings, roi_id, output_epsg)
+            cross_distance = self.compute_transects_per_roi(
+                self.rois.gdf, transects_gdf, settings, roi_id, output_epsg
+            )
             self.rois.add_cross_shore_distances(cross_distance, roi_id)
             # save all the files that use the cross distance (aka the timeseries of shoreline intersections along transects)
-            session_path = self.create_session(self.get_session_name(), roi_id, save_config=False)
-            self.save_transect_timeseries(session_path,self.rois.get_extracted_shoreline(roi_id),roi_id)
-
+            session_path = self.create_session(
+                self.get_session_name(), roi_id, save_config=False
+            )
+            self.save_transect_timeseries(
+                session_path, self.rois.get_extracted_shoreline(roi_id), roi_id
+            )
 
     def session_exists(self, session_name: str) -> bool:
-            """
-            Check if a session with the given name exists.
+        """
+        Check if a session with the given name exists.
 
-            Args:
-                session_name (str): The name of the session to check.
+        Args:
+            session_name (str): The name of the session to check.
 
-            Returns:
-                bool: True if the session exists, False otherwise.
-            """
-            session_name = self.get_session_name()
-            base_path = os.path.abspath(core_utilities.get_base_dir())
-            session_path = os.path.join(base_path, "sessions", session_name)
-            if os.path.exists(session_path):
-                # check if session directory contains a directory with the roi_id
-                dirs=os.listdir(session_path)
-                if dirs:
-                    return True
-                else:
-                    return False
-            return False
-                
-    def create_session(self, session_name: str, roi_id:str = None, save_config: bool = False) -> None:
+        Returns:
+            bool: True if the session exists, False otherwise.
+        """
+        session_name = self.get_session_name()
+        base_path = os.path.abspath(core_utilities.get_base_dir())
+        session_path = os.path.join(base_path, "sessions", session_name)
+        if os.path.exists(session_path):
+            # check if session directory contains a directory with the roi_id
+            dirs = os.listdir(session_path)
+            if dirs:
+                return True
+            else:
+                return False
+        return False
+
+    def create_session(
+        self, session_name: str, roi_id: str = None, save_config: bool = False
+    ) -> None:
         """
         Creates a session for coastline segmentation.
 
@@ -2236,43 +2363,48 @@ class CoastSeg_Map:
         if save_config:
             self.save_config(session_path)
         return session_path
-        
+
     def save_session(self, roi_ids: list[str], save_transects: bool = True):
-            """
-            Save the extracted shoreline information to the session directory.
+        """
+        Save the extracted shoreline information to the session directory.
 
-            Args:
-                roi_ids (list[str]): List of ROI IDs.
-                save_transects (bool, optional): Flag to save transects. Defaults to True.
-            """
-            if isinstance(roi_ids, str):
-                roi_ids = [roi_ids]
-            if isinstance(roi_ids, str):
-                roi_ids = [roi_ids]
-            # Save extracted shoreline info to session directory
-            session_name = self.get_session_name()
-            for roi_id in roi_ids:
-                ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
-                # create session directory
-                session_path = file_utilities.create_session_path(
-                    session_name, ROI_directory
-                )
-                # save source data
-                self.save_config(session_path,roi_ids=roi_ids)
-                # save extracted shorelines
-                extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
-                logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
-                if extracted_shoreline is None:
-                    logger.info(f"No extracted shorelines for ROI: {roi_id}")
-                    continue
-                # save the geojson and json files for extracted shorelines
-                common.save_extracted_shorelines(extracted_shoreline, session_path)
+        Args:
+            roi_ids (list[str]): List of ROI IDs.
+            save_transects (bool, optional): Flag to save transects. Defaults to True.
+        """
+        if isinstance(roi_ids, str):
+            roi_ids = [roi_ids]
+        if isinstance(roi_ids, str):
+            roi_ids = [roi_ids]
+        # Save extracted shoreline info to session directory
+        session_name = self.get_session_name()
+        for roi_id in roi_ids:
+            ROI_directory = self.rois.roi_settings[roi_id]["sitename"]
+            # create session directory
+            session_path = file_utilities.create_session_path(
+                session_name, ROI_directory
+            )
+            # save source data
+            self.save_config(session_path, roi_ids=roi_ids)
+            # save extracted shorelines
+            extracted_shoreline = self.rois.get_extracted_shoreline(roi_id)
+            logger.info(f"Extracted shorelines for ROI {roi_id}: {extracted_shoreline}")
+            if extracted_shoreline is None:
+                logger.info(f"No extracted shorelines for ROI: {roi_id}")
+                continue
+            # save the geojson and json files for extracted shorelines
+            common.save_extracted_shorelines(extracted_shoreline, session_path)
 
-                # save transects to session folder
-                if save_transects:
-                    self.save_transect_timeseries(session_path,extracted_shoreline,roi_id)
+            # save transects to session folder
+            if save_transects:
+                self.save_transect_timeseries(session_path, extracted_shoreline, roi_id)
 
-    def save_transect_timeseries(self, session_path: str, extracted_shoreline: extracted_shoreline.Extracted_Shoreline, roi_id: str = ""):
+    def save_transect_timeseries(
+        self,
+        session_path: str,
+        extracted_shoreline: extracted_shoreline.Extracted_Shoreline,
+        roi_id: str = "",
+    ):
         """
         Save transects to session folder.
 
@@ -2303,7 +2435,7 @@ class CoastSeg_Map:
             logger.info(f"ROI: {roi_id} cross distance is 0")
             return
         # get the setting that control whether shoreline intersection points that are not on the transects are kept
-        drop_intersection_pts = self.get_settings().get('drop_intersection_pts', False)
+        drop_intersection_pts = self.get_settings().get("drop_intersection_pts", False)
         common.save_transects(
             session_path,
             cross_shore_distance,
@@ -2312,8 +2444,7 @@ class CoastSeg_Map:
             self.transects.gdf,
             drop_intersection_pts,
         )
-            
-            
+
     def remove_all(self):
         """Remove the bbox, shoreline, all rois from the map"""
         self.remove_bbox()
@@ -2359,8 +2490,7 @@ class CoastSeg_Map:
             if existing_layer is not None:
                 self.map.remove_layer(existing_layer)
         self.bbox = None
-        
-        
+
     def remove_shoreline_extraction_area(self):
         """
         Removes the shoreline_extraction_area from the map and clears the draw control.
@@ -2383,20 +2513,20 @@ class CoastSeg_Map:
         self.shoreline_extraction_area = None
 
     def remove_layer_by_name(self, layer_name: str):
-            """
-            Removes a layer from the map by its name.
+        """
+        Removes a layer from the map by its name.
 
-            Args:
-                layer_name (str): The name of the layer to be removed.
+        Args:
+            layer_name (str): The name of the layer to be removed.
 
-            Returns:
-                None
-            """
-            if self.map is None:
-                return
-            existing_layer = self.map.find_layer(layer_name)
-            if existing_layer is not None:
-                self.map.remove(existing_layer)
+        Returns:
+            None
+        """
+        if self.map is None:
+            return
+        existing_layer = self.map.find_layer(layer_name)
+        if existing_layer is not None:
+            self.map.remove(existing_layer)
 
     def remove_shoreline(self):
         del self.shoreline
@@ -2520,30 +2650,35 @@ class CoastSeg_Map:
             action (str): name of the most recent action ex. 'created', 'deleted'
             geo_json (dict): geojson dictionary
         """
-        if (
-            self.draw_control.last_action == "created"
-        ):
+        if self.draw_control.last_action == "created":
             if self.drawing_shoreline_extraction_area == True:
                 # change the color of the draw control to purple
                 from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
+
                 # get the last drawn geometry
                 geom = [shape(self.draw_control.last_draw["geometry"])]
-                gdf = gpd.GeoDataFrame({"geometry": geom},crs="EPSG:4326")
+                gdf = gpd.GeoDataFrame({"geometry": geom}, crs="EPSG:4326")
                 # add the drawn geometry to the existing gdf
                 if self.shoreline_extraction_area is not None:
                     # Concatenate the new DataFrame with the existing one
-                    self.shoreline_extraction_area.gdf = pd.concat([self.shoreline_extraction_area.gdf, gdf], ignore_index=True)
+                    self.shoreline_extraction_area.gdf = pd.concat(
+                        [self.shoreline_extraction_area.gdf, gdf], ignore_index=True
+                    )
                 else:
                     # if the shoreline_extraction_area does not exist, create a new one
                     self.shoreline_extraction_area = Shoreline_Extraction_Area(gdf)
                 # add layer to the map
-                self.add_feature_on_map(self.shoreline_extraction_area,self.shoreline_extraction_area.LAYER_NAME,self.shoreline_extraction_area.LAYER_NAME)
+                self.add_feature_on_map(
+                    self.shoreline_extraction_area,
+                    self.shoreline_extraction_area.LAYER_NAME,
+                    self.shoreline_extraction_area.LAYER_NAME,
+                )
 
                 # clear draw control
                 self.draw_control.clear()
                 # reset to green color
                 return
-            
+
             # validate the bbox size
             geometry = self.draw_control.last_draw["geometry"]
             bbox_area = common.get_area(geometry)
@@ -2558,8 +2693,8 @@ class CoastSeg_Map:
             else:
                 # if no exceptions occur create new bbox, remove old bbox, and load new bbox
                 geom = [shape(self.draw_control.last_draw["geometry"])]
-                bbox_gdf = gpd.GeoDataFrame({"geometry": geom},crs="EPSG:4326")
-                self.load_feature_on_map("bbox",gdf=bbox_gdf)
+                bbox_gdf = gpd.GeoDataFrame({"geometry": geom}, crs="EPSG:4326")
+                self.load_feature_on_map("bbox", gdf=bbox_gdf)
 
         if self.draw_control.last_action == "deleted":
             self.remove_bbox()
@@ -2641,16 +2776,19 @@ class CoastSeg_Map:
                     # If the "date" column is already of string type, concatenate directly
                     # formatted_dates = extracted_shorelines.gdf["date"]
                     formatted_dates = extracted_shorelines.gdf.apply(
-                    lambda row: f"{row['satname']}_{row['date']}", axis=1
-                )
+                        lambda row: f"{row['satname']}_{row['date']}", axis=1
+                    )
                 else:
                     # If the "date" column is not of string type, convert to string with the required format
                     formatted_dates = extracted_shorelines.gdf.apply(
-                    lambda row: f"{row['satname']}_{row['date'].strftime('%Y-%m-%d %H:%M:%S')}", axis=1
-                )
+                        lambda row: f"{row['satname']}_{row['date'].strftime('%Y-%m-%d %H:%M:%S')}",
+                        axis=1,
+                    )
                 self.extract_shorelines_container.load_list = []
                 # only get the unique dates
-                self.extract_shorelines_container.load_list = np.unique(formatted_dates).tolist()
+                self.extract_shorelines_container.load_list = np.unique(
+                    formatted_dates
+                ).tolist()
                 self.extract_shorelines_container.trash_list = []
         else:
             logger.warning(f"No shorelines extracted for ROI {selected_id}")
@@ -2708,7 +2846,7 @@ class CoastSeg_Map:
         new_feature = None
         # create the feature based on the feature name either from file, gdf or load a default feature(if available)
         new_feature = self._get_feature(feature_name, file, gdf, **kwargs)
-            
+
         if new_feature is not None:
             # load the features onto the map
             self.add_feature_on_map(
@@ -2716,8 +2854,10 @@ class CoastSeg_Map:
                 feature_name,
                 **kwargs,
             )
-            
-    def _get_feature(self, feature_name: str, file: str="", gdf: gpd.GeoDataFrame= None, **kwargs) -> Any:
+
+    def _get_feature(
+        self, feature_name: str, file: str = "", gdf: gpd.GeoDataFrame = None, **kwargs
+    ) -> Any:
         """
         Retrieves a feature based on the given feature name, file path, or GeoDataFrame.
 
@@ -2736,7 +2876,7 @@ class CoastSeg_Map:
 
         """
         if file:
-            return self.load_feature_from_file(feature_name,file,**kwargs)
+            return self.load_feature_from_file(feature_name, file, **kwargs)
         elif isinstance(gdf, gpd.GeoDataFrame):
             if gdf.empty:
                 logger.info(f"No {feature_name} was empty")
@@ -2747,8 +2887,9 @@ class CoastSeg_Map:
             # if gdf is None then create the feature from scratch by loading a default
             return self.factory.make_feature(self, feature_name, gdf, **kwargs)
 
-            
-    def make_feature(self, feature_name: str, gdf: gpd.GeoDataFrame=None, **kwargs) -> Feature:
+    def make_feature(
+        self, feature_name: str, gdf: gpd.GeoDataFrame = None, **kwargs
+    ) -> Feature:
         """Creates a new feature of type feature_name from a given GeoDataFrame.
         If no gdf is provided then a default feature is created if the feature_name is "rois" "shoreline" or "transects"
 
@@ -2756,7 +2897,7 @@ class CoastSeg_Map:
             feature_name (str): name of feature must be one of the following
             "shoreline","transects","bbox","rois"
             gdf (gpd.GeoDataFrame): GeoDataFrame containing feature geometry optional. Defaults to None.
-            
+
 
         Returns:
             Feature: new feature created from gdf.
@@ -2768,7 +2909,7 @@ class CoastSeg_Map:
         # create the feature and add it to the class
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         return new_feature
-        
+
     def load_feature_from_file(self, feature_name: str, file: str, **kwargs) -> Feature:
         """Loads feature of type feature_name  from a file and creates it as a new feature.
         Available feature types are "shoreline","transects","bbox", or "rois".
@@ -2793,8 +2934,10 @@ class CoastSeg_Map:
         # create the feature and add it to the class
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         return new_feature
-    
-    def load_feature_from_gdf(self, feature_name: str, gdf: gpd.GeoDataFrame, **kwargs) -> Feature:
+
+    def load_feature_from_gdf(
+        self, feature_name: str, gdf: gpd.GeoDataFrame, **kwargs
+    ) -> Feature:
         """Loads feature of type feature_name from a GeoDataFrame and creates it as a new feature.
         Available feature types are "shoreline","transects","bbox", or "rois".
         Must be lowercase.
@@ -2814,7 +2957,6 @@ class CoastSeg_Map:
         # create the feature and add it to the class
         new_feature = self.factory.make_feature(self, feature_name, gdf, **kwargs)
         return new_feature
-
 
     def add_feature_on_map(
         self,
