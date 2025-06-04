@@ -1266,15 +1266,11 @@ class Zoo_Model:
         """
 
         USE_LOCAL_MODEL = self.settings.get("use_local_model", False)
-        LOCAL_MODEL_PATH = self.get_local_model_path()
-
-        if USE_LOCAL_MODEL and not os.path.exists(LOCAL_MODEL_PATH):
-            raise FileNotFoundError(
-                f"The local model path does not exist at {LOCAL_MODEL_PATH}"
-            )
+        if USE_LOCAL_MODEL:
+            LOCAL_MODEL_PATH = self.get_local_model_path()
 
         # check if a local model should be loaded or not
-        if USE_LOCAL_MODEL == False or LOCAL_MODEL_PATH == "":
+        if USE_LOCAL_MODEL == False:
             # create the model directory & download the model
             weights_directory = self.get_model_directory(model_id)
             self.download_model(model_implementation, model_id, weights_directory)
@@ -1563,6 +1559,8 @@ class Zoo_Model:
             str: The local model path or an empty string if not set.
         """
         model_path = self.settings.get("local_model_path", "")
+        if model_path == "":
+            return ""
         if not os.path.exists(model_path):
             raise FileNotFoundError(
                 f"The model folder specified by 'local_model_path' does not exist: {model_path}"
