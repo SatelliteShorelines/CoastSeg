@@ -1,29 +1,7 @@
-import asyncio
-import concurrent.futures
 from datetime import datetime
-import glob
-import json
 import logging
-import math
-import os
-import platform
-import shutil
-import zipfile
-
-import aiohttp
-import area
 import ee
-import geopandas as gpd
-import nest_asyncio
-import tqdm
-import tqdm.asyncio
-import tqdm.auto
-from shapely.geometry import LineString, MultiPolygon, Polygon
-from shapely.ops import split
 from typing import Collection, List, Optional, Tuple, Union
-
-from coastseg import common
-from coastseg import file_utilities
 
 logger = logging.getLogger(__name__)
 
