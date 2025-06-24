@@ -1,7 +1,9 @@
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Collection, List, Union
+
 import ee
-from typing import Collection, List, Optional, Tuple, Union
+from coastsat.SDS_download import filter_collection_by_coverage
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +110,7 @@ def count_images_in_ee_collection(
     satellites: Collection[str] = ("L5", "L7", "L8", "L9", "S2", "S1"),
     tiers: list[int] = None,
     months_list: list[int] = None,
+    min_roi_coverage: float = 0.0,
 ) -> dict:
     """
     Count the number of images in specified satellite collections over a certain area and time period.
@@ -120,6 +123,8 @@ def count_images_in_ee_collection(
     satellites (Collection[str], optional): A collection of satellite names. The function will return image counts for these satellites. Defaults to ("L5","L7","L8","L9","S2").
     tiers (list[int], optional): A list of tiers. The function will return image counts for these tiers. Defaults to [1,2]
     months_list (list[int], optional): A list of months to filter the images by. Defaults to None meaning all the months will be included.
+    min_roi_coverage (float, optional): The minimum percentage of the ROI that must be covered by the imagery to be considered valid. Defaults to 0.0.
+
     Returns:
     dict: A dictionary where the keys are the satellite names and the values are the image counts.
 
@@ -135,6 +140,14 @@ def count_images_in_ee_collection(
     >>> start_date = '2017-12-01'
     >>> end_date = '2018-01-01'
     >>> count_images(polygon, start_date, end_date)
+        {
+            'L5': 10,
+            'L7': 15,
+            'L8': 20,
+            'L9': 5,
+            'S2': 30,
+            'S1': 25
+        }
     """
     if months_list is None:
         months_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
@@ -171,6 +184,7 @@ def count_images_in_ee_collection(
     for satellite in satellites:
         images_in_tier_count = 0
         for tier in tiers:
+            # this returns an ee.ImageCollection for the given polygon, date range, satellite, and tier
             collection = get_collection_by_tier(
                 polygon,
                 start_date,
@@ -181,6 +195,11 @@ def count_images_in_ee_collection(
                 months_list=months_list,
             )
             if collection:
+                collection = filter_collection_by_coverage(
+                    collection,
+                    ee.Geometry.Polygon(polygon),
+                    min_roi_coverage=min_roi_coverage,
+                )
                 images_in_tier_count += collection.size().getInfo()
         image_counts[satellite] = images_in_tier_count
 

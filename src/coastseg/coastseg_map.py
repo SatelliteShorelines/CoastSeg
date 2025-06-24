@@ -1128,6 +1128,7 @@ class CoastSeg_Map:
                     max_cloud_cover=95,
                     tiers=[1],
                     months_list=months_list,
+                    min_roi_coverage=self.settings.get("min_roi_coverage", 0.0),
                 )
                 satellite_messages = [f"\nROI ID: {roi_id}"]
                 for sat in self.settings["sat_list"]:
