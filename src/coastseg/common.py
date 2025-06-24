@@ -498,21 +498,21 @@ def extract_roi_settings(
     return roi_settings
 
 
-def update_roi_settings(roi_settings, key, value):
+def update_roi_settings(roi_settings, key, value, add_if_missing=False):
     """
-    Updates the settings for a region of interest (ROI) in the given ROI settings dictionary.
+    Updates a specific key in all ROI settings dictionaries. Optionally adds the key if it's missing.
 
     Args:
-        roi_settings (dict): A dictionary containing the ROI settings.
-        key (str): The key of the ROI settings to update.
-        value (Any): The new value for the specified key.
+        roi_settings (dict): Dictionary of ROI settings (dict of dicts).
+        key (str): The key to update in each ROI's settings.
+        value (Any): The value to assign to the key.
+        add_if_missing (bool): If True, adds the key even if it doesn't exist. Default is False.
 
     Returns:
         dict: The updated ROI settings dictionary.
-
     """
-    for roi_id, settings in roi_settings.items():
-        if key in settings:
+    for settings in roi_settings.values():
+        if add_if_missing or key in settings:
             settings[key] = value
     return roi_settings
 
@@ -802,6 +802,8 @@ def load_settings(
         "model_session_path",
         "apply_cloud_mask",
         "image_size_filter",
+        "download_cloud_thresh",
+        "min_roi_coverage",
         "pan_off",
         "save_figure",
         "adjust_detection",
@@ -837,6 +839,8 @@ def load_settings(
         keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
                                                     "sat_list",
                                                     "dates",
+                                                    "download_cloud_thresh"
+                                                    "min_roi_coverage"
                                                     "cloud_thresh",
                                                     "cloud_mask_issue",
                                                     "min_beach_area",
@@ -901,9 +905,15 @@ def update_roi_settings_with_global_settings(
     # get the sat_list and dates from the global settings
     sat_list = global_settings.get("sat_list", [])
     dates = global_settings.get("dates", [])
+    min_roi_coverage = global_settings.get("min_roi_coverage", 0.5)
+
     # update the roi_settings with the global settings
     updated_roi_settings = update_roi_settings(roi_settings, "sat_list", sat_list)
     updated_roi_settings = update_roi_settings(updated_roi_settings, "dates", dates)
+    updated_roi_settings = update_roi_settings(
+        updated_roi_settings, "min_roi_coverage", min_roi_coverage
+    )
+
     return updated_roi_settings
 
 
@@ -1250,6 +1260,7 @@ def filter_images(
         "L8": 15,
         "L9": 15,
         "L5": 15,  # coastsat modifies the per pixel resolution from 30m to 15m for L5
+        "S1": 10,
     }
     bad_files = []
     jpg_files = [
@@ -1268,6 +1279,7 @@ def filter_images(
             continue
 
         filepath = os.path.join(directory, file)
+        # Calculate the area of the jpg
         img_area = calculate_image_area(filepath, pixel_size_per_satellite[satname])
         if img_area < min_area or (max_area is not None and img_area > max_area):
             bad_files.append(file)
@@ -1278,7 +1290,7 @@ def filter_images(
     return bad_files  # Optionally return the list of bad files
 
 
-def calculate_image_area(filepath: str, pixel_size: int) -> float:
+def calculate_image_area(filepath: str, pixel_size: int) -> float:#
     """
     Calculate the area of an image in square kilometers.
 
@@ -3907,11 +3919,33 @@ def create_roi_settings(
 
     Returns:
         dict: settings for each roi with roi id as the key
+
+    Example:
+    {   "roi_id_2": {
+            "dates": ["2018-12-01", "2019-03-01"],
+            "sat_list": ["L8"],
+            "sitename": "ID_2_datetime10-19-22__04_00_34",
+            "filepath": "C:\\CoastSeg\\data",
+            "roi_id": "2",
+            "polygon": [
+                [
+                    [-124.16930255115336, 40.8665390046026],
+                    [-124.16950858759564, 40.878247531017706],
+                    [-124.15408259844114, 40.878402930533994],
+                    [-124.1538792781699, 40.8666943403763],
+                    [-124.16930255115336, 40.8665390046026],
+                ]
+            ],
+            "landsat_collection": "C02",
+        },
+        ...
+    }
+
     """
 
     roi_settings = {}
     sat_list = settings["sat_list"]
-    landsat_collection = settings["landsat_collection"]
+    landsat_collection = settings.get("landsat_collection", "C02")
     dates = settings["dates"]
     for roi in selected_rois["features"]:
         roi_id = str(roi["properties"]["id"])
