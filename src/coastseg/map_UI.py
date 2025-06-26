@@ -35,13 +35,12 @@ BOX_LAYOUT = widgets.Layout(
 )
 
 GRID_LAYOUT = widgets.Layout(
-  display= 'grid',
-  grid_template_rows='20px 30px',
-  grid_auto_flow= 'column', 
-  grid_auto_columns = '87px',
-  width="550px",
+    display="grid",
+    grid_template_rows="20px 30px",
+    grid_auto_flow="column",
+    grid_auto_columns="87px",
+    width="550px",
 )
-
 
 
 def str_to_bool(var: str) -> bool:
@@ -70,8 +69,10 @@ def format_as_html(settings: dict):
     <p>dates: {settings.get("dates", "unknown")}</p>
     <p>Months to download (months_list): {settings.get("months_list", "unknown")}</p>
     <p>landsat_collection: {settings.get("landsat_collection", "unknown")}</p>
-    <p>Maximum percentage of bad pixels (percent_no_data): {settings.get("percent_no_data", "unknown")}</p>
-    <p>Maximum percentage of cloud pixels (cloud_thresh): {settings.get("cloud_thresh", "unknown")}</p>
+    <p>Min ROI Coverage (min_roi_coverage): {settings.get("min_roi_coverage", "unknown")}</p>
+    <p>Maximum cloud coverage allowed to download (download_cloud_thresh): {settings.get("download_cloud_thresh", "unknown")}</p>
+    <p>Maximum % of bad pixels (percent_no_data): {settings.get("percent_no_data", "unknown")}</p>
+    <p>Maximum % of cloud pixels allow to extract shorelines (cloud_thresh): {settings.get("cloud_thresh", "unknown")}</p>
     <p>Distance from clouds (dist_clouds): {settings.get("dist_clouds", "unknown")}</p>
     <p>output_epsg: {settings.get("output_epsg", "unknown")}</p>
     <p>save_figure: {settings.get("save_figure", "unknown")}</p>
@@ -130,17 +131,49 @@ class UI:
         )
         # create dropdown to select mulitple satellites
         satellite_selection = widgets.SelectMultiple(
-            options=["L5", "L7", "L8", "L9", "S2","S1"],
+            options=["L5", "L7", "L8", "L9", "S2", "S1"],
             value=["L8"],
             description="Satellites",
             disabled=False,
         )
+
         # create checkbox to control image size filter
         image_size_filter_checkbox = widgets.Checkbox(
             value=True,
             description="Enable image size filter",
             indent=False,  # To align the description with the label
         )
+
+
+        # create slider to select minimum ROI coverage
+        # this is the minimum percentage of the image that must overlap the ROI to be downloaded
+        ROI_coverage_slider = widgets.FloatSlider(
+            value=0.5,
+            min=0,
+            max=1.0,
+            step=0.01,
+            description="Min ROI coverage:",
+            disabled=False,
+            continuous_update=False,
+            orientation="horizontal",
+            readout=True,
+            readout_format=".0%",
+            style={
+                "description_width": "initial"
+            },  # Allows description to use full width & not get truncated
+        )
+        # create slider to select download cloud threshold
+        # this is the maximum percentage of cloud pixels allowed in the image to be downloaded
+        download_cloud_thresh_slider = widgets.FloatSlider(
+            description="Download Cloud Threshold",
+            value=0.8,
+            min=0,
+            max=1,
+            step=0.01,
+            readout_format=".0%",
+            style={"description_width": "initial"},
+        )
+
         # create toggle to select cloud mask issue
         cloud_mask_issue = widgets.ToggleButtons(
             options=["False", "True"],
@@ -158,16 +191,31 @@ class UI:
             "Select Satellites",
             "Pick multiple satellites by holding the control key",
             advanced=False,
+            index=1,  # this is because the date and month selection widgets are added first (0 and 1 respectively)
+        )
+        settings_dashboard.add_custom_widget(
+            ROI_coverage_slider,
+            "min_roi_coverage",
+            "ROI Coverage",
+            "Download if the image overlaps Region of Interest (ROI) by at least this percentage",
+            advanced=False,
             index=2,
         )
-         
+        settings_dashboard.add_custom_widget(
+            download_cloud_thresh_slider,
+            "download_cloud_thresh",
+            "Download Cloud Threshold",
+            "Skip downloading images with cloud coverage above this percentage.",
+            advanced=False,
+            index=3,
+        )
         settings_dashboard.add_custom_widget(
             sand_dropdown,
             "sand_color",
             "Select Sand Color",
             "Sand color on beach for model to detect 'dark' (grey/black) 'bright' (white)",
             advanced=True,
-            index=0,
+            index=-1,
         )
         settings_dashboard.add_custom_widget(
             cloud_mask_issue,
@@ -225,7 +273,9 @@ class UI:
             coastseg_map.load_selected_shorelines_on_map
         )
         # when the ROI is changed on the extract shorelines widget, update the map
-        self.extract_shorelines_widget.add_ROI_callback(coastseg_map.update_extracted_shorelines_display)
+        self.extract_shorelines_widget.add_ROI_callback(
+            coastseg_map.update_extracted_shorelines_display
+        )
 
         # when the delete widgets.Button is clicked on the extract shorelines widget, remove the selected shorelines from the map
         self.extract_shorelines_widget.add_remove_all_callback(
@@ -421,17 +471,19 @@ class UI:
             layout=widgets.Layout(margin="0px 5px 0px 0px"),
         )
 
-        self.instructions_ref_elv = widgets.HTML(value="Refence Elevation(m) relative to user-specified vertical datum)", 
-                style={'description_width': 'initial'},           
-                layout=widgets.Layout(
-                width='auto',         # allows the width to adjust automatically
-                min_width='100px',     # sets a minimum width
-                flex='1 1 auto'        # makes it flexible within a flex container
-            ))
+        self.instructions_ref_elv = widgets.HTML(
+            value="Refence Elevation(m) relative to user-specified vertical datum)",
+            style={"description_width": "initial"},
+            layout=widgets.Layout(
+                width="auto",  # allows the width to adjust automatically
+                min_width="100px",  # sets a minimum width
+                flex="1 1 auto",  # makes it flexible within a flex container
+            ),
+        )
         self.reference_elevation_text = widgets.FloatText(
             value=0.0,
             description="Reference Elevation:",
-            style={'description_width': 'initial'},
+            style={"description_width": "initial"},
         )
         # style={'description_width': 'initial'}
         self.beach_slope_selector = UI_elements.BeachSlopeSelector()
@@ -442,6 +494,7 @@ class UI:
             options=id_container.ids,
             layout=widgets.Layout(overflow_y="auto", height="100px"),
         )
+
         # Function to update widget options when the traitlet changes
         def update_widget_options(change):
             self.scrollable_select.options = change["new"]
@@ -501,7 +554,11 @@ class UI:
         tides_file = self.tide_selector.tides_file
         # this is where the tide correction will be applied
         self.coastseg_map.compute_tidal_corrections(
-            selected_rois, beach_slope, reference_elevation,model=model, tides_file = tides_file
+            selected_rois,
+            beach_slope,
+            reference_elevation,
+            model=model,
+            tides_file=tides_file,
         )
 
     def set_session_name(self, name: str):
@@ -544,10 +601,14 @@ class UI:
         def enter_clicked(btn):
             # create the session directory
             session_name = str(self.session_name_text.value).strip()
-            session_path = os.path.join( os.path.abspath(core_utilities.get_base_dir()), "sessions")
+            session_path = os.path.join(
+                os.path.abspath(core_utilities.get_base_dir()), "sessions"
+            )
             new_session_path = os.path.join(session_path, session_name)
             if os.path.exists(new_session_path):
-                print(f"Session {session_name} already exists. This session's data will be overwritten.")
+                print(
+                    f"Session {session_name} already exists. This session's data will be overwritten."
+                )
                 # print(f"Session {session_name} already exists. Name a new session.") # @dev might need this if we decide not to allow users to save to an existing session
             elif not os.path.exists(new_session_path):
                 print(f"Session {session_name} was created.")
@@ -569,11 +630,11 @@ class UI:
         update_settings_btn.on_click(self.update_settings_btn_clicked)
         setting_content = format_as_html(self.coastseg_map.get_settings())
         self.settings_html = widgets.HTML(
-             f"<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>"
+            f"<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>"
             f"{setting_content}"
             f"</div>"
         )
-        
+
         view_settings_vbox = widgets.VBox([self.settings_html, update_settings_btn])
         html_settings_accordion = widgets.Accordion(children=[view_settings_vbox])
         html_settings_accordion.set_title(0, "View Settings")
@@ -655,18 +716,27 @@ class UI:
         )
         # Draw controls
         self.draw_feature_controls = widgets.RadioButtons(
-            options=["Bounding Box","Shoreline Extraction Area",],
+            options=[
+                "Bounding Box",
+                "Shoreline Extraction Area",
+            ],
             value="Bounding Box",
             description="Draw Controls:",
             disabled=False,
-            layout={'width': 'max-content'},
+            layout={"width": "max-content"},
             orientation="vertical",
         )
 
-        self.draw_feature_controls.observe(self.on_draw_feature_controls_change, names="value")
+        self.draw_feature_controls.observe(
+            self.on_draw_feature_controls_change, names="value"
+        )
 
-
-        load_buttons = widgets.VBox([load_instr,self.draw_feature_controls,])
+        load_buttons = widgets.VBox(
+            [
+                load_instr,
+                self.draw_feature_controls,
+            ]
+        )
         return load_buttons
 
     def remove_buttons(self):
@@ -685,7 +755,7 @@ class UI:
                 "Selected ROIs",
                 "Selected Shorelines",
                 "Extracted Shorelines",
-                "Shoreline Extraction Area"
+                "Shoreline Extraction Area",
             ],
             value="Shoreline",
             description="",
@@ -798,7 +868,7 @@ class UI:
         )
         ROI_btns_box = widgets.VBox([area_control_box, self.gen_button])
         roi_controls_box = widgets.VBox(
-            [self.instr_create_roi, ROI_btns_box, load_buttons,draw_control_section],
+            [self.instr_create_roi, ROI_btns_box, load_buttons, draw_control_section],
             layout=widgets.Layout(margin="0px 5px 5px 0px"),
         )
         self.settings_row = widgets.HBox(
@@ -818,7 +888,9 @@ class UI:
         self.error_row = widgets.HBox([])
         self.file_chooser_row = widgets.HBox([])
         map_row = widgets.HBox([self.coastseg_map.map])
-        download_msgs_row = widgets.HBox([self.clear_downloads_button, UI.download_view])
+        download_msgs_row = widgets.HBox(
+            [self.clear_downloads_button, UI.download_view]
+        )
 
         return display(
             self.settings_row,
@@ -896,17 +968,16 @@ class UI:
         try:
             self.coastseg_map.set_settings(**settings)
             self.update_displayed_settings()
-            
+
         except Exception as error:
             # renders error message as a box on map
-            exception_handler.handle_exception(error, self.coastseg_map.warning_box)   
+            exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     def on_draw_feature_controls_change(self, change):
         if change["new"] == "Bounding Box":
             self.coastseg_map.drawing_shoreline_extraction_area = False
         else:
             self.coastseg_map.drawing_shoreline_extraction_area = True
-            
 
     @debug_view.capture(clear_output=True)
     def extract_shorelines_button_clicked(self, btn):
@@ -1025,14 +1096,15 @@ class UI:
         setting_content = format_as_html(self.coastseg_map.get_settings())
         self.settings_html.value = f"""<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>{setting_content}</div>"""
 
-
     @debug_view.capture(clear_output=True)
     def load_feature_from_file(self, btn):
         # Prompt user to select a geojson file
         def load_callback(filechooser: FileChooser) -> None:
             try:
                 if filechooser.selected:
-                    print(f"Loading {btn.description.lower()} this might take a few seconds...")
+                    print(
+                        f"Loading {btn.description.lower()} this might take a few seconds..."
+                    )
                     if "shoreline" in btn.description.lower():
                         logger.info(
                             f"Loading shoreline from file: {os.path.abspath(filechooser.selected)}"

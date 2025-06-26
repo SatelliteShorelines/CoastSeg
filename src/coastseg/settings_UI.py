@@ -3,17 +3,19 @@
 import ipywidgets
 import datetime
 from typing import List, Union, Optional, Tuple
-from ipywidgets import Layout, Box,VBox
+from ipywidgets import Layout, Box, VBox
 
 GRID_LAYOUT = Layout(
-    display='grid',
-    width='100%',  # Use 100% of the container width
-    grid_template_columns='repeat(6, 90px)',  # Create 6 flexible columns
-    grid_template_rows='repeat(2, auto)',  # Create 2 rows, size to content
-    grid_gap='5px',  # Adjust the gap as needed
-    overflow='auto'  # Allow scrollbar if content overflows
+    display="grid",
+    width="100%",  # Use 100% of the container width
+    grid_template_columns="repeat(6, 90px)",  # Create 6 flexible columns
+    grid_template_rows="repeat(2, auto)",  # Create 2 rows, size to content
+    grid_gap="5px",  # Adjust the gap as needed
+    overflow="auto",  # Allow scrollbar if content overflows
 )
-checkbox_layout = Layout(width='auto')  # This sets the width of each checkbox to be only as wide as necessary
+checkbox_layout = Layout(
+    width="auto"
+)  # This sets the width of each checkbox to be only as wide as necessary
 
 
 class ButtonColors:
@@ -34,6 +36,7 @@ def convert_date(date_str):
     except ValueError as e:
         raise ValueError(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
 
+
 class CustomMonthSelector(VBox):
     month_to_num = {
         "January": 1,
@@ -47,21 +50,30 @@ class CustomMonthSelector(VBox):
         "September": 9,
         "October": 10,
         "November": 11,
-        "December": 12
+        "December": 12,
     }
+
     def __init__(self, checkboxes, layout):
         super().__init__(children=checkboxes, layout=layout)
         # Observe changes in each checkbox and update the value property accordingly
         for checkbox in checkboxes:
-            checkbox.observe(self._update_value, names='value')
-        self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
-    
+            checkbox.observe(self._update_value, names="value")
+        self._value = [
+            CustomMonthSelector.month_to_num[checkbox.description]
+            for checkbox in self.children
+            if checkbox.value
+        ]
+
     @property
     def value(self):
         return self._value
-    
+
     def _update_value(self, change):
-        self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
+        self._value = [
+            CustomMonthSelector.month_to_num[checkbox.description]
+            for checkbox in self.children
+            if checkbox.value
+        ]
 
     @value.setter
     def value(self, values):
@@ -70,9 +82,13 @@ class CustomMonthSelector(VBox):
             checkbox.value = False
         # set the checkboxes to True for the values in the list
         for val in values:
-            self.children[val-1].value = True 
-                
-        self._value = [CustomMonthSelector.month_to_num[checkbox.description] for checkbox in self.children if checkbox.value]
+            self.children[val - 1].value = True
+
+        self._value = [
+            CustomMonthSelector.month_to_num[checkbox.description]
+            for checkbox in self.children
+            if checkbox.value
+        ]
 
 
 class DateBox(ipywidgets.HBox):
@@ -185,7 +201,7 @@ class Settings_UI:
     def create_settings_tab(self, settings: List[str]) -> ipywidgets.VBox:
         """
         Create a settings tab with widgets for each setting.
-        
+
         Places the cloud_thresh setting at the second position in the tab.
 
         Args:
@@ -199,9 +215,9 @@ class Settings_UI:
         for setting_name in settings:
             # Create the widget for the setting
             widget, instructions = self.create_setting_widget(setting_name)
-            
+
             # Add the widget and instructions to the tab contents
-            if setting_name == 'cloud_thresh':
+            if setting_name == "cloud_thresh":
                 tab_contents.insert(2, ipywidgets.VBox([instructions, widget]))
             else:
                 tab_contents.append(ipywidgets.VBox([instructions, widget]))
@@ -243,10 +259,16 @@ class Settings_UI:
             raise ValueError("Setting name cannot be empty.")
         if not instructions:
             instructions = ""
+
+        if index is not None:
+            index *= 2  # Adjust index for HTML and widget pair (aka every setting takes two slots in the tab because it has instructions and a widget)
+
         # Add the widget to the settings tab
         if advanced:
             if index is None:
-                index = len(self.advanced_settings)
+                index = len(
+                    self.advanced_settings_tab.children
+                )  # Default to the end of the advanced settings tab
             self.advanced_settings.insert(index, setting_name)
             self.settings_widgets[setting_name] = widget
             self.advanced_settings_tab.children = (
@@ -257,7 +279,9 @@ class Settings_UI:
             )
         else:
             if index is None:
-                index = len(self.basic_settings)
+                index = len(
+                    self.basic_settings_tab.children
+                )  # Default to the end of the basic settings tab
             self.basic_settings.insert(index, setting_name)
             self.settings_widgets[setting_name] = widget
             self.basic_settings_tab.children = (
@@ -267,9 +291,7 @@ class Settings_UI:
                 + self.basic_settings_tab.children[index:]
             )
 
-    def create_setting_widget(
-        self, setting_name: str
-    ) -> Tuple[
+    def create_setting_widget(self, setting_name: str) -> Tuple[
         Union[ipywidgets.ToggleButton, ipywidgets.FloatSlider, ipywidgets.IntText],
         ipywidgets.HTML,
     ]:
@@ -370,7 +392,7 @@ class Settings_UI:
                 style={"description_width": "initial"},
             )
             instructions = ipywidgets.HTML(
-                value="<b>Cloud Threshold</b><br>Maximum percentage of cloud pixels in an image."
+                value="<b>Cloud Threshold</b><br>Maximum cloud coverage (%) allowed for shoreline extraction. Images above this threshold are ignored."
             )
         elif setting_name == "min_points":
             widget = ipywidgets.BoundedIntText(
@@ -469,14 +491,34 @@ class Settings_UI:
             )
         elif setting_name == "months_list":
             # Create a list of checkboxes for each month
-            months = ["January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December"]
-            checkboxes = [ipywidgets.Checkbox(description=month, value=True, indent=False,layout=checkbox_layout,) for month in months]
+            months = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ]
+            checkboxes = [
+                ipywidgets.Checkbox(
+                    description=month,
+                    value=True,
+                    indent=False,
+                    layout=checkbox_layout,
+                )
+                for month in months
+            ]
             widget = CustomMonthSelector(checkboxes, GRID_LAYOUT)
             instructions = ipywidgets.HTML(
                 value="<b>(Optional) Choose months within the date range to download imagery within</b>",
-            )            
-            
+            )
+
         else:
             raise ValueError(f"Invalid setting name: {setting_name}")
 
@@ -509,7 +551,7 @@ class Settings_UI:
     def get_settings(self) -> dict:
         """
         Retrieves the current settings from the settings widgets and returns them as a dictionary.
-        
+
         For certain settings, the value is converted to the appropriate type before being added to the dictionary.
 
         Returns:
@@ -544,7 +586,7 @@ class Settings_UI:
         # Display the settings UI
         # Create the settings UI
         # Define a layout with a maximum height
-        layout = Layout(max_height='320px', overflow='auto')
+        layout = Layout(max_height="320px", overflow="auto")
         settings_tabs = ipywidgets.Tab(
             children=[self.basic_settings_tab, self.advanced_settings_tab]
         )

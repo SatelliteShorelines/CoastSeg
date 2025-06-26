@@ -1128,6 +1128,7 @@ class CoastSeg_Map:
                     max_cloud_cover=95,
                     tiers=[1],
                     months_list=months_list,
+                    min_roi_coverage=self.settings.get("min_roi_coverage", 0.0),
                 )
                 satellite_messages = [f"\nROI ID: {roi_id}"]
                 for sat in self.settings["sat_list"]:
@@ -1247,7 +1248,6 @@ class CoastSeg_Map:
 
         # Does the ROI loaded in have the settings for the selected ROIs?
         roi_settings = self.rois.get_roi_settings(selected_ids)
-        print(f"roi_settings: {roi_settings}")
         # if the roi id is missing from the ROI settings then it will contain {roi_id:{}}
         if roi_settings:
             # Its possible not all the ROIs selected on the map have been downloaded before so it may be necessary to add their settings to the ROI settings so they get downloaded
@@ -1258,7 +1258,6 @@ class CoastSeg_Map:
                 selected_ids=missing_ids,
                 file_path=file_path,
             )
-            print(f"missing_roi_settings: {missing_roi_settings}")
             roi_settings.update(missing_roi_settings)
             # the user might have updated the date range or other settings so update the ROI settings
             roi_settings = common.update_roi_settings_with_global_settings(
@@ -1288,7 +1287,7 @@ class CoastSeg_Map:
             SDS_download.retrieve_images(
                 inputs_for_roi,
                 cloud_threshold=settings.get(
-                    "cloud_thresh", 0.80
+                    "download_cloud_thresh", 0.80
                 ),  # no more than 80% of valid portion the image can be cloud
                 cloud_mask_issue=settings.get("cloud_mask_issue", False),
                 save_jpg=True,
@@ -1299,6 +1298,9 @@ class CoastSeg_Map:
                 max_cloud_no_data_cover=settings.get(
                     "percent_no_data", 0.80
                 ),  # no more than 80% of the image cloud or no data
+                min_roi_coverage= settings.get(
+                    "min_roi_coverage", 0.50
+            )
             )
         if settings.get("image_size_filter", True):
             common.filter_images_by_roi(roi_settings)
@@ -1517,6 +1519,8 @@ class CoastSeg_Map:
             "dates": ["2017-12-01", "2018-01-01"],
             "months_list": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
             "sat_list": ["L8"],
+            "download_cloud_thresh": 0.8,
+            "min_roi_coverage": 0.5,
             "cloud_thresh": 0.8,
             "percent_no_data": 0.8,
             "dist_clouds": 300,
