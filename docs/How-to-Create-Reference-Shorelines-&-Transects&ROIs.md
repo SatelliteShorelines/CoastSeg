@@ -4,7 +4,7 @@ To learn how to load these features in follow the guide at [How to Upload Featur
 
 In order to extract shorelines with CoastSeg you will need a reference shoreline. If you have interior and exterior shorelines you will need to select only one reference shoreline and adjust the shoreline buffer so that the other shoreline doesn't get picked up.
 
-In this example we will be creating a reference Shoreline for Fire Island in New York.
+In this example we will be creating a reference Shoreline for Eastern Long Island in New York.
 
 ## Option 1 : How to Create Reference Shorelines in QGIS
 
