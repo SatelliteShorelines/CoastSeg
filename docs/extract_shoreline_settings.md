@@ -81,6 +81,39 @@ The 'sand_color' setting is used to select the best model for classifying sand. 
 - If your beach has dark sand (grey/black sand beaches), you can set this parameter to dark and the classifier will be able to pick up the dark sand.
 - On the other hand, if your beach has white sand and the default classifier is not picking it up, switch this parameter to bright. The latest classifier contains all the training data and can pick up sand in most environments (but not as accurately).
 
+**9.Drop Intersection Points `drop_intersection_points`**
+Filters out shoreline detection points that are not located on the transect they were detected on. This is off by default.
+
+![drop_int_points](https://github.com/user-attachments/assets/48a09bc7-028a-44f8-a419-f0952dd1decd) 
+
+**10.ROI Coverage `min_roi_coverage`**
+Specifies the minimum percentage that an image must cover to be considered for downloading. This process helps to speed up the download process by skipping images that do not cover enough of the area of interest and helps to avoid image slices. Slider defaults to 50%.
+
+![roi_coverage](https://github.com/user-attachments/assets/281ed8e5-6db0-48f8-8cd3-5abb7d85d27c)
+
+**11.Output EPSG `output_epsg`**
+Shows the current EPSG code used within CoastSeg. Defaults to EPSG 4326 (WGS84).
+
+-Note:Once shoreline extraction is complete, output_epsg within the config.json file will be according to the rois UTM zone. 
+
+![output_epsg](https://github.com/user-attachments/assets/eb95a46d-fc9e-4983-a7b5-68eb8e1e772a)
+
+**Example of config.json output_epsg for Southern California (UTM Zone 11N)**
+
+![output_epsg_config](https://github.com/user-attachments/assets/76d9a0ab-1037-4150-91c0-956df87f14e8)
+
+**12.Check Detection `check_detection`**
+Automatically set to `false` in CoastSeg. If set to 'true' the user can control each shoreline detection interactively to accept ot reject each shoreline.
+
+**13.Adjust Detection `adjust_detection`**
+Automatically set to `false` in CoastSeg. If set to 'true' the user can manually adjust the threshold used to map the shoreline on each image.
+
+**14.Save Figure `save_figure`**
+Automatically set to `true` in CoastSeg. Saves a figure of each mapped shoreline to the session detection folder. 
+Example path to detection folder: CoastSeg\sessions\sample_session1\ID_zyh1_datetime06-11-24__03_02_55\jpg_files\detection
+
+![save_figure](https://github.com/user-attachments/assets/ecfeeead-97a8-401c-836e-e2690afc141b)
+
 ## Advanced Settings (Advanced Users only)
 
 ---
