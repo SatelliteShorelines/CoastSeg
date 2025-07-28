@@ -104,6 +104,7 @@ nav:
       - How to Use Scripts: How-to-Use-Scripts.md
       - How to Use Apply Tidal Correction Script: Apply-Tidal_Correction_Script.md # removed until it is updated
       - How to Flip Transects: How-to-Use-Flip-Transects.md
+      - How to Merge Sessions: How-to-Use_Merge_Sessions.md
       # - How to Predict Tides: how_to_predicts_tides_script.md # removed until it is updated
       # - CoastSeg: scripts-coastseg.md
       # - CoastSat: scripts-coastsat.md
