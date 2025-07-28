@@ -20,13 +20,21 @@ cd scripts
 ## Needed Variables
 
 `-i` locations of the ROI sessions to be merged
-- ex: -i "C:\CoastSeg\sessions\session_2022\ID_ewr1_datetime12-20-23__03_25_23" "C:\CoastSeg\sessions\session_2022\ID_ewr3_datetime12-20-23__03_25_23"
+```
+ex: -i "C:\CoastSeg\sessions\session_2022\ID_ewr1_datetime12-20-23__03_25_23" "C:\CoastSeg\sessions\session_2022\ID_ewr3_datetime12-20-23__03_25_23"
+```
 
 `-c` coordinate reference system (CRS) for the merged session
-- ex: -c "EPSG:32610"
+
+```
+ex: -c "EPSG:32610"
+```
 
 `-n` name for the merged session folder that will be created at save_location (default location in scripts folder)
-- ex: -n "merged_session_2022"
+
+```
+ex: -n "merged_session_2022"
+```
 
 ## Example
 
