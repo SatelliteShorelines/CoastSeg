@@ -32,7 +32,8 @@ You have two options to download and clip the tide model: use the Jupyter Notebo
 
 ### Space and Time Requirements
 
-- **Storage Space:** Ensure you have at least 14GB of free space available.
+- **Storage Space:** Ensure you have at least 14GB of free space available for fes2014.
+   - If you want both fes2014 and fes2022 you will need at least 35 GB of free space.
 - **Time Commitment:** The download and setup process for the fes2014 model takes approximately 1-2 hours. This is a one-time requirement.
 
 ## Option 1: Using the Download_tide_model.ipynb Notebook (Recommended)
@@ -170,7 +171,7 @@ If you are running coastseg on a secure network you may need to make the followi
 
 # How to Perform Tide Correction
 
-⚠️ You must have run the script to download the FES2014 tide model before attempting to correct tides
+⚠️ You must have run the script to download the FES2014 and/or FES2022 tide model before attempting to correct tides
 This script provides utilities for modeling tides and correcting time series data based on tide predictions.
 
 ## ⚠️ Important: Read Before Using Tide Correction Button
@@ -334,5 +335,5 @@ The results will be located in the scripts directory where the `apply_tidal_corr
 
 ## Credits
 
-Thank you [DEA-Coastlines](https://github.com/GeoscienceAustrali/dea-coastlines/wiki/Setting-up-tidal-models-for-DEA-Coastlines) for making a guide on how to use pyTMD and [pyTMD](https://pytmd.readthedocs.io/en/latest/api_reference/aviso_fes_tides.html) for making a easy to use script to download the AVISO FES 2014 Model.
-The `model_tides` in this code has been modified and the original function was originally written by Robbi Bishop-Taylor for the `dea-tools` package https://github.com/GeoscienceAustralia/dea-notebooks/blob/develop/Tools/dea_tools/coastal.py#L466-L473
+Thank you [DEA-Coastlines](https://github.com/GeoscienceAustrali/dea-coastlines/wiki/Setting-up-tidal-models-for-DEA-Coastlines) for making a guide on how to use pyTMD and [pyTMD](https://pytmd.readthedocs.io/en/latest/api_reference/aviso_fes_tides.html) for making a easy to use script to download the AVISO FES 2014 and FES 2022 Model.
+The `model_tides` in this code has been modified and the original function was originally written by Robbi Bishop-Taylor for the `dea-tools` package https://github.com/GeoscienceAustralia/dea-notebooks/blob/develop/Tools/dea_tools/coastal.py#L466-L473 . For more informaion on the FES 2014 model please visit https://www.aviso.altimetry.fr/en/data/products/auxiliary-products/global-tide-fes/description-fes2014.html and https://www.aviso.altimetry.fr/en/data/products/auxiliary-products/global-tide-fes/release-fes22.html for the FES 2022 model. 
