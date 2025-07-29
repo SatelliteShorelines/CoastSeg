@@ -99,7 +99,9 @@ nav:
       # - How to Predict Tides: How-to-Predict-Tides.md
   - API Reference:
       - How to use CoastSeg API: CoastSeg-API-Guide.md
-  - Zoo: models.md
+  - Zoo:
+      - The CoastSeg Zoo Workflow: models.md
+      - How to Use the Zoo Workflow: How-To-Use-Zoo.md
   - Scripts:
       - How to Use Scripts: How-to-Use-Scripts.md
       - How to Use Apply Tidal Correction Script: Apply-Tidal_Correction_Script.md # removed until it is updated
