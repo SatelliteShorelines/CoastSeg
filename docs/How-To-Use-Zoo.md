@@ -64,7 +64,9 @@ Red arrow showing the RGB folder to be selected containing the images for shorel
 
 **Example of a running session in progress**
 
-- ⚠️ Zoo workflow takes longer on average to complete than the CoastSat workflow
+- ⚠️ Zoo workflow takes longer on average to complete than the CoastSat workflow.
+	- This is because the zoo workflow loads a more advanced model that takes longer to process all the imagery in a session.
+	- In the screeshot below you can see the progress bar, called "Applying Model", updates as the zoo model finishes running on each image. (note the warnings are normal)
 
 ![zoo_step4_run_model](https://github.com/user-attachments/assets/3776be97-5e2b-42c4-a113-9d7245944826)
 ![zoo_step4_run_model_pt2](https://github.com/user-attachments/assets/93138876-085e-4511-82b9-0bfa0a7d9df2)
@@ -79,9 +81,13 @@ Step 1: Section a Session
 
 Step 2: Run Tidal Correction
 - Runs the tide model and saves tidally corrected CSV files in the selected sessions directory 
+
 - For appropriate [slope formats](https://satelliteshorelines.github.io/CoastSeg/slope-file-format/)
+
 - For appropriate [tide formats](https://satelliteshorelines.github.io/CoastSeg/tide-file-format/)
 
-Select between the FES 2014 or FES 2022 model before clicking correct tides
+Select between the FES 2014 or FES 2022 model before clicking correct tides.
+
+- Tidal correction will take a few minutes to run because the tide model is large, several GB
 
 ![zoo_step5](https://github.com/user-attachments/assets/2b88114d-ea56-4f1d-a7c2-edb00fc38d7e)
