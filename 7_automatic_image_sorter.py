@@ -8,7 +8,7 @@ from coastseg import classifier
 # It is meant be used on CoastSeg/data/<ROI NAME>/jpg_files/preprocessed/RGB
 
 # select the RGB directory for an ROI from /data
-input_directory =r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_zyh1_datetime06-11-24__03_02_55\jpg_files\preprocessed\RGB"
+input_directory =r""
 
 # run the classifier to automatically sort the images
 classifier.sort_images_with_model(input_directory,threshold=0.40)
