@@ -2220,7 +2220,7 @@ class Extracted_Shoreline:
                 ],
                 "landsat_collection": "C02",
                 "sitename": "ID_lyw1_datetime01-18-24__12_26_51",
-                "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
+                "filepath": "C:\\CoastSeg\\data",
             },
         - settings (dict): A dictionary of extraction settings.
         - session_path (str): The path of the saved session from which the shoreline extraction needs to be resumed.

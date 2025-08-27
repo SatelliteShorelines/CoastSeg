@@ -3585,14 +3585,14 @@ def create_json_config(
             'landsat_collection': 'C01',
             'dates': ['2018-12-01', '2019-03-01'],
             'sitename':'roi_17',
-            'filepath':'C:\\Home'
+            'filepath':'<example_path>'
         }
         '20':{
             'sat_list': ['L8'],
             'landsat_collection': 'C01',
             'dates': ['2018-12-01', '2019-03-01'],
             'sitename':'roi_20',
-            'filepath':'C:\\Home'
+            'filepath':'<example_path>'
         }
     }
 
