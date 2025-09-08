@@ -228,10 +228,10 @@ def georeference_images_in_directory(roi_directory: str):
 
 def main():
     # REPLACE ROI DIR with the directory you want to georeference jpegs for
-    # roi_dir = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_pmb7_datetime10-03-23__02_12_09"
+    # roi_dir = r"C:\CoastSeg\data\ID_pmb7_datetime10-03-23__02_12_09"
     # roi_dirs = [
-    #     r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_quj9_datetime09-28-23__05_12_40",
-    #     r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_kpd7_datetime08-28-23__01_47_44",
+    #     r"C:\CoastSeg\data\ID_quj9_datetime09-28-23__05_12_40",
+    #     r"C:\CoastSeg\data\ID_kpd7_datetime08-28-23__01_47_44",
     # ]
 
     parser = argparse.ArgumentParser(
