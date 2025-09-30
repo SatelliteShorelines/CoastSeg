@@ -43,7 +43,7 @@ def test_initialize_shorelines_with_provided_shorelines(valid_shoreline_gdf):
     assert all(
         col in actual_shoreline.gdf.columns for col in columns_to_keep
     ), "Not all columns are present in shoreline.gdf.columns"
-    assert not any(actual_shoreline.gdf["id"].duplicated()) == True
+    assert not any(actual_shoreline.gdf["id"].duplicated())
     assert actual_shoreline.gdf.crs.to_string() == "EPSG:4326"
 
 
@@ -69,7 +69,7 @@ def test_initialize_shorelines_with_wrong_CRS(valid_shoreline_gdf):
     assert all(
         col in actual_shoreline.gdf.columns for col in columns_to_keep
     ), "Not all columns are present in shoreline.gdf.columns"
-    assert not any(actual_shoreline.gdf["id"].duplicated()) == True
+    assert not any(actual_shoreline.gdf["id"].duplicated())
     assert actual_shoreline.gdf.crs.to_string() == "EPSG:4326"
 
 
@@ -125,7 +125,7 @@ def test_initialize_shorelines_with_empty_id_column(valid_shoreline_gdf):
     assert all(
         col in actual_shoreline.gdf.columns for col in columns_to_keep
     ), "Not all columns are present in shoreline.gdf.columns"
-    assert not any(actual_shoreline.gdf["id"].duplicated()) == True
+    assert not any(actual_shoreline.gdf["id"].duplicated())
     assert actual_shoreline.gdf.crs.to_string() == "EPSG:4326"
 
 
@@ -153,31 +153,54 @@ def test_initialize_shorelines_with_identical_ids(valid_shoreline_gdf):
     assert all(
         col in actual_shoreline.gdf.columns for col in columns_to_keep
     ), "Not all columns are present in shoreline.gdf.columns"
-    assert not any(actual_shoreline.gdf["id"].duplicated()) == True
+    assert not any(actual_shoreline.gdf["id"].duplicated())
     assert actual_shoreline.gdf.crs.to_string() == "EPSG:4326"
 
 
 def test_initialize_shorelines_with_bbox(valid_bbox_gdf):
-    shoreline = Shoreline(bbox=valid_bbox_gdf)
+    # Mock the full chain to avoid FileNotFoundError during actual downloads
+    mock_gdf = gpd.GeoDataFrame(
+        {
+            "id": ["test_1"],
+            "geometry": [valid_bbox_gdf.geometry.iloc[0]],
+            "river_label": ["test"],
+            "ERODIBILITY": [1.0],
+            "CSU_ID": ["test"],
+            "turbid_label": ["test"],
+            "slope_label": ["test"],
+            "sinuosity_label": ["test"],
+            "TIDAL_RANGE": [1.0],
+            "MEAN_SIG_WAVEHEIGHT": [1.0],
+        },
+        crs="EPSG:4326",
+    )
 
-    assert not shoreline.gdf.empty
-    assert "id" in shoreline.gdf.columns
-    columns_to_keep = [
-        "id",
-        "geometry",
-        "river_label",
-        "ERODIBILITY",
-        "CSU_ID",
-        "turbid_label",
-        "slope_label",
-        "sinuosity_label",
-        "TIDAL_RANGE",
-        "MEAN_SIG_WAVEHEIGHT",
-    ]
-    assert all(
-        col in shoreline.gdf.columns for col in columns_to_keep
-    ), "Not all columns are present in shoreline.gdf.columns"
-    assert not any(shoreline.gdf["id"].duplicated()) == True
+    with patch.object(
+        Shoreline,
+        "get_intersecting_shoreline_files",
+        return_value=["test_file.geojson"],
+    ):
+        with patch.object(Shoreline, "create_geodataframe", return_value=mock_gdf):
+            shoreline = Shoreline(bbox=valid_bbox_gdf)
+
+            assert not shoreline.gdf.empty
+            assert "id" in shoreline.gdf.columns
+            columns_to_keep = [
+                "id",
+                "geometry",
+                "river_label",
+                "ERODIBILITY",
+                "CSU_ID",
+                "turbid_label",
+                "slope_label",
+                "sinuosity_label",
+                "TIDAL_RANGE",
+                "MEAN_SIG_WAVEHEIGHT",
+            ]
+            assert all(
+                col in shoreline.gdf.columns for col in columns_to_keep
+            ), "Not all columns are present in shoreline.gdf.columns"
+            assert not any(shoreline.gdf["id"].duplicated())
 
 
 def test_style_layer():
