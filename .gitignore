@@ -16,6 +16,12 @@ certifications.json
 /*.yml
 /*.txt
 
+# ignore dev files
+/tide_correction/*
+/*tmp*/*
+*copy*
+
+
 # But don't ignore these specific files
 !download_tide_model.py
 !Download_tide_model.ipynb

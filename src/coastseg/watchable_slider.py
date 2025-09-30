@@ -1,9 +1,8 @@
-from typing import Callable
 import logging
+from typing import Callable, Optional
 
 import ipywidgets
 from ipywidgets import Layout
-
 
 logger = logging.getLogger(__name__)
 
@@ -14,21 +13,21 @@ This class is a widget that allows the user to load extracted shorelines on the 
 
 # write docstring for this class
 class Extracted_Shoreline_widget(ipywidgets.VBox):
-    def __init__(self, map_interface=None):
+    def __init__(self, map_interface: Optional["CoastSeg_Map"] = None):  # type: ignore  # noqa: F821
         # map interface that has extracted shorelines
-        self.map_interface = map_interface
-        self.map_interface.extract_shorelines_container.observe(
+        self.map_interface = map_interface  # this is an instance of coastseg_map
+        self.map_interface.extract_shorelines_container.observe(  # type: ignore
             self.update_satname_widget, names="satname"
         )
-        self.map_interface.extract_shorelines_container.observe(
+        self.map_interface.extract_shorelines_container.observe(  # type: ignore
             self.update_date_widget, names="date"
         )
 
         self.satellite_html = ipywidgets.HTML(
-            value=f"<b>Satellite</b>: {self.map_interface.extract_shorelines_container.satname}"
+            value=f"<b>Satellite</b>: {self.map_interface.extract_shorelines_container.satname}"  # type: ignore
         )
         self.date_html = ipywidgets.HTML(
-            value=f"<b>Date</b>: {self.map_interface.extract_shorelines_container.date}"
+            value=f"<b>Date</b>: {self.map_interface.extract_shorelines_container.date}"  # type: ignore
         )
         title_html = ipywidgets.HTML(
             value="<h3>Load Extracted Shorelines</h3>", layout=Layout(padding="0px")
@@ -63,7 +62,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
 
     def create_slider(self):
         self.slider = ipywidgets.IntSlider(
-            value=self.map_interface.extract_shorelines_container.max_shorelines,
+            value=self.map_interface.extract_shorelines_container.max_shorelines,  # type: ignore
             min=0,
             max=1,
             step=1,
@@ -82,14 +81,14 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
                 self.slider.disabled = True
 
         # When the traitlet,id_container, trait 'max_shorelines' changes the update_extracted_shoreline_slider will be updated
-        self.map_interface.extract_shorelines_container.observe(
+        self.map_interface.extract_shorelines_container.observe(  # type: ignore
             update_extracted_shoreline_slider, names="max_shorelines"
         )
         self.slider.observe(self.on_slider_change, names="value")
 
     def create_dropdown(self):
         self.dropdown = ipywidgets.Dropdown(
-            options=self.map_interface.id_container.ids,
+            options=self.map_interface.id_container.ids,  # type: ignore
             description="Select ROI:",
             style={"description_width": "initial"},
         )
@@ -99,7 +98,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
             self.dropdown.options = change["new"]
 
         # When the traitlet,id_container, trait 'ids' changes the update_select_roi_dropdown will be updated
-        self.map_interface.id_container.observe(update_select_roi_dropdown, names="ids")
+        self.map_interface.id_container.observe(update_select_roi_dropdown, names="ids")  # type: ignore
         self.dropdown.observe(self.on_dropdown_change, names="value")
 
     def set_load_extracted_shorelines_button_on_click(self, on_click: Callable):
@@ -110,7 +109,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         row_number = change["new"]
         # get the extracted shoreline by the row number from the map_interface
         roi_id = self.dropdown.value
-        self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=row_number)
+        self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=row_number)  # type: ignore
 
     def on_dropdown_change(self, change: dict):
         """When the ROI ID in the dropdown changes load the
@@ -122,7 +121,7 @@ class Extracted_Shoreline_widget(ipywidgets.VBox):
         """
         roi_id = change["new"]
         # get the extracted shoreline by the row number from the map_interface
-        self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=0)
+        self.map_interface.load_extracted_shoreline_by_id(roi_id, row_number=0)  # type: ignore
 
     def set_satellite_html(self, satellite: str):
         self.satellite_html.value = f"<b>Satellite</b>: {satellite} "

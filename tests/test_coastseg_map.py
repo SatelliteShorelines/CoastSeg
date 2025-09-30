@@ -15,6 +15,7 @@ from ipyleaflet import GeoJSON
 import platform
 import pathlib
 
+
 def test_imports():
     """Test that all the internal coastseg packages are imported correctly"""
     from coastseg import exceptions
@@ -22,14 +23,18 @@ def test_imports():
     from coastseg import extracted_shoreline
     from coastseg import factory
     from coastseg import map_UI
-    
+
     # if mac os then don't run this test because it will always fail due to tensorflow not being installed
-    if platform.system() != 'Darwin':  # 'Darwin' is the name for the macOS operating system
+    if (
+        platform.system() != "Darwin"
+    ):  # 'Darwin' is the name for the macOS operating system
         from coastseg import models_UI
 
+
 def test_init_coastseg_map_no_map():
-    coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
-    assert coastsegmap.map ==None
+    coastsegmap = coastseg_map.CoastSeg_Map(create_map=False)
+    assert coastsegmap.map == None
+
 
 def test_get_roi_ids_no_rois():
     """
@@ -37,7 +42,8 @@ def test_get_roi_ids_no_rois():
     """
     coastsegmap = coastseg_map.CoastSeg_Map()
     assert coastsegmap.get_roi_ids() == []
-    
+
+
 def test_get_roi_ids_with_rois(valid_coastseg_map_with_settings, valid_rois_filepath):
     """
     Test the get_roi_ids() method of CoastSegMap class when ROIs are loaded onto the map.
@@ -49,7 +55,8 @@ def test_get_roi_ids_with_rois(valid_coastseg_map_with_settings, valid_rois_file
     actual_coastsegmap = valid_coastseg_map_with_settings
     # test if rois will be correctly loaded onto map
     actual_coastsegmap.load_feature_on_map("rois", file=valid_rois_filepath)
-    assert actual_coastsegmap.get_roi_ids() == ["17","30","35"]
+    assert actual_coastsegmap.get_roi_ids() == ["17", "30", "35"]
+
 
 def test_save_config_invalid_inputs(
     valid_coastseg_map,
@@ -75,40 +82,44 @@ def test_save_config_invalid_inputs(
         # save config will not work without ROIs loaded onto map
         valid_coastseg_map_with_settings.save_config()
 
+
 def test_load_feature_on_map_fail_load_default_shorelines(box_no_shorelines_transects):
     """Fail to load default shorelines if the bbox doesn't contain any shorelines"""
-    coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
+    coastsegmap = coastseg_map.CoastSeg_Map(create_map=False)
     coastsegmap.bbox = bbox.Bounding_Box(box_no_shorelines_transects)
     # attempt to load default shorelines on the map ( it should fail)
     with pytest.raises(exceptions.Object_Not_Found):
         coastsegmap.load_feature_on_map("shorelines")
 
+
 def test_load_feature_on_map_fail_load_default_transects(box_no_shorelines_transects):
     """Fail to load default transects if the bbox doesn't contain any transects"""
-    coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
+    coastsegmap = coastseg_map.CoastSeg_Map(create_map=False)
     coastsegmap.bbox = bbox.Bounding_Box(box_no_shorelines_transects)
     # attempt to load default transects on the map ( it should fail)
     with pytest.raises(exceptions.Object_Not_Found):
-        coastsegmap.load_feature_on_map("transects")     
-        
+        coastsegmap.load_feature_on_map("transects")
 
-def test_load_feature_on_map_map_off(valid_bbox_gdf ):
-    """Fail to load default transects if the bbox doesn't contain any transects"""
-    coastsegmap=coastseg_map.CoastSeg_Map(create_map=False)
-    coastsegmap.bbox = bbox.Bounding_Box(valid_bbox_gdf )
-    # attempt to load default transects on the map 
-    coastsegmap.load_feature_on_map("transects") 
-    # attempt to load default shorelines on the map 
-    coastsegmap.load_feature_on_map("transects")       
 
-def test_load_feature_on_map_map_on(valid_bbox_gdf ):
+def test_load_feature_on_map_map_off(valid_bbox_gdf):
     """Fail to load default transects if the bbox doesn't contain any transects"""
-    coastsegmap=coastseg_map.CoastSeg_Map(create_map=True)
-    coastsegmap.bbox = bbox.Bounding_Box(valid_bbox_gdf )
-    # attempt to load default transects on the map 
-    coastsegmap.load_feature_on_map("transects") 
-    # attempt to load default shorelines on the map 
-    coastsegmap.load_feature_on_map("transects")      
+    coastsegmap = coastseg_map.CoastSeg_Map(create_map=False)
+    coastsegmap.bbox = bbox.Bounding_Box(valid_bbox_gdf)
+    # attempt to load default transects on the map
+    coastsegmap.load_feature_on_map("transects")
+    # attempt to load default shorelines on the map
+    coastsegmap.load_feature_on_map("transects")
+
+
+def test_load_feature_on_map_map_on(valid_bbox_gdf):
+    """Fail to load default transects if the bbox doesn't contain any transects"""
+    coastsegmap = coastseg_map.CoastSeg_Map(create_map=True)
+    coastsegmap.bbox = bbox.Bounding_Box(valid_bbox_gdf)
+    # attempt to load default transects on the map
+    coastsegmap.load_feature_on_map("transects")
+    # attempt to load default shorelines on the map
+    coastsegmap.load_feature_on_map("transects")
+
 
 def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     """tests if save configs will save both a config.json and
@@ -166,8 +177,11 @@ def test_save_config(coastseg_map_with_selected_roi_layer, tmp_path):
     expected_config_geojson_path = tmp_path / "config_gdf.geojson"
     assert expected_config_geojson_path.exists()
 
-@pytest.mark.parametrize('named_temp_dir', [('CoastSeg',None)], indirect=True)
-def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, named_temp_dir):
+
+@pytest.mark.parametrize("named_temp_dir", [("CoastSeg", None)], indirect=True)
+def test_save_config_empty_roi_settings(
+    coastseg_map_with_selected_roi_layer, named_temp_dir
+):
     """test_save_config_empty_roi_settings tests if save configs will save both a config.json and
     config_gdf.geojson to the filepath directory when coastseg_map's rois do not have roi_settings.
     It should also create roi_settings for coastseg_map's rois
@@ -191,7 +205,7 @@ def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, na
     actual_coastsegmap.save_config(filepath)
     # roi_settings was empty before. save_config should have created it
     assert actual_coastsegmap.rois.roi_settings != {}
-    expected_config_json_path = os.path.join( tmp_CoastSeg_path, "config.json")
+    expected_config_json_path = os.path.join(tmp_CoastSeg_path, "config.json")
     assert os.path.exists(expected_config_json_path)
     with open(expected_config_json_path, "r", encoding="utf-8") as input_file:
         data = json.load(input_file)
@@ -204,7 +218,7 @@ def test_save_config_empty_roi_settings(coastseg_map_with_selected_roi_layer, na
     assert "landsat_collection" in data[roi_id]
     assert "sitename" in data[roi_id]
     assert "filepath" in data[roi_id]
-    expected_config_geojson_path= os.path.join( tmp_CoastSeg_path,"config_gdf.geojson")
+    expected_config_geojson_path = os.path.join(tmp_CoastSeg_path, "config_gdf.geojson")
     assert os.path.exists(expected_config_geojson_path)
 
 
@@ -228,8 +242,10 @@ def test_load_json_config_downloaded(
 
     # test if settings are correctly loaded when valid json config loaded with 'filepath' & 'sitename' keys is loaded
     json_data = actual_coastsegmap.load_json_config(config_path)
-    actual_coastsegmap.rois.roi_settings = common.process_roi_settings(json_data, temp_dir)
-    
+    actual_coastsegmap.rois.roi_settings = common.process_roi_settings(
+        json_data, temp_dir
+    )
+
     assert isinstance(actual_coastsegmap.rois.roi_settings, dict)
     actual_config = file_utilities.read_json_file(config_path)
     for roi_id in actual_config["roi_ids"]:
@@ -241,6 +257,7 @@ def test_load_json_config_downloaded(
             )
     for roi_id, item in actual_config.get("settings", {}).items():
         assert actual_coastsegmap.settings[roi_id] == item
+
 
 def test_valid_shoreline_gdf(valid_shoreline_gdf: gpd.GeoDataFrame):
     """tests if a Shoreline will be created from a valid shoreline thats a gpd.GeoDataFrame
@@ -439,47 +456,44 @@ def test_load_rois_on_map_with_file(
 
 
 def test_load_feature_on_map_generate_rois(valid_bbox_gdf):
-    coastsegmap=coastseg_map.CoastSeg_Map()
+    coastsegmap = coastseg_map.CoastSeg_Map()
     # if no bounding box loaded on map this should raise an error
     with pytest.raises(exceptions.Object_Not_Found):
         coastsegmap.load_feature_on_map(
             "rois",
             lg_area=20,
             sm_area=0,
-            units='km²',
+            units="km²",
         )
     # load bbox on map
-    coastsegmap.load_feature_on_map('bbox',gdf=valid_bbox_gdf)
+    coastsegmap.load_feature_on_map("bbox", gdf=valid_bbox_gdf)
     # now that bbox is loaded on map, this should work
     # this will automatically load a shoreline within the bbox
     coastsegmap.load_feature_on_map(
-            "rois",
-            lg_area=20,
-            sm_area=0,
-            units='km²',
-        )
+        "rois",
+        lg_area=20,
+        sm_area=0,
+        units="km²",
+    )
     assert coastsegmap.rois is not None
-    
+
+
 def test_load_feature_on_map_rois_no_shoreline(box_no_shorelines_transects):
-    coastsegmap=coastseg_map.CoastSeg_Map()
+    coastsegmap = coastseg_map.CoastSeg_Map()
     # load bbox on map where no default shorelines are available
-    coastsegmap.load_feature_on_map('bbox',gdf=box_no_shorelines_transects)
+    coastsegmap.load_feature_on_map("bbox", gdf=box_no_shorelines_transects)
     # now that bbox is loaded on map, this should work
     # this will automatically load a shoreline within the bbox
     with pytest.raises(exceptions.Object_Not_Found):
         coastsegmap.load_feature_on_map(
-                "rois",
-                lg_area=20,
-                sm_area=0,
-                units='km²',
-            )
-    
+            "rois",
+            lg_area=20,
+            sm_area=0,
+            units="km²",
+        )
+
+
 def test_load_feature_on_map_rois_custom(box_no_shorelines_transects):
     # this box has no default shorelines available but it can still load because its a custom ROI
-    coastsegmap=coastseg_map.CoastSeg_Map()
-    coastsegmap.load_feature_on_map(
-            "rois",
-             gdf=box_no_shorelines_transects
-        )
-    
-    
+    coastsegmap = coastseg_map.CoastSeg_Map()
+    coastsegmap.load_feature_on_map("rois", gdf=box_no_shorelines_transects)

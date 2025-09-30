@@ -92,26 +92,8 @@ def gdf_with_crs():
     return gpd.gpd.GeoDataFrame(geometry=geoseries)
 
 
-@pytest.fixture
-def gdf_overlap():
-    data = {
-        "geometry": [
-            Polygon([(0, 0), (2, 0), (2, 2), (0, 2)]),
-            Polygon([(1, 1), (3, 1), (3, 3), (1, 3)]),
-        ]
-    }
-    return gpd.gpd.GeoDataFrame(data, crs="EPSG:4326")
-
-
-@pytest.fixture
-def gdf_no_overlap():
-    data = {
-        "geometry": [
-            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
-            Polygon([(2, 2), (3, 2), (3, 3), (2, 3)]),
-        ]
-    }
-    return gpd.gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
+# gdf_overlap fixture replaced with shared overlapping_polygons_gdf from conftest.py
+# gdf_no_overlap fixture replaced with shared non_overlapping_polygons_gdf from conftest.py
 
 
 @pytest.fixture
@@ -211,16 +193,16 @@ def test_calculate_overlap_empty_gdf_with_crs(gdf_with_crs):
     assert result.crs == gdf_with_crs.crs
 
 
-def test_calculate_overlap(gdf_overlap):
-    result = calculate_overlap(gdf_overlap)
+def test_calculate_overlap(overlapping_polygons_gdf):
+    result = calculate_overlap(overlapping_polygons_gdf)
     assert not result.empty
-    assert result.crs == gdf_overlap.crs
+    assert result.crs == overlapping_polygons_gdf.crs
     assert len(result) == 1
     assert result.iloc[0].geometry.equals(Polygon([(1, 1), (2, 1), (2, 2), (1, 2)]))
 
 
-def test_calculate_overlap_no_overlap(gdf_no_overlap):
-    result = calculate_overlap(gdf_no_overlap)
+def test_calculate_overlap_no_overlap(non_overlapping_polygons_gdf):
+    result = calculate_overlap(non_overlapping_polygons_gdf)
     assert result.empty
 
 

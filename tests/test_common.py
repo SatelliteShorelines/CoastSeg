@@ -1,69 +1,88 @@
-import pytest
-import os
-import json
 import datetime
-from datetime import timezone
-import tempfile
+import json
+import os
 import shutil
+import tempfile
+from datetime import timezone
+from unittest.mock import patch
 
-from coastseg import common
-from coastseg import file_utilities
-
-from shapely.geometry import LineString, MultiLineString, Point, Polygon
 import geopandas as gpd
 import numpy as np
-from shapely import geometry
 import pandas as pd
 import pytest
-from unittest.mock import patch, call
+from shapely import geometry
+from shapely.geometry import LineString, MultiLineString, Point, Polygon
+
+from coastseg import common, file_utilities
+from coastseg.common import convert_points_to_linestrings
+
 
 def test_authenticate_and_initialize_max_attempts():
-    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
-         patch('coastseg.common.ee.Initialize') as mock_initialize:
-        
+    with (
+        patch("coastseg.common.ee.Authenticate") as mock_authenticate,
+        patch("coastseg.common.ee.Initialize") as mock_initialize,
+        patch("coastseg.common.needs_authentication", return_value=True),
+    ):  # this allows the mock auth function to be called
         # Mock an exception for all initialize attempts
         mock_initialize.side_effect = Exception("Credentials file not found")
-        
+
         with pytest.raises(Exception) as excinfo:
-            common.authenticate_and_initialize(print_mode=True, force=False, auth_args={}, kwargs={})
-        
-        assert "Failed to initialize Google Earth Engine after 2 attempts" in str(excinfo.value)
+            common.authenticate_and_initialize(
+                print_mode=True, force=False, auth_kwargs={}, init_kwargs={}
+            )
+
+        assert "Failed to initialize Google Earth Engine after 2 attempts" in str(
+            excinfo.value
+        )
         assert mock_authenticate.call_count == 2
         assert mock_initialize.call_count == 2
 
 
 def test_authenticate_and_initialize_success():
-    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
-         patch('coastseg.common.ee.Initialize') as mock_initialize:
-        
+    with (
+        patch("coastseg.common.ee.Authenticate") as mock_authenticate,
+        patch("coastseg.common.ee.Initialize") as mock_initialize,
+        patch("coastseg.common.needs_authentication", return_value=True),
+    ):  # this allows the mock auth function to be called
         # Mock successful initialization
         mock_initialize.return_value = None
-        
-        common.authenticate_and_initialize(print_mode=True, force=False, auth_args={}, kwargs={})
 
-        mock_authenticate.assert_called_once() # this will call once becase ee.credentials is None
+        common.authenticate_and_initialize(
+            print_mode=True, force=False, auth_kwargs={}, init_kwargs={}
+        )
+
+        mock_authenticate.assert_called_once()  # this should be called once because we set needs_authentication to True
         mock_initialize.assert_called_once()
 
+
 def test_authenticate_and_initialize_force_auth():
-    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
-         patch('coastseg.common.ee.Initialize') as mock_initialize:
-        
+    with (
+        patch("coastseg.common.ee.Authenticate") as mock_authenticate,
+        patch("coastseg.common.ee.Initialize") as mock_initialize,
+    ):
         # Mock successful initialization
         mock_initialize.return_value = None
-        
-        common.authenticate_and_initialize(print_mode=True, force=True, auth_args={}, kwargs={})
+
+        common.authenticate_and_initialize(
+            print_mode=True, force=True, auth_kwargs={}, init_kwargs={}
+        )
 
         mock_authenticate.assert_called_once_with(force=True)
         mock_initialize.assert_called_once()
 
+
 def test_authenticate_and_initialize_retry():
-    with patch('coastseg.common.ee.Authenticate') as mock_authenticate, \
-         patch('coastseg.common.ee.Initialize') as mock_initialize:
-        
+    with (
+        patch("coastseg.common.ee.Authenticate") as mock_authenticate,
+        patch("coastseg.common.ee.Initialize") as mock_initialize,
+        patch("coastseg.common.needs_authentication", return_value=True),
+    ):  # this allows the mock auth function to be called
         # Mock an exception on first initialize, then success
         mock_initialize.side_effect = [Exception("Credentials file not found"), None]
 
-        common.authenticate_and_initialize(print_mode=True, force=False, auth_args={}, kwargs={})
+        common.authenticate_and_initialize(
+            print_mode=True, force=False, auth_kwargs={}, init_kwargs={}
+        )
 
         assert mock_authenticate.call_count == 2
         assert mock_initialize.call_count == 2
@@ -71,13 +90,18 @@ def test_authenticate_and_initialize_retry():
 
 def test_empty_merged_timeseries_gdf():
     # Create an empty GeoDataFrame with the necessary structure
-    empty_gdf = gpd.GeoDataFrame(columns=['x', 'y', 'shore_x', 'shore_y', 'cross_distance', 'dates'])
+    empty_gdf = gpd.GeoDataFrame(
+        columns=["x", "y", "shore_x", "shore_y", "cross_distance", "dates"]
+    )
 
     # Call the function with the empty GeoDataFrame
-    result = common.save_timeseries_vectors_as_geojson(empty_gdf,save_location=r"C:\Users\sf230\Downloads")
+    result = common.save_timeseries_vectors_as_geojson(
+        empty_gdf, save_location=r"sample_folder"
+    )
 
     # Check that the result is also an empty GeoDataFrame
     assert result.empty, "The result should be an empty GeoDataFrame"
+
 
 def test_get_seaward_points_gdf_no_crs():
     # Create a GeoDataFrame with transect data
@@ -106,21 +130,28 @@ def test_get_seaward_points_gdf_no_crs():
     assert seaward_points_gdf.loc[1, "geometry"] == Point(2, 2)
     assert seaward_points_gdf.loc[2, "geometry"] == Point(3, 3)
 
+
 def test_get_seaward_points_gdf():
     # Create a GeoDataFrame with transect data
     transects = gpd.GeoDataFrame(
         {
             "id": [1, 2],
             "geometry": [
-                LineString([(-75.19473124155853,
-                38.13686333982983), (-75.16075424076779,
-                38.12447790470557)]),
-                LineString([( -75.20301831492232,
-                38.12317405244161), ( -75.16862696046286,
-                38.11274239609162)]),
+                LineString(
+                    [
+                        (-75.19473124155853, 38.13686333982983),
+                        (-75.16075424076779, 38.12447790470557),
+                    ]
+                ),
+                LineString(
+                    [
+                        (-75.20301831492232, 38.12317405244161),
+                        (-75.16862696046286, 38.11274239609162),
+                    ]
+                ),
             ],
         },
-        crs = 4326
+        crs=4326,
     )  # type: ignore
 
     # Call the function to get the seaward points GeoDataFrame
@@ -133,9 +164,13 @@ def test_get_seaward_points_gdf():
     assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
 
     # Check the geometry of the seaward points
-    assert seaward_points_gdf.loc[0, "geometry"] == Point(-75.16075424076779,38.12447790470557)
-    assert seaward_points_gdf.loc[1, "geometry"] == Point( -75.16862696046286,
-            38.11274239609162)
+    assert seaward_points_gdf.loc[0, "geometry"] == Point(
+        -75.16075424076779, 38.12447790470557
+    )
+    assert seaward_points_gdf.loc[1, "geometry"] == Point(
+        -75.16862696046286, 38.11274239609162
+    )
+
 
 def test_get_seaward_points_gdf_diff_crs():
     # Create a GeoDataFrame with transect data
@@ -143,12 +178,22 @@ def test_get_seaward_points_gdf_diff_crs():
         {
             "id": [1, 2],
             "geometry": [
-                LineString([(-8370639.1921473555, 4598778.094918826), (-8366856.889720647, 4597025.320623461)]),
-                LineString([( -8371561.704934379, 4596840.818066094), ( -8367733.276868261, 4595364.797606845)]),
+                LineString(
+                    [
+                        (-8370639.1921473555, 4598778.094918826),
+                        (-8366856.889720647, 4597025.320623461),
+                    ]
+                ),
+                LineString(
+                    [
+                        (-8371561.704934379, 4596840.818066094),
+                        (-8367733.276868261, 4595364.797606845),
+                    ]
+                ),
             ],
         },
-        crs = 3857
-    ) # type: ignore
+        crs=3857,
+    )  # type: ignore
 
     # Call the function to get the seaward points GeoDataFrame
     seaward_points_gdf = common.get_seaward_points_gdf(transects)
@@ -160,48 +205,70 @@ def test_get_seaward_points_gdf_diff_crs():
     assert seaward_points_gdf.columns.tolist() == ["transect_id", "geometry"]
 
     transects.to_crs(epsg=4326, inplace=True)
-    assert list(seaward_points_gdf.loc[0, "geometry"].coords)[0] == list(transects.loc[0, "geometry"].coords)[1]
+    assert (
+        list(seaward_points_gdf.loc[0, "geometry"].coords)[0]
+        == list(transects.loc[0, "geometry"].coords)[1]
+    )
     # assert seaward_points_gdf.loc[1, "geometry"] == Point( -75.16862696046286,
     #         38.11274239609162)
- 
+
 
 def test_order_linestrings_gdf_empty():
-    gdf = gpd.GeoDataFrame({'geometry': []})
+    gdf = gpd.GeoDataFrame({"geometry": []})
     result = common.order_linestrings_gdf(gdf)
     assert result.empty, "Expected an empty GeoDataFrame for empty input"
 
+
 def test_order_linestrings_gdf_single_linestring():
     points = np.array([[0, 0], [1, 1]])
-    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)],'date': ['2023-01-01']}, crs='epsg:4326') #type: ignore
+    gdf = gpd.GeoDataFrame(
+        {"geometry": [LineString(points)], "date": ["2023-01-01"]}, crs="epsg:4326"
+    )  # type: ignore
     result = common.order_linestrings_gdf(gdf)
     expected_line = common.create_complete_line_string(points)
     assert len(result) == 1, "Expected one linestring in the result"
-    assert result.iloc[0].geometry.equals(expected_line), "The geometry of the linestring is incorrect"
-    assert result.iloc[0].date == '2023-01-01', "The date is incorrect"
+    assert result.iloc[0].geometry.equals(
+        expected_line
+    ), "The geometry of the linestring is incorrect"
+    assert result.iloc[0].date == "2023-01-01", "The date is incorrect"
+
 
 def test_order_linestrings_gdf_multiple_linestrings():
     points1 = np.array([[0, 0], [1, 1]])
     points2 = np.array([[1, 1], [2, 2]])
-    gdf = gpd.GeoDataFrame({'geometry': [LineString(points1), LineString(points2)],'date':['2023-01-01', '2023-01-02']}, crs='epsg:4326')
+    gdf = gpd.GeoDataFrame(
+        {
+            "geometry": [LineString(points1), LineString(points2)],
+            "date": ["2023-01-01", "2023-01-02"],
+        },
+        crs="epsg:4326",
+    )
     result = common.order_linestrings_gdf(gdf)
     expected_line1 = common.create_complete_line_string(points1)
     expected_line2 = common.create_complete_line_string(points2)
     assert len(result) == 2, "Expected two linestrings in the result"
-    assert result.iloc[0].geometry.equals(expected_line1), "The geometry of the first linestring is incorrect"
-    assert result.iloc[1].geometry.equals(expected_line2), "The geometry of the second linestring is incorrect"
-    assert result.iloc[0].date == '2023-01-01', "The first date is incorrect"
-    assert result.iloc[1].date == '2023-01-02', "The second date is incorrect"
+    assert result.iloc[0].geometry.equals(
+        expected_line1
+    ), "The geometry of the first linestring is incorrect"
+    assert result.iloc[1].geometry.equals(
+        expected_line2
+    ), "The geometry of the second linestring is incorrect"
+    assert result.iloc[0].date == "2023-01-01", "The first date is incorrect"
+    assert result.iloc[1].date == "2023-01-02", "The second date is incorrect"
 
 
-    
 def test_order_linestrings_gdf_duplicate_points():
     points = np.array([[0, 0], [1, 1], [1, 1], [2, 2]])
-    gdf = gpd.GeoDataFrame({'geometry': [LineString(points)],'date':['2023-01-01']}, crs='epsg:4326')
+    gdf = gpd.GeoDataFrame(
+        {"geometry": [LineString(points)], "date": ["2023-01-01"]}, crs="epsg:4326"
+    )
     result = common.order_linestrings_gdf(gdf)
     expected_line = common.create_complete_line_string(points)
     assert len(result) == 1, "Expected one linestring in the result"
-    assert result.iloc[0].geometry.equals(expected_line), "The geometry of the linestring is incorrect"
-    assert result.iloc[0].date == '2023-01-01', "The date is incorrect"
+    assert result.iloc[0].geometry.equals(
+        expected_line
+    ), "The geometry of the linestring is incorrect"
+    assert result.iloc[0].date == "2023-01-01", "The date is incorrect"
 
 
 def test_no_points():
@@ -209,32 +276,42 @@ def test_no_points():
     result = common.create_complete_line_string(points)
     assert result is None, "Expected None for no points"
 
+
 def test_single_point():
     points = np.array([[1, 1]])
     result = common.create_complete_line_string(points)
     assert isinstance(result, Point), "Expected Point for a single point"
     assert result.x == 1 and result.y == 1, "Expected Point with coordinates (1,1)"
 
+
 def test_multiple_points_straight_line():
     points = np.array([[0, 0], [1, 1], [2, 2]])
     result = common.create_complete_line_string(points)
     assert isinstance(result, LineString), "Expected LineString for multiple points"
     expected_coords = [(0, 0), (1, 1), (2, 2)]
-    assert list(result.coords) == expected_coords, "Expected coordinates to be in a straight line"
+    assert (
+        list(result.coords) == expected_coords
+    ), "Expected coordinates to be in a straight line"
+
 
 def test_multiple_points_non_straight_line():
     points = np.array([[0, 0], [2, 2], [1, 1], [3, 3]])
     result = common.create_complete_line_string(points)
     assert isinstance(result, LineString), "Expected LineString for multiple points"
     expected_coords = [(0, 0), (1, 1), (2, 2), (3, 3)]
-    assert list(result.coords) == expected_coords, "Expected coordinates to be in a sorted line"
+    assert (
+        list(result.coords) == expected_coords
+    ), "Expected coordinates to be in a sorted line"
+
 
 def test_duplicate_points():
     points = np.array([[0, 0], [1, 1], [1, 1], [2, 2]])
-    result =  common.create_complete_line_string(points)
+    result = common.create_complete_line_string(points)
     assert isinstance(result, LineString), "Expected LineString for multiple points"
     expected_coords = [(0, 0), (1, 1), (2, 2)]
-    assert list(result.coords) == expected_coords, "Expected coordinates to be unique and sorted"
+    assert (
+        list(result.coords) == expected_coords
+    ), "Expected coordinates to be unique and sorted"
 
 
 def test_get_missing_roi_dirs():
@@ -249,13 +326,13 @@ def test_get_missing_roi_dirs():
                     [-122.58819431715895, 37.868390556469954],
                     [-122.53734956261897, 37.86820174354389],
                     [-122.5376013368467, 37.827895102082195],
-                    [-122.58841842370852, 37.82808364277896]
+                    [-122.58841842370852, 37.82808364277896],
                 ]
             ],
             "landsat_collection": "C02",
             "sitename": "ID_mgm8_datetimefake",
-            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-            "include_T2": False
+            "filepath": "C:\\CoastSeg\\data",
+            "include_T2": False,
         },
         "roi_ids": ["mgm8"],
         "settings": {
@@ -282,10 +359,10 @@ def test_get_missing_roi_dirs():
             "multiple_inter": "auto",
             "prc_multiple": 0.1,
             "apply_cloud_mask": True,
-            "image_size_filter": True
-        }
+            "image_size_filter": True,
+        },
     }
-    missing_directories = common.get_missing_roi_dirs(roi_settings,roi_ids=["mgm8"])
+    missing_directories = common.get_missing_roi_dirs(roi_settings, roi_ids=["mgm8"])
     assert missing_directories == {"mgm8": "ID_mgm8_datetimefake"}
 
 
@@ -293,7 +370,7 @@ def test_get_missing_roi_dirs():
 def test_update_downloaded_configs_tmp_path(config_json_temp_file):
     # Setup
     roi_id = "zih2"
-    config_path, filepath,config = config_json_temp_file
+    config_path, filepath, config = config_json_temp_file
     # ROI settings to update config with
     roi_settings = {
         roi_id: {
@@ -312,7 +389,7 @@ def test_update_downloaded_configs_tmp_path(config_json_temp_file):
             "landsat_collection": "C02",
             "sitename": "ID_zih2_datetime11-15-23__09_56_01",
             "filepath": str(filepath),
-            "roi_id": roi_id
+            "roi_id": roi_id,
         }
     }
 
@@ -322,28 +399,32 @@ def test_update_downloaded_configs_tmp_path(config_json_temp_file):
     # Verify the result
     with open(config_path, "r") as file:
         updated_config = json.load(file)
-    
+
     assert updated_config[roi_id].keys() == roi_settings[roi_id].keys()
     assert updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
     assert updated_config[roi_id]["sat_list"] == roi_settings[roi_id]["sat_list"]
     assert updated_config[roi_id]["dates"] == roi_settings[roi_id]["dates"]
-    assert updated_config[roi_id]["landsat_collection"] == roi_settings[roi_id]["landsat_collection"]
+    assert (
+        updated_config[roi_id]["landsat_collection"]
+        == roi_settings[roi_id]["landsat_collection"]
+    )
     assert updated_config[roi_id]["sitename"] == roi_settings[roi_id]["sitename"]
     assert updated_config[roi_id]["filepath"] == roi_settings[roi_id]["filepath"]
     assert updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
-    assert updated_config['settings'] == config['settings']
+    assert updated_config["settings"] == config["settings"]
     assert updated_config["roi_ids"] == config["roi_ids"]
+
 
 def test_update_downloaded_configs_no_config_file(config_json_temp_file):
     # Setup
     roi_id = "zih2"
     # sitename = "ID_vnv5_datetime01-10-24__01_15_42"
-    sitename= "ID_zih2_datetime11-15-23__09_56_01"
-    config_path, filepath,config = config_json_temp_file
+    sitename = "ID_zih2_datetime11-15-23__09_56_01"
+    config_path, filepath, config = config_json_temp_file
 
     # Call the function
-    temp_dir = tempfile.mkdtemp('fake')
-    temp_dir = os.path.join(temp_dir,'ugh')
+    temp_dir = tempfile.mkdtemp("fake")
+    temp_dir = os.path.join(temp_dir, "ugh")
 
     # ROI settings to update config with
     roi_settings = {
@@ -363,30 +444,29 @@ def test_update_downloaded_configs_no_config_file(config_json_temp_file):
             "landsat_collection": "C02",
             "sitename": sitename,
             "filepath": str(temp_dir),
-            "roi_id": roi_id
+            "roi_id": roi_id,
         }
     }
-    
 
     common.update_downloaded_configs(roi_settings, [roi_id])
 
     # Verify the result
     with open(config_path, "r") as file:
         updated_config = json.load(file)
-    
+
     # assert updated_config[roi_id]["polygon"] != roi_settings[roi_id]["polygon"]
     assert updated_config[roi_id]["sat_list"] != roi_settings[roi_id]["sat_list"]
     assert updated_config[roi_id]["dates"] != roi_settings[roi_id]["dates"]
     assert updated_config[roi_id]["filepath"] != roi_settings[roi_id]["filepath"]
 
+
 def test_update_downloaded_configs_mult_roi(config_json_multiple_roi_temp_file):
     # Setup
     roi_id1 = "zih2"
-    roi_id2 ="zih1"
-    sitename= "ID_zih2_datetime11-15-23__09_56_01"
-    sitename2= "ID_zih1_datetime11-15-23__09_56_01"
-    filepath,config = config_json_multiple_roi_temp_file
-    
+    roi_id2 = "zih1"
+    sitename = "ID_zih2_datetime11-15-23__09_56_01"
+    sitename2 = "ID_zih1_datetime11-15-23__09_56_01"
+    filepath, config = config_json_multiple_roi_temp_file
 
     # ROI settings to update config with
     roi_settings = {
@@ -424,39 +504,59 @@ def test_update_downloaded_configs_mult_roi(config_json_multiple_roi_temp_file):
             "landsat_collection": "C02",
             "sitename": sitename2,
             "filepath": str(filepath),
-            "roi_id": roi_id2
-        }
+            "roi_id": roi_id2,
+        },
     }
 
     # Call the function
-    common.update_downloaded_configs(roi_settings, [roi_id1,roi_id2])
+    common.update_downloaded_configs(roi_settings, [roi_id1, roi_id2])
 
     # Verify the result
     for config_roi_id in [roi_id1, roi_id2]:
-        config_path = os.path.join(filepath,roi_settings[config_roi_id]["sitename"],  "config.json")
+        config_path = os.path.join(
+            filepath, roi_settings[config_roi_id]["sitename"], "config.json"
+        )
         with open(config_path, "r") as file:
             updated_config = json.load(file)
             for roi_id in [roi_id1, roi_id2]:
                 assert updated_config[roi_id].keys() == roi_settings[roi_id].keys()
-                assert updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
-                assert updated_config[roi_id]["sat_list"] == roi_settings[roi_id]["sat_list"]
+                assert (
+                    updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
+                )
+                assert (
+                    updated_config[roi_id]["sat_list"]
+                    == roi_settings[roi_id]["sat_list"]
+                )
                 assert updated_config[roi_id]["dates"] == roi_settings[roi_id]["dates"]
-                assert updated_config[roi_id]["landsat_collection"] == roi_settings[roi_id]["landsat_collection"]
-                assert updated_config[roi_id]["sitename"] == roi_settings[roi_id]["sitename"]
-                assert updated_config[roi_id]["filepath"] == roi_settings[roi_id]["filepath"]
-                assert updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
-        assert updated_config['settings'] == config['settings']
+                assert (
+                    updated_config[roi_id]["landsat_collection"]
+                    == roi_settings[roi_id]["landsat_collection"]
+                )
+                assert (
+                    updated_config[roi_id]["sitename"]
+                    == roi_settings[roi_id]["sitename"]
+                )
+                assert (
+                    updated_config[roi_id]["filepath"]
+                    == roi_settings[roi_id]["filepath"]
+                )
+                assert (
+                    updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
+                )
+        assert updated_config["settings"] == config["settings"]
         assert updated_config["roi_ids"] == config["roi_ids"]
 
 
-def test_update_downloaded_configs_mult_shared_roi(config_json_multiple_shared_roi_temp_file):
+def test_update_downloaded_configs_mult_shared_roi(
+    config_json_multiple_shared_roi_temp_file,
+):
     # Setup
     roi_id1 = "zih2"
-    roi_id2 ="zih1"
-    sitename= "ID_zih2_datetime11-15-23__09_56_01"
-    sitename2= "ID_zih1_datetime11-15-23__09_56_01"
-    
-    filepath,config = config_json_multiple_shared_roi_temp_file
+    roi_id2 = "zih1"
+    sitename = "ID_zih2_datetime11-15-23__09_56_01"
+    sitename2 = "ID_zih1_datetime11-15-23__09_56_01"
+
+    filepath, config = config_json_multiple_shared_roi_temp_file
     # The dictionary you want to write to the JSON file
     # ROI settings to update config with
     roi_settings = {
@@ -494,30 +594,48 @@ def test_update_downloaded_configs_mult_shared_roi(config_json_multiple_shared_r
             "landsat_collection": "C02",
             "sitename": sitename2,
             "filepath": str(filepath),
-            "roi_id": roi_id2
-        }
+            "roi_id": roi_id2,
+        },
     }
 
     # Call the function
-    common.update_downloaded_configs(roi_settings, [roi_id1,roi_id2])
+    common.update_downloaded_configs(roi_settings, [roi_id1, roi_id2])
 
     # Verify the result
     for config_roi_id in [roi_id1, roi_id2]:
-        config_path = os.path.join(filepath,roi_settings[config_roi_id]["sitename"],  "config.json")
+        config_path = os.path.join(
+            filepath, roi_settings[config_roi_id]["sitename"], "config.json"
+        )
         with open(config_path, "r") as file:
             updated_config = json.load(file)
             for roi_id in [roi_id1, roi_id2]:
                 assert updated_config[roi_id].keys() == roi_settings[roi_id].keys()
-                assert updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
-                assert updated_config[roi_id]["sat_list"] == roi_settings[roi_id]["sat_list"]
+                assert (
+                    updated_config[roi_id]["polygon"] == roi_settings[roi_id]["polygon"]
+                )
+                assert (
+                    updated_config[roi_id]["sat_list"]
+                    == roi_settings[roi_id]["sat_list"]
+                )
                 assert updated_config[roi_id]["dates"] == roi_settings[roi_id]["dates"]
-                assert updated_config[roi_id]["landsat_collection"] == roi_settings[roi_id]["landsat_collection"]
-                assert updated_config[roi_id]["sitename"] == roi_settings[roi_id]["sitename"]
-                assert updated_config[roi_id]["filepath"] == roi_settings[roi_id]["filepath"]
-                assert updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
-        assert updated_config['settings'] == config['settings']
+                assert (
+                    updated_config[roi_id]["landsat_collection"]
+                    == roi_settings[roi_id]["landsat_collection"]
+                )
+                assert (
+                    updated_config[roi_id]["sitename"]
+                    == roi_settings[roi_id]["sitename"]
+                )
+                assert (
+                    updated_config[roi_id]["filepath"]
+                    == roi_settings[roi_id]["filepath"]
+                )
+                assert (
+                    updated_config[roi_id]["roi_id"] == roi_settings[roi_id]["roi_id"]
+                )
+        assert updated_config["settings"] == config["settings"]
         assert updated_config["roi_ids"] == config["roi_ids"]
-        
+
 
 def test_update_config_existing_roi():
     # Testing update of existing ROI
@@ -525,34 +643,35 @@ def test_update_config_existing_roi():
         "vnv5": {
             "dates": ["2017-01-01", "2017-02-01"],
             "sat_list": ["L7"],
-            'filepath': 'path/to/roi1'
+            "filepath": "path/to/roi1",
         },
         "vnv6": {
             "dates": ["2019-01-01", "2020-02-01"],
             "sat_list": ["L9"],
-            'filepath': 'path/to/vnv6'
-        }
+            "filepath": "path/to/vnv6",
+        },
     }
     roi_settings = {
         "vnv5": {
             "dates": ["2017-12-01", "2018-01-01"],
             "sat_list": ["L8"],
-            'filepath': 'data/roi1'
+            "filepath": "data/roi1",
         }
     }
     expected = {
         "vnv5": {
             "dates": ["2017-12-01", "2018-01-01"],
             "sat_list": ["L8"],
-            'filepath': 'data/roi1'
+            "filepath": "data/roi1",
         },
         "vnv6": {
             "dates": ["2019-01-01", "2020-02-01"],
             "sat_list": ["L9"],
-            'filepath': 'path/to/vnv6'
-        }
+            "filepath": "path/to/vnv6",
+        },
     }
     assert common.update_config(config_json, roi_settings) == expected
+
 
 def test_update_config_non_existing_roi():
     # Testing update with a non-existing ROI
@@ -576,6 +695,7 @@ def test_update_config_non_existing_roi():
     }
     assert common.update_config(config_json, roi_settings) == expected
 
+
 def test_update_config_empty_config():
     # Testing update with an empty config JSON
     config_json = {}
@@ -587,6 +707,7 @@ def test_update_config_empty_config():
     }
     expected = {}
     assert common.update_config(config_json, roi_settings) == expected
+
 
 def test_update_config_empty_roi_settings():
     # Testing update with empty ROI settings
@@ -610,85 +731,95 @@ def test_empty_roi_ids_and_json_data():
     extracted_settings = common.extract_roi_settings({}, roi_ids=[])
     assert extracted_settings == {}
 
+
 def test_custom_fields_of_interest():
     json_data = {
         "roi_ids": ["roi1"],
-        "roi1": {
-            "dates": "2020-01-01",
-            "sitename": "Site1",
-            "custom_field": "value"
-        }
+        "roi1": {"dates": "2020-01-01", "sitename": "Site1", "custom_field": "value"},
     }
     fields_of_interest = {"dates", "custom_field"}
     extracted_settings = common.extract_roi_settings(json_data, fields_of_interest)
-    assert  set(fields_of_interest).issubset(set(extracted_settings["roi1"].keys()))
+    assert set(fields_of_interest).issubset(set(extracted_settings["roi1"].keys()))
+
 
 def test_default_fields_of_interest():
     json_data = {
         "roi_ids": ["vnv5"],
         "vnv5": {
             "polygon": [
-            [
-                [-73.79437084401454, 40.604969508734285],
-                [-73.79437084401454, 40.58122710499745],
-                [-73.76134532936206, 40.58122710499745],
-                [-73.76134532936206, 40.604969508734285],
-                [-73.79437084401454, 40.604969508734285]
-            ]
+                [
+                    [-73.79437084401454, 40.604969508734285],
+                    [-73.79437084401454, 40.58122710499745],
+                    [-73.76134532936206, 40.58122710499745],
+                    [-73.76134532936206, 40.604969508734285],
+                    [-73.79437084401454, 40.604969508734285],
+                ]
             ],
             "sat_list": ["L8"],
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
             "sitename": "ID_vnv5_datetime01-10-24__01_15_42",
-            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-            "roi_id": "vnv5"
+            "filepath": "C:\\CoastSeg\\data",
+            "roi_id": "vnv5",
         },
     }
-    expected_fields = set(["dates", "sitename", "polygon", "roi_id", "sat_list", "landsat_collection", "filepath"])
+    expected_fields = set(
+        [
+            "dates",
+            "sitename",
+            "polygon",
+            "roi_id",
+            "sat_list",
+            "landsat_collection",
+            "filepath",
+        ]
+    )
     extracted_settings = common.extract_roi_settings(json_data)
     assert set(extracted_settings["vnv5"].keys()) == expected_fields
+
 
 def test_specific_roi_ids():
     json_data = {
         "roi_ids": ["vnv5"],
         "vnv5": {
             "polygon": [
-            [
-                [-73.79437084401454, 40.604969508734285],
-                [-73.79437084401454, 40.58122710499745],
-                [-73.76134532936206, 40.58122710499745],
-                [-73.76134532936206, 40.604969508734285],
-                [-73.79437084401454, 40.604969508734285]
-            ]
+                [
+                    [-73.79437084401454, 40.604969508734285],
+                    [-73.79437084401454, 40.58122710499745],
+                    [-73.76134532936206, 40.58122710499745],
+                    [-73.76134532936206, 40.604969508734285],
+                    [-73.79437084401454, 40.604969508734285],
+                ]
             ],
             "sat_list": ["L8"],
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
             "sitename": "ID_vnv5_datetime01-10-24__01_15_42",
-            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-            "roi_id": "vnv5"
+            "filepath": "C:\\CoastSeg\\data",
+            "roi_id": "vnv5",
         },
         "vnv6": {
             "polygon": [
-            [
-                [-73.79437084401454, 40.604969508734285],
-                [-73.79437084401454, 40.58122710499745],
-                [-73.76134532936206, 40.58122710499745],
-                [-73.76134532936206, 40.604969508734285],
-                [-73.79437084401454, 40.604969508734285]
-            ]
+                [
+                    [-73.79437084401454, 40.604969508734285],
+                    [-73.79437084401454, 40.58122710499745],
+                    [-73.76134532936206, 40.58122710499745],
+                    [-73.76134532936206, 40.604969508734285],
+                    [-73.79437084401454, 40.604969508734285],
+                ]
             ],
             "sat_list": ["L8"],
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
             "sitename": "ID_vnv6_datetime01-10-24__01_15_42",
-            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-            "roi_id": "vnv6"
-        }
+            "filepath": "C:\\CoastSeg\\data",
+            "roi_id": "vnv6",
+        },
     }
     roi_ids = ["vnv6"]
     extracted_settings = common.extract_roi_settings(json_data, roi_ids=roi_ids)
     assert "vnv6" in extracted_settings and "vnv5" not in extracted_settings
+
 
 def test_missing_fields_in_json_data():
     # test what happens if a field like sitename is missing
@@ -696,24 +827,24 @@ def test_missing_fields_in_json_data():
         "roi_ids": ["vnv5"],
         "vnv5": {
             "polygon": [
-            [
-                [-73.79437084401454, 40.604969508734285],
-                [-73.79437084401454, 40.58122710499745],
-                [-73.76134532936206, 40.58122710499745],
-                [-73.76134532936206, 40.604969508734285],
-                [-73.79437084401454, 40.604969508734285]
-            ]
+                [
+                    [-73.79437084401454, 40.604969508734285],
+                    [-73.79437084401454, 40.58122710499745],
+                    [-73.76134532936206, 40.58122710499745],
+                    [-73.76134532936206, 40.604969508734285],
+                    [-73.79437084401454, 40.604969508734285],
+                ]
             ],
             "sat_list": ["L8"],
             "landsat_collection": "C02",
             "dates": ["2017-12-01", "2018-01-01"],
-            "filepath": "C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-            "roi_id": "vnv5"
-        }
+            "filepath": "C:\\CoastSeg\\data",
+            "roi_id": "vnv5",
+        },
     }
     extracted_settings = common.extract_roi_settings(json_data)
     assert "sitename" not in extracted_settings["vnv5"]
-    assert "dates" in extracted_settings["vnv5"] 
+    assert "dates" in extracted_settings["vnv5"]
     assert "polygon" in extracted_settings["vnv5"]
     assert "sat_list" in extracted_settings["vnv5"]
     assert "landsat_collection" in extracted_settings["vnv5"]
@@ -724,104 +855,121 @@ def test_missing_fields_in_json_data():
 
 def test_update_existing_key():
     roi_settings = {
-        'roi1': {'key1': 'value1', 'key2': 'value2'},
-        'roi2': {'key1': 'value3', 'key2': 'value4'}
+        "roi1": {"key1": "value1", "key2": "value2"},
+        "roi2": {"key1": "value3", "key2": "value4"},
     }
-    updated_settings = common.update_roi_settings(roi_settings, 'key1', 'new_value')
-    assert all(settings['key1'] == 'new_value' for settings in updated_settings.values())
+    updated_settings = common.update_roi_settings(roi_settings, "key1", "new_value")
+    assert all(
+        settings["key1"] == "new_value" for settings in updated_settings.values()
+    )
+
 
 def test_update_non_existing_key():
-    roi_settings = {
-        'roi1': {'key2': 'value2'},
-        'roi2': {'key2': 'value4'}
-    }
-    updated_settings = common.update_roi_settings(roi_settings, 'key1', 'new_value')
-    assert all('key1' not in settings for settings in updated_settings.values())
+    roi_settings = {"roi1": {"key2": "value2"}, "roi2": {"key2": "value4"}}
+    updated_settings = common.update_roi_settings(roi_settings, "key1", "new_value")
+    assert all("key1" not in settings for settings in updated_settings.values())
+
 
 def test_empty_roi_settings():
-    updated_settings = common.update_roi_settings({}, 'key1', 'new_value')
+    updated_settings = common.update_roi_settings({}, "key1", "new_value")
     assert updated_settings == {}
+
 
 def test_multiple_roi_ids():
     roi_settings = {
-        'roi1': {'key1': 'value1'},
-        'roi2': {'key1': 'value3'},
-        'roi3': {'key1': 'value5'}
+        "roi1": {"key1": "value1"},
+        "roi2": {"key1": "value3"},
+        "roi3": {"key1": "value5"},
     }
-    updated_settings = common.update_roi_settings(roi_settings, 'key1', 'new_value')
-    assert all(settings['key1'] == 'new_value' for settings in updated_settings.values())
+    updated_settings = common.update_roi_settings(roi_settings, "key1", "new_value")
+    assert all(
+        settings["key1"] == "new_value" for settings in updated_settings.values()
+    )
+
 
 def test_non_dict_roi_settings():
     with pytest.raises(AttributeError):
-        common.update_roi_settings("not_a_dict", 'key1', 'new_value')
+        common.update_roi_settings("not_a_dict", "key1", "new_value")
+
 
 def test_ioerror_during_file_update():
-    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
-    roi_ids = ['roi1']
-    with patch('os.path.exists') as mock_exists, \
-         patch('coastseg.file_utilities.read_json_file') as mock_read, \
-         patch('coastseg.file_utilities.config_to_file') as mock_write, \
-         patch('coastseg.common.logging') as mock_logging:
+    roi_settings = {"roi1": {"filepath": "path/to/roi1", "sitename": "Site1"}}
+    roi_ids = ["roi1"]
+    with (
+        patch("os.path.exists") as mock_exists,
+        patch("coastseg.file_utilities.read_json_file") as mock_read,
+        patch("coastseg.file_utilities.config_to_file") as mock_write,
+        patch("coastseg.common.logging") as mock_logging,
+    ):
         mock_exists.return_value = True
         mock_read.return_value = {}
         mock_write.side_effect = IOError
-        
+
         common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
-        
+
         mock_logging.error.assert_called()
 
 
 def test_successful_update():
-    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
-    roi_ids = ['roi1']
-    with patch('os.path.exists') as mock_exists, \
-         patch('coastseg.file_utilities.read_json_file') as mock_read, \
-         patch('coastseg.file_utilities.config_to_file') as mock_write:
+    roi_settings = {"roi1": {"filepath": "path/to/roi1", "sitename": "Site1"}}
+    roi_ids = ["roi1"]
+    with (
+        patch("os.path.exists") as mock_exists,
+        patch("coastseg.file_utilities.read_json_file") as mock_read,
+        patch("coastseg.file_utilities.config_to_file") as mock_write,
+    ):
         mock_exists.return_value = True
         mock_read.return_value = {}
-        
+
         common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
-        
+
         mock_write.assert_called_once()
 
+
 def test_config_file_not_found():
-    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
-    roi_ids = ['roi1']
-    with patch('os.path.exists') as mock_exists, \
-         patch('coastseg.common.logging') as mock_logging:
+    roi_settings = {"roi1": {"filepath": "path/to/roi1", "sitename": "Site1"}}
+    roi_ids = ["roi1"]
+    with (
+        patch("os.path.exists") as mock_exists,
+        patch("coastseg.common.logging") as mock_logging,
+    ):
         mock_exists.return_value = False
-        
+
         common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
-        
+
         mock_logging.warning.assert_called()
 
+
 def test_nonexistent_roi_ids():
-    roi_settings = {'roi2': {'filepath': 'path/to/roi2', 'sitename': 'Site2'}}
-    roi_ids = ['roi1']
-    with patch('coastseg.common.logging') as mock_logging:
+    roi_settings = {"roi2": {"filepath": "path/to/roi2", "sitename": "Site2"}}
+    roi_ids = ["roi1"]
+    with patch("coastseg.common.logging") as mock_logging:
         common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
         mock_logging.warning.assert_called()
 
 
 def test_valid_roi_ids_and_settings():
-    roi_settings = {'roi1': {'filepath': 'path/to/roi1', 'sitename': 'Site1'}}
-    roi_ids = ['roi1']
-    with patch('os.path.exists') as mock_exists, \
-         patch('coastseg.file_utilities.read_json_file') as mock_read, \
-         patch('coastseg.file_utilities.config_to_file') as mock_write:
+    roi_settings = {"roi1": {"filepath": "path/to/roi1", "sitename": "Site1"}}
+    roi_ids = ["roi1"]
+    with (
+        patch("os.path.exists") as mock_exists,
+        patch("coastseg.file_utilities.read_json_file") as mock_read,
+        patch("coastseg.file_utilities.config_to_file") as mock_write,
+    ):
         mock_exists.return_value = True
         mock_read.return_value = {}
-        
+
         common.update_downloaded_configs(roi_settings=roi_settings, roi_ids=roi_ids)
-        
+
         mock_write.assert_called_once()
 
 
 def test_empty_roi_settings():
-    with patch('coastseg.file_utilities') as mock_file_utils:
+    with patch("coastseg.file_utilities") as mock_file_utils:
         common.update_downloaded_configs(roi_settings={}, roi_ids=[])
         mock_file_utils.read_json_file.assert_not_called()
         mock_file_utils.config_to_file.assert_not_called()
+
 
 # Scenario 1: 'date' column as string
 def test_remove_matching_rows_date_string():
@@ -1143,7 +1291,7 @@ def test_with_multiple_gdfs():
 
 def test_with_empty_rois_and_no_epsg():
     with pytest.raises(ValueError):
-        result = common.create_config_gdf(None)
+        common.create_config_gdf(None)
 
 
 def test_with_empty_rois_and_valid_epsg():
@@ -1331,7 +1479,10 @@ def sample_metadata():
     # The  only thing that matters is the date format for filesnames is in the format "YYYY-MM-DD-HH-MM-SS"
     metadata = {
         "L5": {
-            "filenames": ["2021-01-05-15-33-53_L5_site1_ms.tif", "2022-01-05-15-33-53_L5_site1_ms.tif"],
+            "filenames": [
+                "2021-01-05-15-33-53_L5_site1_ms.tif",
+                "2022-01-05-15-33-53_L5_site1_ms.tif",
+            ],
             "acc_georef": [9.185, 10.185],
             "epsg": [32618, 32618],
             "dates": [
@@ -1340,7 +1491,10 @@ def sample_metadata():
             ],
         },
         "L7": {
-            "filenames": ["2021-01-05-15-33-53_L7_site1_ms.tif", "2022-01-05-15-33-53_L7_site1_ms.tif"],
+            "filenames": [
+                "2021-01-05-15-33-53_L7_site1_ms.tif",
+                "2022-01-05-15-33-53_L7_site1_ms.tif",
+            ],
             "acc_georef": [7.441, 5.693],
             "epsg": [32618, 32618],
             "dates": [
@@ -1399,9 +1553,9 @@ def expected_empty_filtered_metadata():
 def test_filter_metadata(
     sample_ROI_directory, sample_metadata, expected_filtered_metadata
 ):
-    directory =  os.path.join(
-                sample_ROI_directory, "site1", "jpg_files", "preprocessed", "RGB"
-            )
+    directory = os.path.join(
+        sample_ROI_directory, "site1", "jpg_files", "preprocessed", "RGB"
+    )
     result = common.filter_metadata_with_dates(sample_metadata, directory, "jpg")
 
     assert (
@@ -1417,9 +1571,9 @@ def test_empty_roi_directory_filter_metadata(
     sample_directory,
 ):
     # if the RGB directory but exists and is empty then no filenames in result should be empty lists
-    directory =  os.path.join(
-                empty_ROI_directory, "site1", "jpg_files", "preprocessed", "RGB"
-            )
+    directory = os.path.join(
+        empty_ROI_directory, "site1", "jpg_files", "preprocessed", "RGB"
+    )
     result = common.filter_metadata_with_dates(sample_metadata, directory, "jpg")
 
     assert (
@@ -1428,9 +1582,9 @@ def test_empty_roi_directory_filter_metadata(
 
     # should raise an error if the RGB directory within the ROI directory does not exist
     with pytest.raises(Exception):
-        directory =  os.path.join(
-                    sample_directory, "site1", "jpg_files", "preprocessed", "RGB"
-                )
+        directory = os.path.join(
+            sample_directory, "site1", "jpg_files", "preprocessed", "RGB"
+        )
         result = common.filter_metadata_with_dates(sample_metadata, directory, "jpg")
 
 
@@ -1472,13 +1626,6 @@ def test_preprocess_geodataframe():
     assert set(result.columns) == set(
         columns_to_keep
     ), "Only specified columns should be kept."
-
-
-# @todo add a test like this back when you are ready
-# def test_duplicate_ids_exception():
-#     data_with_duplicate_ids = gpd.GeoDataFrame({'id': ['abc', 'abc', 'def'], 'geometry': [None, None, None]})
-#     with pytest.raises(exceptions.Duplicate_ID_Exception):
-#         common.preprocess_geodataframe(data_with_duplicate_ids, create_ids=False)
 
 
 # Test for remove_z_coordinates function
@@ -1657,7 +1804,7 @@ def test_config_dict_to_file(tmp_path):
             ],
             "landsat_collection": "C01",
             "sitename": "ID_0_datetime11-01-22__03_54_47",
-            "filepath": "C:\\1_USGS\\CoastSeg\\repos\\2_CoastSeg\\CoastSeg_fork\\Seg2Map\\data",
+            "filepath": "C:\\CoastSeg\\data",
         }
     }
     filepath = tmp_path
@@ -1866,17 +2013,6 @@ def test_create_json_config_single_input(valid_settings, valid_single_roi_settin
         assert isinstance(actual_config[str(key)], dict)
 
 
-def test_extract_roi_by_id(valid_rois_gdf):
-    # test if valid gdf is returned when id within gdf is given
-    roi_id = 17
-    actual_roi = common.extract_roi_by_id(valid_rois_gdf, roi_id)
-    assert isinstance(actual_roi, gpd.GeoDataFrame)
-    assert actual_roi[actual_roi["id"].astype(int) == roi_id].empty == False
-    expected_roi = valid_rois_gdf[valid_rois_gdf["id"].astype(int) == roi_id]
-    assert actual_roi["geometry"][0] == expected_roi["geometry"][0]
-    assert actual_roi["id"][0] == expected_roi["id"][0]
-
-
 def test_load_settings_empty_filepath():
     # Test loading all settings from an empty filepath
     settings = common.load_settings()
@@ -2009,13 +2145,6 @@ def test_load_settings_with_list_keys(config_json):
     assert isinstance(settings, dict)
     assert len(settings) == len(keys)
     assert all(key in settings for key in keys)
-
-
-import pytest
-import os
-import shutil
-from coastseg import common
-from coastseg import file_utilities
 
 
 def test_save_extracted_shoreline_figures(temp_jpg_dir_structure, temp_dst_dir):
@@ -2205,10 +2334,6 @@ def test_delete_jpg_files_nothing_matches_and_empty():
         remaining_files = os.listdir(tmp_dir)
         assert len(remaining_files) == 3  # No files should be deleted
         assert extra_file in remaining_files
-
-
-import numpy as np
-from coastseg import common
 
 
 def test_delete_selected_indexes_empty_input_dict():
@@ -2411,18 +2536,16 @@ def test_transform_data_to_nested_arrays():
         common.transform_data_to_nested_arrays(data_dict)
     except Exception:
         assert True
-        
-import geopandas as gpd
-from shapely.geometry import Point
-from coastseg.common import convert_points_to_linestrings
+
 
 def test_convert_points_to_linestrings():
     # Create a GeoDataFrame with points
     points = [Point(0, 0), Point(1, 1), Point(2, 2)]
-    gdf = gpd.GeoDataFrame(geometry=points,)
+    gdf = gpd.GeoDataFrame(
+        geometry=points,
+    )
     # this should cause the last point to be filtered out because it doesn't have a another points with a matching date
-    gdf['date'] = ['1/1/2020','1/1/2020','1/2/2020']
-
+    gdf["date"] = ["1/1/2020", "1/1/2020", "1/2/2020"]
 
     # Set an initial CRS
     gdf.crs = "EPSG:4326"
@@ -2441,10 +2564,11 @@ def test_convert_points_to_linestrings():
 def test_convert_points_to_linestrings_not_enough_pts():
     # Create a GeoDataFrame with points
     points = [Point(0, 0), Point(1, 1), Point(2, 2)]
-    gdf = gpd.GeoDataFrame(geometry=points,)
+    gdf = gpd.GeoDataFrame(
+        geometry=points,
+    )
     # this should cause the last point to be filtered out because it doesn't have a another points with a matching date
-    gdf['date'] = ['1/1/2020','1/2/2020','1/3/2020']
-
+    gdf["date"] = ["1/1/2020", "1/2/2020", "1/3/2020"]
 
     # Set an initial CRS
     gdf.crs = "EPSG:4326"
@@ -2456,13 +2580,15 @@ def test_convert_points_to_linestrings_not_enough_pts():
     # Check the result
     assert len(linestrings_gdf) == 3
 
+
 def test_convert_points_to_linestrings_single_point_per_date():
     # Create a GeoDataFrame with points
     points = [Point(0, 0), Point(1, 1)]
-    gdf = gpd.GeoDataFrame(geometry=points,)
+    gdf = gpd.GeoDataFrame(
+        geometry=points,
+    )
     # this should cause the last point to be filtered out because it doesn't have a another points with a matching date
-    gdf['date'] = ['1/1/2020','1/1/2020']
-
+    gdf["date"] = ["1/1/2020", "1/1/2020"]
 
     # Set an initial CRS
     gdf.crs = "EPSG:4326"
@@ -2473,3 +2599,356 @@ def test_convert_points_to_linestrings_single_point_per_date():
 
     # Check the result
     assert len(linestrings_gdf) == 1
+
+
+# ============================================================================
+# Additional test coverage for common.py functions
+# ============================================================================
+
+
+class TestPolygonAreaCalculation:
+    """Test area calculation functions."""
+
+    def test_get_area_simple_polygon(self):
+        """Test area calculation for a simple geojson polygon."""
+        # Create a 1-degree square polygon at the equator (~12,321 km²)
+        polygon_geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+        }
+
+        area = common.get_area(polygon_geojson)
+        # Approximate area of 1-degree square at equator (~12.3 billion m²)
+        assert area == pytest.approx(12.3e9, rel=0.1)
+
+    def test_get_area_small_polygon(self):
+        """Test area calculation for a small polygon."""
+        # Create a smaller polygon (0.1 degree square)
+        polygon_geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+        }
+
+        area = common.get_area(polygon_geojson)
+        # Should be about 1/100th of the larger polygon (~123 million m²)
+        assert area == pytest.approx(123e6, rel=0.1)
+
+
+class TestGeometryValidation:
+    """Test geometry validation functions."""
+
+    def test_validate_geometry_types_valid_polygons(self, standard_polygon_gdf):
+        """Test validation with valid polygon geometries."""
+        # Should not raise any exception
+        common.validate_geometry_types(
+            standard_polygon_gdf, valid_types={"Polygon"}, feature_type="ROI"
+        )
+
+    def test_validate_geometry_types_invalid_geometry(self, simple_linestring_gdf):
+        """Test validation fails with invalid geometry type."""
+        with pytest.raises(Exception):  # Should raise InvalidGeometryType
+            common.validate_geometry_types(
+                simple_linestring_gdf, valid_types={"Polygon"}, feature_type="ROI"
+            )
+
+    def test_validate_geometry_types_mixed_valid(self):
+        """Test validation with mixed but valid geometry types."""
+        # Create GDF with Points and Polygons
+        geometries = [Point(0, 0), Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])]
+        gdf = gpd.GeoDataFrame(geometry=geometries, crs="EPSG:4326")
+
+        # Should not raise exception
+        common.validate_geometry_types(
+            gdf, valid_types={"Point", "Polygon"}, feature_type="Mixed"
+        )
+
+
+class TestROIUtilities:
+    """Test ROI-specific utility functions."""
+
+    def test_get_roi_polygon_valid_id(self, valid_rois_gdf):
+        """Test extracting polygon coordinates for valid ROI ID."""
+        # Get the first ROI ID from the fixture
+        roi_id = valid_rois_gdf.iloc[0]["id"]
+
+        polygon_coords = common.get_roi_polygon(valid_rois_gdf, roi_id)
+
+        assert polygon_coords is not None
+        assert isinstance(polygon_coords, list)
+        assert len(polygon_coords) > 0
+        # Check that it's a list of coordinate pairs [x, y]
+        assert all(len(coord) == 2 for coord in polygon_coords)
+        # Check that coordinates are numeric
+        assert all(
+            isinstance(coord[0], (int, float)) and isinstance(coord[1], (int, float))
+            for coord in polygon_coords
+        )
+
+    def test_get_roi_polygon_invalid_id(self, valid_rois_gdf):
+        """Test extracting polygon for non-existent ROI ID."""
+        invalid_id = 99999  # Use an integer ID that doesn't exist
+
+        result = common.get_roi_polygon(valid_rois_gdf, invalid_id)
+
+        assert result is None
+
+    def test_get_roi_polygon_empty_gdf(self):
+        """Test extracting polygon from empty GeoDataFrame."""
+        empty_gdf = gpd.GeoDataFrame(columns=["id", "geometry"], crs="EPSG:4326")
+
+        result = common.get_roi_polygon(empty_gdf, 1)  # Use integer ID
+
+        assert result is None
+
+
+class TestSatelliteUtilities:
+    """Test satellite-related utility functions."""
+
+    @pytest.mark.parametrize(
+        "filename,expected",
+        [
+            (
+                "prefix_suffix_L8.jpg",
+                "L8",
+            ),  # JPG format with satellite in 3rd position (index 2)
+            ("prefix_suffix_L7.jpg", "L7"),
+            ("prefix_suffix_L5.jpg", "L5"),
+            ("prefix_suffix_L9.jpg", "L9"),
+            ("prefix_suffix_S2.jpg", "S2"),
+            ("prefix_suffix_S1.jpg", "S1"),
+            ("invalid_format.jpg", None),  # Invalid format should return None
+            ("short.jpg", None),  # Too short to extract satellite
+        ],
+    )
+    def test_get_satellite_name(self, filename, expected):
+        """Test satellite name extraction from JPG filename format."""
+        result = common.get_satellite_name(filename)
+        assert result == expected
+
+
+class TestDataProcessingUtilities:
+    """Test data processing and filtering functions."""
+
+    def test_merge_dataframes_basic(self):
+        """Test merging two dataframes on default columns."""
+        df1 = pd.DataFrame(
+            {
+                "transect_id": ["T1", "T2", "T3"],
+                "dates": ["2020-01-01", "2020-01-02", "2020-01-03"],
+                "cross_distance": [10, 20, 30],
+            }
+        )
+
+        df2 = pd.DataFrame(
+            {
+                "transect_id": ["T1", "T2", "T4"],
+                "dates": ["2020-01-01", "2020-01-02", "2020-01-04"],
+                "shore_position": [5, 15, 25],
+            }
+        )
+
+        result = common.merge_dataframes(df1, df2)
+
+        assert len(result) == 2  # Only T1 and T2 should match
+        assert "cross_distance" in result.columns
+        assert "shore_position" in result.columns
+        assert set(result["transect_id"]) == {"T1", "T2"}
+
+    def test_merge_dataframes_custom_columns(self):
+        """Test merging dataframes on custom columns."""
+        df1 = pd.DataFrame({"id": ["A", "B", "C"], "value1": [1, 2, 3]})
+
+        df2 = pd.DataFrame({"id": ["A", "B", "D"], "value2": [10, 20, 30]})
+
+        result = common.merge_dataframes(df1, df2, columns_to_merge_on={"id"})
+
+        assert len(result) == 2  # Only A and B should match
+        assert set(result["id"]) == {"A", "B"}
+
+
+class TestFileUtilities:
+    """Test file and path utility functions."""
+
+    def test_extract_date_from_filename_valid_format(self):
+        """Test date extraction from filename with valid format."""
+        filename = "2020-01-15-12-30-45_S2_ID_1_ms.tif"
+        result = common.extract_date_from_filename(filename)
+        assert result == "2020-01-15-12-30-45"
+
+    def test_extract_date_from_filename_partial_format(self):
+        """Test date extraction from filename starting with valid date."""
+        filename = "2024-05-28-22-18-07_some_other_data.jpg"
+        result = common.extract_date_from_filename(filename)
+        assert result == "2024-05-28-22-18-07"
+
+    def test_extract_date_from_filename_no_date(self):
+        """Test date extraction from filename with no recognizable date."""
+        filename = "some_random_file.tif"
+        result = common.extract_date_from_filename(filename)
+        # Should return some default or handle gracefully
+        assert isinstance(result, str)
+
+
+class TestRandomIdGeneration:
+    """Test ID generation utilities."""
+
+    def test_random_prefix_length(self):
+        """Test random prefix generation with specific length."""
+        for length in [1, 3, 5, 10]:
+            prefix = common.random_prefix(length)
+            assert len(prefix) == length
+            assert prefix.isalnum()
+
+    def test_generate_ids_unique(self):
+        """Test that generated IDs are unique."""
+        num_ids = 100
+        prefix_length = 3
+
+        ids = common.generate_ids(num_ids, prefix_length)
+
+        assert len(ids) == num_ids
+        assert len(set(ids)) == num_ids  # All should be unique
+        # IDs have prefix + sequential number (1-3 digits for num_ids=100)
+        assert all(len(id_str) >= prefix_length + 1 for id_str in ids)
+        assert all(
+            len(id_str) <= prefix_length + 3 for id_str in ids
+        )  # Max 3 digits for 100 IDs
+
+    def test_create_unique_ids_gdf(self, standard_polygon_gdf):
+        """Test creating unique IDs for GeoDataFrame."""
+        # Remove existing 'id' column if present
+        gdf_copy = standard_polygon_gdf.copy()
+        if "id" in gdf_copy.columns:
+            gdf_copy = gdf_copy.drop(columns=["id"])
+
+        result = common.create_unique_ids(gdf_copy, prefix_length=4)
+
+        assert "id" in result.columns
+        assert len(result["id"].unique()) == len(result)  # All IDs should be unique
+        # IDs have prefix (4 chars) + sequential number (1-2 digits for small GDF)
+        assert all(
+            len(id_str) >= 5 for id_str in result["id"]
+        )  # At least prefix + 1 digit
+
+
+class TestDataFrameUtilities:
+    """Test DataFrame processing utilities."""
+
+    def test_check_unique_ids_all_unique(self):
+        """Test checking unique IDs when all are unique."""
+        gdf = gpd.GeoDataFrame(
+            {
+                "id": ["A", "B", "C"],
+                "geometry": [Point(0, 0), Point(1, 1), Point(2, 2)],
+            },
+            crs="EPSG:4326",
+        )
+
+        assert common.check_unique_ids(gdf)
+
+    def test_check_unique_ids_duplicates(self):
+        """Test checking unique IDs when duplicates exist."""
+        gdf = gpd.GeoDataFrame(
+            {
+                "id": ["A", "B", "A"],  # Duplicate 'A'
+                "geometry": [Point(0, 0), Point(1, 1), Point(2, 2)],
+            },
+            crs="EPSG:4326",
+        )
+
+        assert not common.check_unique_ids(gdf)
+
+    def test_check_unique_ids_no_id_column(self):
+        """Test checking unique IDs when no 'id' column exists."""
+        gdf = gpd.GeoDataFrame(
+            {
+                "name": ["A", "B", "C"],
+                "geometry": [Point(0, 0), Point(1, 1), Point(2, 2)],
+            },
+            crs="EPSG:4326",
+        )
+
+        assert not common.check_unique_ids(gdf)
+
+
+class TestURLAndDownloadUtilities:
+    """Test URL processing and download utilities."""
+
+    @pytest.mark.parametrize(
+        "coords,expected_lon,expected_lat",
+        [
+            ([(0, 0), (2, 0), (2, 2), (0, 2)], 1.0, 1.0),  # Simple square
+            ([(10, 10), (20, 10), (20, 20), (10, 20)], 15.0, 15.0),  # Offset square
+            ([(-1, -1), (1, -1), (1, 1), (-1, 1)], 0.0, 0.0),  # Centered on origin
+        ],
+    )
+    def test_get_center_point(self, coords, expected_lon, expected_lat):
+        """Test center point calculation for various polygons."""
+        result = common.get_center_point(coords)
+
+        assert len(result) == 2
+        lon, lat = result
+        assert lon == pytest.approx(expected_lon, abs=1e-10)
+        assert lat == pytest.approx(expected_lat, abs=1e-10)
+
+
+class TestConfigurationUtilities:
+    """Test configuration processing utilities."""
+
+    def test_extract_fields_basic(self):
+        """Test extracting specific fields from dictionary."""
+        data = {"field1": "value1", "field2": "value2", "field3": "value3"}
+
+        fields_to_extract = ["field1", "field3"]
+        result = common.extract_fields(data, fields_of_interest=fields_to_extract)
+
+        expected = {"field1": "value1", "field3": "value3"}
+        assert result == expected
+
+    def test_extract_fields_missing_fields(self):
+        """Test extracting fields when some don't exist."""
+        data = {"field1": "value1", "field2": "value2"}
+
+        fields_to_extract = ["field1", "nonexistent_field"]
+        result = common.extract_fields(data, fields_of_interest=fields_to_extract)
+
+        expected = {"field1": "value1"}  # Should only include existing fields
+        assert result == expected
+
+    def test_extract_fields_empty_list(self):
+        """Test extracting fields with empty list."""
+        data = {"field1": "value1", "field2": "value2"}
+
+        result = common.extract_fields(data, fields_of_interest=[])
+
+        # Should return empty dict when no fields to extract
+        assert result == {}
+
+
+# ============================================================================
+# Integration tests for complex workflows
+# ============================================================================
+
+
+class TestWorkflowIntegration:
+    """Test integration of multiple functions in typical workflows."""
+
+    def test_roi_processing_workflow(self, valid_rois_gdf):
+        """Test ROI processing workflow."""
+        # Check if ROI has unique IDs
+        has_unique_ids = common.check_unique_ids(valid_rois_gdf)
+
+        if not has_unique_ids:
+            # Add unique IDs if needed
+            processed_gdf = common.create_unique_ids(valid_rois_gdf)
+            assert common.check_unique_ids(processed_gdf)
+
+        # Calculate ROI area
+        area = common.get_roi_area(valid_rois_gdf)
+        assert area > 0
+        assert isinstance(area, float)
+
+        # Extract polygon coordinates for first ROI
+        first_roi_id = valid_rois_gdf.iloc[0]["id"]
+        polygon_coords = common.get_roi_polygon(valid_rois_gdf, first_roi_id)
+        assert polygon_coords is not None

@@ -1,20 +1,17 @@
 import logging
-from math import sqrt
-from typing import Union, Optional, Callable, Dict
 from enum import Enum
+from math import sqrt
+from typing import Callable, Dict, Optional, Union
 
-from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
-from coastseg.bbox import Bounding_Box
-from coastseg.shoreline import Shoreline
-from coastseg.transects import Transects
-from coastseg.roi import ROI
-from coastseg import exception_handler
-from coastseg import coastseg_map
 from geopandas import GeoDataFrame
-from coastseg.exceptions import Object_Not_Found
 
-# from geopandas import GeoDataFrame,GeoSeries
-# from shapely.geometry import Polygon
+from coastseg import exception_handler
+from coastseg.bbox import Bounding_Box
+from coastseg.exceptions import Object_Not_Found
+from coastseg.roi import ROI
+from coastseg.shoreline import Shoreline
+from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
+from coastseg.transects import Transects
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +20,16 @@ __all__ = ["Factory"]
 
 def merge_rectangles(gdf: GeoDataFrame) -> GeoDataFrame:
     """
-    Merges all rectangles in a GeoDataFrame into a single shape.
+    Merges rectangles in GeoDataFrame into single shape.
 
     Args:
-        gdf (GeoDataFrame): The GeoDataFrame containing the rectangles.
+        gdf: GeoDataFrame with rectangle polygons.
 
     Returns:
-        GeoDataFrame: A new GeoDataFrame containing a single shape that is the union of all rectangles in gdf.
-                          The new GeoDataFrame has the same columns as the original.
+        GeoDataFrame with merged shape.
+
+    Raises:
+        ValueError: If shapes are not polygons.
     """
     # Ensure that the GeoDataFrame contains Polygons
     if not all(gdf.geometry.geom_type == "Polygon"):
@@ -46,73 +45,108 @@ def merge_rectangles(gdf: GeoDataFrame) -> GeoDataFrame:
 
 
 def create_shoreline(
-    coastsegmap, gdf: Optional[GeoDataFrame] = None, **kwargs
+    coastsegmap: "CoastSeg_Map",
+    gdf: Optional[GeoDataFrame] = None,
+    **kwargs,
 ) -> Shoreline:
     """
-    Create a `Shoreline` object from a `GeoDataFrame` or a `coastsegmap`.
+    Creates Shoreline object from GeoDataFrame or CoastSeg_Map.
 
     Args:
-        coastsegmap: A `coastsegmap` object.
-        gdf: A `GeoDataFrame` of the shoreline, or `None` to load the shoreline from the `CoastlineMap`.
-        **kwargs: Optional keyword arguments.
+        coastsegmap: CoastSeg_Map instance.
+        gdf: Shoreline GeoDataFrame or None.
+        **kwargs: Additional arguments.
 
     Returns:
-        A `Shoreline` object.
+        Shoreline object.
 
     Raises:
-        Object_Not_Found: If the `coastsegmap` does not have a valid bounding box or shoreline.
+        Object_Not_Found: If  the coastsegmap object does not have a valid bbox or shoreline
     """
     if gdf is not None:
         shoreline = Shoreline(shoreline=gdf)
     else:
         # check if coastsegmap has a ROI
         if coastsegmap.rois is not None:
-            if coastsegmap.rois.gdf.empty == False:
+            if not coastsegmap.rois.gdf.empty:
                 # merge ROI geometeries together and use that as the bbox
                 merged_rois = merge_rectangles(coastsegmap.rois.gdf)
                 shoreline = Shoreline(merged_rois)
-                exception_handler.check_if_default_feature_available(shoreline.gdf, "shoreline")
+                exception_handler.check_if_default_feature_available(
+                    shoreline.gdf, "shoreline"
+                )
         else:
             exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-            exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
-            shoreline = Shoreline(coastsegmap.bbox.gdf)
-            exception_handler.check_if_default_feature_available(shoreline.gdf, "shoreline")
+            exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")  # type: ignore
+            shoreline = Shoreline(coastsegmap.bbox.gdf)  # type: ignore
+            exception_handler.check_if_default_feature_available(
+                shoreline.gdf, "shoreline"
+            )
 
     logger.info("Shoreline were loaded on map")
-    coastsegmap.shoreline = shoreline
+    coastsegmap.shoreline = shoreline  # type: ignore
     return shoreline
 
 
-# used to create transects from scatch (AKA no GDF for the transects was provided)
 def create_transects(
-    coastsegmap, gdf: Optional[GeoDataFrame] = None, **kwargs
+    coastsegmap: "CoastSeg_Map",
+    gdf: Optional[GeoDataFrame] = None,
+    **kwargs,
 ) -> Transects:
+    """
+    Creates Transects object from GeoDataFrame or CoastSeg_Map.
+
+    Args:
+        coastsegmap: CoastSeg_Map instance.
+        gdf: Transects GeoDataFrame or None.
+        **kwargs: Additional arguments.
+
+    Returns:
+        Transects object.
+    """
     if gdf is not None:
         transects = Transects(transects=gdf)
     else:
         # load the transects in all the ROIS in coastsegmap
         if coastsegmap.rois is not None:
-            if coastsegmap.rois.gdf.empty == False:
+            if not coastsegmap.rois.gdf.empty:
                 # merge ROI geometeries together and use that as the bbbox
                 merged_rois = merge_rectangles(coastsegmap.rois.gdf)
                 transects = Transects(merged_rois)
-                exception_handler.check_if_default_feature_available(transects.gdf, "transects")
+                exception_handler.check_if_default_feature_available(
+                    transects.gdf, "transects"
+                )
         else:
             # otherwise load the transects within a bbox in coastsegmap
             exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-            exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")
+            exception_handler.check_if_gdf_empty(coastsegmap.bbox.gdf, "bounding box")  # type: ignore
 
-            transects = Transects(coastsegmap.bbox.gdf)
-            exception_handler.check_if_default_feature_available(transects.gdf, "transects")
+            transects = Transects(coastsegmap.bbox.gdf)  # type: ignore
+            exception_handler.check_if_default_feature_available(
+                transects.gdf, "transects"
+            )
 
     logger.info("Transects were loaded on map")
-    coastsegmap.transects = transects
+    coastsegmap.transects = transects  # type: ignore
     return transects
 
 
 def create_bbox(
-    coastsegmap, gdf: Optional[GeoDataFrame] = None, **kwargs
+    coastsegmap: "CoastSeg_Map",
+    gdf: Optional[GeoDataFrame] = None,
+    **kwargs,
 ) -> Bounding_Box:
+    """
+    Creates Bounding_Box object from GeoDataFrame.
+
+    Args:
+        coastsegmap: CoastSeg_Map instance.
+        gdf: Bounding box GeoDataFrame.
+        **kwargs: Additional arguments.
+
+    Returns:
+        Bounding_Box object.
+    """
     if gdf is not None:
         bbox = Bounding_Box(gdf)
         exception_handler.check_if_gdf_empty(bbox.gdf, "bounding box")
@@ -120,16 +154,32 @@ def create_bbox(
     if coastsegmap.draw_control is not None:
         coastsegmap.draw_control.clear()
     logger.info("Bounding Box was loaded on map")
-    coastsegmap.bbox = bbox
+    coastsegmap.bbox = bbox  # type: ignore
     return bbox
 
+
 def create_shoreline_extraction_area(
-    coastsegmap, gdf: Optional[GeoDataFrame] = None, **kwargs
+    coastsegmap: "CoastSeg_Map",
+    gdf: Optional[GeoDataFrame] = None,
+    **kwargs,
 ) -> Shoreline_Extraction_Area:
+    """
+    Creates Shoreline_Extraction_Area object from GeoDataFrame.
+
+    Args:
+        coastsegmap: CoastSeg_Map instance.
+        gdf: Extraction area GeoDataFrame.
+        **kwargs: Additional arguments.
+
+    Returns:
+        Shoreline_Extraction_Area object.
+    """
     if gdf is not None:
         shoreline_extraction_area = Shoreline_Extraction_Area(gdf)
-        exception_handler.check_if_gdf_empty(shoreline_extraction_area.gdf, "shoreline_extraction_area")
-    
+        exception_handler.check_if_gdf_empty(
+            shoreline_extraction_area.gdf, "shoreline_extraction_area"
+        )
+
     coastsegmap.remove_shoreline_extraction_area()
     if coastsegmap.draw_control is not None:
         coastsegmap.draw_control.clear()
@@ -139,8 +189,23 @@ def create_shoreline_extraction_area(
 
 
 def create_rois(
-    coastsegmap: coastseg_map, gdf: Optional[GeoDataFrame] = None, **kwargs
+    coastsegmap: "CoastSeg_Map", gdf: Optional[GeoDataFrame] = None, **kwargs
 ) -> ROI:
+    """
+    Creates ROI object from GeoDataFrame or CoastSeg_Map.
+
+    Args:
+        coastsegmap: CoastSeg_Map instance.
+        gdf: ROI GeoDataFrame or None.
+        **kwargs: Additional arguments including lg_area, sm_area, units.
+
+    Returns:
+        ROI object.
+
+    Raises:
+        Exception: If required kwargs missing.
+        Object_Not_Found: If shoreline not available.
+    """
     if gdf is not None:
         rois = ROI(rois_gdf=gdf)
         exception_handler.check_if_gdf_empty(rois.gdf, "rois")
@@ -153,7 +218,10 @@ def create_rois(
                 coastsegmap.load_feature_on_map("shoreline")
             except Object_Not_Found as e:
                 logger.error(e)
-                raise Object_Not_Found("shoreline", "Cannot create an ROI without a shoreline. No shorelines were available in this region. Please upload a shoreline from a file")
+                raise Object_Not_Found(
+                    "shoreline",
+                    "Cannot create an ROI without a shoreline. No shorelines were available in this region. Please upload a shoreline from a file",
+                )
         logger.info(
             f"coastsegmap.shoreline:{coastsegmap.shoreline}\ncoastsegmap.bbox:{coastsegmap.bbox}"
         )
@@ -175,8 +243,8 @@ def create_rois(
 
         # create rois within the bbox that intersect shorelines
         rois = ROI(
-            coastsegmap.bbox.gdf,
-            coastsegmap.shoreline.gdf,
+            coastsegmap.bbox.gdf,  # type: ignore
+            coastsegmap.shoreline.gdf,  # type: ignore
             square_len_lg=large_len,
             square_len_sm=small_len,
         )
@@ -211,8 +279,8 @@ class Factory:
         "bbox": create_bbox,
         "rois": create_rois,
         "roi": create_rois,
-        "shoreline_extraction_area":create_shoreline_extraction_area,
-        "shoreline extraction area":create_shoreline_extraction_area,
+        "shoreline_extraction_area": create_shoreline_extraction_area,
+        "shoreline extraction area": create_shoreline_extraction_area,
     }
 
     @staticmethod
@@ -221,7 +289,22 @@ class Factory:
         feature_name: str,
         gdf: Optional[GeoDataFrame] = None,
         **kwargs,
-    ) -> Union[Shoreline, Transects, Bounding_Box, ROI]:
+    ) -> Optional[Union[Shoreline, Transects, Bounding_Box, ROI]]:
+        """
+        Creates feature object using appropriate factory function.
+
+        Args:
+            coastsegmap: CoastSeg_Map instance.
+            feature_name: Name of feature to create.
+            gdf: GeoDataFrame for feature or None.
+            **kwargs: Additional arguments.
+
+        Returns:
+            Feature object or None if gdf empty.
+
+        Raises:
+            ValueError: If feature_name invalid.
+        """
         logger.info(
             f"feature_name {feature_name}\ncoastsegmap: {coastsegmap}\nGdf: {gdf}\nkwargs: {kwargs}"
         )
@@ -232,5 +315,8 @@ class Factory:
         if gdf is not None:
             if gdf.empty:
                 return None
+
+        if feature_maker is None:
+            raise ValueError(f"Invalid feature name: {feature_name}")
 
         return feature_maker(coastsegmap, gdf, **kwargs)

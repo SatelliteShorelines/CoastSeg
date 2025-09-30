@@ -1,10 +1,16 @@
+from typing import Optional
+
+
 class Object_Not_Found(Exception):
-    """Object_Not_Found: raised when bounding box does not exist
+    """
+    Raised when a required object is not found on the map.
+
     Args:
-        Exception: Inherits from the base exception class
+        feature: Name of the missing feature.
+        message: Additional error message.
     """
 
-    def __init__(self, feature: str, message=""):
+    def __init__(self, feature: str, message: str = ""):
         self.msg = f"No {feature.lower()} found on the map.\n{message}"
         self.feature = feature
         super().__init__(self.msg)
@@ -14,9 +20,12 @@ class Object_Not_Found(Exception):
 
 
 class WarningException(Exception):
-    """WarningException: class for all exceptions that contain custom instructions
+    """
+    Base class for exceptions with custom instructions.
+
     Args:
-        Exception: Inherits from the base exception class
+        message: Error message.
+        instructions: Custom instructions.
     """
 
     def __init__(self, message: str = "", instructions: str = ""):
@@ -26,27 +35,44 @@ class WarningException(Exception):
 
     def __str__(self):
         return f"{self.msg}"
-    
-class WarningMissingDirsException(Exception):
-    """WarningMissingDirsException: class for all exceptions that are raised when something is wrong with the configuration, but the program can still continue
+
+
+class WarningMissingDirsException(WarningException):
+    """
+    Raised for configuration issues that allow program continuation.
+
     Args:
-        Exception: Inherits from the WarningException class
+        message: Error message.
+        instructions: Instructions for user.
+        missing_dirs: Dict of missing directories.
+        styled_instructions: Styled instructions.
     """
 
-    def __init__(self, message: str = "", instructions: str = "",missing_dirs: dict = {},styled_instructions:str=""):
+    def __init__(
+        self,
+        message: str = "",
+        instructions: str = "",
+        missing_dirs: dict = {},
+        styled_instructions: str = "",
+    ):
         self.msg = f"{message}"
         self.instructions = f"{instructions}"
         self.missing_dirs = missing_dirs
         self.styled_instructions = styled_instructions
         super().__init__(self.msg)
-    
+
     # set the missing folders for each roi id
     def get_styled_message(self):
         # format the missing directories into a string
-        missing_dirs_str = "</br>".join([f"<span style='color: red'><i><b>{roi_id}</b> was missing the folder '<u>{folder}</u>'</i></span>" for roi_id, folder in self.missing_dirs.items()])
-        message=f"{self.msg}</br> \n{missing_dirs_str}"
+        missing_dirs_str = "</br>".join(
+            [
+                f"<span style='color: red'><i><b>{roi_id}</b> was missing the folder '<u>{folder}</u>'</i></span>"
+                for roi_id, folder in self.missing_dirs.items()
+            ]
+        )
+        message = f"{self.msg}</br> \n{missing_dirs_str}"
         return message
-    
+
     def get_instructions(self):
         if self.styled_instructions:
             return self.styled_instructions
@@ -56,19 +82,29 @@ class WarningMissingDirsException(Exception):
         # format the missing directories into a string
         if len(self.missing_dirs) == 0:
             return f"{self.msg}"
-        missing_dirs_str = "\n".join([f"- {roi_id} was missing the folder '{folder}'" for roi_id, folder in self.missing_dirs.items()])
-        message=f"\n{self.msg}\n\n{missing_dirs_str}\n\n{self.instructions}"
+        missing_dirs_str = "\n".join(
+            [
+                f"- {roi_id} was missing the folder '{folder}'"
+                for roi_id, folder in self.missing_dirs.items()
+            ]
+        )
+        message = f"\n{self.msg}\n\n{missing_dirs_str}\n\n{self.instructions}"
         return message
 
 
 class No_Extracted_Shoreline(Exception):
-    """No_Extracted_Shoreline: raised when ROI id does not have a shoreline to extract
+    """
+    Raised when ROI has no shoreline to extract.
+
     Args:
-        Exception: Inherits from the base exception class
+        id: ROI ID or empty string.
+        msg: Error message.
     """
 
     def __init__(
-        self, id: str = "", msg=f"The ROI does not have a shoreline to extract."
+        self,
+        id: Optional[str] = "",
+        msg: str = "The ROI does not have a shoreline to extract.",
     ):
         self.msg = msg
         if id:
@@ -80,12 +116,17 @@ class No_Extracted_Shoreline(Exception):
 
 
 class Id_Not_Found(Exception):
-    """Id_Not_Found: raised when ROI id does not exist
+    """
+    Raised when ROI ID does not exist.
+
     Args:
-        Exception: Inherits from the base exception class
+        id: ROI ID or None.
+        msg: Error message.
     """
 
-    def __init__(self, id: int = None, msg="The ROI id does not exist."):
+    def __init__(
+        self, id: Optional[int] = None, msg: str = "The ROI id does not exist."
+    ):
         self.msg = msg
         if id is not None:
             self.msg = f"The ROI id {id} does not exist."
@@ -95,66 +136,15 @@ class Id_Not_Found(Exception):
         return f"{self.msg}"
 
 
-class Duplicate_ID_Exception(Exception):
-    """Id_Not_Found: raised when duplicate IDs are detected in a feature
-    Args:
-        Exception: Inherits from the base exception class
-    """
-
-    def __init__(
-        self,
-        feature_type: str = "feature",
-        msg="Duplicate ids were detected.Do you want to override these IDs?",
-    ):
-        self.msg = msg
-        if id is not None:
-            self.msg = f"Duplicate ids for {feature_type} were detected.Do you want to override these IDs?"
-        super().__init__(self.msg)
-
-    def __str__(self):
-        return f"{self.msg}"
-
-
-class BBox_Not_Found(Exception):
-    """BBox_Not_Found: raised when bounding box does not exist
-    Args:
-        Exception: Inherits from the base exception class
-    """
-
-    def __init__(
-        self, msg="The bounding box does not exist. Draw a bounding box first"
-    ):
-        self.msg = msg
-        super().__init__(self.msg)
-
-    def __str__(self):
-        return f"{self.msg}"
-
-
-class Shoreline_Not_Found(Exception):
-    """Shoreline_Not_Found: raised when shoreline is not found in bounding box
-    Args:
-        Exception: Inherits from the base exception class
-    """
-
-    def __init__(
-        self,
-        msg="CoastSeg currently does not have shorelines available in this region. Try drawing a new bounding box somewhere else.",
-    ):
-        self.msg = msg
-        super().__init__(self.msg)
-
-    def __str__(self):
-        return f"{self.msg}"
-
-
 class BboxTooLargeError(Exception):
-    """BboxTooLargeError: raised when bounding box is larger than MAX_BBOX_SIZE
+    """
+    Raised when bounding box exceeds maximum size.
+
     Args:
-        Exception: Inherits from the base exception class
+        msg: Error message.
     """
 
-    def __init__(self, msg="The bounding box was too large."):
+    def __init__(self, msg: str = "The bounding box was too large."):
         self.msg = msg
         super().__init__(self.msg)
 
@@ -163,12 +153,14 @@ class BboxTooLargeError(Exception):
 
 
 class BboxTooSmallError(Exception):
-    """BboxTooLargeError: raised when bounding box is smaller than MIN_BBOX_SIZE
+    """
+    Raised when bounding box is smaller than minimum size.
+
     Args:
-        Exception: Inherits from the base exception class
+        msg: Error message.
     """
 
-    def __init__(self, msg="The bounding box was too small."):
+    def __init__(self, msg: str = "The bounding box was too small."):
         self.msg = msg
         super().__init__(self.msg)
 
@@ -178,25 +170,25 @@ class BboxTooSmallError(Exception):
 
 class InvalidSize(Exception):
     """
-    Raised when an object is outside the allowed size range.
+    Raised when object size is outside allowed range.
 
-    Attributes:
-        feature_name (str): The name of the feature or object that caused the exception.
-        msg (str): A descriptive error message.
-        provided_size (int, optional): The size that caused the exception.
-        min_size (int, optional): The minimum allowed size.
-        max_size (int, optional): The maximum allowed size.
-        error_code (int, optional): An error code to categorize the exception.
+    Args:
+        msg: Error message.
+        feature_name: Name of the feature.
+        provided_size: Actual size provided.
+        min_size: Minimum allowed size.
+        max_size: Maximum allowed size.
+        error_code: Optional error code.
     """
 
     def __init__(
         self,
         msg: str,
         feature_name: str,
-        provided_size: int = None,
-        min_size: int = None,
-        max_size: int = None,
-        error_code: int = None,
+        provided_size: Optional[int] = None,
+        min_size: Optional[int] = None,
+        max_size: Optional[int] = None,
+        error_code: Optional[int] = None,
     ):
         self.feature_name = feature_name
         self.provided_size = provided_size
@@ -224,13 +216,15 @@ class InvalidSize(Exception):
 
 class InvalidGeometryType(Exception):
     """
-    Raised when a feature's geometry type doesn't match the expected type(s).
+    Raised when geometry type doesn't match expected types.
 
-    Attributes:
-        feature_name (str): The name of the feature causing the exception.
-        msg (str): A descriptive error message.
-        expected_geom_types (set): A set of expected geometry types.
-        wrong_geom_type (str): The geometry type that caused the exception.
+    Args:
+        msg: Error message.
+        feature_name: Name of the feature.
+        expected_geom_types: Set of expected geometry types.
+        wrong_geom_type: Actual geometry type.
+        help_msg: Optional help message.
+        error_code: Optional error code.
     """
 
     def __init__(
@@ -239,8 +233,8 @@ class InvalidGeometryType(Exception):
         feature_name: str,
         expected_geom_types: set,
         wrong_geom_type: str,
-        help_msg: str = None,
-        error_code: int = None,
+        help_msg: Optional[str] = None,
+        error_code: Optional[int] = None,
     ):
         self.feature_name = feature_name
         self.expected_geom_types = expected_geom_types
@@ -262,12 +256,14 @@ class InvalidGeometryType(Exception):
 
 
 class DownloadError(Exception):
-    """DownloadError: raised when a download error occurs.
+    """
+    Raised when a download error occurs.
+
     Args:
-        Exception: Inherits from the base exception class
+        file: Name of the file that failed to download.
     """
 
-    def __init__(self, file):
+    def __init__(self, file: str):
         msg = f"\n ERROR\nShoreline file:'{file}' is not online.\nPlease raise an issue on GitHub with the shoreline name.\n https://github.com/SatelliteShorelines/CoastSeg/issues"
         self.msg = msg
         super().__init__(self.msg)

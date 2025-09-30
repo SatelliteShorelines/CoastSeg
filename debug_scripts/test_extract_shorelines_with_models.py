@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 import argparse
 
 # internal python imports
@@ -31,7 +32,7 @@ input_directory = os.path.join(CoastSeg_location, "data", roi_name, "jpg_files",
 
 
 
-def create_settings(new_settings:dict={}):
+def create_settings(new_settings: Optional[dict] = None) -> dict:
     settings ={
         'min_length_sl': 100,       # minimum length (m) of shoreline perimeter to be valid
         'max_dist_ref':600,         # maximum distance (m) from reference shoreline to search for valid shorelines. This detrmines the width of the buffer around the reference shoreline  
@@ -41,7 +42,7 @@ def create_settings(new_settings:dict={}):
         'sand_color': 'default',    # 'default', 'latest', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
         "apply_cloud_mask": True,   # apply cloud mask to the imagery. If False, the cloud mask will not be applied.
     }
-    settings.update(new_settings)
+    settings.update(new_settings or {})
     return settings
 
 def create_model_settings(input_directory:str,img_type:str,implementation: str="BEST"):

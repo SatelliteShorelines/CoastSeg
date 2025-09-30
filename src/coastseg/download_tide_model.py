@@ -76,6 +76,7 @@ import pathlib
 import re
 
 # Local application/library specific imports
+import netCDF4 # do this otherwise pyTMD will have issues loading netCDF4.Dataset
 import pyTMD.utilities
 from coastseg.file_utilities import progress_bar_context, load_package_resource
 from coastseg import core_utilities
