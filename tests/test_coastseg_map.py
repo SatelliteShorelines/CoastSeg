@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import patch
 from coastseg import shoreline
 from coastseg import transects
 from coastseg import roi
@@ -467,15 +468,33 @@ def test_load_feature_on_map_generate_rois(valid_bbox_gdf):
         )
     # load bbox on map
     coastsegmap.load_feature_on_map("bbox", gdf=valid_bbox_gdf)
-    # now that bbox is loaded on map, this should work
-    # this will automatically load a shoreline within the bbox
-    coastsegmap.load_feature_on_map(
-        "rois",
-        lg_area=20,
-        sm_area=0,
-        units="km²",
+
+    # Mock shoreline creation to avoid file downloads
+    mock_shoreline_gdf = gpd.GeoDataFrame(
+        {
+            "id": ["test_shoreline_1"],
+            "geometry": [valid_bbox_gdf.geometry.iloc[0]],
+        },
+        crs="EPSG:4326",
     )
-    assert coastsegmap.rois is not None
+
+    with patch.object(
+        shoreline.Shoreline,
+        "get_intersecting_shoreline_files",
+        return_value=["test_file.geojson"],
+    ):
+        with patch.object(
+            shoreline.Shoreline, "create_geodataframe", return_value=mock_shoreline_gdf
+        ):
+            # now that bbox is loaded on map, this should work
+            # this will automatically load a shoreline within the bbox
+            coastsegmap.load_feature_on_map(
+                "rois",
+                lg_area=20,
+                sm_area=0,
+                units="km²",
+            )
+            assert coastsegmap.rois is not None
 
 
 def test_load_feature_on_map_rois_no_shoreline(box_no_shorelines_transects):
