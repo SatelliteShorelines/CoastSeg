@@ -92,13 +92,16 @@ def test_intersecting_files_valid_bbox(valid_bbox_gdf):
     when provided with a valid bounding box GeoDataFrame.
     """
     sl = Shoreline()
-    
+
     # Mock the bounds file reading to return intersecting files
-    mock_bounds_gdf = gpd.GeoDataFrame({
-        "filename": ["test_shoreline.geojson"],
-        "geometry": [valid_bbox_gdf.geometry.iloc[0]],
-    }, crs="EPSG:4326").set_index("filename")
-    
+    mock_bounds_gdf = gpd.GeoDataFrame(
+        {
+            "filename": ["test_shoreline.geojson"],
+            "geometry": [valid_bbox_gdf.geometry.iloc[0]],
+        },
+        crs="EPSG:4326",
+    ).set_index("filename")
+
     with patch("coastseg.shoreline.gpd.read_file", return_value=mock_bounds_gdf):
         with patch("os.path.exists", return_value=True):
             result = sl.get_intersecting_shoreline_files(valid_bbox_gdf)
