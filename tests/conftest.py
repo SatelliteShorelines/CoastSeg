@@ -8,12 +8,17 @@ from shutil import rmtree
 from tempfile import TemporaryDirectory
 
 import geopandas as gpd
+import nest_asyncio
 import pytest
 from ipyleaflet import GeoJSON
 from PIL import Image
 from shapely.geometry import Point
 
 from coastseg import coastseg_map, roi
+
+# Apply nest_asyncio to handle nested event loops in test environment
+# This fixes ipyleaflet async deprecation warnings
+nest_asyncio.apply()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -596,9 +601,12 @@ def config_gdf_missing_rois_path(geojson_directory):
 @pytest.fixture(scope="session")
 def empty_geojson_path(geojson_directory):
     """Create an empty geojson file and return its path."""
-    gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
     file_path = os.path.join(geojson_directory, "empty.geojson")
-    gdf.to_file(file_path, driver="GeoJSON")
+    empty_fc = {"type": "FeatureCollection", "features": []}
+
+    with open(file_path, "w") as f:
+        json.dump(empty_fc, f)
+
     return file_path
 
 

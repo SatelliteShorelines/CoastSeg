@@ -14,7 +14,6 @@ import pytest
 import geopandas as gpd
 from ipyleaflet import GeoJSON
 import platform
-import pathlib
 
 
 def test_imports():

@@ -1096,9 +1096,12 @@ def create_temp_csv_with_data(data, column_names):
     Helper function to create a temporary CSV file with specified data and column names.
     """
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
-    df = pd.DataFrame(data, columns=column_names)
-    df.to_csv(temp_file.name, index=False)
-    return temp_file.name
+    try:
+        df = pd.DataFrame(data, columns=column_names)
+        df.to_csv(temp_file.name, index=False)
+        return temp_file.name
+    finally:
+        temp_file.close()  # ALWAYS close the file handle (even when return works)
 
 
 def test_filter_partial_images():
