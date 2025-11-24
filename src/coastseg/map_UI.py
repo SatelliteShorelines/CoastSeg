@@ -31,7 +31,7 @@ BOX_LAYOUT = widgets.Layout(
     flex_flow="row",
     overflow="auto",  # Will add scrollbar if content is too large
     display="flex",
-    flex_grow=1,  # Allows the box to grow based on content
+    flex="1 1 auto",  # Allows the box to grow based on content
 )
 
 GRID_LAYOUT = widgets.Layout(
@@ -615,7 +615,7 @@ class UI:
             flex_flow="row",
             overflow="auto",
             display="flex",
-            flex_grow=1,  # Allows the box to grow based on content
+            flex="1 1 auto",  # Allows the box to grow based on content
         )
 
         self.session_name_text = widgets.Text(
