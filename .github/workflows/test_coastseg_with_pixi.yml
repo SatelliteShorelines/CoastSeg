@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 name: Test CoastSeg Pixi Installation (pixi run test)
 
 jobs:
@@ -38,5 +42,5 @@ jobs:
           # (if not, remove this line)
           locked: true
 
-      - name: Run tests (Pixi env: all)
+      - name: "Run tests (Pixi env: all)"
         run: pixi run -e all run_tests
