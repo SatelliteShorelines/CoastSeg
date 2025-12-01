@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 from shutil import SameFileError
-from typing import Any, Collection, Dict, List, Optional, Set, Tuple
+from typing import Any, Collection, Dict, Iterable, List, Optional, Set, Tuple
 
 # Third-party imports
 import geopandas as gpd
@@ -50,6 +50,124 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "4"
 
 # Logger setup
 logger = logging.getLogger(__name__)
+
+
+def build_download_dict(
+    file_names: Iterable[str],
+    file_index: Dict[str, str],
+    model_id: str,
+    model_path: str,
+    strict: bool = True,
+) -> Dict[str, str]:
+    """
+    Build a dictionary of local file paths to download URLs for missing model files.
+
+    Args:
+        file_names: List of filenames required for the model.
+        file_index: Mapping of filenames to their download URLs.
+        model_id: Identifier for the model (aka model name) (used in error messages).
+        model_path: Local directory path where model files should be stored.
+        strict: If True, raises an error for missing files; if False, logs a warning.
+
+    Returns:
+        Dict[str, str]: Mapping of local file paths to their download URLs.
+
+    """
+    os.makedirs(model_path, exist_ok=True)
+
+    url_dict: Dict[str, str] = {}
+    for filename in file_names:
+        filename = filename.strip()
+        if not filename:
+            continue
+
+        if filename not in file_index:
+            msg = f"Cannot find {filename} at {model_id}"
+            if strict:
+                raise ValueError(msg)
+            logger.warning(msg)
+            continue
+
+        download_url = file_index[filename]
+        local_path = os.path.join(model_path, filename)
+
+        if not os.path.isfile(local_path):
+            url_dict[local_path] = download_url
+
+    return url_dict
+
+
+def index_available_files(available_files: List[dict]) -> Dict[str, str]:
+    """Map file key -> download URL.
+    Args:
+        available_files: List of file metadata dictionaries from Zenodo API.
+            Where key is the filename and links.self is the download URL.
+    Returns:
+        Dict[str, str]: Mapping of file keys to their download URLs.
+    """
+    return {f["key"]: f["links"]["self"] for f in available_files}
+
+
+def download_files(url_dict: Dict[str, str]) -> None:
+    """
+    Download all files in url_dict.
+
+    Args:
+        url_dict: Mapping of file paths to their download URLs. eg {"/path/to/file": "http://download.url/file"}
+
+    Raises:
+        Exception on any non-successful response.
+    """
+    for save_path, url in url_dict.items():
+        response = common.get_response(url, stream=True)
+        with response:
+            logger.info(f"response: {response}")
+            logger.info(f"response.status_code: {response.status_code}")
+            logger.info(f"response.headers: {response.headers}")
+
+            if response.status_code == 404:
+                logger.info(f"404 response for {url}")
+                raise Exception(
+                    f"404 response for {url}. Please raise an issue on GitHub."
+                )
+
+            if response.status_code == 429:
+                content = response.text
+                msg = f"Response from API for status_code: {response.status_code}: {content}"
+                print(msg)
+                logger.info(msg)
+                raise Exception(msg)
+
+            response.raise_for_status()  # will handle non-200s
+
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None:
+                content_length = int(content_length)
+
+                with (
+                    open(save_path, "wb") as fd,
+                    tqdm.auto.tqdm(
+                        total=content_length,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=f"Downloading {os.path.basename(save_path)}",
+                        initial=0,
+                        ascii=False,
+                        position=0,
+                    ) as pbar,
+                ):
+                    for chunk in response.iter_content(1024):
+                        if not chunk:
+                            break
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
+            else:
+                with open(save_path, "wb") as fd:
+                    for chunk in response.iter_content(1024):
+                        if not chunk:
+                            break
+                        fd.write(chunk)
 
 
 def create_new_session_path(session_name: str) -> str:
@@ -219,78 +337,6 @@ def apply_smooth_otsu_to_folder(folder: str) -> str:
     return new_folder
 
 
-def download_url_dict(url_dict: Dict[str, str]) -> Optional[bool]:
-    """
-    Downloads files from URLs and saves to specified paths.
-
-    Args:
-        url_dict (Dict[str, str]): Dictionary mapping file paths to download URLs.
-
-    Returns:
-        Optional[bool]: False if response status is not 200, None if successful.
-
-    Raises:
-        Exception: If response status is 404 or 429.
-    """
-    for save_path, url in url_dict.items():
-        # get a response from the url
-        response = common.get_response(url, stream=True)
-        with response:
-            logger.info(f"response: {response}")
-            logger.info(f"response.status_code: {response.status_code}")
-            logger.info(f"response.headers: {response.headers}")
-            if response.status_code == 404:
-                logger.info(f"404 response for {url}")
-                raise Exception(
-                    f"404 response for {url}. Please raise an issue on GitHub."
-                )
-
-            # too many requests were made to the API
-            if response.status_code == 429:
-                content = response.text
-                print(
-                    f"Response from API for status_code: {response.status_code}: {content}"
-                )
-                logger.info(
-                    f"Response from API for status_code: {response.status_code}: {content}"
-                )
-                raise Exception(
-                    f"Response from API for status_code: {response.status_code}: {content}"
-                )
-
-            # raise an exception if the response status_code is not 200
-            if response.status_code != 200:
-                print(f"response.status_code {response.status_code} for {url}")
-                logger.info(f"response.status_code {response.status_code} for {url}")
-                return False
-
-            response.raise_for_status()
-
-            content_length = response.headers.get("Content-Length")
-            if content_length is not None:
-                content_length = int(content_length)
-                with open(save_path, "wb") as fd:
-                    with tqdm.auto.tqdm(
-                        total=content_length,
-                        unit="B",
-                        unit_scale=True,
-                        unit_divisor=1024,
-                        desc=f"Downloading {os.path.basename(save_path)}",
-                        initial=0,
-                        ascii=False,
-                        position=0,
-                    ) as pbar:
-                        for chunk in response.iter_content(1024):
-                            if not chunk:
-                                break
-                            fd.write(chunk)
-                            pbar.update(len(chunk))
-            else:
-                with open(save_path, "wb") as fd:
-                    for chunk in response.iter_content(1024):
-                        fd.write(chunk)
-
-
 def add_classifer_scores_to_shorelines(
     good_bad_csv, good_bad_seg_csv, files: Collection
 ):
@@ -353,53 +399,6 @@ def filter_no_data_pixels(files: list[str], percent_no_data: float = 0.50) -> li
                 valid_images.append(file)
 
     return valid_images
-
-
-def get_files_to_download(
-    available_files: List[dict],
-    filenames: List[str],
-    model_id: str,
-    model_path: Optional[str],
-) -> dict:
-    """Constructs a dictionary of file paths and their corresponding download links, based on the available files and a list of desired filenames.
-
-    Args:
-    - available_files: A list of dictionaries representing the metadata of available files, including the file key and download links.
-    - filenames: A list of strings representing the desired filenames.
-    - model_id: A string representing the ID of the model being downloaded.
-    - model_path: A string representing the path to the directory where the files will be downloaded.
-
-    Returns:
-    A dictionary with file paths as keys and their corresponding download links as values.
-    Raises a ValueError if any of the desired filenames are not available in the available_files list.
-    """
-    if isinstance(filenames, str):
-        filenames = [filenames]
-    url_dict = {}
-    for filename in filenames:
-        response = next((f for f in available_files if f["key"] == filename), None)
-        if response is None:
-            raise ValueError(f"Cannot find {filename} at {model_id}")
-        link = response["links"]["self"]
-        file_path = os.path.join(model_path, filename)
-        url_dict[file_path] = link
-    return url_dict
-
-
-def check_if_files_exist(files_dict: dict) -> dict:
-    """Checks if each file in a given dictionary of file paths and download links already exists in the local filesystem.
-
-    Args:
-    - files_dict: A dictionary with file paths as keys and their corresponding download links as values.
-
-    Returns:
-    A dictionary with file paths as keys and their corresponding download links as values, for any files that do not exist in the local filesystem.
-    """
-    url_dict = {}
-    for save_path, link in files_dict.items():
-        if not os.path.isfile(save_path):
-            url_dict[save_path] = link
-    return url_dict
 
 
 def get_zenodo_release(zenodo_id: str) -> Dict[str, Any]:
@@ -1210,7 +1209,7 @@ class Zoo_Model:
         This method determines whether to use a local model path or to download the model
         from a remote source based on the settings provided. If the local model path is
         specified and exists, it will use that path. Otherwise, it will create a directory
-        for the model and download the weights.
+        for the specific model and download the weights.
         Args:
             model_implementation (str): The implementation type of the model either 'BEST' or 'ENSEMBLE'
             model_id (str): The identifier for the model. This is the zenodo ID located at the end of the URL
@@ -1219,21 +1218,13 @@ class Zoo_Model:
         Raises:
             FileNotFoundError: If the local model path is specified but does not exist.
         """
-
-        USE_LOCAL_MODEL = self.settings.get("use_local_model", False)
-        if USE_LOCAL_MODEL:
-            LOCAL_MODEL_PATH = self.get_local_model_path()
-
-        # check if a local model should be loaded or not
-        if not USE_LOCAL_MODEL:
+        if self.settings.get("use_local_model", False):
+            return self.get_local_model_path()
+        else:
             # create the model directory & download the model
             weights_directory = self.get_model_directory(model_id)
             self.download_model(model_implementation, model_id, weights_directory)
-        else:
-            # load the model from the local model path
-            weights_directory = LOCAL_MODEL_PATH
-
-        return weights_directory
+            return weights_directory
 
     def prepare_model(self, model_implementation: str, model_id: str):
         """
@@ -1295,7 +1286,6 @@ class Zoo_Model:
         use_otsu: bool,
         use_tta: bool,
         percent_no_data: float,
-        coregistered: bool = False,
     ):
         """
         Runs the model for image segmentation.
@@ -1310,8 +1300,6 @@ class Zoo_Model:
             use_otsu (bool): Whether to use Otsu thresholding or not.
             use_tta (bool): Whether to use test-time augmentation or not.
             percent_no_data (float): The percentage of no data allowed in the image.
-            coregistered (bool, optional): Whether the images are coregistered or not. Defaults to False.
-
         Returns:
             None
         """
@@ -1445,6 +1433,17 @@ class Zoo_Model:
         print(f"\n Model results saved to {session.path}")
 
     def get_model_directory(self, model_id: str):
+        """
+        Returns the directory path for the specified model ID.
+        Args:
+            model_id (str): The ID of the model.
+        Returns:
+            str: The directory path for the specified model ID.
+        Example:
+            >>> model_directory = model.get_model_directory('14036903')
+            print(model_directory)
+            /path/to/downloaded/models/14036903
+        """
         # Create a directory to hold the downloaded models
         downloaded_models_path = common.get_downloaded_models_dir()
         model_directory = file_utilities.create_directory(
@@ -1826,7 +1825,7 @@ class Zoo_Model:
         """
         logger.info(f"{model_choice}")
         if model_choice == "ENSEMBLE":
-            weights_list = glob(os.path.join(self.weights_directory, "*.h5"))
+            weights_list = glob.glob(os.path.join(self.weights_directory, "*.h5"))
             logger.info(f"weights_list: {weights_list}")
             logger.info(f"{len(weights_list)} sets of model weights were found ")
             return weights_list
@@ -1847,7 +1846,7 @@ class Zoo_Model:
             )
 
     def download_best(
-        self, available_files: List[dict], model_path: Optional[str], model_id: str
+        self, available_files: List[dict], model_path: str, model_id: str
     ):
         """
         Downloads the best model file and its corresponding JSON and classes.txt files from the given list of available files.
@@ -1863,53 +1862,39 @@ class Zoo_Model:
         Returns:
             None
         """
-        download_dict = {}
-        # download best_model.txt and read the name of the best model
-        best_model_json = next(
-            (f for f in available_files if f["key"] == "BEST_MODEL.txt"), None
-        )
-        if best_model_json is None:
-            raise ValueError(f"Cannot find BEST_MODEL.txt in {model_id}")
-        # download best model file to check if it exists
-        BEST_MODEL_txt_path = os.path.join(model_path, "BEST_MODEL.txt")
-        logger.info(f"model_path for BEST_MODEL.txt: {BEST_MODEL_txt_path}")
-        # if best BEST_MODEL.txt file not exist then download it
-        if not os.path.isfile(BEST_MODEL_txt_path):
-            common.download_url(
-                best_model_json["links"]["self"],
-                BEST_MODEL_txt_path,
-                "Downloading best_model.txt",
-            )
+        file_index = index_available_files(available_files)
 
-        with open(BEST_MODEL_txt_path, "r") as f:
+        # Ensure BEST_MODEL.txt exists locally
+        best_txt_local = os.path.join(model_path, "BEST_MODEL.txt")
+        if not os.path.isfile(best_txt_local):
+            # Build and download JUST BEST_MODEL.txt
+            best_txt_dict = build_download_dict(
+                ["BEST_MODEL.txt"], file_index, model_id, model_path
+            )
+            if best_txt_dict:
+                download_files(best_txt_dict)
+
+        # Read which model is "best"
+        with open(best_txt_local, "r") as f:
             best_model_filename = f.read().strip()
-        # get the json data of the best model _fullmodel.h5 file
-        best_model_filename = best_model_filename.strip()
+
         best_json_filename = best_model_filename.replace("_fullmodel.h5", ".json")
         best_modelcard_filename = best_model_filename.replace(
             "_fullmodel.h5", "_modelcard.json"
         ).replace("_segformer", "")
 
-        # download best model files(.h5, .json) file
-        download_filenames = [
-            best_json_filename,
+        needed_files = [
             best_model_filename,
+            best_json_filename,
             best_modelcard_filename,
         ]
-        logger.info(f"download_filenames: {download_filenames}")
-        download_dict.update(
-            get_files_to_download(
-                available_files, download_filenames, model_id, model_path
-            )
+
+        # Build dict of missing files and download
+        download_dict = build_download_dict(
+            needed_files, file_index, model_id, model_path
         )
-        download_dict = check_if_files_exist(download_dict)
-        # download the files that don't exist
-        logger.info(f"URLs to download: {download_dict}")
-        # if any files are not found locally download them asynchronous
-        if download_dict != {}:
-            download_status = download_url_dict(download_dict)
-            if not download_status:
-                raise Exception("Download failed")
+        if download_dict:
+            download_files(download_dict)
 
     def download_ensemble(
         self, available_files: List[dict], model_path: str, model_id: str
@@ -1928,57 +1913,34 @@ class Zoo_Model:
         Returns:
             None
         """
-        download_dict = {}
-        # get json and models
-        all_models_reponses = [f for f in available_files if f["key"].endswith(".h5")]
-        all_model_names = [f["key"] for f in all_models_reponses]
-        json_file_names = [
-            model_name.replace("_fullmodel.h5", ".json")
-            for model_name in all_model_names
-        ]
-        modelcard_file_names = [
-            model_name.replace("_fullmodel.h5", "_modelcard.json").replace(
-                "_segformer", ""
-            )
-            for model_name in all_model_names
-        ]
-        all_json_reponses = []
+        file_index = index_available_files(available_files)
 
-        # for each filename online check if there a .json file
-        for available_file in available_files:
-            if available_file["key"] in json_file_names + modelcard_file_names:
-                all_json_reponses.append(available_file)
-        if len(all_models_reponses) == 0:
+        # All model .h5 files
+        model_names = [name for name in file_index if name.endswith(".h5")]
+        if not model_names:
             raise Exception(f"Cannot find any .h5 files at {model_id}")
-        if len(all_json_reponses) == 0:
-            raise Exception(
-                f"Cannot find corresponding .json or .modelcard.json files for .h5 files at {model_id}"
-            )
 
-        logger.info(f"all_models_reponses : {all_models_reponses}")
-        logger.info(f"all_json_reponses : {all_json_reponses}")
-        for response in all_models_reponses + all_json_reponses:
-            # get the link of the best model
-            link = response["links"]["self"]
-            filename = response["key"]
-            filepath = os.path.join(model_path, filename)
-            download_dict[filepath] = link
+        # Derived JSON and modelcard names
+        json_names = [name.replace("_fullmodel.h5", ".json") for name in model_names]
+        modelcard_names = [
+            name.replace("_fullmodel.h5", "_modelcard.json").replace("_segformer", "")
+            for name in model_names
+        ]
 
-        download_dict.update(
-            get_files_to_download(available_files, [], model_id, model_path)
+        needed_files = model_names + json_names + modelcard_names
+
+        # Build dict of missing files and download
+        download_dict = build_download_dict(
+            needed_files, file_index, model_id, model_path, strict=False
         )
-        download_dict = check_if_files_exist(download_dict)
-        # download the files that don't exist
-        logger.info(f"download_dict: {download_dict}")
-        # if any files are not found locally download them asynchronous
-        if download_dict != {}:
-            download_status = download_url_dict(download_dict)
-            if not download_status:
-                raise Exception("Download failed")
+        if not download_dict:
+            logger.info("All ensemble model files already exist locally.")
+            return
 
-    def download_model(
-        self, model_choice: str, model_id: str, model_path: Optional[str] = None
-    ) -> None:
+        logger.info(f"Downloading ensemble files: {list(download_dict.keys())}")
+        download_files(download_dict)
+
+    def download_model(self, model_choice: str, model_id: str, model_path: str) -> None:
         """downloads model specified by zenodo id in model_id.
 
         Downloads best model is model_choice = 'BEST' or all models in
