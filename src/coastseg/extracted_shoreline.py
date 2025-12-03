@@ -1829,7 +1829,7 @@ def extract_shorelines_with_dask(
     settings: dict,
     class_indices: Optional[list] = None,
     class_mapping: Optional[dict] = None,
-    save_location: str = "",
+    save_location: Optional[str] = "",
     shoreline_extraction_area: Optional[gpd.GeoDataFrame] = None,
     **kwargs: dict,
 ) -> dict:
@@ -2226,13 +2226,13 @@ class Extracted_Shoreline:
     def create_extracted_shorelines_from_session(
         self,
         model_info: ModelInfo,
-        roi_id: str = None,
-        shoreline: gpd.GeoDataFrame = None,
-        roi_settings: dict = None,
-        settings: dict = None,
-        session_path: str = None,
-        new_session_path: str = None,
-        shoreline_extraction_area: gpd.GeoDataFrame = None,
+        roi_id: str,
+        shoreline: gpd.GeoDataFrame,
+        roi_settings: dict,
+        settings: dict,
+        session_path: str,
+        new_session_path: Optional[str] = None,
+        shoreline_extraction_area: Optional[gpd.GeoDataFrame] = None,
         apply_segmentation_filter: bool = True,
         **kwargs: dict,
     ) -> "Extracted_Shoreline":
@@ -2665,15 +2665,14 @@ class Extracted_Shoreline:
             if data != {}:
                 file_utilities.to_file(data, file_location)
 
-    def get_layer_name(self) -> list:
+    def get_layer_name(self) -> str:
         """
         Returns name of extracted shoreline layer.
 
         Returns:
-            list: Layer name.
+            str: Layer name.
         """
-        layer_name = "extracted_shoreline"
-        return layer_name
+        return "extracted_shoreline"
 
     def get_styled_layer(
         self, gdf, row_number: int = 0, map_crs: int = 4326, style: dict = {}

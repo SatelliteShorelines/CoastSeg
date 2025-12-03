@@ -42,10 +42,10 @@ checkbox_layout = Layout(
 
 
 class ButtonColors:
-    REMOVE = "red" # Red color for destructive actions like removal
-    LOAD = "#69add1" # Blue color for loading operations
-    ACTION = "#ae3cf0" # Purple color for primary actions.
-    SAVE = "#50bf8f"   # Green color for save operations.
+    REMOVE = "red"  # Red color for destructive actions like removal
+    LOAD = "#69add1"  # Blue color for loading operations
+    ACTION = "#ae3cf0"  # Purple color for primary actions.
+    SAVE = "#50bf8f"  # Green color for save operations.
     CLEAR = "#a3adac"  # Gray color for clear/reset operations.
 
 
@@ -101,6 +101,7 @@ class CustomMonthSelector(VBox):
     Attributes:
         month_to_num (Dict[str, int]): Mapping from month names to numeric values.
     """
+
     month_to_num: Dict[str, int] = {
         "January": 1,
         "February": 2,
@@ -186,8 +187,13 @@ class DateBox(ipywidgets.HBox):
     This widget extends HBox and provides two date picker widgets for selecting
     a date range with convenient property accessors.
     """
-    
-    def __init__(self, start_date: Optional[datetime.date] = None, end_date: Optional[datetime.date] = None, **kwargs: Any) -> None:
+
+    def __init__(
+        self,
+        start_date: Optional[datetime.date] = None,
+        end_date: Optional[datetime.date] = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Initialize the DateBox widget.
 
@@ -299,7 +305,7 @@ class Settings_UI:
         advanced_settings (List[str]): List of advanced setting names.
         settings_widgets (Dict[str, Any]): Dictionary mapping setting names to widgets.
     """
-    
+
     def __init__(
         self,
         basic_settings: Optional[List[str]] = None,

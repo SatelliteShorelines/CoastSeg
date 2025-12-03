@@ -1163,10 +1163,13 @@ class CoastSeg_Map:
         exception_handler.check_if_None(self.rois, "ROI")
         exception_handler.check_if_gdf_empty(self.rois.gdf, "ROI")
 
+
         if selected_ids is None:
             selected_ids = self.get_selected_ids()
 
+
         exception_handler.check_selected_set(selected_ids)
+
 
         # get the start and end date to check available images
         start_date, end_date = self.settings["dates"]
@@ -1682,6 +1685,7 @@ class CoastSeg_Map:
             Exception: If selected_layer is missing.
         """
         settings = self.get_settings()
+
 
         # if no rois exist on the map do not allow configs to be saved
         exception_handler.config_check_if_none(self.rois, "ROIs")

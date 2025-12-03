@@ -12,6 +12,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyproj
+import netCDF4 # do this otherwise pyTMD will have issues loading netCDF4.Dataset
 import pyTMD.io
 import pyTMD.io.model
 import pyTMD.predict

@@ -1974,9 +1974,9 @@ def filter_dropped_points_out_of_timeseries(
 
 
 def add_lat_lon_to_timeseries(
-    merged_timeseries_df,
-    transects_gdf,
-    timeseries_df,
+    merged_timeseries_df: pd.DataFrame,
+    transects_gdf: gpd.GeoDataFrame,
+    timeseries_df: pd.DataFrame,
     save_location: str,
     only_keep_points_on_transects: bool = False,
     extension: str = "",

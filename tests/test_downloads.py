@@ -164,11 +164,6 @@ def test_get_collection_by_tier_default_months(mock_ee, polygon, start_date, end
     mock_ee.ImageCollection.return_value.filterBounds.return_value.filterDate.return_value.filterMetadata.return_value.filter.assert_called()
 
 
-# ============================================================================
-# COMPREHENSIVE TESTS FOR DOWNLOADS MODULE
-# ============================================================================
-
-
 class TestGetCollectionByTier:
     """Test get_collection_by_tier function comprehensively."""
 

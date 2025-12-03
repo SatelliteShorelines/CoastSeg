@@ -108,68 +108,6 @@ def index_available_files(available_files: List[dict]) -> Dict[str, str]:
     return {f["key"]: f["links"]["self"] for f in available_files}
 
 
-def download_files(url_dict: Dict[str, str]) -> None:
-    """
-    Download all files in url_dict.
-
-    Args:
-        url_dict: Mapping of file paths to their download URLs. eg {"/path/to/file": "http://download.url/file"}
-
-    Raises:
-        Exception on any non-successful response.
-    """
-    for save_path, url in url_dict.items():
-        response = common.get_response(url, stream=True)
-        with response:
-            logger.info(f"response: {response}")
-            logger.info(f"response.status_code: {response.status_code}")
-            logger.info(f"response.headers: {response.headers}")
-
-            if response.status_code == 404:
-                logger.info(f"404 response for {url}")
-                raise Exception(
-                    f"404 response for {url}. Please raise an issue on GitHub."
-                )
-
-            if response.status_code == 429:
-                content = response.text
-                msg = f"Response from API for status_code: {response.status_code}: {content}"
-                print(msg)
-                logger.info(msg)
-                raise Exception(msg)
-
-            response.raise_for_status()  # will handle non-200s
-
-            content_length = response.headers.get("Content-Length")
-            if content_length is not None:
-                content_length = int(content_length)
-
-                with (
-                    open(save_path, "wb") as fd,
-                    tqdm.auto.tqdm(
-                        total=content_length,
-                        unit="B",
-                        unit_scale=True,
-                        unit_divisor=1024,
-                        desc=f"Downloading {os.path.basename(save_path)}",
-                        initial=0,
-                        ascii=False,
-                        position=0,
-                    ) as pbar,
-                ):
-                    for chunk in response.iter_content(1024):
-                        if not chunk:
-                            break
-                        fd.write(chunk)
-                        pbar.update(len(chunk))
-            else:
-                with open(save_path, "wb") as fd:
-                    for chunk in response.iter_content(1024):
-                        if not chunk:
-                            break
-                        fd.write(chunk)
-
-
 def create_new_session_path(session_name: str) -> str:
     """
     Create a new session directory for storing extracted shorelines and transects.
@@ -238,6 +176,69 @@ def load_roi_gdf_from_session(
         )
 
     return roi_gdf
+
+
+def download_files(url_dict: Dict[str, str]) -> None:
+    """
+    Download all files in url_dict.
+
+    Args:
+        url_dict: Mapping of file paths to their download URLs. eg {"/path/to/file": "http://download.url/file"}
+
+    Raises:
+        Exception on any non-successful response.
+    """
+    for save_path, url in url_dict.items():
+        response = common.get_response(url, stream=True)
+        with response:
+            logger.info(f"response: {response}")
+            logger.info(f"response.status_code: {response.status_code}")
+            logger.info(f"response.headers: {response.headers}")
+
+            if response.status_code == 404:
+                logger.info(f"404 response for {url}")
+                raise Exception(
+                    f"404 response for {url}. Please raise an issue on GitHub."
+                )
+
+            if response.status_code == 429:
+                content = response.text
+                msg = f"Response from API for status_code: {response.status_code}: {content}"
+                print(msg)
+                logger.info(msg)
+                raise Exception(msg)
+
+            response.raise_for_status()  # will handle non-200s
+
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None:
+                content_length = int(content_length)
+
+                with (
+                    open(save_path, "wb") as fd,
+                    tqdm.auto.tqdm(
+                        total=content_length,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=f"Downloading {os.path.basename(save_path)}",
+                        initial=0,
+                        ascii=False,
+                        position=0,
+                    ) as pbar,
+                ):
+                    for chunk in response.iter_content(1024):
+                        if not chunk:
+                            break
+                        fd.write(chunk)
+                        pbar.update(len(chunk))
+            else:
+                with open(save_path, "wb") as fd:
+                    for chunk in response.iter_content(1024):
+                        if not chunk:
+                            break
+                        fd.write(chunk)
+
 
 
 def load_good_bad_csv(roi_id: str, roi_settings: Dict[str, Any]) -> Optional[str]:
@@ -1420,8 +1421,6 @@ class Zoo_Model:
             roi_directory = os.path.join(roi_directory, "coregistered")
 
         print(f"Preprocessing the data at {roi_directory}")
-        # DONT UNCOMMENT THE LINE BELOW: Logic to apply the smooth otsu filter to the RGB folder I didn't use it since I modified do_seg to apply the smooth otsu filter to the arrays instead
-        # model_dict = self.preprocess_data(src_directory, model_dict, img_type,functions=[apply_smooth_otsu_to_folder])
         model_dict = self.preprocess_data(
             roi_directory, model_dict, img_type, functions=[]
         )
