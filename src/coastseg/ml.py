@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from skimage.io import imsave,imread
+from skimage.io import imsave, imread
 from skimage.transform import resize
 from skimage.filters import threshold_otsu
 import matplotlib.pyplot as plt
@@ -9,9 +9,9 @@ import scipy.ndimage
 import tensorflow as tf  # numerical operations on gpu
 import tensorflow.keras.backend as K
 
-# This code was originally written by Dr. Daniel Buscombe and has been moved here due to an issue with 
-# tkinter that was being used in the doodleverse_utils module. The code has been modified to work with the
+# This code was originally written by Dr. Daniel Buscombe and has been modified to work with the
 # coastseg package. The original code can be found at https://github.com/Doodleverse/doodleverse_utils/blob/main/doodleverse_utils/prediction_imports.py
+
 
 def label_to_colors(
     img,
@@ -36,7 +36,7 @@ def label_to_colors(
     def fromhex(n):
         """hexadecimal to integer"""
         return int(n, base=16)
-    
+
     colormap = [
         tuple([fromhex(h[s : s + 2]) for s in range(0, len(h), 2)])
         for h in [c.replace("#", "") for c in colormap]
@@ -58,6 +58,7 @@ def label_to_colors(
     else:
         return cimg
 
+
 def standardize(img):
     # standardization using adjusted standard deviation
 
@@ -73,132 +74,154 @@ def standardize(img):
     return img
 
 
-def est_label_binary(image,M,MODEL,TESTTIMEAUG,NCLASSES,TARGET_SIZE,w,h):
-
+def est_label_binary(image, M, MODEL, TESTTIMEAUG, NCLASSES, TARGET_SIZE, w, h):
     E0 = []
     E1 = []
 
     for counter, model in enumerate(M):
         # heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
         try:
-            if MODEL=='segformer':
+            if MODEL == "segformer":
                 # est_label = model.predict(tf.expand_dims(image, 0), batch_size=1).logits
                 est_label = model(tf.expand_dims(image, 0)).logits
             else:
-                est_label = tf.squeeze(model.predict(tf.expand_dims(image, 0), batch_size=1))
+                est_label = tf.squeeze(
+                    model.predict(tf.expand_dims(image, 0), batch_size=1)
+                )
 
-        except:
-            if MODEL=='segformer':
-                est_label = model.predict(tf.expand_dims(image[:,:,0], 0), batch_size=1).logits
+        except Exception:
+            if MODEL == "segformer":
+                est_label = model.predict(
+                    tf.expand_dims(image[:, :, 0], 0), batch_size=1
+                ).logits
             else:
-                est_label = tf.squeeze(model.predict(tf.expand_dims(image[:,:,0], 0), batch_size=1))
+                est_label = tf.squeeze(
+                    model.predict(tf.expand_dims(image[:, :, 0], 0), batch_size=1)
+                )
 
-        if TESTTIMEAUG == True:
+        if TESTTIMEAUG:
             # return the flipped prediction
-            if MODEL=='segformer':
+            if MODEL == "segformer":
                 est_label2 = np.flipud(
-                    model.predict(tf.expand_dims(np.flipud(image), 0), batch_size=1).logits
-                    )
+                    model.predict(
+                        tf.expand_dims(np.flipud(image), 0), batch_size=1
+                    ).logits
+                )
             else:
                 est_label2 = np.flipud(
-                    tf.squeeze(model.predict(tf.expand_dims(np.flipud(image), 0), batch_size=1))
+                    tf.squeeze(
+                        model.predict(tf.expand_dims(np.flipud(image), 0), batch_size=1)
                     )
+                )
 
-            if MODEL=='segformer':
+            if MODEL == "segformer":
                 est_label3 = np.fliplr(
                     model.predict(
-                        tf.expand_dims(np.fliplr(image), 0), batch_size=1).logits
-                        )
+                        tf.expand_dims(np.fliplr(image), 0), batch_size=1
+                    ).logits
+                )
             else:
                 est_label3 = np.fliplr(
-                    tf.squeeze(model.predict(
-                        tf.expand_dims(np.fliplr(image), 0), batch_size=1))
-                        )
-                
-            if MODEL=='segformer':
+                    tf.squeeze(
+                        model.predict(tf.expand_dims(np.fliplr(image), 0), batch_size=1)
+                    )
+                )
+
+            if MODEL == "segformer":
                 est_label4 = np.flipud(
                     np.fliplr(
                         model.predict(
-                            tf.expand_dims(np.flipud(np.fliplr(image)), 0), batch_size=1).logits)
-                            )
+                            tf.expand_dims(np.flipud(np.fliplr(image)), 0), batch_size=1
+                        ).logits
+                    )
+                )
             else:
                 est_label4 = np.flipud(
                     np.fliplr(
-                        tf.squeeze(model.predict(
-                            tf.expand_dims(np.flipud(np.fliplr(image)), 0), batch_size=1)))
+                        tf.squeeze(
+                            model.predict(
+                                tf.expand_dims(np.flipud(np.fliplr(image)), 0),
+                                batch_size=1,
                             )
-                
+                        )
+                    )
+                )
+
             # soft voting - sum the softmax scores to return the new TTA estimated softmax scores
             est_label = est_label + est_label2 + est_label3 + est_label4
             # del est_label2, est_label3, est_label4
-        
-        est_label = est_label.numpy().astype('float32')
 
-        if MODEL=='segformer':
-            est_label = resize(est_label, (1, NCLASSES, TARGET_SIZE[0],TARGET_SIZE[1]), preserve_range=True, clip=True).squeeze()
-            est_label = np.transpose(est_label, (1,2,0))
+        est_label = est_label.numpy().astype("float32")
 
-        E0.append(
-            resize(est_label[:, :, 0], (w, h), preserve_range=True, clip=True)
-        )
-        E1.append(
-            resize(est_label[:, :, 1], (w, h), preserve_range=True, clip=True)
-        )
+        if MODEL == "segformer":
+            est_label = resize(
+                est_label,
+                (1, NCLASSES, TARGET_SIZE[0], TARGET_SIZE[1]),
+                preserve_range=True,
+                clip=True,
+            ).squeeze()
+            est_label = np.transpose(est_label, (1, 2, 0))
+
+        E0.append(resize(est_label[:, :, 0], (w, h), preserve_range=True, clip=True))
+        E1.append(resize(est_label[:, :, 1], (w, h), preserve_range=True, clip=True))
         # del est_label
     # heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
     K.clear_session()
 
-    return E0, E1 
+    return E0, E1
 
-def est_label_multiclass(image,M,MODEL,TESTTIMEAUG,NCLASSES,TARGET_SIZE):
 
+def est_label_multiclass(image, M, MODEL, TESTTIMEAUG, NCLASSES, TARGET_SIZE):
     est_label = np.zeros((TARGET_SIZE[0], TARGET_SIZE[1], NCLASSES))
-    
+
     for counter, model in enumerate(M):
         # heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
         try:
-            if MODEL=='segformer':
+            if MODEL == "segformer":
                 est_label = model(tf.expand_dims(image, 0)).logits
             else:
                 est_label = tf.squeeze(model(tf.expand_dims(image, 0)))
-        except:
-            if MODEL=='segformer':
-                est_label = model(tf.expand_dims(image[:,:,0], 0)).logits
+        except Exception:
+            if MODEL == "segformer":
+                est_label = model(tf.expand_dims(image[:, :, 0], 0)).logits
             else:
-                est_label = tf.squeeze(model(tf.expand_dims(image[:,:,0], 0)))
+                est_label = tf.squeeze(model(tf.expand_dims(image[:, :, 0], 0)))
 
-        if TESTTIMEAUG == True:
+        if TESTTIMEAUG:
             # return the flipped prediction
-            if MODEL=='segformer':
+            if MODEL == "segformer":
                 est_label2 = np.flipud(
                     model(tf.expand_dims(np.flipud(image), 0)).logits
-                    )                
+                )
             else:
                 est_label2 = np.flipud(
                     tf.squeeze(model(tf.expand_dims(np.flipud(image), 0)))
-                    )
-            if MODEL=='segformer':
-
+                )
+            if MODEL == "segformer":
                 est_label3 = np.fliplr(
-                    model(
-                        tf.expand_dims(np.fliplr(image), 0)).logits
-                        )                
+                    model(tf.expand_dims(np.fliplr(image), 0)).logits
+                )
             else:
                 est_label3 = np.fliplr(
                     tf.squeeze(model(tf.expand_dims(np.fliplr(image), 0)))
-                )                
-            if MODEL=='segformer':
+                )
+            if MODEL == "segformer":
                 est_label4 = np.flipud(
                     np.fliplr(
-                        tf.squeeze(model(tf.expand_dims(np.flipud(np.fliplr(image)), 0)).logits))
-                )                
+                        tf.squeeze(
+                            model(tf.expand_dims(np.flipud(np.fliplr(image)), 0)).logits
+                        )
+                    )
+                )
             else:
                 est_label4 = np.flipud(
                     np.fliplr(
-                        tf.squeeze(model(
-                            tf.expand_dims(np.flipud(np.fliplr(image)), 0)))
-                            ))
-                
+                        tf.squeeze(
+                            model(tf.expand_dims(np.flipud(np.fliplr(image)), 0))
+                        )
+                    )
+                )
+
             # soft voting - sum the softmax scores to return the new TTA estimated softmax scores
             est_label = est_label + est_label2 + est_label3 + est_label4
 
@@ -207,18 +230,26 @@ def est_label_multiclass(image,M,MODEL,TESTTIMEAUG,NCLASSES,TARGET_SIZE):
     # heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
     return est_label, counter
 
+
 def do_seg(
-    f, M, metadatadict, MODEL, sample_direc, 
-    NCLASSES, N_DATA_BANDS, TARGET_SIZE, TESTTIMEAUG, WRITE_MODELMETADATA,
+    f,
+    M,
+    metadatadict,
+    MODEL,
+    sample_direc,
+    NCLASSES,
+    N_DATA_BANDS,
+    TARGET_SIZE,
+    TESTTIMEAUG,
+    WRITE_MODELMETADATA,
     OTSU_THRESHOLD,
-    out_dir_name='out',
-    profile='minimal',
+    out_dir_name="out",
+    profile="minimal",
     apply_smooth=False,
 ):
-    
-    if profile=='meta':
+    if profile == "meta":
         WRITE_MODELMETADATA = True
-    if profile=='full':
+    if profile == "full":
         WRITE_MODELMETADATA = True
 
     # Mc = compile_models(M, MODEL)
@@ -232,7 +263,7 @@ def do_seg(
 
     if WRITE_MODELMETADATA:
         metadatadict["input_file"] = f
-        
+
     # directory to hold the outputs of the models is named 'out' by default
     # create a directory to hold the outputs of the models, by default name it 'out' or the model name if it exists in metadatadict
     out_dir_path = os.path.normpath(sample_direc + os.sep + out_dir_name)
@@ -241,7 +272,8 @@ def do_seg(
 
     segfile = os.path.normpath(segfile)
     segfile = segfile.replace(
-        os.path.normpath(sample_direc), os.path.normpath(sample_direc + os.sep + out_dir_name)
+        os.path.normpath(sample_direc),
+        os.path.normpath(sample_direc + os.sep + out_dir_name),
     )
 
     if WRITE_MODELMETADATA:
@@ -249,24 +281,29 @@ def do_seg(
         metadatadict["n_data_bands"] = N_DATA_BANDS
 
     if NCLASSES == 2:
+        image, w, h, bigimage = get_image(
+            f,
+            N_DATA_BANDS,
+            TARGET_SIZE,
+            MODEL,
+            smooth_fn=median_smooth if apply_smooth else None,
+        )
 
-        image, w, h, bigimage = get_image(f,N_DATA_BANDS,TARGET_SIZE,MODEL, smooth_fn=median_smooth if apply_smooth else None)
-
-        if np.std(image)==0:
-
+        if np.std(image) == 0:
             print("Image {} is empty".format(f))
-            e0 = np.zeros((w,h))
-            e1 = np.zeros((w,h))
+            e0 = np.zeros((w, h))
+            e1 = np.zeros((w, h))
 
         else:
+            E0, E1 = est_label_binary(
+                image, M, MODEL, TESTTIMEAUG, NCLASSES, TARGET_SIZE, w, h
+            )
 
-            E0, E1 = est_label_binary(image,M,MODEL,TESTTIMEAUG,NCLASSES,TARGET_SIZE,w,h)
-
-            e0 = np.average(np.dstack(E0), axis=-1)  
+            e0 = np.average(np.dstack(E0), axis=-1)
 
             # del E0
 
-            e1 = np.average(np.dstack(E1), axis=-1) 
+            e1 = np.average(np.dstack(E1), axis=-1)
             # del E1
 
         est_label = (e1 + (1 - e0)) / 2
@@ -274,7 +311,7 @@ def do_seg(
         if WRITE_MODELMETADATA:
             metadatadict["av_prob_stack"] = est_label
 
-        softmax_scores = np.dstack((e0,e1))
+        softmax_scores = np.dstack((e0, e1))
         # del e0, e1
 
         if WRITE_MODELMETADATA:
@@ -290,46 +327,54 @@ def do_seg(
         else:
             est_label = (est_label > 0.5).astype("uint8")
             if WRITE_MODELMETADATA:
-                metadatadict["otsu_threshold"] = 0.5            
+                metadatadict["otsu_threshold"] = 0.5
 
     else:  ###NCLASSES>2
+        image, w, h, bigimage = get_image(
+            f,
+            N_DATA_BANDS,
+            TARGET_SIZE,
+            MODEL,
+            smooth_fn=median_smooth if apply_smooth else None,
+        )
 
-        image, w, h, bigimage = get_image(f,N_DATA_BANDS,TARGET_SIZE,MODEL,smooth_fn=median_smooth if apply_smooth else None)
-
-        if np.std(image)==0:
-
+        if np.std(image) == 0:
             print("Image {} is empty".format(f))
-            est_label = np.zeros((w,h))
+            est_label = np.zeros((w, h))
 
         else:
-                
-            est_label, counter = est_label_multiclass(image,M,MODEL,TESTTIMEAUG,NCLASSES,TARGET_SIZE)
+            est_label, counter = est_label_multiclass(
+                image, M, MODEL, TESTTIMEAUG, NCLASSES, TARGET_SIZE
+            )
 
             est_label /= counter + 1
             # est_label cannot be float16 so convert to float32
-            est_label = est_label.numpy().astype('float32')
+            est_label = est_label.numpy().astype("float32")
 
-            if MODEL=='segformer':
-                est_label = resize(est_label, (1, NCLASSES, TARGET_SIZE[0],TARGET_SIZE[1]), preserve_range=True, clip=True).squeeze()
-                est_label = np.transpose(est_label, (1,2,0))
+            if MODEL == "segformer":
+                est_label = resize(
+                    est_label,
+                    (1, NCLASSES, TARGET_SIZE[0], TARGET_SIZE[1]),
+                    preserve_range=True,
+                    clip=True,
+                ).squeeze()
+                est_label = np.transpose(est_label, (1, 2, 0))
                 est_label = resize(est_label, (w, h))
             else:
                 est_label = resize(est_label, (w, h))
 
-
         if WRITE_MODELMETADATA:
             metadatadict["av_prob_stack"] = est_label
 
-        softmax_scores = est_label.copy() #np.dstack((e0,e1))
+        softmax_scores = est_label.copy()  # np.dstack((e0,e1))
 
         if WRITE_MODELMETADATA:
             metadatadict["av_softmax_scores"] = softmax_scores
 
-        if np.std(image)>0:
+        if np.std(image) > 0:
             est_label = np.argmax(softmax_scores, -1)
         else:
-            est_label = est_label.astype('uint8')
-
+            est_label = est_label.astype("uint8")
 
     class_label_colormap = [
         "#3366CC",
@@ -360,15 +405,14 @@ def do_seg(
         metadatadict["color_segmentation_output"] = segfile
 
     # Ensure bigimage is a NumPy array
-    if hasattr(bigimage, 'numpy'):
+    if hasattr(bigimage, "numpy"):
         bigimage = bigimage.numpy()
 
     # Try progressively simpler masks
     masks_to_try = [
-        lambda img: img[:, :, 0] == 0, # mask for first channel
-        lambda img: img == 0   , #mask for all channels
+        lambda img: img[:, :, 0] == 0,  # mask for first channel
+        lambda img: img == 0,  # mask for all channels
     ]
-
 
     for mask_func in masks_to_try:
         try:
@@ -384,10 +428,10 @@ def do_seg(
         except Exception:
             continue
     else:
-        raise RuntimeError("Failed to compute color_label with all mask strategies.")  
+        raise RuntimeError("Failed to compute color_label with all mask strategies.")
 
     imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
-    
+
     if WRITE_MODELMETADATA:
         metadatadict["color_segmentation_output"] = segfile
 
@@ -397,12 +441,12 @@ def do_seg(
         metadatadict["grey_label"] = est_label
         np.savez_compressed(segfile, **metadatadict)
 
-    if profile == 'full': #(profile !='minimal') and (profile !='meta'):
+    if profile == "full":  # (profile !='minimal') and (profile !='meta'):
         #### plot overlay
         segfile = segfile.replace("_res.npz", "_overlay.png")
 
         if N_DATA_BANDS <= 3:
-            plt.imshow(bigimage, cmap='gray')
+            plt.imshow(bigimage, cmap="gray")
         else:
             plt.imshow(bigimage[:, :, :3])
 
@@ -416,14 +460,14 @@ def do_seg(
 
         plt.subplot(121)
         if N_DATA_BANDS <= 3:
-            plt.imshow(bigimage, cmap='gray')
+            plt.imshow(bigimage, cmap="gray")
         else:
             plt.imshow(bigimage[:, :, :3])
         plt.axis("off")
 
         plt.subplot(122)
         if N_DATA_BANDS <= 3:
-            plt.imshow(bigimage, cmap='gray')
+            plt.imshow(bigimage, cmap="gray")
         else:
             plt.imshow(bigimage[:, :, :3])
         plt.imshow(color_label, alpha=0.5)
@@ -431,18 +475,19 @@ def do_seg(
         plt.savefig(segfile, dpi=200, bbox_inches="tight")
         plt.close("all")
 
-    if profile == 'full': #(profile !='minimal') and (profile !='meta'):
-
+    if profile == "full":  # (profile !='minimal') and (profile !='meta'):
         #### plot overlay of per-class probabilities
         for kclass in range(softmax_scores.shape[-1]):
-            tmpfile = segfile.replace("_overlay.png", "_overlay_"+str(kclass)+"prob.png")
+            tmpfile = segfile.replace(
+                "_overlay.png", "_overlay_" + str(kclass) + "prob.png"
+            )
 
             if N_DATA_BANDS <= 3:
-                plt.imshow(bigimage, cmap='gray')
+                plt.imshow(bigimage, cmap="gray")
             else:
                 plt.imshow(bigimage[:, :, :3])
 
-            plt.imshow(softmax_scores[:,:,kclass], alpha=0.5, vmax=1, vmin=0)
+            plt.imshow(softmax_scores[:, :, kclass], alpha=0.5, vmax=1, vmin=0)
             plt.axis("off")
             plt.colorbar()
             plt.savefig(tmpfile, dpi=200, bbox_inches="tight")
@@ -454,8 +499,15 @@ def median_smooth(img, size=15):
     Apply median filter per channel if image is 3D, else apply to 2D.
     """
     if img.ndim == 3:
-        return np.stack([scipy.ndimage.median_filter(img[..., i], size=size) for i in range(img.shape[2])], axis=-1)
+        return np.stack(
+            [
+                scipy.ndimage.median_filter(img[..., i], size=size)
+                for i in range(img.shape[2])
+            ],
+            axis=-1,
+        )
     return scipy.ndimage.median_filter(img, size=size)
+
 
 def load_image(f, N_DATA_BANDS):
     """
@@ -463,12 +515,13 @@ def load_image(f, N_DATA_BANDS):
     Returns a NumPy uint8 array.
     """
     if N_DATA_BANDS <= 3:
-        return imread(f)#.astype('uint8')
-    else: # if N_DATA_BANDS > 3
+        return imread(f)  # .astype('uint8')
+    else:  # if N_DATA_BANDS > 3
         with np.load(f) as data:
             return data["arr_0"].astype("uint8")
 
-def resize_and_cast(image:np.ndarray, target_size)->tf.Tensor:
+
+def resize_and_cast(image: np.ndarray, target_size) -> tf.Tensor:
     """
     Resize image to target size, preserving range and clipping.
     Returns a TensorFlow uint8 tensor that can be used for prediction.
@@ -482,8 +535,11 @@ def resize_and_cast(image:np.ndarray, target_size)->tf.Tensor:
         tf.Tensor: Resized image tensor.
 
     """
-    resized = resize(image, (target_size[0], target_size[1]), preserve_range=True, clip=True)
+    resized = resize(
+        image, (target_size[0], target_size[1]), preserve_range=True, clip=True
+    )
     return tf.cast(np.array(resized), tf.uint8)
+
 
 def get_image(f, N_DATA_BANDS, TARGET_SIZE, MODEL, smooth_fn=None):
     """
@@ -509,7 +565,7 @@ def get_image(f, N_DATA_BANDS, TARGET_SIZE, MODEL, smooth_fn=None):
     # Standardize and format for model
     image = standardize(smallimage.numpy()).squeeze()
 
-    if MODEL == 'segformer':
+    if MODEL == "segformer":
         # Create a 4D tensor with shape (1,3,TARGET_SIZE[0], TARGET_SIZE[1])
         if np.ndim(image) == 2:
             image = np.dstack((image, image, image))

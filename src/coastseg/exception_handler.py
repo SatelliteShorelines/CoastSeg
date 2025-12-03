@@ -1,16 +1,14 @@
 # standard python imports
 import logging
 import traceback
-from typing import Union
-
-# internal python imports
-
-from coastseg import exceptions
-from coastseg import common
-from coastseg.roi import ROI
+from typing import Collection, Optional, Union
 
 import geopandas as gpd
+from ipywidgets import HBox
 
+# internal python imports
+from coastseg import common, exceptions
+from coastseg.roi import ROI
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +23,18 @@ NO_CONFIG_SETTINGS = "Settings must be loaded before configuration files can be 
 ROIS_NOT_DOWNLOADED = (
     "Not all ROI directories exist on your computer. Try downloading the ROIs again."
 )
-BBOX_NOT_FOUND = "Bounding Box not found on map. Please draw a bounding box on the map first."
+BBOX_NOT_FOUND = (
+    "Bounding Box not found on map. Please draw a bounding box on the map first."
+)
 SESSION_NAME_NOT_FOUND = "No session name found.Enter a session name."
 EMPTY_SELECTED_ROIS = (
     "Must select at least one ROI on the map to perform this operation"
 )
 SETTINGS_NOT_FOUND = "No settings found. Click save settings."
-ROI_IS_NONE= "NO ROI found. Try generating a new ROI or loading an ROI from a file."
+ROI_IS_NONE = "NO ROI found. Try generating a new ROI or loading an ROI from a file."
 SHORELINE_NOT_FOUND = "No shoreline found. Please load a shoreline on the map first."
 TRANSECTS_NOT_FOUND = "No transects found. Please load a transects on the map first."
-NO_ROI_SETTINGS = ("None of the ROIs have been downloaded on this machine or the location where they were downloaded has been moved. Please download the ROIs again.")
+NO_ROI_SETTINGS = "None of the ROIs have been downloaded on this machine or the location where they were downloaded has been moved. Please download the ROIs again."
 NO_EXTRACTED_SHORELINES = "No shorelines have been extracted. Extract shorelines first."
 NO_ROIS_WITH_EXTRACTED_SHORELINES = (
     "You must select an ROI and extract shorelines before you can compute transects"
@@ -45,8 +45,9 @@ NO_CROSS_DISTANCE_TRANSECTS = "No cross distances transects have been computed"
 # Checking decides the message
 # Handling it sends message to user
 
+
 def check_if_default_feature_available(feature, feature_type: str = ""):
-    DEFAULT_FEATURE_NOT_FOUND = f"No {feature_type} were available in this region. Draw a new bounding box elsewhere or load a {feature_type} from a file.",
+    DEFAULT_FEATURE_NOT_FOUND = f"No {feature_type} were available in this region. Draw a new bounding box elsewhere or load a {feature_type} from a file."
 
     if isinstance(feature, gpd.GeoDataFrame):
         if feature.empty:
@@ -55,6 +56,7 @@ def check_if_default_feature_available(feature, feature_type: str = ""):
     elif feature is None:
         logger.error(f"{feature_type} is None {DEFAULT_FEATURE_NOT_FOUND}")
         raise exceptions.Object_Not_Found(feature_type, DEFAULT_FEATURE_NOT_FOUND)
+
 
 def config_check_if_none(feature, feature_type: str = ""):
     """
@@ -92,7 +94,6 @@ def check_file_not_found(path: str, filename: str, search_path: str):
         raise FileNotFoundError(f"{filename} file was not found at {search_path}")
 
 
-
 def check_if_subset(subset: set, superset: set, superset_name: str, message: str = ""):
     """
     Check if a subset is actually a subset of a superset and raise a ValueError if it's not.
@@ -107,33 +108,12 @@ def check_if_subset(subset: set, superset: set, superset_name: str, message: str
     ValueError: If the subset is not a subset of the superset.
     """
     if not subset.issubset(superset):
-        logger.error(f"Missing keys {subset-superset} from {superset_name}\n{message}")
-        raise ValueError(
-            f"Missing keys {subset-superset} from {superset_name}\n{message}</br>Try clicking save settings"
+        logger.error(
+            f"Missing keys {subset - superset} from {superset_name}\n{message}"
         )
-
-
-# this function does not do what it claims to do
-# def check_if_rois_downloaded(roi_settings: dict, roi_ids: list,data_path:str="/data"):
-#     """
-#     Check if all ROIs have been downloaded based on the ROI settings and IDs.
-
-#     Args:
-#     roi_settings (dict): The settings for the ROIs.
-#     roi_ids (list): The list of ROI IDs.
-
-#     Raises:
-#     FileNotFoundError: If not all ROIs have been downloaded.
-#     """
-#     missing_dirs = {}
-#     # Check if each ROI selected has been downloaded to the location specified by the config.json (roi settings are derived from this)
-#     for roi_id in roi_ids:
-#         # check if roi_id directory exists at location specified by filepath in roi_settings
-#         if common.were_rois_downloaded(roi_settings, roi_ids) == False:
-#             logger.error(f"{roi_id} directory does not exist")
-#             missing_dirs[roi_id] = roi_settings[roi_id]["sitename"]
-#     # if any of the ROIs were not found in the data dir then raise an exception
-#     check_if_dirs_missing(missing_dirs,data_path) 
+        raise ValueError(
+            f"Missing keys {subset - superset} from {superset_name}\n{message}</br>Try clicking save settings"
+        )
 
 
 def can_feature_save_to_file(feature, feature_type: str = ""):
@@ -177,34 +157,29 @@ def check_empty_layer(layer, feature_type: str = ""):
     Check if a given layer is empty and raise an exception if it is.
 
     Args:
-    layer: The layer to be checked.
-    feature_type (str): A string representing the type of the layer.
+        layer: The layer to be checked.
+        feature_type (str): A string representing the type of the layer.
 
     Raises:
-    Exception: If the layer is empty or None.
+        Exception: If the layer is empty or None.
     """
     if layer is None:
         if feature_type == ROI.LAYER_NAME:
-            logger.error(f"No ROI layer found on map")
-            raise Exception("No ROI layer found on map")
-        if feature_type == ROI.SELECTED_LAYER_NAME:
-            logger.error(f"No selected ROI layer found on map")
-            raise Exception("No selected ROI layer found on map")
-        logger.error(f"Cannot add an empty {feature_type} layer to the map.")
-        raise Exception(f"Cannot add an empty {feature_type} layer to the map.")
+            message = "No ROI layer found on map"
+        elif feature_type == ROI.SELECTED_LAYER_NAME:
+            message = "No selected ROI layer found on map"
+        else:
+            message = f"Cannot add an empty {feature_type} layer to the map."
+
+        logger.error(message)
+        raise Exception(message)
 
 
-def check_if_list_empty(items: list):
+def check_if_empty(items: Union[Collection, None]):
     """
-    Check if a given list is empty and raise an exception if it is.
-
-    Args:
-    items (list): The list to be checked.
-
-    Raises:
-    Exception: If the list is empty.
+    Raise an exception if the given collection is empty.
     """
-    if len(items) == 0:
+    if not items:
         logger.error(f"{items}\n{NO_ROIS_WITH_EXTRACTED_SHORELINES}")
         raise Exception(NO_ROIS_WITH_EXTRACTED_SHORELINES)
 
@@ -250,6 +225,7 @@ def check_if_None(feature, feature_type: str = "", message: str = ""):
         logger.error(f"{feature_type} is None")
         raise exceptions.Object_Not_Found(feature_type, message)
 
+
 def validate_feature(feature, feature_type: str = "", message: str = ""):
     """
     Check if a given feature is None and raise an exception if it is.
@@ -262,7 +238,7 @@ def validate_feature(feature, feature_type: str = "", message: str = ""):
     Raises:
     Object_Not_Found: If the feature is None, an exception is raised with a custom message.
     """
-    if feature is None and not hasattr(feature,"gdf"):
+    if feature is None and not hasattr(feature, "gdf"):
         if "shoreline" in feature_type.lower():
             message = SHORELINE_NOT_FOUND
         if "roi" in feature_type.lower():
@@ -271,7 +247,7 @@ def validate_feature(feature, feature_type: str = "", message: str = ""):
             message = TRANSECTS_NOT_FOUND
         if "bbox" in feature_type.lower():
             message = BBOX_NOT_FOUND
-               
+
         logger.error(f"{feature_type} was not found. {message}")
         raise exceptions.Object_Not_Found(feature_type, message)
 
@@ -290,7 +266,7 @@ def check_empty_roi_layer(layer):
         raise Exception(EMPTY_SELECTED_ROIS)
 
 
-def check_selected_set(selected_set:set):
+def check_selected_set(selected_set: set):
     """
     Check if the selected set is empty and raise an exception if it is.
 
@@ -306,7 +282,7 @@ def check_selected_set(selected_set:set):
         raise Exception(EMPTY_SELECTED_ROIS)
 
 
-def check_if_gdf_empty(feature, feature_type: str, message: str = ""):
+def check_if_gdf_empty(feature: gpd.GeoDataFrame, feature_type: str, message: str = ""):
     """
     Check if a given GeoDataFrame is empty and raise an exception if it is.
 
@@ -318,12 +294,12 @@ def check_if_gdf_empty(feature, feature_type: str, message: str = ""):
     Raises:
     Object_Not_Found: If the GeoDataFrame is empty.
     """
-    if feature.empty == True:
+    if feature.empty:
         logger.error(f"{feature_type} {feature} is empty")
         raise exceptions.Object_Not_Found(feature_type, message)
 
 
-def check_if_dirs_missing(missing_dirs: dict,location:str="/data"):
+def check_if_dirs_missing(missing_dirs: dict, location: str = "/data"):
     """
     Check if there are any missing directories and raise a WarningException if there are.
 
@@ -346,26 +322,33 @@ def check_if_dirs_missing(missing_dirs: dict,location:str="/data"):
             f"The following ROIs that were in the config.json file are missing their data:</br> \n {missing_dirs}"
         )
         raise exceptions.WarningMissingDirsException(
-            message=f"The following ROIs that were in the config.json file are missing their data:", 
+            message="The following ROIs that were in the config.json file are missing their data:",
             instructions=f"You can't extract shorelines for the ROIs missing data, but you can for the rest of your ROIs.\nMake sure to de-select these ROIs before extracting shorelines.\n Before you can extract shorelines the missing ROIs you can either:\n 1. Move the missing directories into '{location}' and reload the session \n 2. Download the missing data in a new session ",
             styled_instructions=f"You can't extract shorelines for the ROIs missing data, but you can for the rest of your ROIs.</br>Make sure to de-select these ROIs before extracting shorelines.</br> </br> Before you can extract shorelines the missing ROIs you can either:</br> 1. Move the missing directories into <u>'{location}'</u> and reload the session </br> 2. Download the missing data in a new session ",
-            missing_dirs=missing_dirs
-        )   
+            missing_dirs=missing_dirs,
+        )
 
 
-def handle_exception(error:Exception, row: "ipywidgets.HBox", title: str = None, msg: str = None):
+def handle_exception(
+    error: Exception,
+    row: Optional[HBox],
+    title: Optional[str] = None,
+    msg: Optional[str] = None,
+):
     """
     Handle exceptions by logging and displaying them in a user interface.
 
     Args:
     error(Exception): The exception to be handled.
-    row (ipywidgets.HBox): The UI row where the error message will be displayed.
+    row (HBox): The UI row where the error message will be displayed.
     title (str, optional): The title for the error message.
     msg (str, optional): The custom message for the error.
 
     Returns:
     None
     """
+    if row is None:
+        return
 
     logger.error(f"{traceback.format_exc()}")
     if isinstance(error, exceptions.WarningMissingDirsException):
@@ -394,36 +377,35 @@ def handle_exception(error:Exception, row: "ipywidgets.HBox", title: str = None,
         launch_error_box(row, title="Error", msg=error_message)
 
 
-# def handle_warning(warning, row: "ipywidgets.HBox", title: str = None, msg: str = None):
-#     error_message = f"{warning}"
-#     logger.error(f"{traceback.format_exc()}")
-#     if isinstance(warning, exceptions.Object_Not_Found):
-#         error_message = str(warning)
-#     logger.error(f"{error_message}")
-#     launch_error_box(row, title="Error", msg=error_message)
-
-
-def handle_bbox_error(error_msg: Union[exceptions.BboxTooLargeError, exceptions.BboxTooSmallError], row: "ipywidgets.HBox"):
+def handle_bbox_error(
+    error_msg: Union[exceptions.BboxTooLargeError, exceptions.BboxTooSmallError],
+    row: HBox,
+):
     """
     Handle bounding box related errors.
 
     Args:
     error_msg (Union[exceptions.BboxTooLargeError, exceptions.BboxTooSmallError]): The error message related to bounding box issues.
-    row (ipywidgets.HBox): The UI row where the error message will be displayed.
+    row (HBox): The UI row where the error message will be displayed.
 
     Returns:
     None
     """
     logger.error(f"Bounding Box Error{error_msg}")
-    launch_error_box(row, title="Error", msg=error_msg)
+    launch_error_box(row, title="Error", msg=str(error_msg))
 
 
-def launch_error_box(row: "ipywidgets.HBox", title: str = None, msg: str = None, instructions: str = None):
+def launch_error_box(
+    row: HBox,
+    title: Optional[str] = None,
+    msg: Optional[str] = None,
+    instructions: Optional[str] = None,
+):
     """
     Launch an error box in the user interface to display error messages.
 
     Args:
-    row (ipywidgets.HBox): The UI row where the error box will be displayed.
+    row (HBox): The UI row where the error box will be displayed.
     title (str, optional): The title for the error box.
     msg (str, optional): The message to be displayed in the error box.
     instructions (str, optional): Additional instructions to be displayed in the error box.

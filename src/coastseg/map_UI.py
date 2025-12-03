@@ -1,24 +1,24 @@
 # Standard Python imports
-import os
-import datetime
 import logging
-
-# Internal Python imports
-from coastseg import exception_handler
-from coastseg import common
-from coastseg import UI_elements
-from coastseg import core_utilities
-from coastseg import file_utilities
-from coastseg.extract_shorelines_widget import Extracted_Shoreline_widget
-from coastseg.settings_UI import Settings_UI
+import os
+from typing import Any, Dict, List, Optional
 
 # External Python imports
 import ipywidgets as widgets
-import traitlets
-from IPython.display import display, clear_output
-from ipyfilechooser import FileChooser
 from google.auth import exceptions as google_auth_exceptions
+from ipyfilechooser import FileChooser
+from IPython.display import display
 
+# Internal Python imports
+from coastseg import (
+    UI_elements,
+    common,
+    core_utilities,
+    exception_handler,
+    file_utilities,
+)
+from coastseg.extract_shorelines_widget import Extracted_Shoreline_widget
+from coastseg.settings_UI import Settings_UI
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ BOX_LAYOUT = widgets.Layout(
     flex_flow="row",
     overflow="auto",  # Will add scrollbar if content is too large
     display="flex",
-    flex_grow=1,  # Allows the box to grow based on content
+    flex="1 1 auto",  # Allows the box to grow based on content
 )
 
 GRID_LAYOUT = widgets.Layout(
@@ -43,25 +43,14 @@ GRID_LAYOUT = widgets.Layout(
 )
 
 
-def str_to_bool(var: str) -> bool:
-    return var == "True"
+def format_as_html(settings: Dict[str, Any]) -> str:
+    """Generates HTML content displaying the settings.
 
-
-def convert_date(date_str):
-    try:
-        return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError as e:
-        logger.error(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
-        raise ValueError(f"Invalid date: {date_str}. Expected format: 'YYYY-MM-DD'.{e}")
-
-
-def format_as_html(settings: dict):
-    """
-    Generates HTML content displaying the settings.
     Args:
-        settings (dict): The dictionary containing the settings.
+        settings: The dictionary containing the settings.
+
     Returns:
-        str: The HTML content representing the settings.
+        The HTML content representing the settings.
     """
     return f"""
     <h2>Settings</h2>
@@ -103,7 +92,17 @@ class UI:
     download_view = widgets.Output(layout={"border": "1px solid black"})
     preview_view = widgets.Output()
 
-    def get_settings_dashboard(self, basic_settings: dict = {}):
+    def get_settings_dashboard(
+        self, basic_settings: Optional[List[str]] = None
+    ) -> Settings_UI:
+        """Gets or creates the settings dashboard.
+
+        Args:
+            basic_settings: List of basic setting names to display. If None, uses default list.
+
+        Returns:
+            The settings dashboard instance.
+        """
         if not basic_settings:
             basic_settings = [
                 "dates",
@@ -121,7 +120,15 @@ class UI:
             self.settings_dashboard = Settings_UI(basic_settings)
         return self.settings_dashboard
 
-    def add_custom_widgets(self, settings_dashboard: Settings_UI):
+    def add_custom_widgets(self, settings_dashboard: Settings_UI) -> Settings_UI:
+        """Adds custom widgets to the settings dashboard.
+
+        Args:
+            settings_dashboard: The settings dashboard to add widgets to.
+
+        Returns:
+            The updated settings dashboard.
+        """
         # create dropdown to select sand color
         sand_dropdown = widgets.Dropdown(
             options=["default", "latest", "dark", "bright"],
@@ -143,7 +150,6 @@ class UI:
             description="Enable image size filter",
             indent=False,  # To align the description with the label
         )
-
 
         # create slider to select minimum ROI coverage
         # this is the minimum percentage of the image that must overlap the ROI to be downloaded
@@ -236,11 +242,20 @@ class UI:
         )
         return settings_dashboard
 
-    def __init__(self, coastseg_map, **kwargs):
+    def __init__(self, coastseg_map: Any, **kwargs: Any) -> None:
+        """Initializes the UI instance with coastseg_map and sets up all widgets and handlers.
+
+        Args:
+            coastseg_map: The coastseg map instance to control.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+        """
         # save an instance of coastseg_map
         self.coastseg_map = coastseg_map
         # create the settings UI controller
-        self.settings_dashboard = None
+        self.settings_dashboard: Optional[Settings_UI] = None
         self.settings_dashboard = self.get_settings_dashboard()
         # create custom widgets and add to settings dashboard
         self.settings_dashboard = self.add_custom_widgets(self.settings_dashboard)
@@ -442,11 +457,11 @@ class UI:
         # when units radio widgets.Button is clicked updated units for area textboxes
         self.units_radio.observe(units_radio_changed)
 
-    def create_styles(self):
-        """
-        Initializes the styles used for various buttons in the user interface.
+    def create_styles(self) -> None:
+        """Initializes the styles used for various buttons in the user interface.
+
         Returns:
-            None.
+            None
         """
         self.remove_style = dict(button_color="red")
         self.load_style = dict(button_color="#69add1", description_width="initial")
@@ -454,15 +469,26 @@ class UI:
         self.save_style = dict(button_color="#50bf8f")
         self.clear_stlye = dict(button_color="#a3adac")
 
-    def launch_error_box(self, title: str = None, msg: str = None):
+    def launch_error_box(
+        self, title: Optional[str] = None, msg: Optional[str] = None
+    ) -> None:
+        """Shows a user error message in a warning box.
+
+        Args:
+            title: Title for the warning box. Defaults to None.
+            msg: Message for the warning box. Defaults to None.
+
+        Returns:
+            None
+        """
         # Show user error message
-        warning_box = common.create_warning_box(title=title, msg=msg)
+        warning_box = common.create_warning_box(title=title, msg=msg)  # type: ignore
         # clear row and close all widgets in row before adding new warning_box
         common.clear_row(self.error_row)
         # add instance of warning_box to self.error_row
         self.error_row.children = [warning_box]
 
-    def create_tidal_correction_widget(self, id_container: "traitlets.HasTraits"):
+    def create_tidal_correction_widget(self, id_container: Any) -> widgets.VBox:
         load_style = dict(button_color="#69add1", description_width="initial")
 
         correct_tides_html = widgets.HTML(
@@ -523,7 +549,15 @@ class UI:
         )
 
     @debug_view.capture(clear_output=True)
-    def tidally_correct_button_clicked(self, btn):
+    def tidally_correct_button_clicked(self, btn: widgets.Button) -> None:
+        """Handles the tidal correction button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         # get the selected ROI IDs if none selected give an error message
         selected_rois = self.scrollable_select.value
         if not selected_rois:
@@ -561,15 +595,18 @@ class UI:
             tides_file=tides_file,
         )
 
-    def set_session_name(self, name: str):
+    def set_session_name(self, name: str) -> None:
         self.session_name = str(name).strip()
 
-    def get_session_name(
-        self,
-    ):
+    def get_session_name(self) -> str:
         return self.session_name
 
-    def get_session_selection(self):
+    def get_session_selection(self) -> widgets.VBox:
+        """Creates a session selection widget interface.
+
+        Returns:
+            A VBox widget containing session name controls and output.
+        """
         output = widgets.Output()
         box_layout = widgets.Layout(
             min_height="0px",  # Initial height
@@ -578,7 +615,7 @@ class UI:
             flex_flow="row",
             overflow="auto",
             display="flex",
-            flex_grow=1,  # Allows the box to grow based on content
+            flex="1 1 auto",  # Allows the box to grow based on content
         )
 
         self.session_name_text = widgets.Text(
@@ -640,7 +677,12 @@ class UI:
         html_settings_accordion.set_title(0, "View Settings")
         return html_settings_accordion
 
-    def save_to_file_buttons(self):
+    def save_to_file_buttons(self) -> widgets.VBox:
+        """Creates save to file buttons and controls.
+
+        Returns:
+            A VBox widget containing save to file controls.
+        """
         # save to file buttons
         save_instr = widgets.HTML(
             value="<h2>Save to file</h2>\
@@ -676,7 +718,12 @@ class UI:
         save_vbox = widgets.VBox([save_instr, self.save_radio, self.save_button])
         return save_vbox
 
-    def load_feature_on_map_buttons(self):
+    def load_feature_on_map_buttons(self) -> widgets.VBox:
+        """Creates load feature on map buttons and controls.
+
+        Returns:
+            A VBox widget containing load feature controls.
+        """
         load_instr = widgets.HTML(
             value="<h2>Load Feature into Bounding Box</h2>\
                 Loads shoreline or transects into bounding box on map.\
@@ -705,7 +752,12 @@ class UI:
         load_buttons = widgets.VBox([load_instr, self.load_radio, self.load_button])
         return load_buttons
 
-    def draw_control_section(self):
+    def draw_control_section(self) -> widgets.VBox:
+        """Creates draw control section widget.
+
+        Returns:
+            A VBox widget containing draw controls.
+        """
         load_instr = widgets.HTML(
             value="<h2>Draw Controls</h2>\
                 Select to draw either a bounding box or shoreline extraction area on the map.\
@@ -739,7 +791,12 @@ class UI:
         )
         return load_buttons
 
-    def remove_buttons(self):
+    def remove_buttons(self) -> widgets.VBox:
+        """Creates remove feature buttons and controls.
+
+        Returns:
+            A VBox widget containing remove controls.
+        """
         # define remove feature radio box button
         remove_instr = widgets.HTML(
             value="<h2>Remove Feature from Map</h2>",
@@ -788,10 +845,14 @@ class UI:
         )
         return remove_buttons
 
-    def _create_HTML_widgets(self):
-        """create HTML widgets that display the instructions.
-        widgets created: instr_create_ro, instr_save_roi, instr_load_btns
-         instr_download_roi
+    def _create_HTML_widgets(self) -> None:
+        """Creates HTML widgets that display the instructions.
+
+        Widgets created: instr_create_roi, instr_save_roi, instr_load_btns,
+        instr_download_roi
+
+        Returns:
+            None
         """
         self.instr_create_roi = widgets.HTML(
             value="<h2><b>Generate ROIs on Map</b></h2> \
@@ -820,8 +881,12 @@ class UI:
             layout=widgets.Layout(margin="0px 5px 0px 5px"),
         )  # top right bottom left
 
-    def create_dashboard(self):
-        """creates a dashboard containing all the buttons, instructions and widgets organized together."""
+    def create_dashboard(self) -> Any:
+        """Creates a dashboard containing all the buttons, instructions and widgets organized together.
+
+        Returns:
+            Display handle from IPython display function.
+        """
         # Buttons to load shoreline or transects in bbox on map
         load_buttons = self.load_feature_on_map_buttons()
         draw_control_section = self.draw_control_section()
@@ -875,7 +940,7 @@ class UI:
             [
                 widgets.VBox(
                     [
-                        self.settings_dashboard.render(),
+                        self.settings_dashboard.render(),  # type: ignore
                         self.settings_button,
                     ]
                 ),
@@ -903,7 +968,15 @@ class UI:
         )
 
     @debug_view.capture(clear_output=True)
-    def update_settings_btn_clicked(self, btn):
+    def update_settings_btn_clicked(self, btn: widgets.Button) -> None:
+        """Handles the update settings button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.debug_view.clear_output(wait=True)
         # Update settings in view settings section
         try:
@@ -913,7 +986,15 @@ class UI:
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
-    def gen_roi_clicked(self, btn):
+    def gen_roi_clicked(self, btn: widgets.Button) -> None:
+        """Handles the generate ROI button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.debug_view.clear_output(wait=True)
         print("Generate ROIs button clicked")
         self.coastseg_map.map.default_style = {"cursor": "wait"}
@@ -938,7 +1019,15 @@ class UI:
         self.gen_button.disabled = False
 
     @debug_view.capture(clear_output=True)
-    def load_button_clicked(self, btn):
+    def load_button_clicked(self, btn: widgets.Button) -> None:
+        """Handles the load button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.debug_view.clear_output(wait=True)
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         try:
@@ -954,9 +1043,17 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @debug_view.capture(clear_output=True)
-    def save_settings_clicked(self, btn):
+    def save_settings_clicked(self, btn: widgets.Button) -> None:
+        """Handles the save settings button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         # get the settings from the settings dashboard
-        settings = self.settings_dashboard.get_settings()
+        settings = self.settings_dashboard.get_settings()  # type: ignore
         sat_list = settings.get("sat_list", [])
         if not sat_list:
             try:
@@ -973,14 +1070,30 @@ class UI:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
-    def on_draw_feature_controls_change(self, change):
+    def on_draw_feature_controls_change(self, change: Dict[str, Any]) -> None:
+        """Handles changes to the draw feature controls.
+
+        Args:
+            change: Dictionary containing the change information.
+
+        Returns:
+            None
+        """
         if change["new"] == "Bounding Box":
             self.coastseg_map.drawing_shoreline_extraction_area = False
         else:
             self.coastseg_map.drawing_shoreline_extraction_area = True
 
     @debug_view.capture(clear_output=True)
-    def extract_shorelines_button_clicked(self, btn):
+    def extract_shorelines_button_clicked(self, btn: widgets.Button) -> None:
+        """Handles the extract shorelines button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.debug_view.clear_output()
         self.coastseg_map.map.default_style = {"cursor": "wait"}
         self.extract_shorelines_button.disabled = True
@@ -993,7 +1106,15 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @preview_view.capture(clear_output=True)
-    def preview_button_clicked(self, btn):
+    def preview_button_clicked(self, btn: widgets.Button) -> None:
+        """Handles the preview button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.preview_view.clear_output()
         UI.debug_view.clear_output()
         self.coastseg_map.map.default_style = {"cursor": "wait"}
@@ -1018,7 +1139,15 @@ class UI:
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
     @download_view.capture(clear_output=True)
-    def download_button_clicked(self, btn):
+    def download_button_clicked(self, btn: widgets.Button) -> None:
+        """Handles the download button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.download_view.clear_output()
         UI.debug_view.clear_output()
         self.coastseg_map.map.default_style = {"cursor": "wait"}
@@ -1042,17 +1171,30 @@ class UI:
         self.download_button.disabled = False
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
-    def clear_row(self, row: widgets.HBox):
-        """close widgets in row/column and clear all children
+    def clear_row(self, row: widgets.HBox) -> None:
+        """Closes widgets in row/column and clears all children.
+
         Args:
-            row (widgets.HBox)(widgets.VBox): row or column
+            row: Row or column widget to clear.
+
+        Returns:
+            None
         """
         for index in range(len(row.children)):
             row.children[index].close()
         row.children = []
 
     @debug_view.capture(clear_output=True)
-    def on_load_session_clicked(self, button):
+    def on_load_session_clicked(self, button: widgets.Button) -> None:
+        """Handles the load session button click event.
+
+        Args:
+            button: The button widget that was clicked.
+
+        Returns:
+            None
+        """
+
         # Prompt user to select a config geojson file
         def load_callback(filechooser: FileChooser) -> None:
             try:
@@ -1064,7 +1206,7 @@ class UI:
                     self.session_name_text.value = self.coastseg_map.get_session_name()
                     # update the settings dashboard with the settings from the loaded session
                     settings = self.coastseg_map.get_settings()
-                    self.settings_dashboard.set_settings(settings)
+                    self.settings_dashboard.set_settings(settings)  # type: ignore
                     self.update_displayed_settings()
                     self.coastseg_map.map.default_style = {"cursor": "default"}
             except Exception as error:
@@ -1083,12 +1225,11 @@ class UI:
         self.file_chooser_row.children = [dir_chooser]
         self.coastseg_map.map.default_style = {"cursor": "default"}
 
-    def update_displayed_settings(self):
-        """
-        Updates the displayed settings in the UI.
+    def update_displayed_settings(self) -> None:
+        """Updates the displayed settings in the UI.
 
-        Retrieves the settings from the `coastseg_map` and formats them as HTML.
-        The formatted settings are then assigned to the `settings_html` widget.
+        Retrieves the settings from the coastseg_map and formats them as HTML.
+        The formatted settings are then assigned to the settings_html widget.
 
         Returns:
             None
@@ -1097,7 +1238,16 @@ class UI:
         self.settings_html.value = f"""<div style='max-height: 300px;max-width: 280px; overflow-x: auto; overflow-y:  auto; text-align: left;'>{setting_content}</div>"""
 
     @debug_view.capture(clear_output=True)
-    def load_feature_from_file(self, btn):
+    def load_feature_from_file(self, btn: widgets.Button) -> None:
+        """Handles loading a feature from file button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
+
         # Prompt user to select a geojson file
         def load_callback(filechooser: FileChooser) -> None:
             try:
@@ -1164,74 +1314,90 @@ class UI:
         self.file_chooser_row.children = [file_chooser]
 
     @debug_view.capture(clear_output=True)
-    def remove_feature_from_map(self, btn):
+    def remove_feature_from_map(self, btn: widgets.Button) -> None:
+        """Handles removing a feature from the map button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.debug_view.clear_output(wait=True)
         try:
             # Prompt the user to select a directory of images
             if "extracted shorelines" in btn.description.lower():
-                print(f"Removing extracted shoreline")
+                print("Removing extracted shoreline")
                 self.coastseg_map.remove_extracted_shoreline_layers()
             elif "selected shorelines" in btn.description.lower():
-                print(f"Removing Selected Shorelines")
+                print("Removing Selected Shorelines")
                 self.coastseg_map.remove_selected_shorelines()
             elif "shoreline extraction area" in btn.description.lower():
-                print(f"Removing Shoreline Extraction Area")
+                print("Removing Shoreline Extraction Area")
                 self.coastseg_map.remove_shoreline_extraction_area()
             elif "selected rois" in btn.description.lower():
-                print(f"Removing Selected ROIs")
+                print("Removing Selected ROIs")
                 self.coastseg_map.remove_selected_rois()
             elif "shoreline" in btn.description.lower():
-                print(f"Removing shoreline")
+                print("Removing shoreline")
                 self.coastseg_map.remove_shoreline()
             elif "transects" in btn.description.lower():
-                print(f"Removing  transects")
+                print("Removing  transects")
                 self.coastseg_map.remove_transects()
             elif "bbox" in btn.description.lower():
-                print(f"Removing bounding box")
+                print("Removing bounding box")
                 self.coastseg_map.remove_bbox()
             elif "rois" in btn.description.lower():
-                print(f"Removing ROIs")
+                print("Removing ROIs")
                 self.coastseg_map.remove_all_rois()
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
-    def save_to_file_btn_clicked(self, btn):
+    def save_to_file_btn_clicked(self, btn: widgets.Button) -> None:
+        """Handles the save to file button click event.
+
+        Args:
+            btn: The button widget that was clicked.
+
+        Returns:
+            None
+        """
         UI.debug_view.clear_output(wait=True)
         try:
             if "shoreline" in btn.description.lower():
-                print(f"Saving shoreline to file")
+                print("Saving shoreline to file")
                 self.coastseg_map.save_feature_to_file(
                     self.coastseg_map.shoreline, "shoreline"
                 )
             if "transects" in btn.description.lower():
-                print(f"Saving transects to file")
+                print("Saving transects to file")
                 self.coastseg_map.save_feature_to_file(
                     self.coastseg_map.transects, "transects"
                 )
             if "bbox" in btn.description.lower():
-                print(f"Saving bounding box to file")
+                print("Saving bounding box to file")
                 self.coastseg_map.save_feature_to_file(
                     self.coastseg_map.bbox, "bounding box"
                 )
             if "rois" in btn.description.lower():
-                print(f"Saving ROIs to file")
+                print("Saving ROIs to file")
                 self.coastseg_map.save_feature_to_file(self.coastseg_map.rois, "ROI")
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
     @debug_view.capture(clear_output=True)
-    def remove_all_from_map(self, btn):
+    def remove_all_from_map(self, btn: widgets.Button) -> None:
         try:
             self.coastseg_map.remove_all()
         except Exception as error:
             # renders error message as a box on map
             exception_handler.handle_exception(error, self.coastseg_map.warning_box)
 
-    def clear_debug_view(self, btn):
+    def clear_debug_view(self, btn: widgets.Button) -> None:
         UI.debug_view.clear_output()
 
-    def clear_download_view(self, btn):
+    def clear_download_view(self, btn: widgets.Button) -> None:
         UI.download_view.clear_output()

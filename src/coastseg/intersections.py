@@ -1,31 +1,40 @@
 import os
-import geopandas as gpd
-import pandas as pd
-import numpy as np
-import shapely
 import warnings
-from typing import List, Tuple
+from typing import Callable, List, Tuple, Union
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import shapely
 from shapely.geometry import LineString, MultiPoint, Point
 
 # coastseg imports
 from coastseg import file_utilities
-from coastseg.common import get_transect_settings
-from coastseg.common import convert_date_gdf, convert_points_to_linestrings
-from shapely.geometry import Point
+from coastseg.common import (
+    convert_date_gdf,
+    convert_points_to_linestrings,
+    get_transect_settings,
+)
 
 warnings.filterwarnings("ignore")
 
 
-def add_classifier_scores_to_transects(session_path, good_bad_csv, good_bad_seg_csv):
-    """Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files
+def add_classifier_scores_to_transects(
+    session_path: str, good_bad_csv: str, good_bad_seg_csv: str
+) -> None:
+    """
+    Adds new columns to the geojson file with the model scores from the image_classification_results.csv and segmentation_classification_results.csv files.
 
     Args:
-        geojson_path (gpd.GeoDataFrame): A GeoDataFrame of extracted transects that contains the date column
-        good_bad_csv (str): The path to the image_classification_results.csv file
-        good_bad_seg_csv (str): The path to the segmentation_classification_results.csv file
+        session_path (str): Path to the session directory.
+        good_bad_csv (str): The path to the image_classification_results.csv file.
+        good_bad_seg_csv (str): The path to the segmentation_classification_results.csv file.
+
+    Returns:
+        None
     """
 
-    def update_file_if_exists(filepath: str, update_function) -> None:
+    def update_file_if_exists(filepath: str, update_function: Callable) -> None:
         if os.path.exists(filepath):
             update_function(filepath, good_bad_csv, good_bad_seg_csv)
 
@@ -45,32 +54,14 @@ def add_classifier_scores_to_transects(session_path, good_bad_csv, good_bad_seg_
         )
 
 
-def wgs84_to_utm_file(geojson_file):
-    """
-    Converts wgs84 to UTM
-    inputs:
-    geojson_file (path): path to a geojson in wgs84
-    outputs:
-    geojson_file_utm (path): path to a geojson in utm
-    """
+def LineString_to_arr(line: LineString) -> np.ndarray:
+    """Converts a LineString to a NumPy array of coordinates.
 
-    geojson_file_utm = os.path.splitext(geojson_file)[0] + "_utm.geojson"
+    Args:
+        line: A shapely LineString object.
 
-    gdf_wgs84 = gpd.read_file(geojson_file)
-    utm_crs = gdf_wgs84.estimate_utm_crs()
-
-    gdf_utm = gdf_wgs84.to_crs(utm_crs)
-    gdf_utm.to_file(geojson_file_utm)
-    return geojson_file_utm
-
-
-def LineString_to_arr(line):
-    """
-    Makes an array from linestring
-    inputs:
-    line (shapely.geometry.LineString): shapely linestring
-    outputs:
-    coords (List[tuples]): list of x,y coordinate pairs
+    Returns:
+        Array of (x, y) coordinate pairs.
     """
     listarray = []
     for pp in line.coords:
@@ -79,31 +70,33 @@ def LineString_to_arr(line):
     return nparray
 
 
-def arr_to_LineString(coords):
-    """
-    Makes a line feature from an array of xy tuples
-    inputs:
-    coords (List[tuples]): list of x,y coordinate pairs
-    outputs:
-    line (shapely.geometry.LineString): shapely linestring
+def arr_to_LineString(coords: np.ndarray | List[Tuple[float, float]]) -> LineString:
+    """Creates a LineString from an array of (x, y) coordinate pairs.
+
+    Args:
+        coords: List or array of (x, y) coordinate pairs.
+
+    Returns:
+        A shapely LineString object.
     """
     points = [None] * len(coords)
     i = 0
     for xy in coords:
-        points[i] = shapely.geometry.Point(xy)
+        points[i] = shapely.geometry.Point(xy)  # type: ignore
         i = i + 1
-    line = shapely.geometry.LineString(points)
+    line = shapely.geometry.LineString(points)  # type: ignore
     return line
 
 
-def chaikins_corner_cutting(coords, refinements=3):
-    """
-    Smooths out lines or polygons with Chaikin's method
-    inputs:
-    coords (list of tuples): [(x1,y1), (x..,y..), (xn,yn)]
-    outputs:
-    coords (list of tuples): [(x1,y1), (x..,y..), (xn,yn)],
-                              this is the smooth line
+def chaikins_corner_cutting(coords: np.ndarray, refinements: int = 3) -> np.ndarray:
+    """Smooths out lines or polygons with Chaikin's corner cutting algorithm.
+
+    Args:
+        coords: Array of (x, y) coordinate pairs.
+        refinements: Number of refinement iterations. Defaults to 3.
+
+    Returns:
+        Smoothed array of (x, y) coordinate pairs.
     """
     i = 0
     for _ in range(refinements):
@@ -118,16 +111,15 @@ def chaikins_corner_cutting(coords, refinements=3):
     return coords
 
 
-def smooth_lines(lines, refinements=2):
-    """
-    Smooths out shorelines with Chaikin's method
-    Shorelines need to be in UTM (or another planar coordinate system)
+def smooth_lines(lines: gpd.GeoDataFrame, refinements: int = 2) -> gpd.GeoDataFrame:
+    """Smooths out shorelines with Chaikin's method. Shorelines must be in UTM or another planar coordinate system.
 
-    inputs:
-    shorelines (gdf): gdf of extracted shorelines in UTM
-    refinements (int): number of refinemnets for Chaikin's smoothing algorithm
-    outputs:
-    new_lines (gdf): gdf of smooth lines in UTM
+    Args:
+        lines: GeoDataFrame of extracted shorelines in UTM.
+        refinements: Number of refinements for Chaikin's smoothing algorithm. Defaults to 2.
+
+    Returns:
+        GeoDataFrame of smoothed lines in UTM. Has none geometry for lines that could not be smoothed.
     """
     lines = wgs84_to_utm_df(lines)
     lines["geometry"] = lines["geometry"]
@@ -140,21 +132,21 @@ def smooth_lines(lines, refinements=2):
         coords = LineString_to_arr(line)
         refined = chaikins_corner_cutting(coords, refinements=refinements)
         refined_geom = arr_to_LineString(refined)
-        new_geometries[i] = refined_geom
+        new_geometries[i] = refined_geom  # type: ignore
     new_lines["geometry"] = new_geometries
     return new_lines
 
 
-def explode_multilinestrings(gdf):
-    """
-    Explodes any MultiLineString objects in a GeoDataFrame into individual LineStrings,
-    and returns a new GeoDataFrame with these LineStrings replacing the original MultiLineStrings.
+def explode_multilinestrings(
+    gdf: gpd.GeoDataFrame,
+) -> Union[gpd.GeoDataFrame, pd.DataFrame]:
+    """Explodes any MultiLineString objects in a GeoDataFrame into individual LineStrings.
 
-    Parameters:
-    gdf (GeoDataFrame): A GeoDataFrame containing various geometry types.
+    Args:
+        gdf: A GeoDataFrame containing various geometry types.
 
     Returns:
-    GeoDataFrame: A new GeoDataFrame with MultiLineStrings exploded into LineStrings.
+        A new GeoDataFrame with MultiLineStrings exploded into LineStrings.
     """
     # Filter out MultiLineStrings
     multilinestrings = gdf[gdf["geometry"].type == "MultiLineString"]
@@ -176,7 +168,14 @@ def explode_multilinestrings(gdf):
 
 
 def get_simplify_param(satname: str) -> Tuple[float, float]:
-    """Returns distance threshold and simplify parameter based on satellite name."""
+    """Returns distance threshold and simplify parameter based on satellite name.
+
+    Args:
+        satname: The satellite name (e.g., 'L5', 'L8', 'S2').
+
+    Returns:
+        Tuple containing (distance threshold, simplify parameter).
+    """
     sat_params = {
         "L5": (45, np.sqrt(30**2 * 3) / 2),
         "L7": (45, np.sqrt(30**2 * 3) / 2),
@@ -190,7 +189,15 @@ def get_simplify_param(satname: str) -> Tuple[float, float]:
 
 
 def break_line_at_distance(points: List[Point], threshold: float) -> List[List[Point]]:
-    """Splits a list of points into chunks where the distance exceeds a threshold."""
+    """Splits a list of points into chunks where the distance between consecutive points exceeds a threshold.
+
+    Args:
+        points: List of shapely Point objects.
+        threshold: Distance threshold for splitting.
+
+    Returns:
+        List of point segments.
+    """
     if len(points) < 2:
         return [points]
 
@@ -208,18 +215,22 @@ def break_line_at_distance(points: List[Point], threshold: float) -> List[List[P
     return segments
 
 
-def create_geometries(segments: List[List[Point]], geom_type: str):
+def create_geometries(
+    segments: List[List[Point]], geom_type: str
+) -> List[Union[LineString, MultiPoint]]:
     """Creates LineStrings or MultiPoints from point chunks.
-
-    Example:
-        segments = [[Point(0, 0), Point(1, 1)], [Point(2, 2), Point(3, 3)]]
-        create_geometries(segments, 'LineString')
-        # Returns: [LineString([(0, 0), (1, 1)]), LineString([(2, 2), (3, 3)])]
 
     Args:
         segments: List of lists of Point objects, where each sublist represents a segment.
         geom_type: 'LineString' or 'MultiPoint'.
 
+    Returns:
+        List of created geometries.
+
+    Example:
+        >>> segments = [[Point(0, 0), Point(1, 1)], [Point(2, 2), Point(3, 3)]]
+        >>> create_geometries(segments, 'LineString')
+        [LineString([(0, 0), (1, 1)]), LineString([(2, 2), (3, 3)])]
     """
     geometries = []
     for seg in segments:
@@ -237,16 +248,18 @@ def split_line(
     geom_type: str,
     smooth: bool = True,
 ) -> gpd.GeoDataFrame:
-    """
-    Splits shoreline lines into multiple geometries based on distance thresholds.
+    """Splits shoreline lines into multiple geometries based on distance thresholds.
 
     Args:
         extracted_shorelines_gdf: Input shoreline GeoDataFrame in EPSG:4326.
         geom_type: 'LineString' or 'MultiPoint'.
-        smooth: Whether to apply line smoothing.
+        smooth: Whether to apply line smoothing. Defaults to True.
 
     Returns:
         GeoDataFrame with split and optionally smoothed geometries in EPSG:4326.
+
+    Raises:
+        ValueError: If geom_type is not 'LineString' or 'MultiPoint'.
     """
     if geom_type.lower() not in {"linestring", "multipoint"}:
         raise ValueError("geom_type must be 'LineString' or 'MultiPoint'.")
@@ -254,7 +267,8 @@ def split_line(
     # Project to UTM
     gdf_utm = wgs84_to_utm_df(extracted_shorelines_gdf.copy())
     gdf_utm = explode_multilinestrings(gdf_utm)
-    source_crs = gdf_utm.crs
+    # Ensure source_crs is a valid CRS object or string
+    source_crs = gdf_utm.crs if hasattr(gdf_utm, "crs") else None
     all_segments = []
 
     for _, row in gdf_utm.iterrows():
@@ -277,7 +291,7 @@ def split_line(
             all_segments.append(seg_data)
 
     # Create new GeoDataFrame
-    result_gdf = gpd.GeoDataFrame(all_segments, crs=source_crs)
+    result_gdf = gpd.GeoDataFrame(all_segments, crs=source_crs)  # type: ignore
     result_gdf["date"] = pd.to_datetime(result_gdf["date"]).dt.tz_localize("UTC")
 
     if smooth:
@@ -286,52 +300,68 @@ def split_line(
     return utm_to_wgs84_df(result_gdf)
 
 
-def wgs84_to_utm_df(geo_df):
-    """
-    Converts gdf from wgs84 to UTM
-    inputs:
-    geo_df (geopandas dataframe): a geopandas dataframe in wgs84
-    outputs:
-    geo_df_utm (geopandas  dataframe): a geopandas dataframe in utm
+def wgs84_to_utm_df(geo_df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Converts a GeoDataFrame from WGS84 to UTM projection.
+
+    Args:
+        geo_df: A GeoDataFrame in WGS84.
+
+    Returns:
+        A GeoDataFrame in UTM.
     """
     utm_crs = geo_df.estimate_utm_crs()
     gdf_utm = geo_df.to_crs(utm_crs)
     return gdf_utm
 
 
-def utm_to_wgs84_df(geo_df):
+def utm_to_wgs84_df(geo_df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Converts a GeoDataFrame from UTM to WGS84 projection.
+
+    Args:
+        geo_df: A GeoDataFrame in UTM.
+
+    Returns:
+        A GeoDataFrame in WGS84.
     """
-    Converts gdf from utm to wgs84
-    inputs:
-    geo_df (geopandas dataframe): a geopandas dataframe in utm
-    outputs:
-    geo_df_wgs84 (geopandas  dataframe): a geopandas dataframe in wgs84
-    """
-    wgs84_crs = "epsg:4326"
-    gdf_wgs84 = geo_df.to_crs(wgs84_crs)
+    gdf_wgs84 = geo_df.to_crs("epsg:4326")
     return gdf_wgs84
 
 
-def cross_distance(start_x, start_y, end_x, end_y):
-    """distance formula, sqrt((x_1-x_0)^2 + (y_1-y_0)^2)"""
+def cross_distance(
+    start_x: Union[float, np.ndarray, pd.Series],
+    start_y: Union[float, np.ndarray, pd.Series],
+    end_x: Union[float, np.ndarray, pd.Series],
+    end_y: Union[float, np.ndarray, pd.Series],
+) -> Union[float, np.ndarray, pd.Series]:
+    """Computes the Euclidean distance between two points.
+
+    Args:
+        start_x: X coordinate of the start point. Can be float, numpy array, or pandas Series.
+        start_y: Y coordinate of the start point. Can be float, numpy array, or pandas Series.
+        end_x: X coordinate of the end point. Can be float, numpy array, or pandas Series.
+        end_y: Y coordinate of the end point. Can be float, numpy array, or pandas Series.
+
+    Returns:
+        The computed distance(s). Type matches input types - float, numpy array, or pandas Series.
+    """
     dist = np.sqrt((end_x - start_x) ** 2 + (end_y - start_y) ** 2)
     return dist
 
 
 def transect_timeseries(
-    shorelines_gdf,
-    transects_gdf,
-):
-    """
-    Generates timeseries of shoreline cross-shore position
-    given a geojson/shapefile containing shorelines and a
-    geojson/shapefile containing cross-shore transects.
-    Computes interesection points between shorelines
-    and transects. Saves the merged transect timeseries.
+    shorelines_gdf: gpd.GeoDataFrame,
+    transects_gdf: gpd.GeoDataFrame,
+) -> pd.DataFrame:
+    """Generates timeseries of shoreline cross-shore position given shorelines and transects.
 
-    inputs:
-    shorelines_gdf (geopandas dataframe): geodataframe containing shorelines as Linestrings or multilinestrings in crs 4326
-    transects_gdf (geopandas dataframe): geodataframe containing transects in crs 4326
+    Computes intersection points between shorelines and transects. Saves the merged transect timeseries.
+
+    Args:
+        shorelines_gdf: GeoDataFrame containing shorelines as LineStrings or MultiLineStrings in CRS 4326.
+        transects_gdf: GeoDataFrame containing transects in CRS 4326.
+
+    Returns:
+        DataFrame containing the merged transect timeseries.
     """
 
     # load transects, project to utm, get start x and y coords
@@ -377,7 +407,7 @@ def transect_timeseries(
 
     # get points, keep highest cross distance point if multipoint (most seaward intersection)
     joined_gdf["intersection_point"] = joined_gdf.geometry.intersection(
-        joined_gdf["geometry_saved"]
+        joined_gdf["geometry_saved"]  # type: ignore
     )
     # reset the index because running the intersection function changes the index
     joined_gdf = joined_gdf.reset_index(drop=True)
@@ -386,7 +416,7 @@ def transect_timeseries(
         point = joined_gdf["intersection_point"].iloc[i]
         start_x = joined_gdf["x_start"].iloc[i]
         start_y = joined_gdf["y_start"].iloc[i]
-        if type(point) == shapely.MultiPoint:
+        if type(point) is shapely.MultiPoint:
             points = [shapely.Point(coord) for coord in point.geoms]
             points = gpd.GeoSeries(points, crs=crs)
             coords = points.get_coordinates()
@@ -394,12 +424,12 @@ def transect_timeseries(
             for j in range(len(coords)):
                 dists[j] = cross_distance(
                     start_x, start_y, coords["x"].iloc[j], coords["y"].iloc[j]
-                )
-            max_dist_idx = np.argmax(dists)
+                )  # type: ignore
+            max_dist_idx = np.argmax(dists)  # type: ignore
             last_point = points[max_dist_idx]
             # This new line  updates the shoreline at index (i) for a single value. We only want to update a single shoreline
             joined_gdf.at[i, "intersection_point"] = (
-                last_point  # is only edits a single intersection point
+                last_point  # only edits a single intersection point
             )
 
     # get x's and y's for intersections
@@ -473,19 +503,21 @@ def transect_timeseries(
     return joined_df
 
 
-def save_timeseries_to_lines(timeseries_df, save_location, ext: str = "raw"):
-    """
-    Saves the timeseries of shoreline intersection points as a geojson file with CRS 4326.
+def save_timeseries_to_lines(
+    timeseries_df: gpd.GeoDataFrame, save_location: str, ext: str = "raw"
+) -> None:
+    """Saves the timeseries of shoreline intersection points as a GeoJSON file with CRS 4326.
+
     The output file will contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
 
-    Args
-    timeseries_gdf (geopandas.GeoDataFrame): The timeseries dataframe containing the cross shore distance values.
-        Should contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
-    save_location (str): The directory path to save the files to.
-    extension (str, optional): A string to append to the beginning of the saved file names to indicate whether tide correction
-    was applied or not. Defaults to 'raw'.
+    Args:
+        timeseries_df: The timeseries dataframe containing the cross shore distance values.
+            Should contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
+        save_location: The directory path to save the files to.
+        ext: String to append to the beginning of the saved file names to indicate
+            whether tide correction was applied or not. Defaults to 'raw'.
 
-    Returns
+    Returns:
         None
     """
     # save the time series of along shore points as points to a geojson (saves shore_x and shore_y as x and y coordinates in the geojson)
@@ -507,19 +539,19 @@ def save_timeseries_to_lines(timeseries_df, save_location, ext: str = "raw"):
     new_gdf_shorelines_wgs84.to_file(new_gdf_shorelines_wgs84_path)
 
 
-def save_timeseries_to_points(timeseries_df, save_location, ext: str = "raw"):
-    """
-    Saves the timeseries of shoreline intersections as series of lines as a geojson file with CRS 4326.
-    The output file will contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
+def save_timeseries_to_points(
+    timeseries_df: gpd.GeoDataFrame, save_location: str, ext: str = "raw"
+) -> None:
+    """Saves the timeseries of shoreline intersections as points as a GeoJSON file with CRS 4326.
 
-    Args
-    timeseries_gdf (geopandas.GeoDataFrame): The timeseries dataframe containing the cross shore distance values.
-        Should contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
-    save_location (str): The directory path to save the files to.
-    extension (str, optional): A string to append to the beginning of the saved file names to indicate whether tide correction
-    was applied or not. Defaults to 'raw'.
+    Args:
+        timeseries_df: The timeseries dataframe containing the cross shore distance values.
+            Should contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
+        save_location: The directory path to save the files to.
+        ext: String to append to the beginning of the saved file names to indicate
+            whether tide correction was applied or not. Defaults to 'raw'.
 
-    Returns
+    Returns:
         None
     """
     timeseries_df_cleaned = convert_date_gdf(
@@ -532,23 +564,25 @@ def save_timeseries_to_points(timeseries_df, save_location, ext: str = "raw"):
     timeseries_df_cleaned.to_file(
         os.path.join(save_location, f"{ext}_transect_time_series_points.geojson"),
         driver="GeoJSON",
-    )
+    )  # type: ignore
 
 
 def save_transects_timeseries_to_geojson(
-    timeseries_df, save_location, ext: str = "raw"
-):
-    """
-    Saves the transect timeseries (should be in CRS EPSG:4326) to geojson in 2 forms.
-    1. A geojson file with CRS 4326 with the shoreline intersection points saved as MultiPoints for each date
-    2. A geojson file with CRS 4326 with the shoreline intersection points saved as MultilineStrings/LineStrings for each date
+    timeseries_df: pd.DataFrame, save_location: str, ext: str = "raw"
+) -> None:
+    """Saves the transect timeseries (should be in CRS EPSG:4326) to GeoJSON in 2 forms.
+
+    Saves:
+        1. A GeoJSON file with CRS 4326 with the shoreline intersection points saved as MultiPoints for each date.
+        2. A GeoJSON file with CRS 4326 with the shoreline intersection points saved as MultiLineStrings/LineStrings for each date.
 
     Args:
-        timeseries_df (pandas.DataFrame): The timeseries dataframe containing the cross shore distance values.
+        timeseries_df: The timeseries dataframe containing the cross shore distance values.
             Should contain the columns 'dates', 'transect_id', 'cross_distance', 'shore_x', and 'shore_y'.
-        save_location (str): The directory path to save the files to.
-        extension (str, optional): A string to append to the beginning of the saved file names to indicate whether tide correction
-        was applied or not. Defaults to 'raw'.
+        save_location: The directory path to save the files to.
+        ext: String to append to the beginning of the saved file names to indicate
+            whether tide correction was applied or not. Defaults to 'raw'.
+
     Returns:
         None
     """
@@ -566,27 +600,30 @@ def save_transects_timeseries_to_geojson(
 
 def save_transects(
     save_location: str,
-    transect_timeseries_df,
+    transect_timeseries_df: pd.DataFrame,
     settings: dict,
     ext: str = "raw",
     good_bad_csv: str = "",
     good_bad_seg_csv: str = "",
-):
-    """
-    Saves the transect timeseries to a csv file, the transects as a dictionary to a json file and the transect settings to a json file
+) -> None:
+    """Saves the transect timeseries to a CSV file, the transects as a dictionary to a JSON file, and the transect settings to a JSON file.
 
     Saves the files:
-    1. raw_transect_time_series_merged.csv: contains all the columns
-    2. raw_transect_time_series.csv: contains only the cross_distance and dates columns
-    3. transects_cross_distances.json: contains the cross distances for each transect organized by date
-    4. transects_settings.json: contains the settings for the transect analysis
+        1. raw_transect_time_series_merged.csv: contains all the columns
+        2. raw_transect_time_series.csv: contains only the cross_distance and dates columns
+        3. transects_cross_distances.json: contains the cross distances for each transect organized by date
+        4. transects_settings.json: contains the settings for the transect analysis
 
-    inputs:
-    save_location (str): directory to save the csv files at
-    transect_timeseries_df (pd.DataFrame): dataframe containing the transect timeseries
-        - This is the merged csv that contains the columns 'dates', 'transect_id', 'cross_distance'
-    settings (dict): dictionary containing the settings for the transect analysis
-    ext (str): A string to append to the beginning of the saved file names to indicate whether tide correction was applied or not. Defaults to 'raw'.
+    Args:
+        save_location (str): Directory to save the CSV files at.
+        transect_timeseries_df (pd.DataFrame): DataFrame containing the transect timeseries.
+        settings (dict): Dictionary containing the settings for the transect analysis.
+        ext (str, optional): String to append to the beginning of the saved file names to indicate whether tide correction was applied or not. Defaults to 'raw'.
+        good_bad_csv (str, optional): Path to image classification results CSV. Defaults to ''.
+        good_bad_seg_csv (str, optional): Path to segmentation classification results CSV. Defaults to ''.
+
+    Returns:
+        None
     """
     # convert the transect_id column to string
     transect_timeseries_df["transect_id"] = transect_timeseries_df[
@@ -609,31 +646,23 @@ def save_transects(
     file_utilities.to_file(transects_dict, save_path)
 
 
-def create_transect_dictionary(df):
-    """
-    Creates a dictionary organized by transect id from a dataframe containing the transect ids, dates, and cross_distance values.
+def create_transect_dictionary(df: pd.DataFrame) -> dict:
+    """Creates a dictionary organized by transect id from a dataframe containing the transect ids, dates, and cross_distance values.
 
-    This function sorts the input DataFrame by the 'dates' column and then
-    creates a dictionary where each key is a unique transect ID and the
-    corresponding value is a list of 'cross_distance' values for that transect,
-    organized by date.
-
-    Parameters:
-    df (pandas.DataFrame): A DataFrame containing at least the columns
-                           'transect_id', 'dates', and 'cross_distance'.
+    Args:
+        df: A DataFrame containing at least the columns 'transect_id', 'dates', and 'cross_distance'.
 
     Returns:
-    dict: A dictionary where keys are transect IDs and values are lists of
-          'cross_distance' values.
+        A dictionary where keys are transect IDs and values are lists of 'cross_distance' values.
 
     Example:
-    >>> df = pd.DataFrame({
-    ...     'transect_id': [1, 2, 1, 2],
-    ...     'dates': ['2021-01-01', '2021-01-01', '2021-01-02', '2021-01-02'],
-    ...     'cross_distance': [10, 20, 15, 25]
-    ... })
-    >>> create_transect_dictionary(df)
-    {1: [10, 15], 2: [20, 25]}
+        >>> df = pd.DataFrame({
+        ...     'transect_id': [1, 2, 1, 2],
+        ...     'dates': ['2021-01-01', '2021-01-01', '2021-01-02', '2021-01-02'],
+        ...     'cross_distance': [10, 20, 15, 25]
+        ... })
+        >>> create_transect_dictionary(df)
+        {1: [10, 15], 2: [20, 25]}
     """
     df = df.sort_values(by=["dates"])
     transect_dictionary = {}
@@ -652,16 +681,21 @@ def create_transect_dictionary(df):
     return transect_dictionary
 
 
-def save_transects_timeseries(transect_timeseries_df, save_location):
-    """
-    Saves two version of the transect timeseries to a csv file
-    1. raw_transect_time_series_merged.csv: contains all the columns
-    2. raw_transect_time_series.csv: contains only the cross_distance and dates columns
+def save_transects_timeseries(
+    transect_timeseries_df: pd.DataFrame, save_location: str
+) -> None:
+    """Saves two versions of the transect timeseries to a CSV file.
 
+    Saves:
+        1. raw_transect_time_series_merged.csv: contains all the columns
+        2. raw_transect_time_series.csv: contains only the cross_distance and dates columns
 
-    inputs:
-    transect_timeseries_df (pd.DataFrame): dataframe containing the transect timeseries
-    save_location (str): directory to save the csv files at
+    Args:
+        transect_timeseries_df: DataFrame containing the transect timeseries.
+        save_location: Directory to save the CSV files at.
+
+    Returns:
+        None
     """
 
     # 1. Save the raw transect time series merged with all the columns to a csv file

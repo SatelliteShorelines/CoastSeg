@@ -1,30 +1,46 @@
 on:
-    push:
-      branches: [main, develop]
-    pull_request:
-      branches: [main, develop]
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
 
-# Automatically stop old builds on the same branch/PR
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
-  
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 name: Test CoastSeg Pixi Installation (pixi run test)
+
 jobs:
-    Test:
-       name: ${{ matrix.os }}
-       runs-on: ${{ matrix.os }}
-       strategy:
-           fail-fast: false # Continue running jobs on other matrix items if one or more jobs fail
-           matrix:
-             os: [ubuntu-latest, windows-latest]
-       steps:
-           - uses: actions/checkout@v4 # checkout the repo code  
-           - name: Run Tests with Pixi
-             uses: prefix-dev/setup-pixi@v0.7.0
-             with:
-                cache: true
-                cache-write: ${{ github.event_name == 'push' && github.ref_name == 'develop' }}
-                pixi-version: v0.42.1
-                frozen: true
-           - run: pixi run -e all run_tests # using the environment all run the tests
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          # Use a recent Pixi version
+          pixi-version: v0.59.0
+
+          # Make sure Pixi uses your pyproject.toml as manifest
+          manifest-path: pyproject.toml
+
+          # Pre-install and cache the "all" environment
+          environments: all
+
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'develop' }}
+
+          # Use this ONLY if you have a pixi.lock committed to the repo
+          # (if not, remove this line)
+          locked: true
+
+      - name: "Run tests (Pixi env: all)"
+        run: pixi run -e all run_tests

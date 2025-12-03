@@ -1,8 +1,30 @@
+"""
+CoastSeg Settings UI Module.
+
+This module provides comprehensive user interface components for configuring
+CoastSeg shoreline extraction settings. It includes widgets for basic and advanced
+parameters, date selection, month filtering, and other configuration options.
+
+Classes:
+    ButtonColors: Constants for consistent button styling.
+    CustomMonthSelector: Multi-month selection widget.
+    DateBox: Date range picker widget.
+    Settings_UI: Main settings interface with tabbed layout.
+
+Functions:
+    str_to_bool: Convert string representations to boolean values.
+    convert_date: Parse date strings into datetime.date objects.
+
+Constants:
+    GRID_LAYOUT: Pre-configured grid layout for month selection widgets.
+    checkbox_layout: Layout configuration for checkbox widgets.
+"""
+
 # standard python imports
 # external python imports
 import ipywidgets
 import datetime
-from typing import List, Union, Optional, Tuple
+from typing import List, Union, Optional, Tuple, Dict, Any
 from ipywidgets import Layout, Box, VBox
 
 GRID_LAYOUT = Layout(
@@ -13,24 +35,56 @@ GRID_LAYOUT = Layout(
     grid_gap="5px",  # Adjust the gap as needed
     overflow="auto",  # Allow scrollbar if content overflows
 )
+
 checkbox_layout = Layout(
     width="auto"
 )  # This sets the width of each checkbox to be only as wide as necessary
 
 
 class ButtonColors:
-    REMOVE = "red"
-    LOAD = "#69add1"
-    ACTION = "#ae3cf0"
-    SAVE = "#50bf8f"
-    CLEAR = "#a3adac"
+    REMOVE = "red"  # Red color for destructive actions like removal
+    LOAD = "#69add1"  # Blue color for loading operations
+    ACTION = "#ae3cf0"  # Purple color for primary actions.
+    SAVE = "#50bf8f"  # Green color for save operations.
+    CLEAR = "#a3adac"  # Gray color for clear/reset operations.
 
 
 def str_to_bool(var: str) -> bool:
+    """
+    Convert a string representation of truth to boolean.
+
+    Args:
+        var (str): String to convert, case-insensitive. Expected values are 'true' or 'false'.
+
+    Returns:
+        bool: True if the string is 'true' (case-insensitive), False otherwise.
+
+    Example:
+        >>> str_to_bool("TRUE")
+        True
+        >>> str_to_bool("false")
+        False
+    """
     return var.lower().strip() == "true"
 
 
-def convert_date(date_str):
+def convert_date(date_str: str) -> datetime.date:
+    """
+    Convert a date string to a datetime.date object.
+
+    Args:
+        date_str (str): Date string in the format 'YYYY-MM-DD'.
+
+    Returns:
+        datetime.date: The parsed date object.
+
+    Raises:
+        ValueError: If the date string is not in the expected format 'YYYY-MM-DD'.
+
+    Example:
+        >>> convert_date("2023-12-01")
+        datetime.date(2023, 12, 1)
+    """
     try:
         return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError as e:
@@ -38,7 +92,17 @@ def convert_date(date_str):
 
 
 class CustomMonthSelector(VBox):
-    month_to_num = {
+    """
+    A custom month selector widget that allows users to select multiple months.
+
+    This widget extends VBox and provides a list of checkboxes for each month,
+    with functionality to get/set selected months as numeric values.
+
+    Attributes:
+        month_to_num (Dict[str, int]): Mapping from month names to numeric values.
+    """
+
+    month_to_num: Dict[str, int] = {
         "January": 1,
         "February": 2,
         "March": 3,
@@ -53,7 +117,14 @@ class CustomMonthSelector(VBox):
         "December": 12,
     }
 
-    def __init__(self, checkboxes, layout):
+    def __init__(self, checkboxes: List[ipywidgets.Checkbox], layout: Layout) -> None:
+        """
+        Initialize the CustomMonthSelector widget.
+
+        Args:
+            checkboxes (List[ipywidgets.Checkbox]): List of checkbox widgets for each month.
+            layout (Layout): Layout configuration for the widget.
+        """
         super().__init__(children=checkboxes, layout=layout)
         # Observe changes in each checkbox and update the value property accordingly
         for checkbox in checkboxes:
@@ -65,10 +136,22 @@ class CustomMonthSelector(VBox):
         ]
 
     @property
-    def value(self):
+    def value(self) -> List[int]:
+        """
+        Get the currently selected months as a list of integers.
+
+        Returns:
+            List[int]: List of month numbers (1-12) for selected months.
+        """
         return self._value
 
-    def _update_value(self, change):
+    def _update_value(self, change: Dict[str, Any]) -> None:
+        """
+        Update the internal value when checkbox state changes.
+
+        Args:
+            change (Dict[str, Any]): Change event data from checkbox widget.
+        """
         self._value = [
             CustomMonthSelector.month_to_num[checkbox.description]
             for checkbox in self.children
@@ -76,7 +159,13 @@ class CustomMonthSelector(VBox):
         ]
 
     @value.setter
-    def value(self, values):
+    def value(self, values: List[int]) -> None:
+        """
+        Set the selected months.
+
+        Args:
+            values (List[int]): List of month numbers (1-12) to select.
+        """
         # set all the checkboxes to False
         for checkbox in self.children:
             checkbox.value = False
@@ -92,7 +181,27 @@ class CustomMonthSelector(VBox):
 
 
 class DateBox(ipywidgets.HBox):
-    def __init__(self, start_date=None, end_date=None, **kwargs):
+    """
+    A date range selector widget with start and end date pickers.
+
+    This widget extends HBox and provides two date picker widgets for selecting
+    a date range with convenient property accessors.
+    """
+
+    def __init__(
+        self,
+        start_date: Optional[datetime.date] = None,
+        end_date: Optional[datetime.date] = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Initialize the DateBox widget.
+
+        Args:
+            start_date (Optional[datetime.date]): Initial start date. Defaults to 2018-12-01.
+            end_date (Optional[datetime.date]): Initial end date. Defaults to 2019-03-01.
+            **kwargs: Additional keyword arguments passed to HBox.
+        """
         if start_date is None:
             start_date = datetime.date(2018, 12, 1)
         if end_date is None:
@@ -111,11 +220,27 @@ class DateBox(ipywidgets.HBox):
         super().__init__([self.start_date, self.end_date], **kwargs)
 
     @property
-    def value(self):
+    def value(self) -> List[str]:
+        """
+        Get the current date range as ISO format strings.
+
+        Returns:
+            List[str]: List containing start and end dates as ISO format strings.
+        """
         return [str(self.start_date.value), str(self.end_date.value)]
 
     @value.setter
-    def value(self, values):
+    def value(self, values: List[Union[str, datetime.date]]) -> None:
+        """
+        Set the date range.
+
+        Args:
+            values (List[Union[str, datetime.date]]): List of two dates (start, end).
+                Can be date objects or ISO format strings.
+
+        Raises:
+            ValueError: If the list does not contain exactly two dates.
+        """
         if len(values) != 2:
             raise ValueError("You must provide a list of two dates.")
 
@@ -130,11 +255,27 @@ class DateBox(ipywidgets.HBox):
         self.end_date.value = end_date
 
     @property
-    def options(self):
+    def options(self) -> List[datetime.date]:
+        """
+        Get the current date range as date objects.
+
+        Returns:
+            List[datetime.date]: List containing start and end date objects.
+        """
         return [self.start_date.value, self.end_date.value]
 
     @options.setter
-    def options(self, values):
+    def options(self, values: List[Union[str, datetime.date]]) -> None:
+        """
+        Set the date range options.
+
+        Args:
+            values (List[Union[str, datetime.date]]): List of two dates (start, end).
+                Can be date objects or ISO format strings.
+
+        Raises:
+            ValueError: If the list does not contain exactly two dates.
+        """
         if len(values) != 2:
             raise ValueError("You must provide a list of two dates.")
 
@@ -150,11 +291,35 @@ class DateBox(ipywidgets.HBox):
 
 
 class Settings_UI:
+    """
+    A comprehensive UI class for managing CoastSeg settings through interactive widgets.
+
+    This class creates tabbed interface with basic and advanced settings for shoreline
+    extraction, including cloud masking, reference shoreline buffers, and intersection
+    parameters. Each setting is presented as an appropriate widget (sliders, checkboxes,
+    text inputs) with descriptive labels and instructions.
+
+    Attributes:
+        settings (Dict[str, Any]): Dictionary storing current setting values.
+        basic_settings (List[str]): List of basic setting names.
+        advanced_settings (List[str]): List of advanced setting names.
+        settings_widgets (Dict[str, Any]): Dictionary mapping setting names to widgets.
+    """
+
     def __init__(
         self,
         basic_settings: Optional[List[str]] = None,
         advanced_settings: Optional[List[str]] = None,
     ) -> None:
+        """
+        Initialize the Settings_UI with basic and advanced settings tabs.
+
+        Args:
+            basic_settings (Optional[List[str]]): List of basic setting names.
+                If None, uses default basic settings for shoreline extraction.
+            advanced_settings (Optional[List[str]]): List of advanced setting names.
+                If None, uses default advanced settings for intersection parameters.
+        """
         # if no basic settings are provided, use the default settings
         if basic_settings is None:
             basic_settings = [
@@ -178,10 +343,10 @@ class Settings_UI:
                 "prc_multiple",
             ]
 
-        self.settings = {}
+        self.settings: Dict[str, Any] = {}
         self.basic_settings = basic_settings
         self.advanced_settings = advanced_settings
-        self.settings_widgets = {}
+        self.settings_widgets: Dict[str, Any] = {}
 
         # button styles
         self.remove_style = dict(button_color=ButtonColors.REMOVE)
@@ -240,17 +405,21 @@ class Settings_UI:
         instructions: str,
         advanced: bool = False,
         index: Optional[int] = None,
-    ):
+    ) -> None:
         """
-        Adds a custom widget to the basic or advanced settings tab at the specified index.
+        Add a custom widget to the basic or advanced settings tab at the specified index.
 
         Args:
-            widget: The widget to add.
-            setting_name: The name of the setting.
-            title: The title of the setting.
-            instructions: Optional instructions for the widget.
-            advanced: Whether to add the widget to the advanced settings tab. If False, adds to the basic settings tab.
-            index: The index at which to insert the widget. If None, the widget is added to the end of the settings list.
+            widget (Union[ipywidgets.ToggleButton, ipywidgets.FloatSlider, ipywidgets.IntText]):
+                The widget to add to the settings tab.
+            setting_name (str): The name of the setting for internal tracking.
+            title (str): The display title for the setting.
+            instructions (str): Instructions or description for the widget.
+            advanced (bool): Whether to add to advanced settings tab. If False, adds to basic tab.
+            index (Optional[int]): Position to insert the widget. If None, appends to end.
+
+        Raises:
+            ValueError: If title is None or setting_name is empty.
         """
         # Check for missing title, setting_name, or instructions
         if title is None:
@@ -524,15 +693,23 @@ class Settings_UI:
 
         return widget, instructions
 
-    def set_settings(self, settings: dict) -> None:
+    def set_settings(self, settings: Dict[str, Any]) -> None:
         """
-        Set the settings of the UI widgets based on the provided dictionary.
+        Set the values of UI widgets based on the provided settings dictionary.
+
+        Updates widget values for all settings that exist in the provided dictionary.
+        Handles type conversion for different widget types including DateBox widgets,
+        string values, boolean values, and other data types.
 
         Args:
-            settings (dict): A dictionary containing the settings to be applied.
+            settings (Dict[str, Any]): Dictionary containing setting names as keys
+                and their values. Values are automatically converted to appropriate
+                types for each widget.
 
-        Returns:
-            None
+        Note:
+            - DateBox widgets expect date values that will be converted using convert_date()
+            - Boolean settings can be provided as strings ("true"/"false") or bool values
+            - Other settings are set directly to the widget value
         """
         for setting_name, widget in self.settings_widgets.items():
             if setting_name in settings:
@@ -548,14 +725,22 @@ class Settings_UI:
                 else:
                     widget.value = settings[setting_name]
 
-    def get_settings(self) -> dict:
+    def get_settings(self) -> Dict[str, Any]:
         """
-        Retrieves the current settings from the settings widgets and returns them as a dictionary.
+        Retrieve the current settings from all widgets and return as a dictionary.
 
-        For certain settings, the value is converted to the appropriate type before being added to the dictionary.
+        Extracts values from all settings widgets and performs necessary type conversions
+        for specific settings like satellite lists and cloud mask options.
 
         Returns:
-            dict: A dictionary containing the current settings.
+            Dict[str, Any]: Dictionary containing all current settings with their values.
+                Special handling includes:
+                - sat_list: Converted from tuple to list
+                - apply_cloud_mask: Converted from string to boolean
+                - cloud_mask_issue: Converted from string to boolean
+
+        Note:
+            Returns a copy of the settings dictionary to prevent external modification.
         """
         for setting_name, widget in self.settings_widgets.items():
             self.settings[setting_name] = widget.value
@@ -574,19 +759,18 @@ class Settings_UI:
 
         return self.settings.copy()
 
-    def render(self) -> None:
+    def render(self) -> ipywidgets.Accordion:
         """
-        Renders the settings UI.
+        Render the complete settings UI as an accordion widget.
 
-        This method displays the settings UI and returns the UI widget.
+        Creates a tabbed interface with basic and advanced settings panels,
+        wrapped in an accordion layout with scrollable content.
 
         Returns:
-            ipywidgets.Accordion: The settings UI widget.
+            ipywidgets.Accordion: The complete settings UI widget ready for display.
         """
-        # Display the settings UI
-        # Create the settings UI
-        # Define a layout with a maximum height
         layout = Layout(max_height="320px", overflow="auto")
+        # Create the tab widget to that shows the basic settings first and the advanced settings second
         settings_tabs = ipywidgets.Tab(
             children=[self.basic_settings_tab, self.advanced_settings_tab]
         )
@@ -594,6 +778,7 @@ class Settings_UI:
         settings_tabs.set_title(1, "Advanced Settings")
         # Wrap each child widget in a Box with the defined layout
         children = [Box([settings_tabs], layout=layout)]
+        # Embed the tabs controlling the settings in an accordion
         self.settings_ui = ipywidgets.Accordion(children=children, selected_index=0)
         self.settings_ui.set_title(0, "Settings")
         return self.settings_ui

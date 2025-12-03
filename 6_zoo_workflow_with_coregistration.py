@@ -39,9 +39,10 @@ percent_no_data = 0.75
 # a. ENTER THE NAME OF THE SESSION TO SAVE THE MODEL PREDICTIONS TO
 session_name = "coreg_session5"
 # b. ENTER THE DIRECTORY WHERE THE INPUT IMAGES ARE STORED
-# -  Example of the directory where the input images are stored ( this should be the /data folder in the CoastSeg directory)
-# sample_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_1_datetime11-04-24__04_30_52\jpg_files\preprocessed\RGB"
-sample_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_1_datetime11-04-24__04_30_52_original_mess_with\coregistered\jpg_files\preprocessed\RGB"
+# - Enter location of directory containing RGB imagery within coastseg. Note this is the RGB folder within the CoastSeg/data directory
+# - Example path t : 'CoastSeg\data\ID_zyh1_datetime06-11-24__03_02_55\coregistered\jpg_files\preprocessed\RGB'
+sample_directory = r"" 
+
 
 # 2. Save the settings to the model instance 
 # -----------------

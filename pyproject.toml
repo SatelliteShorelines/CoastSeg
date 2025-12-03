@@ -26,14 +26,13 @@ classifiers = [
 ]
 dependencies = [
   "aiohttp",
-  "area",
   "chardet",
   "dask",
   "doodleverse-utils>=0.0.35",
   "coastsat-package>=0.3.3",
   "geojson",
   "geopandas",
-  "h5py",
+  "h5py==3.14",
   "jupyterlab>=3.0.0",
   "leafmap ==0.35",
   "nest-asyncio",
@@ -54,7 +53,7 @@ packages = ["src/coastseg"]
 ml = ["tensorflow==2.12.0", "transformers>=4.48.3,<5"] # dependencies for the zoo based workflow
 test = ["pytest"] # dependencies for testing
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64"]
 

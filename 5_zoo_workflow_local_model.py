@@ -28,7 +28,7 @@ model_setting = {
             "otsu": False, # Otsu Thresholding
             "tta": False,  # Test Time Augmentation
             "use_local_model": True,  # Use local model (not one from zeneodo)
-            "local_model_path": r"C:\development\doodleverse\coastseg\CoastSeg\src\coastseg\downloaded_models\non_validation_model",  # path to the local model
+            "local_model_path": r"",  # Enter path to local model eg. C:\CoastSeg\src\coastseg\downloaded_models\global_segformer_RGB_4class_14183210
             "apply_segmentation_filter": True, # apply segmentation filter to the model outputs to sort them into good or bad
         }
 
@@ -42,9 +42,9 @@ percent_no_data = 0.75
 # a. ENTER THE NAME OF THE SESSION TO SAVE THE MODEL PREDICTIONS TO
 session_name = "sample_session_demo1"
 # b. ENTER THE DIRECTORY WHERE THE INPUT IMAGES ARE STORED
-# -  Example of the directory where the input images are stored ( this should be the /data folder in the CoastSeg directory)
-sample_directory = r"C:\development\doodleverse\coastseg\CoastSeg\data\ID_wra5_datetime03-04-24__03_43_01\jpg_files\preprocessed\RGB"
-
+# -  Enter location of directory containing RGB imagery within coastseg. Note this is the RGB folder within the CoastSeg/data directory
+# - Example path t : 'CoastSeg\data\ID_zyh1_datetime06-11-24__03_02_55\jpg_files\preprocessed\RGB'
+sample_directory = r"" 
 
 # 2. Save the settings to the model instance 
 # -----------------

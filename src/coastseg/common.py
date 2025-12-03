@@ -9,30 +9,47 @@ import re
 import shutil
 import string
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
-from sysconfig import get_python_version
+from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    Hashable,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
-# Third-party imports
+import ee
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import requests
 import shapely
-import ee
-from area import area
 from ipyfilechooser import FileChooser
-from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox, Button
+from ipywidgets import HTML, HBox, Layout, ToggleButton, VBox
 from PIL import Image
+from pyproj import CRS, Transformer
 from requests.exceptions import SSLError
-from shapely import geometry
-from shapely.geometry import LineString, MultiPoint, Point, Polygon
+
+# Third-party imports
+from shapely.geometry import LineString, MultiPoint, Point, Polygon, shape
+from shapely.ops import transform
 from tqdm.auto import tqdm
 
 # Internal dependencies imports
 from coastseg import exceptions, file_utilities
 from coastseg.exceptions import InvalidGeometryType
 from coastseg.validation import find_satellite_in_filename
-from coastseg import core_utilities
+
+if TYPE_CHECKING:
+    from coastseg.extracted_shoreline import Extracted_Shoreline
 
 # widget icons from https://fontawesome.com/icons/angle-down?s=solid&f=classic
 
@@ -40,136 +57,195 @@ from coastseg import core_utilities
 logger = logging.getLogger(__name__)
 
 
+def get_area(polygon: dict) -> float:
+    """Calculates the area of the geojson polygon in square meters using the appropriate UTM zone for accurate measurement."""
+    g = shape(polygon)  # Polygon in EPSG:4326
+    cx, cy = g.representative_point().xy
+    zone = int(math.floor((cx[0] + 180) / 6) + 1)
+    epsg = (32600 if cy[0] >= 0 else 32700) + zone
+    tf = Transformer.from_crs(4326, epsg, always_xy=True).transform
+    return round(transform(tf, g).area, 3)
+
+
 def initialize_gee(
     auth_mode: str = "",
     print_mode: bool = True,
-    auth_args: dict = {},
+    auth_kwargs: dict = {},
     project: str = "",
     force: bool = False,
     **kwargs,
-):
+) -> None:
     """
-    Initialize Google Earth Engine (GEE). If initialization fails due to authentication issues,prompt the user to authenticate and try again.
+    Initialize Google Earth Engine (GEE). If initialization fails due to authentication issues, prompt the user to authenticate and try again.
 
-    Arguments:
-    -----------
-    - auth_mode (str, optional): The authentication mode
-      'gcloud' and 'colab' methods are not supported.
-       See https://developers.google.com/earth-engine/guides/auth for more details.
-    - print_mode (bool, optional): Whether to print initialization messages. Defaults to True.
-    - auth_args (dict, optional): Additional arguments for authentication. Defaults to {}.
-    - project (str, optional): The project to initialize GEE with. Defaults to an empty string.
-    - force (bool, optional): Forces re-authentication if True. Defaults to False.
-    - **kwargs: Additional keyword arguments for `ee.Initialize()`.
+    Args:
+        auth_mode (str, optional): The authentication mode. 'gcloud' and 'colab' methods are not supported. See https://developers.google.com/earth-engine/guides/auth for more details.
+        print_mode (bool, optional): Whether to print initialization messages. Defaults to True.
+        auth_kwargs (dict, optional): Additional arguments for authentication. Defaults to {}.
+        project (str, optional): The project to initialize GEE with. Defaults to an empty string.
+        force (bool, optional): Forces re-authentication if True. Defaults to False.
+        **kwargs: Additional keyword arguments for `ee.Initialize()`.
 
     Raises:
-    - ValueError: If an unsupported authentication mode is specified.
-    - Exception: If initialization fails after authentication.
+        ValueError: If an unsupported authentication mode is specified.
+        Exception: If initialization fails after authentication.
     """
     # Validate authentication mode
     if auth_mode in ["gcloud", "colab"]:
         raise ValueError(f"{auth_mode} authentication is not supported.")
 
-    # separate the force argument from the auth_args
-    if "force" in auth_args:
-        force = auth_args["force"]
-        del auth_args["force"]
+    # separate the force argument from the auth_kwargs
+    if "force" in auth_kwargs:
+        force = auth_kwargs["force"]
+        del auth_kwargs["force"]
 
     # Update authentication arguments
     if auth_mode:
-        auth_args["auth_mode"] = auth_mode
+        auth_kwargs["auth_mode"] = auth_mode
     if project:
         kwargs["project"] = project
 
     # Authenticate and initialize
-    authenticate_and_initialize(print_mode, force, auth_args, kwargs)
+    authenticate_and_initialize(print_mode, force, auth_kwargs, init_kwargs=kwargs)
+
+
+def needs_authentication(force: bool) -> bool:
+    """Decide whether we must (re)authenticate."""
+    if force:
+        return True
+    try:
+        return not gee_credentials_exist()  # your helper
+    except Exception as e:
+        logger.debug("Credential check failed; proceeding without forced auth: %s", e)
+        return False
+
+
+def do_authenticate(force: bool, auth_kwargs: dict) -> None:
+    """Run ee.Authenticate with safe logging."""
+    logger.info("Authenticating with GEE (force=%s)", force)
+    ee.Authenticate(force=force, **auth_kwargs)
+
+
+def do_initialize(init_kwargs: dict) -> None:
+    """Run ee.Initialize."""
+    logger.info("Initializing GEE")
+    ee.Initialize(**init_kwargs)
+
+
+def describe_error(e: Exception) -> str:
+    """Short, user-friendly error text."""
+    s = str(e)
+    if "Please refresh your Google authentication token" in s:
+        return "Please refresh your Google authentication token."
+    if "Credentials file not found" in s:
+        return (
+            "Credentials file not found. Please authenticate with Google Earth Engine."
+        )
+    return f"An error occurred: {s}"
+
+
+def gee_credentials_path():
+    """Return the default path to the Earth Engine credentials file."""
+    return os.path.expanduser("~/.config/earthengine/credentials")
+
+
+def gee_credentials_exist():
+    """Check if the Earth Engine credentials file exists."""
+    return os.path.isfile(gee_credentials_path())
+
+
+def clear_gee_credentials():
+    """Delete the Earth Engine credentials file if it exists."""
+    path = gee_credentials_path()
+    if os.path.isfile(path):
+        os.remove(path)
+        print(f"Deleted credentials file: {path}")
+    else:
+        print("No credentials file found to delete.")
 
 
 def authenticate_and_initialize(
     print_mode: bool,
     force: bool,
-    auth_args: dict,
-    kwargs: dict,
-    attempt: int = 1,
+    auth_kwargs: dict,
+    init_kwargs: dict,
     max_attempts: int = 2,
-):
+) -> None:
     """
     Handles the authentication and initialization of Google Earth Engine.
 
     Args:
         print_mode (bool): Flag indicating whether to print status messages.
         force (bool): Flag indicating whether to force authentication.
-        auth_args (dict): Dictionary of authentication arguments for ee.Authenticate().
+        auth_kwargs (dict): Dictionary of authentication arguments for ee.Authenticate().
         kwargs (dict): Dictionary of initialization arguments for ee.Initialize().
         attempt (int): Current attempt number for authentication.
         max_attempts (int): Maximum number of authentication attempts.
+
+    Raises:
+        RuntimeError: If authentication or initialization fails after the maximum number of attempts.
+
     """
-    print(
-        f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}"
-    )
     logger.info(
-        f"kwargs {kwargs} force {force} auth_args {auth_args} print_mode {print_mode} attempt {attempt} max_attempts {max_attempts}"
+        "GEE init start | force=%s print_mode=%s max_attempts=%d auth_keys=%s init_keys=%s",
+        force,
+        print_mode,
+        max_attempts,
+        list(auth_kwargs.keys()),
+        list(init_kwargs.keys()),
     )
-    if print_mode:
-        print(
-            f"{'Forcing authentication and ' if force else ''}Initializing Google Earth Engine...\n"
-        )
-    try:
-        if force or not ee.data._credentials:
-            ee.Authenticate(force=force, **auth_args)
-        print(f"kwargs passed to ee.Initialize {kwargs}")
-        ee.Initialize(**kwargs)
-        if print_mode:
-            print("Google Earth Engine initialized successfully.\n")
-    except Exception as e:
-        error_message = str(e)
-        if "Please refresh your Google authentication token" in error_message:
-            print("Please refresh your Google authentication token.\n")
-        elif "Credentials file not found" in error_message:
-            print(
-                "Credentials file not found. Please authenticate with Google Earth Engine:\n"
-            )
-        else:
-            print(f"An error occurred: {error_message}\n")
 
-        # Re-attempt authentication only if attempts are less than max_attempts
-        if attempt < max_attempts:
-            print(
-                f"Re-attempting authentication (Attempt {attempt + 1}/{max_attempts})...\n"
-            )
-            authenticate_and_initialize(
-                print_mode, True, auth_args, kwargs, attempt + 1, max_attempts
-            )  # Force re-authentication on retry
-        else:
-            raise Exception(
-                f"Failed to initialize Google Earth Engine after {attempt} attempts: {error_message}"
-            )
+    for attempt in range(1, max_attempts + 1):
+        try:
+            if print_mode:
+                print(
+                    f"{'Forcing authentication and ' if force else ''}Initializing Google Earth Engine...\n"
+                )
+
+            # note: the do_authenticate function requires user input
+            # check if authentication is needed by looking for the credentials file
+            if needs_authentication(force):
+                do_authenticate(force=True, auth_kwargs=auth_kwargs)
+            # attempt to initialize the Earth Engine after authenticating
+            do_initialize(init_kwargs=init_kwargs)
+            if print_mode:
+                print("Google Earth Engine initialized successfully.\n")
+            return  # success
+
+        except Exception as e:
+            if print_mode:
+                print(describe_error(e) + "\n")
+
+            # Re-attempt authentication only if attempts are less than max_attempts
+            if attempt < max_attempts:
+                if print_mode:
+                    print(
+                        f"Re-attempting authentication (Attempt {attempt + 1}/{max_attempts})...\n"
+                    )
+                logger.warning("GEE init attempt %d failed: %s | retrying", attempt, e)
+                # On retries, always force re-auth
+                force = True
+                continue
+
+            raise RuntimeError(
+                f"Failed to initialize Google Earth Engine after {max_attempts} attempts"
+            ) from e
 
 
-def merge_tide_corrected_with_raw_timeseries(session_path, tide_timeseries):
+def merge_tide_corrected_with_raw_timeseries(
+    session_path: str, tide_timeseries: pd.DataFrame
+) -> pd.DataFrame:
     """
-    Merges tide-corrected timeseries data with raw timeseries data to add columns such as the classifier scores,thresholds
-    and other relevant information to the tide-corrected timeseries data.
+    Merges tide-corrected timeseries data with raw timeseries data to add columns such as classifier scores, thresholds, and other relevant information to the tide-corrected timeseries data.
 
-    If the timeseries passed in is not the tide corrected one then it is returned as is.
+    If the timeseries passed in is not the tide-corrected one, then it is returned as is.
 
-    This function takes a session path and a tide timeseries DataFrame,
-    converts the 'dates' column in the tide timeseries to datetime format,
-    and attempts to find and read a raw timeseries CSV file in the specified
-    session path. It then merges the tide timeseries with the raw timeseries
-    on the 'dates' and 'transect_id' columns, excluding certain columns from
-    the raw timeseries.
-
-    Parameters:
-    session_path (str): The file path to the session directory where the raw
-                        timeseries CSV file is located.
-    tide_timeseries (pd.DataFrame): A DataFrame containing the tide-corrected
-                                    timeseries data with a 'dates' column.
+    Args:
+        session_path (str): The file path to the session directory where the raw timeseries CSV file is located.
+        tide_timeseries (pd.DataFrame): A DataFrame containing the tide-corrected timeseries data with a 'dates' column.
 
     Returns:
-    pd.DataFrame: A DataFrame containing the merged timeseries data. If the
-                    raw timeseries file is not found, returns the original
-                    tide_timeseries DataFrame.
+        pd.DataFrame: A DataFrame containing the merged timeseries data. If the raw timeseries file is not found, returns the original tide_timeseries DataFrame.
     """
     # if the tides dataframe already has the columns from the model scores then we don't need to merge
     model_cols = [
@@ -188,7 +264,7 @@ def merge_tide_corrected_with_raw_timeseries(session_path, tide_timeseries):
         raw_time_series_location = file_utilities.find_file_by_regex(
             session_path, r"^raw_transect_time_series_merged\.csv$"
         )
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         logger.warning(
             f"Could not find raw_transect_time_series_merged.csv in {session_path}"
         )
@@ -213,189 +289,21 @@ def merge_tide_corrected_with_raw_timeseries(session_path, tide_timeseries):
     )
 
 
-def delete_unmatched_rows(
-    data_dict: Dict[str, Union[List[Any], pd.Series]],
-    dates_list: List[Union[str, pd.Timestamp]],
-    sat_list: List[str],
-) -> Dict[str, Union[List[Any], pd.Series]]:
+def merge_dataframes(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    columns_to_merge_on: Collection[str] = {"transect_id", "dates"},
+) -> pd.DataFrame:
     """
-    Delete rows in the data dictionary that do not match any of the specified dates and satellite names.
-
-    This function accepts a dictionary containing at least two keys: 'dates' and 'satname'.
-    It then deletes rows where the date and satellite name do not match any of those provided in
-    the dates_list and sat_list respectively, and returns the updated dictionary.
-
-    Parameters:
-    - data_dict (Dict[str, Union[List[Any], pd.Series]]): The dictionary containing data arrays.
-                                                          Expected keys are 'dates' and 'satname'.
-                                                          If the keys are absent, they will be set with empty lists.
-    - dates_list (List[Union[str, pd.Timestamp]]): A list containing dates to match against.
-    - sat_list (List[str]): A list containing satellite names to match against.
-
-    Returns:
-    - Dict[str, Union[List[Any], pd.Series]]: The updated dictionary where rows that do not match any of the provided lists
-                                              have been deleted. Returns the original dictionary if all rows match or if the data_dict is empty.
-
-    Examples:
-    >>> data = {'dates': ['2021-01-01', '2021-01-02'], 'satname': ['sat1', 'sat2']}
-    >>> delete_unmatched_rows(data, ['2021-01-01'], ['sat1'])
-    {'dates': ['2021-01-01'], 'satname': ['sat1']}
-    """
-    if not data_dict:
-        return data_dict
-    data_dict.setdefault("dates", [])
-    data_dict.setdefault("satname", [])
-    # Convert dictionary to DataFrame
-    df = pd.DataFrame(data_dict)
-
-    # Delete rows that do not match any of the dates or satellite names
-    df = df[df["dates"].isin(dates_list) & df["satname"].isin(sat_list)]
-
-    # Convert DataFrame back to dictionary
-    updated_dict = df.to_dict("list")
-
-    return updated_dict
-
-
-def filter_extract_dict(
-    gdf: gpd.GeoDataFrame,
-    extracted_shorelines_dict: Dict[str, Union[List[np.ndarray], np.ndarray]],
-    output_crs: str,
-) -> Dict[str, Union[List[np.ndarray], np.ndarray]]:
-    """
-    Filters and updates the extracted shorelines dictionary based on the selected indexes from a GeoDataFrame.
+    Merges two DataFrames based on column names provided in columns_to_merge_on (default: "transect_id", "dates").
 
     Args:
-        gdf (GeoDataFrame): The a GeoDataFrame containing  filtered shorelines.
-        - Gdf must have columns 'satname' and 'date' representing the satellite name and date of the shoreline data.
-        extracted_shorelines_dict (dict): The extracted shorelines dictionary to be updated. It contains the following:
-        - The dictionary must contain a key 'shorelines' with a list of NumPy arrays representing the shorelines.
-        - The dictionary must also contain a key 'dates' with a list of dates corresponding to the shorelines.
-        - The dictionary must also contain a key 'satname' with a list of satellite names corresponding to the shorelines.
-        output_crs (str): The output crs to convert the gdf to so its in the same crs as the shoreline arrays in extracted_shorelines_dict.
-    Returns:
-        dict: The updated extracted shorelines dictionary. That has removed any shorelines that are not in the gdf.
-
-    """
-    sats = np.array(gdf.satname)
-    dates = np.array(pd.to_datetime(gdf["date"]).dt.tz_localize("UTC"))
-    selected_indexes = get_selected_indexes(
-        extracted_shorelines_dict, dates_list=dates, sat_list=sats
-    )
-    # convert gdf to the output epsg otherwise output dict will not be in correct crs
-    projected_gdf = gdf.to_crs(output_crs)
-
-    # update the extracted_shorelines_dict with the selected indexes
-    for idx in selected_indexes:
-        extracted_shorelines_dict["shorelines"][idx] = np.array(
-            projected_gdf.iloc[idx].geometry.coords
-        )
-
-    # Check if any shorelines were removed from the gdf that are still in the extracted_shorelines_dict
-    extracted_shorelines_dict = delete_unmatched_rows(
-        extracted_shorelines_dict, dates_list=dates, sat_list=sats
-    )
-    return extracted_shorelines_dict
-
-
-def arr_to_LineString(coords):
-    """
-    Makes a line feature from a list of xy tuples
-    inputs: coords
-    outputs: line
-    """
-    points = [None] * len(coords)
-    i = 0
-    for xy in coords:
-        points[i] = shapely.geometry.Point(xy)
-        i = i + 1
-    line = shapely.geometry.LineString(points)
-    return line
-
-
-def LineString_to_arr(line):
-    """
-    Makes an array from linestring
-    inputs: line
-    outputs: array of xy tuples
-    """
-    listarray = []
-    for pp in line.coords:
-        listarray.append(pp)
-    nparray = np.array(listarray)
-    return nparray
-
-
-def ref_poly_filter(
-    ref_poly_gdf: gpd.GeoDataFrame, raw_shorelines_gdf: gpd.GeoDataFrame
-) -> gpd.GeoDataFrame:
-    """
-    Filters shorelines that are within a reference polygon.
-    filters extracted shorelines that are not contained within a reference region/polygon
-
-    Args:
-        ref_poly_gdf (GeoDataFrame): A GeoDataFrame representing the reference polygon.
-        raw_shorelines_gdf (GeoDataFrame): A GeoDataFrame representing the raw shorelines.
+        df1 (pd.DataFrame): First DataFrame.
+        df2 (pd.DataFrame): Second DataFrame.
+        columns_to_merge_on (Set[str]): Column names to merge on.
 
     Returns:
-        GeoDataFrame: A filtered GeoDataFrame containing shorelines that are within the reference polygon.
-    """
-    if ref_poly_gdf.empty:
-        return raw_shorelines_gdf
-
-    ##First need to get rid of lines that are completely outside of the ref polygon
-    ref_polygon = ref_poly_gdf.geometry
-    buffer_vals = [None] * len(raw_shorelines_gdf)
-    for i in range(len(raw_shorelines_gdf)):
-        line_entry = raw_shorelines_gdf.iloc[i]
-        line = line_entry.geometry
-        # if any of the polygons intersect with the line, then it is within the buffer
-        bool_val = np.any(ref_polygon.intersects(line).values)
-        buffer_vals[i] = bool_val
-    # add whether the line is within the buffer to the GeoDataFrame
-    raw_shorelines_gdf["buffer_vals"] = buffer_vals
-    # filter out lines that are not within the buffer
-    shorelines_gdf_filter = raw_shorelines_gdf[raw_shorelines_gdf["buffer_vals"]]
-
-    ##Now get rid of points that lie outside ref polygon but preserve the rest of the shoreline
-    new_lines = [None] * len(shorelines_gdf_filter)
-    for i in range(len(shorelines_gdf_filter)):
-        line_entry = shorelines_gdf_filter.iloc[i]
-        line = line_entry.geometry
-        line_arr = LineString_to_arr(line)
-        bool_vals = [None] * len(line_arr)
-        j = 0
-        for point in line_arr:
-            point = geometry.Point(point)
-            contains_series = ref_polygon.contains(point)
-            # if the point is within any of the polygons, then it is within the buffer
-            bool_val = contains_series.any()
-            bool_vals[j] = bool_val
-            j = j + 1
-        new_line_arr = line_arr[bool_vals]
-        new_line_LineString = arr_to_LineString(new_line_arr)
-        new_lines[i] = new_line_LineString
-
-    ##Assign the new geometries, save the output
-    shorelines_gdf_filter["geometry"] = new_lines
-    shorelines_gdf_filter = shorelines_gdf_filter.drop(
-        columns=["buffer_vals"], errors="ignore"
-    )
-
-    return shorelines_gdf_filter
-
-
-def merge_dataframes(df1, df2, columns_to_merge_on=set(["transect_id", "dates"])):
-    """
-    Merges two DataFrames based on column names provided in columns_to_merge_on by default
-    merges on "transect_id", "dates".
-
-    Args:
-    - df1 (DataFrame): First DataFrame.
-    - df2 (DataFrame): Second DataFrame.
-    - columns_to_merge_on(collection): column names to merge on
-    Returns:
-    - DataFrame: Merged data.
+        pd.DataFrame: Merged DataFrame with duplicates dropped.
     """
     merged_df = pd.merge(df1, df2, on=list(columns_to_merge_on), how="inner")
     return merged_df.drop_duplicates(ignore_index=True)
@@ -418,14 +326,15 @@ def update_config(config_json: dict, roi_settings: dict) -> dict:
     return config_json
 
 
-def update_downloaded_configs(roi_settings: dict, roi_ids: list = None):
+def update_downloaded_configs(
+    roi_settings: Dict[str, Any], roi_ids: Optional[List[str]] = None
+) -> None:
     """
     Update the downloaded configuration files for the specified ROI(s).
+
     Args:
-        roi_settings (dict, optional): Dictionary containing the ROI settings. Defaults to None.
-            ROI settings should contain the ROI IDs as the keys and a dictionary of settings as the values.
-            Each ROI ID should have the following keys: "dates", "sitename", "polygon", "roi_id", "sat_list", "landsat_collection", "filepath"
-        roi_ids (list, optional): List of ROI IDs to update. Defaults to None.
+        roi_settings (Dict[str, Any]): Dictionary containing the ROI settings. ROI settings should contain the ROI IDs as the keys and a dictionary of settings as the values. Each ROI ID should have the following keys: "dates", "sitename", "polygon", "roi_id", "sat_list", "landsat_collection", "filepath"
+        roi_ids (Optional[List[str]]): List of ROI IDs to update. Defaults to None.
     """
     if not isinstance(roi_settings, dict):
         raise ValueError("Invalid roi_settings provided.")
@@ -464,19 +373,18 @@ def update_downloaded_configs(roi_settings: dict, roi_ids: list = None):
 
 
 def extract_roi_settings(
-    json_data: dict, fields_of_interest: set = set(), roi_ids: list = None
+    json_data: dict, fields_of_interest: set = set(), roi_ids: Optional[list] = None
 ) -> dict:
     """
     Extracts the settings for regions of interest (ROI) from the given JSON data.
-    Overwrites the filepath attribute for each ROI with the data_path provided.
+
     Args:
         json_data (dict): The JSON data containing ROI information.
-        data_path (str): The path to the data directory.
-        fields_of_interest (set, optional): A set of fields to include in the ROI settings.
-            Defaults to an empty set.
+        fields_of_interest (set, optional): A set of fields to include in the ROI settings. Defaults to an empty set.
+        roi_ids (list, optional): List of ROI IDs to extract. Defaults to None.
+
     Returns:
-        dict: A dictionary containing the ROI settings, where the keys are ROI IDs and
-            the values are dictionaries containing the fields of interest for each ROI.
+        dict: A dictionary containing the ROI settings, where the keys are ROI IDs and the values are dictionaries containing the fields of interest for each ROI.
     """
     if not fields_of_interest:
         fields_of_interest = {
@@ -498,18 +406,23 @@ def extract_roi_settings(
     return roi_settings
 
 
-def update_roi_settings(roi_settings, key, value, add_if_missing=False):
+def update_roi_settings(
+    roi_settings: Dict[str, Dict[str, Any]],
+    key: str,
+    value: Any,
+    add_if_missing: bool = False,
+) -> Dict[str, Dict[str, Any]]:
     """
     Updates a specific key in all ROI settings dictionaries. Optionally adds the key if it's missing.
 
     Args:
-        roi_settings (dict): Dictionary of ROI settings (dict of dicts).
+        roi_settings (Dict[str, Dict[str, Any]]): Dictionary of ROI settings (dict of dicts).
         key (str): The key to update in each ROI's settings.
         value (Any): The value to assign to the key.
         add_if_missing (bool): If True, adds the key even if it doesn't exist. Default is False.
 
     Returns:
-        dict: The updated ROI settings dictionary.
+        Dict[str, Dict[str, Any]]: The updated ROI settings dictionary.
     """
     for settings in roi_settings.values():
         if add_if_missing or key in settings:
@@ -517,16 +430,16 @@ def update_roi_settings(roi_settings, key, value, add_if_missing=False):
     return roi_settings
 
 
-def process_roi_settings(json_data, data_path) -> dict:
+def process_roi_settings(json_data: Dict[str, Any], data_path: str) -> Dict[str, Any]:
     """
     Process the ROI settings from the given JSON data and update the filepath to be the data_path.
 
     Args:
-        json_data (dict): The JSON data containing ROI settings.
+        json_data (Dict[str, Any]): The JSON data containing ROI settings.
         data_path (str): The path to the data directory.
 
     Returns:
-        dict: A dictionary mapping ROI IDs to their extracted settings with updated filepath.
+        Dict[str, Any]: A dictionary mapping ROI IDs to their extracted settings with updated filepath.
     """
     roi_ids = json_data.get("roi_ids", [])
     roi_settings = extract_roi_settings(json_data, roi_ids=roi_ids)
@@ -534,16 +447,18 @@ def process_roi_settings(json_data, data_path) -> dict:
     return roi_settings
 
 
-def get_missing_roi_dirs(roi_settings: dict, roi_ids: list = None) -> dict:
+def get_missing_roi_dirs(
+    roi_settings: Dict[str, Any], roi_ids: Optional[List[str]] = None
+) -> Dict[str, str]:
     """
     Get the missing ROI directories based on the provided ROI settings and data path.
 
     Args:
-        roi_settings (dict): A dictionary containing ROI settings.
-        roi_ids (list, optional): A list of ROI IDs to check. If not provided, all ROIs in roi_settings are checked. Defaults to None.
+        roi_settings (Dict[str, Any]): A dictionary containing ROI settings.
+        roi_ids (Optional[List[str]]): A list of ROI IDs to check. If not provided, all ROIs in roi_settings are checked. Defaults to None.
 
     Returns:
-        dict: A dictionary containing the missing ROI directories, where the key is the ROI ID and the value is the sitename.
+        Dict[str, str]: A dictionary containing the missing ROI directories, where the key is the ROI ID and the value is the sitename.
     """
     missing_directories = {}
     if roi_settings == {}:
@@ -569,21 +484,43 @@ def create_new_config(roi_ids: list, settings: dict, roi_settings: dict) -> dict
     """
     Creates a new configuration dictionary by combining the given settings and ROI settings.
 
-    Arguments:
-    -----------
-    roi_ids: list
-        A list of ROI IDs to include in the new configuration.
-    settings: dict
-        A dictionary containing general settings for the configuration.
-    roi_settings: dict
-        A dictionary containing ROI-specific settings for the configuration.
-        example:
-        {'example_roi_id': {'dates':[]}
+    Args:
+        roi_ids (list): A list of ROI IDs to include in the new configuration.
+        settings (dict): A dictionary containing general settings for the configuration.
+        roi_settings (dict): A dictionary containing ROI-specific settings for the configuration.
+            Example:
+                {'example_roi_id': {'dates':[]}}
 
     Returns:
-    -----------
-    new_config: dict
-        A dictionary containing the combined settings and ROI settings, as well as the ROI IDs.
+        dict: A dictionary containing the combined settings, ROI IDs, and ROI-specific configurations.
+
+    Example:
+        >>> roi_settings = {
+        ...     'roi1': {
+        ...         'dates': ['2021-01-01', '2021-12-31'],
+        ...         'sitename': 'SiteA',
+        ...         'polygon': [[...]],
+        ...         'roi_id': 'roi1',
+        ...         'sat_list': ['L8', 'S2'],
+        ...         'landsat_collection': 'LC08'
+        ...     }
+        ... }
+        >>> settings = {'cloud_thresh': 20, 'min_beach_area': 500}
+        >>> roi_ids = ['roi1']
+        >>> new_config = create_new_config(roi_ids, settings, roi_settings)
+        >>> print(new_config)
+        {
+            'settings': {'cloud_thresh': 20, 'min_beach_area': 500},
+            'roi_ids': ['roi1'],
+            'roi1': {
+                'dates': ['2021-01-01', '2021-12-31'],
+                'sitename': 'SiteA',
+                'polygon': [[...]],
+                'roi_id': 'roi1',
+                'sat_list': ['L8', 'S2'],
+                'landsat_collection': 'LC08'
+            }
+        }
     """
     new_config = {
         "settings": {},
@@ -605,9 +542,12 @@ def update_transect_time_series(
     """
     Updates a series of CSV files by removing rows based on certain dates.
 
-    :param filepaths: A list of file paths to the CSV files.
-    :param dates_list: A list of datetime objects representing the dates to be filtered out.
-    :return: None
+    Args:
+        filepaths (List[str]): A list of file paths to the CSV files.
+        dates_list (List[datetime]): A list of datetime objects representing the dates to be filtered out.
+
+    Returns:
+        None
     """
     for filepath in filepaths:
         # Read the CSV file into a DataFrame
@@ -627,14 +567,19 @@ def extract_dates_and_sats(
     selected_items: List[str],
 ) -> Tuple[List[datetime], List[str]]:
     """
-    Extract the dates and satellite names from a list of selected items.
+    Parse a list of strings containing satellite names and timestamps, and return separate lists of UTC-aware datetimes and satellite identifiers.
+
+    Each input string must follow the format: "<satellite>_<YYYY-MM-DD HH:MM:SS>"
 
     Args:
-        selected_items: A list of strings, where each string is in the format "satname_dates".
+        selected_items (List[str]): List of strings, where each string encodes a satellite name and a UTC timestamp separated by an underscore. Example: "L8_2021-01-01 00:00:00".
 
     Returns:
-        A tuple of two lists: the first list contains datetime objects corresponding to the dates in the selected items,
-        and the second list contains the satellite names in the selected items.
+        Tuple[List[datetime], List[str]]: Tuple containing a list of UTC datetime objects and a list of satellite identifiers.
+
+    Example:
+        >>> extract_dates_and_sats(["L8_2021-01-01 00:00:00", "S2_2021-02-01 00:00:00"])
+        ([datetime.datetime(2021, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), datetime.datetime(2021, 2, 1, 0, 0, tzinfo=datetime.timezone.utc)], ["L8", "S2"])
     """
     dates_list = []
     sat_list = []
@@ -654,13 +599,13 @@ def transform_data_to_nested_arrays(
     Convert a dictionary of data to a new dictionary with nested NumPy arrays.
 
     Args:
-        data_dict: A dictionary of data, where each value is either a list of integers, floats, or NumPy arrays, or a NumPy array.
+        data_dict (dict): A dictionary of data, where each value is either a list of integers, floats, or NumPy arrays, or a NumPy array.
 
     Returns:
-        A new dictionary with the same keys as `data_dict`, where each value is a NumPy array or a nested NumPy array.
+        dict: A new dictionary with the same keys as data_dict, where each value is a NumPy array or a nested NumPy array.
 
     Raises:
-        TypeError: If `data_dict` is not a dictionary, or if any value in `data_dict` is not a list or NumPy array.
+        TypeError: If data_dict is not a dictionary, or if any value in data_dict is not a list or NumPy array.
     """
     transformed_dict = {}
     for key, items in data_dict.items():
@@ -674,15 +619,17 @@ def transform_data_to_nested_arrays(
     return transformed_dict
 
 
-def process_data_input(data):
+def process_data_input(
+    data: Union[Dict[str, Any], str],
+) -> Optional[Dict[str, np.ndarray]]:
     """
     Process the data input and transform it to nested arrays.
 
-    Parameters:
-    data (dict or str): The data input to process. If data is a string, it is assumed to be the full path to the JSON file.
+    Args:
+        data (Union[Dict[str, Any], str]): The data input to process. If data is a string, it is assumed to be the full path to the JSON file.
 
     Returns:
-    dict: The processed data as nested arrays.
+        Optional[Dict[str, np.ndarray]]: The processed data as nested arrays, or None if file not found.
     """
     # Determine if data is a dictionary or a file path
     if isinstance(data, dict):
@@ -702,20 +649,17 @@ def process_data_input(data):
 
 
 def update_extracted_shorelines_dict_transects_dict(
-    session_path, filename, dates_list, sat_list
-):
+    session_path: str, filename: str, dates_list: List[datetime], sat_list: List[str]
+) -> None:
     """
     Updates the extracted shorelines and transects dictionaries by removing selected indexes.
-    This function reads data from a JSON file, processes it into nested arrays, and removes
-    selected indexes based on the provided dates and satellite lists. It also updates the
-    transects dictionary if the corresponding file exists.
+    Reads data from a JSON file, processes it into nested arrays, and removes selected indexes based on the provided dates and satellite lists. Also updates the transects dictionary if the corresponding file exists.
+
     Args:
         session_path (str): The path to the session directory.
         filename (str): The name of the JSON file containing the extracted shorelines data.
-        dates_list (list): A list of dates to filter the extracted shorelines data.
-        sat_list (list): A list of satellite identifiers to filter the extracted shorelines data.
-    Returns:
-        None
+        dates_list (List[datetime]): A list of dates to filter the extracted shorelines data.
+        sat_list (List[str]): A list of satellite identifiers to filter the extracted shorelines data.
     """
     json_file = os.path.join(session_path, filename)
     if os.path.exists(json_file) and os.path.isfile(json_file):
@@ -726,7 +670,9 @@ def update_extracted_shorelines_dict_transects_dict(
         if extracted_shorelines_dict is not None:
             # Get the indexes of the selected items in the extracted_shorelines_dict
             selected_indexes = get_selected_indexes(
-                extracted_shorelines_dict, dates_list, sat_list
+                extracted_shorelines_dict,
+                dates_list,
+                sat_list,  # type: ignore
             )
             # attempt to delete the selected indexes from the "transect_cross_distances.json"
             transect_cross_distances_path = os.path.join(
@@ -758,16 +704,18 @@ def update_extracted_shorelines_dict_transects_dict(
             file_utilities.to_file(extracted_shorelines_dict, json_file)
 
 
-def delete_selected_indexes(input_dict, selected_indexes):
+def delete_selected_indexes(
+    input_dict: Dict[str, Any], selected_indexes: List[int]
+) -> Dict[str, Any]:
     """
-    Delete the selected indexes from the transects_dict.
+    Delete the selected indexes from the input dictionary.
 
-    Parameters:
-    input_dict (dict): The transects dictionary to modify.
-    selected_indexes (list): The indexes to delete.
+    Args:
+        input_dict (Dict[str, Any]): The dictionary to modify.
+        selected_indexes (List[int]): The indexes to delete.
 
     Returns:
-    dict: The modified transects dictionary.
+        Dict[str, Any]: The modified dictionary with selected indexes removed.
     """
     if not selected_indexes:
         return input_dict
@@ -781,23 +729,21 @@ def delete_selected_indexes(input_dict, selected_indexes):
             for index, array_element in enumerate(input_dict[key]):
                 nested_array[index] = array_element
             input_dict[key] = nested_array
-            print(f"len(input_dict[key]): {len(input_dict[key])}")
-            print(f"input_dict[key]: {input_dict[key]}")
+            logger.info(f"input_dict[key] {key} has length({len(input_dict[key])})")
             # now delete the selected indexes
             input_dict[key] = np.delete(input_dict[key], selected_indexes)
             # then transform back to into a list
-            if was_list == True:
+            if was_list:
                 input_dict[key] = input_dict[key].tolist()
         else:
-            print(f"len(input_dict[key]): {len(input_dict[key])}")
-            print(f"input_dict[key]: {input_dict[key]}")
+            logger.info(f"input_dict[key] {key} has length({len(input_dict[key])})")
             input_dict[key] = np.delete(input_dict[key], selected_indexes)
     return input_dict
 
 
 def load_settings(
     filepath: str = "",
-    keys: set = {
+    keys: Iterable[str] = {
         "months_list",
         "model_session_path",
         "apply_cloud_mask",
@@ -831,36 +777,17 @@ def load_settings(
         "prc_multiple",
     },
     new_settings: dict = {},
-):
+) -> dict:
     """
     Loads settings from a JSON file and applies them to the object.
+
     Args:
         filepath (str, optional): The filepath to the JSON file containing the settings. Defaults to an empty string.
-        keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded. Defaults to a set with the following
-                                                    "sat_list",
-                                                    "dates",
-                                                    "download_cloud_thresh"
-                                                    "min_roi_coverage"
-                                                    "cloud_thresh",
-                                                    "cloud_mask_issue",
-                                                    "min_beach_area",
-                                                    "min_length_sl",
-                                                    "output_epsg",
-                                                    "sand_color",
-                                                    "pan_off",
-                                                    "max_dist_ref",
-                                                    "dist_clouds",
-                                                    "percent_no_data",
-                                                    "max_std",
-                                                    "min_points",
-                                                    "along_dist",
-                                                    "max_range",
-                                                    "min_chainage",
-                                                    "multiple_inter",
-                                                    "prc_multiple".
-        new_settings(dict, optional): A dictionary containing new settings to apply to the object. Defaults to an empty dictionary.
+        keys (list or set, optional): A list of keys specifying which settings to load from the JSON file. If empty, no settings are loaded.
+        new_settings (dict, optional): A dictionary containing new settings to apply to the object. Defaults to an empty dictionary.
+
     Returns:
-        None
+        dict: The filtered and combined settings dictionary.
     """
     # Convert keys to a list if a set is passed
     if isinstance(keys, set):
@@ -921,15 +848,12 @@ def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
     """
     Remove rows from a GeoDataFrame that match ALL the columns and items specified in the keyword arguments.
 
-    Each of the keyword argument should be a column name in the GeoDataFrame with the values
-    to filter in the given column.
-
-    Parameters:
-    gdf (GeoDataFrame): The input GeoDataFrame.
-    **kwargs: Keyword arguments representing column names and items to match.
+    Args:
+        gdf (gpd.GeoDataFrame): The input GeoDataFrame.
+        **kwargs: Keyword arguments representing column names and items to match.
 
     Returns:
-    GeoDataFrame: The modified GeoDataFrame with matching rows removed.
+        gpd.GeoDataFrame: The modified GeoDataFrame with matching rows removed.
     """
 
     # Initialize a mask with all True values
@@ -961,32 +885,25 @@ def remove_matching_rows(gdf: gpd.GeoDataFrame, **kwargs) -> gpd.GeoDataFrame:
 
 
 def get_selected_indexes(
-    data_dict: Dict[str, Union[List[Any], pd.Series]],
-    dates_list: List[Union[str, pd.Timestamp]],
-    sat_list: List[str],
+    data_dict: Dict[Hashable, Union[Sequence[Any], pd.Series]],
+    dates_list: Iterable[Union[str, pd.Timestamp]],
+    sat_list: Iterable[Union[str, pd.Timestamp]],
 ) -> List[int]:
     """
     Retrieve indexes of rows in a dictionary that match specified dates and satellite names.
 
-    This function accepts a dictionary containing at least two keys: 'dates' and 'satname'.
-    It then returns a list of indexes where the dates and satellite names match those provided in
-    the dates_list and sat_list respectively.
-
-    Parameters:
-    - data_dict (Dict[str, Union[List[Any], pd.Series]]): The dictionary containing data arrays.
-                                                          Expected keys are 'dates' and 'satname'.
-                                                          If the keys are absent, they will be set with empty lists.
-    - dates_list (List[Union[str, pd.Timestamp]]): A list containing dates to match against.
-    - sat_list (List[str]): A list containing satellite names to match against.
+    Args:
+        data_dict (Dict[str, Union[List[Any], pd.Series]]): The dictionary containing data arrays. Expected keys are 'dates' and 'satname'.
+        dates_list (List[Union[str, pd.Timestamp]]): A list containing dates to match against.
+        sat_list (List[str]): A list containing satellite names to match against.
 
     Returns:
-    - List[int]: A list of integer indexes where the 'dates' and 'satname' in the data_dict
-                 match the provided lists. Returns an empty list if no matches are found or if the data_dict is empty.
+        List[int]: A list of integer indexes where the 'dates' and 'satname' in the data_dict match the provided lists. Returns an empty list if no matches are found or if the data_dict is empty.
 
-    Examples:
-    >>> data = {'dates': ['2021-01-01', '2021-01-02'], 'satname': ['sat1', 'sat2']}
-    >>> get_selected_indexes(data, ['2021-01-01'], ['sat1'])
-    [0]
+    Example:
+        >>> data = {'dates': ['2021-01-01', '2021-01-02'], 'satname': ['sat1', 'sat2']}
+        >>> get_selected_indexes(data, ['2021-01-01'], ['sat1'])
+        [0]
     """
     if not data_dict:
         return []
@@ -1010,14 +927,20 @@ def get_selected_indexes(
     return selected_indexes
 
 
-def save_new_config(path: str, roi_ids: list, destination: str) -> dict:
-    """Save a new config file to a path.
+def save_new_config(
+    path: str, roi_ids: Union[List[str], str, None], destination: str
+) -> None:
+    """
+    Save a new config file to a path.
 
     Args:
-        path (str): the path to read the original config file from
-        roi_ids (list): a list of roi_ids to include in the new config file
-        destination (str):the path to save the new config file to
+        path (str): The path to read the original config file from.
+        roi_ids (Union[List[str], str, None]): The ROI IDs to include in the new config file.
+        destination (str): The path to save the new config file to.
     """
+    if not roi_ids:
+        raise ValueError(f"No roi_ids provided cannot create new config file at {path}")
+
     with open(path) as f:
         config = json.load(f)
 
@@ -1034,7 +957,7 @@ def save_new_config(path: str, roi_ids: list, destination: str) -> dict:
         json.dump(new_config, f)
 
 
-def filter_images_by_roi(roi_settings: list[dict]):
+def filter_images_by_roi(roi_settings: Dict[str, Any]) -> None:
     """
     Filters images in specified locations based on their Regions of Interest (ROI).
 
@@ -1046,26 +969,16 @@ def filter_images_by_roi(roi_settings: list[dict]):
     This function assumes the ROI coordinates are in EPSG:4326.
 
     Args:
-        roi_settings (list[dict]): A list of dictionaries, each containing the settings
-                                   for a Region of Interest (ROI). Each dictionary must
-                                   have the following structure:
-                                   {
-                                     'roi_id': <int>,
-                                     'sitename': <str>,
-                                     'filepath': <str>,  # Base filepath for the ROI
-                                     'polygon': <list>,  # List of coordinates representing the ROI polygon (in EPSG:4326)
-                                   }
-
-    Returns:
-        None: This function doesn't return anything.
+        roi_settings (Dict[str, Any]): A dictionary containing the settings for a Region of Interest (ROI). Each dictionary must have the following structure:
+            {
+                'roi_id': <int>,
+                'sitename': <str>,
+                'filepath': <str>,  # Base filepath for the ROI
+                'polygon': <list>,  # List of coordinates representing the ROI polygon (in EPSG:4326)
+            }
 
     Raises:
-        KeyError: If a required key ('sitename', 'filepath', 'polygon') is missing
-                  in any of the dictionaries in roi_settings.
-
-    Logs:
-        A warning if the location specified by 'filepath' and 'sitename', or the 'ROI_jpg_location'
-        does not exist, specifying the nonexistent location.
+        KeyError: If a required key ('sitename', 'filepath', 'polygon') is missing in any of the dictionaries in roi_settings.
 
     Example:
         >>> roi_settings = [
@@ -1107,7 +1020,7 @@ def delete_jpg_files(
 
     Args:
         dates_list (List[datetime]): A list of datetime objects representing the dates.
-        sat_list (list): A list of satellite names.
+        sat_list (List[str]): A list of satellite names.
         jpg_path (str): The path to the directory containing the JPEG files.
 
     Returns:
@@ -1207,8 +1120,16 @@ def get_roi_area(gdf: gpd.GeoDataFrame) -> float:
     return projected_gdf.area.iloc[0] / 1e6
 
 
-def get_satellite_name(filename: str):
-    """Returns the satellite name in the jpg name. Does not work tiffs"""
+def get_satellite_name(filename: str) -> Optional[str]:
+    """
+    Returns the satellite name in the jpg filename. Does not work with tiffs.
+
+    Args:
+        filename (str): The filename to extract the satellite name from.
+
+    Returns:
+        Optional[str]: The satellite name if found, None otherwise.
+    """
     try:
         return filename.split("_")[2].split(".")[0]
     except IndexError:
@@ -1218,7 +1139,7 @@ def get_satellite_name(filename: str):
 
 def filter_images(
     min_area: float, max_area: float, directory: str, output_directory: str = ""
-) -> list:
+) -> List[str]:
     """
     Filters images in a given directory based on a range of acceptable areas and moves the filtered out
     images to a specified output directory.
@@ -1231,13 +1152,12 @@ def filter_images(
         min_area (float): The minimum acceptable area in square kilometers.
         max_area (float): The maximum acceptable area in square kilometers.
         directory (str): The path to the directory containing the images to be filtered.
-        output_directory (str, optional): The path to the directory where the bad images will be moved.
+        output_directory (str): The path to the directory where the bad images will be moved.
                                          If not provided, a new directory named 'bad' will be created
                                          inside the given directory.
 
     Returns:
-        None: This function doesn't return anything; it moves the filtered out images to the specified
-              output directory.
+        List[str]: List of bad files that were moved.
 
     Raises:
         FileNotFoundError: If the specified directory doesn't exist or doesn't contain any .jpg files.
@@ -1290,7 +1210,7 @@ def filter_images(
     return bad_files  # Optionally return the list of bad files
 
 
-def calculate_image_area(filepath: str, pixel_size: int) -> float:#
+def calculate_image_area(filepath: str, pixel_size: int) -> float:  #
     """
     Calculate the area of an image in square kilometers.
 
@@ -1310,20 +1230,21 @@ def calculate_image_area(filepath: str, pixel_size: int) -> float:#
 
 def validate_geometry_types(
     gdf: gpd.GeoDataFrame,
-    valid_types: set,
+    valid_types: Set[str],
     feature_type: str = "Feature",
-    help_message: str = None,
+    help_message: Optional[str] = None,
 ) -> None:
     """
     Check if all geometries in a GeoDataFrame are of the given valid types.
 
     Args:
         gdf (gpd.GeoDataFrame): The GeoDataFrame containing the geometries to check.
-        valid_types (set): A set of valid geometry types.
-        feature_type (str): The name of the feature
+        valid_types (Set[str]): A set of valid geometry types.
+        feature_type (str): The name of the feature.
+        help_message (Optional[str]): Additional help message for errors.
 
     Raises:
-        ValueError: If any geometry in the GeoDataFrame is not of a type in valid_types.
+        InvalidGeometryType: If any geometry in the GeoDataFrame is not of a type in valid_types.
     """
     # if the geodataframe is empty or does not contain a geometry column, return
     if not hasattr(gdf, "geometry"):
@@ -1361,11 +1282,11 @@ def get_roi_polygon(
     """Extract the polygonal geometry for a given ROI ID."""
     geoseries = roi_gdf[roi_gdf["id"] == roi_id]["geometry"]
     if not geoseries.empty:
-        return [[[x, y] for x, y in list(geoseries.iloc[0].exterior.coords)]]
+        return [[x, y] for x, y in list(geoseries.iloc[0].exterior.coords)]
     return None
 
 
-def get_cert_path_from_config(config_file="certifications.json"):
+def get_cert_path_from_config(config_file: str = "certifications.json") -> str:
     """
     Get the certification path from the given configuration file.
 
@@ -1402,7 +1323,7 @@ def get_cert_path_from_config(config_file="certifications.json"):
     return ""
 
 
-def get_response(url, stream=True):
+def get_response(url: str, stream: bool = True):
     """
     Get the response from the given URL with or without a certification path.
 
@@ -1433,9 +1354,18 @@ def get_response(url, stream=True):
 
 
 def extract_date_from_filename(filename: str) -> str:
-    """Extracts the first instance date string "YYYY-MM-DD-HH-MM-SS" from a filename.
-    - The date string is expected to be in the format "YYYY-MM-DD-HH-MM-SS".
-    - Example 2024-05-28-22-18-07 would be extracted from "2024-05-28-22-18-07_S2_ID_1_datetime11-04-24__04_30_52_ms.tif"
+    """
+    Extracts the first instance date string "YYYY-MM-DD-HH-MM-SS" from a filename.
+
+    Args:
+        filename (str): The filename to extract the date from.
+
+    Returns:
+        str: The extracted date string in "YYYY-MM-DD-HH-MM-SS" format, or empty string if not found.
+
+    Example:
+        >>> extract_date_from_filename("2024-05-28-22-18-07_S2_ID_1_datetime11-04-24__04_30_52_ms.tif")
+        "2024-05-28-22-18-07"
     """
     pattern = r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}"
     match = re.match(pattern, filename)
@@ -1448,35 +1378,28 @@ def extract_date_from_filename(filename: str) -> str:
 def get_filtered_dates_dict(
     directory: str,
     file_type: str,
-) -> dict:
+) -> Dict[str, Set[str]]:
     """
-    Scans the directory for files with the given file_type and extracts the date from the filename and returns a dictionary with the satellite name as the key and a set of dates as the value.
+    Scans the directory for files with the given file_type and extracts the date from the filename.
 
-
-    Parameters:
-    -----------
-    directory : str
-        The directory where the files are located.
-
-    file_type : str
-        The filetype of the files to be included.
-        Ex. 'jpg'
-
+    Args:
+        directory (str): The directory where the files are located.
+        file_type (str): The filetype of the files to be included (e.g., 'jpg').
 
     Returns:
-    --------
-    dict
-        a dictionary where each key is a satellite name and each value is a set of the dates in the format "YYYY-MM-DD-HH-MM-SS" that represents the time the scene was captured.
+        Dict[str, Set[str]]: A dictionary where each key is a satellite name and each value is a set of dates
+            in the format "YYYY-MM-DD-HH-MM-SS" representing when the scene was captured.
 
     Example:
+        >>> get_filtered_dates_dict("/path/to/files", "jpg")
         {
-        "L5":{'2014-12-19-18-22-40',},
-        "L7":{},
-        "L8":{'2014-12-19-18-22-40',},
-        "L9":{},
-        "S2":{},
-    }
-
+            "L5":{'2014-12-19-18-22-40',},
+            "L7":{},
+            "L8":{'2014-12-19-18-22-40',},
+            "L9":{},
+            "S2":{},
+            "S1":{}
+        }
     """
     satellites = {
         "L5": set(),
@@ -1511,7 +1434,7 @@ def get_filtered_dates_dict(
 
 def filter_metadata_with_dates(
     metadata: dict, directory: str, file_type: str = "jpg"
-) -> dict[str]:
+) -> dict[str, Any]:
     """
     This function filters metadata to include only those files that exist in the given directory.
 
@@ -1627,7 +1550,19 @@ def edit_metadata_by_dates(
     return metadata
 
 
-def create_unique_ids(data, prefix_length: int = 3):
+def create_unique_ids(
+    data: gpd.GeoDataFrame, prefix_length: int = 3
+) -> gpd.GeoDataFrame:
+    """
+    Creates unique IDs for a GeoDataFrame if not all IDs are unique.
+
+    Args:
+        data (gpd.GeoDataFrame): The GeoDataFrame to process.
+        prefix_length (int): Length of the prefix for generated IDs.
+
+    Returns:
+        gpd.GeoDataFrame: The GeoDataFrame with unique IDs.
+    """
     # if not all the ids in data are unique
     if not check_unique_ids(data):
         # generate unique IDs with a matching prefix with the given length
@@ -1637,19 +1572,21 @@ def create_unique_ids(data, prefix_length: int = 3):
 
 
 def extract_feature_from_geodataframe(
-    gdf: gpd.GeoDataFrame, feature_type: Union[int, str], type_column: str = "type"
-) -> gpd.GeoDataFrame:
+    gdf: Union[gpd.GeoDataFrame, pd.DataFrame],
+    feature_type: Union[int, str, Iterable],
+    type_column: str = "type",
+) -> Union[gpd.GeoDataFrame, pd.DataFrame]:
     """
     Extracts a GeoDataFrame of features of a given type and specified columns from a larger GeoDataFrame.
 
     Args:
-        gdf (gpd.GeoDataFrame): The GeoDataFrame containing the features to extract.
-        feature_type Union[int, str]: The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
+        gdf (Union[gpd.GeoDataFrame, pd.DataFrame]): The GeoDataFrame containing the features to extract.
+        feature_type (Union[int, str]): The type of feature to extract. Typically one of the following 'shoreline','rois','transects','bbox'
         Feature_type can also be list of strings such as ['shoreline','shorelines', 'reference shoreline'] to match the same kind of feature with muliple names.
         type_column (str, optional): The name of the column containing feature types. Defaults to 'type'.
 
     Returns:
-        gpd.GeoDataFrame: A new GeoDataFrame containing only the features of the specified type and columns.
+        Union[gpd.GeoDataFrame, pd.DataFrame]: A new GeoDataFrame containing only the features of the specified type and columns.
 
     Raises:
         ValueError: Raised when feature_type or any of the columns specified do not exist in the GeoDataFrame.
@@ -1670,73 +1607,32 @@ def extract_feature_from_geodataframe(
     return feature_gdf
 
 
-def random_prefix(length):
-    """Generate a random string of the given length."""
+def random_prefix(length: int) -> str:
+    """
+    Generates a random prefix string of specified length.
+
+    Args:
+        length (int): The length of the prefix to generate.
+
+    Returns:
+        str: A random prefix string.
+    """
     return "".join(random.choice(string.ascii_lowercase) for _ in range(length))
 
 
-def generate_ids(num_ids, prefix_length):
-    """Generate a list of sequential IDs with a random prefix.
+def generate_ids(num_ids: int, prefix_length: int) -> List[str]:
+    """
+    Generate a list of sequential IDs with a random prefix.
 
     Args:
         num_ids (int): The number of IDs to generate.
         prefix_length (int): The length of the random prefix for the IDs.
 
     Returns:
-        list: A list of IDs.
+        List[str]: A list of IDs.
     """
     prefix = random_prefix(prefix_length)
     return [prefix + str(i) for i in range(1, num_ids + 1)]
-
-
-def export_dataframe_as_geojson(
-    data: pd.DataFrame,
-    output_file_path: str,
-    x_col: str,
-    y_col: str,
-    id_col: str,
-    columns_to_keep: List[str] = None,
-) -> str:
-    """
-    Export specified columns from a CSV file to a GeoJSON format, labeled by a unique identifier.
-
-    Parameters:
-    - data: pd.DataFrame, the input data.
-    - output_file_path: str, path for the output GeoJSON file.
-    - x_col: str, column name for the x coordinates (longitude).
-    - y_col: str, column name for the y coordinates (latitude).
-    - id_col: str, column name for the unique identifier (transect id).
-    - columns_to_keep: List[str], list of columns to keep in the output GeoJSON file. Defaults to None.
-
-    Returns:
-    - str, path for the created GeoJSON file.
-    """
-
-    # Convert to GeoDataFrame
-    gdf = gpd.GeoDataFrame(
-        data,
-        geometry=[Point(xy) for xy in zip(data[x_col], data[y_col])],
-        crs="EPSG:4326",
-    )
-
-    if columns_to_keep:
-        columns_to_keep.append(id_col)
-        columns_to_keep.append("geometry")
-        gdf = gdf[columns_to_keep].copy()
-        if "dates" in gdf.columns:
-            gdf["dates"] = pd.to_datetime(gdf["dates"]).dt.tz_convert(None)
-        if "date" in gdf.columns:
-            gdf["date"] = pd.to_datetime(gdf["date"]).dt.tz_convert(None)
-        gdf = stringify_datetime_columns(gdf)
-    else:
-        # Keep only necessary columns
-        gdf = gdf[[id_col, "geometry"]].copy()
-
-    # Export to GeoJSON
-    gdf.to_file(output_file_path, driver="GeoJSON")
-
-    # Return the path to the output file
-    return output_file_path
 
 
 def create_complete_line_string(points):
@@ -2073,14 +1969,14 @@ def filter_dropped_points_out_of_timeseries(
         dates_to_drop = dropped_points_df.loc[
             dropped_points_df["transect_id"] == t_id, "dates"
         ]
-        timeseries_df.loc[timeseries_df["dates"].isin(dates_to_drop), t_id] = np.nan
+        timeseries_df.loc[timeseries_df["dates"].isin(dates_to_drop), t_id] = np.nan  # type: ignore
     return timeseries_df
 
 
 def add_lat_lon_to_timeseries(
-    merged_timeseries_df,
-    transects_gdf,
-    timeseries_df,
+    merged_timeseries_df: pd.DataFrame,
+    transects_gdf: gpd.GeoDataFrame,
+    timeseries_df: pd.DataFrame,
     save_location: str,
     only_keep_points_on_transects: bool = False,
     extension: str = "",
@@ -2222,7 +2118,9 @@ def create_merged_timeseries_gdf(
 
 
 def save_timeseries_points_as_geojson(
-    merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None
+    merged_timeseries_gdf: gpd.GeoDataFrame,
+    ext: str = "raw",
+    save_location: Optional[str] = None,
 ) -> gpd.GeoDataFrame:
     """
     Save the merged timeseries that includes the shore_x and shore_y columns to a GeoJSON file.
@@ -2265,7 +2163,9 @@ def save_timeseries_points_as_geojson(
 
 
 def save_timeseries_vectors_as_geojson(
-    merged_timeseries_gdf: gpd.GeoDataFrame, ext: str = "raw", save_location: str = None
+    merged_timeseries_gdf: gpd.GeoDataFrame,
+    ext: str = "raw",
+    save_location: Optional[str] = None,
 ) -> gpd.GeoDataFrame:
     """
     Save the time series of along shore points as vectors to a GeoJSON file called '{ext}_transect_time_series_vectors.geojson'.
@@ -2481,7 +2381,7 @@ def filter_points_outside_transects(
 def convert_points_to_linestrings(
     gdf,
     group_col="date",
-    output_crs="epsg:4326",
+    output_crs: Optional[Union[str, int, CRS]] = "epsg:4326",
 ) -> gpd.GeoDataFrame:
     """
     Convert points to LineStrings.
@@ -2577,63 +2477,11 @@ def copy_configs(src: str, dst: str) -> None:
             shutil.copy(config_json_path, dst_file)
 
 
-def create_file_chooser_with_clear(
-    callback,
-    title: str = "Select a file",
-    filter_pattern: str = "",
-    starting_directory: str = "",
-):
-    """
-    This function creates a file chooser with a clear button.
-    It takes a callback function and an optional title as arguments.
-    It only searches for .geojson files, unless a different filter pattern is specified.
-
-    Args:
-        callback (Callable[[FileChooser], None]): A callback function that is called
-        when a file is selected.
-        title (str): Optional title for the file chooser.
-        filter_pattern (str): Optional filter pattern for the file chooser.
-        starting_directory (str): Optional starting directory for the file chooser.
-
-    Returns:
-        chooser (HBox): A HBox containing the file chooser and a clear button.
-    """
-    padding = "0px 0px 0px 5px"  # upper, right, bottom, left
-    initial_path = os.getcwd()
-    if starting_directory:
-        initial_path = os.path.join(initial_path, starting_directory)
-    file_chooser = FileChooser(initial_path)
-
-    file_chooser.dir_icon = os.sep
-    file_chooser.filter_pattern = (
-        ["*.geojson"] if not filter_pattern else [filter_pattern]
-    )
-    file_chooser.title = f"<b>{title or 'Select a geojson file'}</b>"
-
-    # callback function is called when a file is selected
-    file_chooser.register_callback(callback)
-
-    clear_button = Button(
-        description="Clear",
-        tooltip="Clear the selected file",
-        button_style="warning",
-        layout=Layout(height="28px", padding=padding),
-    )
-
-    def clear_selection(b):
-        file_chooser.reset()  # resets the file chooser
-
-    clear_button.on_click(clear_selection)
-
-    chooser = HBox([file_chooser, clear_button], layout=Layout(width="100%"))
-    return chooser, file_chooser
-
-
 def create_file_chooser(
     callback: Callable[[FileChooser], None],
-    title: str = None,
-    filter_pattern: str = None,
-    starting_directory: str = None,
+    title: Optional[str] = None,
+    filter_pattern: Optional[str] = None,
+    starting_directory: Optional[str] = None,
 ):
     """
     This function creates a file chooser and a button to close the file chooser.
@@ -2687,7 +2535,7 @@ def create_file_chooser(
     return chooser
 
 
-def get_most_accurate_epsg(epsg_code: int, polygon: gpd.GeoDataFrame):
+def get_most_accurate_epsg(epsg_code: Union[int, str], polygon: gpd.GeoDataFrame):
     """Returns most accurate epsg code based on lat and lon if epsg code is 4326 or 4327. If not 4326 or 4327 returns unchanged epsg code
     Args:
         epsg_code(int or str): current epsg code
@@ -2707,7 +2555,9 @@ def get_most_accurate_epsg(epsg_code: int, polygon: gpd.GeoDataFrame):
     return epsg_code
 
 
-def create_dir_chooser(callback, title: str = None, starting_directory: str = "data"):
+def create_dir_chooser(
+    callback, title: Optional[str] = None, starting_directory: str = "data"
+):
     """
     Creates a directory chooser widget.
 
@@ -2763,27 +2613,6 @@ def get_transect_settings(settings: dict) -> dict:
     return transect_settings
 
 
-def create_directory_in_google_drive(path: str, name: str) -> str:
-    """
-    Creates a new directory with the provided name in the given path.
-    Raises FileNotFoundError if the given path does not exist.
-
-    Parameters:
-    path (str): path to the directory where the new directory will be created
-    name (str): name of the new directory
-
-    Returns:
-    new_path (str): path to the newly created directory
-    """
-    new_path = os.path.join(path, name)
-    if os.path.exists(path):
-        if not os.path.isdir(new_path):
-            os.mkdir(new_path)
-    else:
-        raise FileNotFoundError(new_path)
-    return new_path
-
-
 def is_in_google_colab() -> bool:
     """
     Returns True if the code is running in Google Colab, False otherwise.
@@ -2794,90 +2623,31 @@ def is_in_google_colab() -> bool:
         return False
 
 
-def get_ids_with_invalid_area(
-    geometry: gpd.GeoDataFrame, max_area: float = 98000000, min_area: float = 0
-) -> set:
+def load_cross_distances_from_file(dir_path: str) -> Optional[dict]:
     """
-    Get the indices of geometries with areas outside the specified range.
-
-    This function checks the areas of each geometry in a given GeoDataFrame. If the area
-    is either greater than `max_area` or less than `min_area`, the index of that geometry
-    is added to the set of invalid geometries.
-
-    Note:
-        - The provided GeoDataFrame is assumed to be in CRS EPSG:4326.
-        - Returned areas are in meters squared.
+    Load transect cross-shore distances from 'transects_cross_distances.json'
+    in the given directory. Converts each list of distances into a NumPy array.
 
     Args:
-        geometry (gpd.GeoDataFrame): The GeoDataFrame containing the geometries to check.
-        max_area (float, optional): The maximum allowable area for a valid geometry. Defaults to 98000000.
-        min_area (float, optional): The minimum allowable area for a valid geometry. Defaults to 0.
+        dir_path (str): Directory path containing the JSON file.
 
     Returns:
-        set: A set of indices corresponding to the geometries with areas outside the specified range.
-
-    Raises:
-        TypeError: If the provided geometry is not a GeoDataFrame.
+        Optional[dict]: Mapping of transect keys to NumPy arrays of distances,
+        or None if the file is missing or cannot be loaded.
     """
-    if isinstance(geometry, gpd.GeoDataFrame):
-        geometry = json.loads(geometry.to_json())
-    if isinstance(geometry, dict):
-        if "features" in geometry.keys():
-            rows_drop = set()
-            for i, feature in enumerate(geometry["features"]):
-                roi_area = get_area(feature["geometry"])
-                if roi_area >= max_area or roi_area <= min_area:
-                    rows_drop.add(i)
-            return rows_drop
-    else:
-        raise TypeError("Must be GeoDataFrame")
-
-
-def load_cross_distances_from_file(dir_path):
-    transect_dict = None
-    glob_str = os.path.join(dir_path, "*transects_cross_distances.json*")
-    for file in glob.glob(glob_str):
-        if os.path.basename(file) == "transects_cross_distances.json":
-            transect_dict = file_utilities.load_data_from_json(file)
-
-    if transect_dict is None:
-        logger.warning(
-            f"No transect cross shore distances could be loaded from {dir_path}"
-        )
+    file_path = Path(dir_path) / "transects_cross_distances.json"
+    if not file_path.is_file():
+        logger.warning(f"No transect cross-shore distances found in {dir_path}")
         return None
 
-    # convert lists to np.array for each transect
-    for key in transect_dict.keys():
-        tmp = np.array(transect_dict[key])
-        transect_dict[key] = tmp
-    logger.info(f"Loaded transect cross shore distances from: {dir_path}")
-    return transect_dict
-
-
-def mount_google_drive(name: str = "CoastSeg") -> None:
-    """
-    If the user is running in Google Colab, the Google Drive will be mounted to the root directory
-    "/content/drive/MyDrive" and a new directory will be created with the provided name.
-
-    Parameters:
-    name (str): The name of the directory to be created. Default is 'CoastSeg'.
-
-    Returns:
-    None
-    """
-    if is_in_google_colab():
-        from google.colab import drive
-
-        # default location google drive is mounted to
-        root_dir = "/content/drive/MyDrive"
-        # mount google drive to default home directory
-        drive.mount("/content/drive", force_remount=True)
-        # create directory with provided name in google drive
-        new_path = create_directory_in_google_drive(root_dir, name)
-        # change working directory to directory with name
-        os.chdir(new_path)
-    else:
-        print("Not running in Google Colab.")
+    try:
+        transect_dict = file_utilities.load_data_from_json(file_path)
+        transect_dict = {k: np.array(v) for k, v in transect_dict.items()}
+        logger.info(f"Loaded transect cross-shore distances from: {dir_path}")
+        return transect_dict
+    except Exception as e:
+        logger.warning(f"Failed to load transect distances from {file_path}: {e}")
+        return None
 
 
 def create_hover_box(
@@ -2898,14 +2668,8 @@ def create_hover_box(
     Returns:
     container (VBox): Box with the given title and details about the feature given by feature_html
     """
-    padding = "0px 0px 4px 0px"  # upper, right, bottom, left
-    # create title
-    # title = HTML(f"<b>{title}</b>")
-    title_html = HTML(
-        f"<b>{title}</b>", layout=Layout(margin="0px 8px")
-    )  # Adjust 10px as needed for left and right margins
-
-    # Default message shown when nothing has been hovered
+    padding = "0px 0px 4px 0px"
+    title_html = HTML(f"<b>{title}</b>", layout=Layout(margin="0px 8px"))
     msg = HTML(f"{default_msg}<br/>")
     # open button allows user to see hover data
     uncollapse_button = ToggleButton(
@@ -2924,27 +2688,16 @@ def create_hover_box(
         button_style="danger",
         layout=Layout(height="28px", width="28px", padding=padding),
     )
-
-    # message tells user that data is available on hover
-    container_content = VBox([msg])
-    if feature_html.value == "":
-        container_content.children = [msg]
-    elif feature_html.value != "":
-        container_content.children = [feature_html]
-
-    # default configuration for container is in collapsed mode
+    container_content = VBox([feature_html] if feature_html.value else [msg])
     container_header = HBox([uncollapse_button, title_html])
     container = VBox([container_header])
 
-    def uncollapse_click(change: dict):
-        if feature_html.value == "":
-            container_content.children = [msg]
-        elif feature_html.value != "":
-            container_content.children = [feature_html]
+    def uncollapse_click(change):
+        container_content.children = [feature_html] if feature_html.value else [msg]
         container_header.children = [close_button, title_html]
         container.children = [container_header, container_content]
 
-    def collapse_click(change: dict):
+    def collapse_click(change):
         container_header.children = [uncollapse_button, title_html]
         container.children = [container_header]
 
@@ -2954,9 +2707,9 @@ def create_hover_box(
 
 
 def create_warning_box(
-    title: str = None,
-    msg: str = None,
-    instructions: str = None,
+    title: Optional[str] = None,
+    msg: Optional[str] = None,
+    instructions: Optional[str] = None,
     msg_width: str = "75%",
     box_width: str = "60%",
 ) -> HBox:
@@ -2972,24 +2725,17 @@ def create_warning_box(
     Returns:
         HBox: The warning box containing the title, message, and close button.
     """
-    # create title
-    if title is None:
-        title = "Warning"
+    title = title or "Warning"
+    msg = msg or "Something went wrong..."
+    instructions = instructions or ""
     warning_title = HTML(f"<h2 style='text-align: center;'>⚠️{title}</h2>")
-    # create msg
-    if msg is None:
-        msg = "Something went wrong..."
-    if instructions is None:
-        instructions = ""
     warning_msg = HTML(
-        f"<div style='max-height: 250px; overflow-x: hidden; overflow-y:  auto; text-align: center;'>"
-        f"<span style='color: red'>⚠️</span>{msg}"
-        f"</div>"
+        f"<div style='max-height: 250px; overflow-x: hidden; overflow-y: auto; text-align: center;'>"
+        f"<span style='color: red'>⚠️</span>{msg}</div>"
     )
     instructions_msg = HTML(
-        f"<div style='max-height: 210px; overflow-x: hidden; overflow-y:  auto; text-align: center;'>"
-        f"<span style='color: red'></span>{instructions}"
-        f"</div>"
+        f"<div style='max-height: 210px; overflow-x: hidden; overflow-y: auto; text-align: center;'>"
+        f"<span style='color: red'></span>{instructions}</div>"
     )
     x_button = ToggleButton(
         value=False,
@@ -2998,7 +2744,6 @@ def create_warning_box(
         button_style="danger",
         layout=Layout(height="28px", width="28px"),
     )
-
     close_button = ToggleButton(
         value=False,
         description="Close",
@@ -3021,10 +2766,8 @@ def create_warning_box(
 
     def close_click(change):
         if change["new"]:
-            warning_content.close()
-            x_button.close()
-            close_button.close()
-            warning_box.close()
+            for widget in [warning_content, x_button, close_button, warning_box]:
+                widget.close()
 
     close_button.observe(close_click, "value")
     x_button.observe(close_click, "value")
@@ -3040,17 +2783,22 @@ def clear_row(row: HBox):
     Args:
         row (HBox)(VBox): row or column
     """
-    for index in range(len(row.children)):
-        row.children[index].close()
+    for child in row.children:
+        child.close()
     row.children = []
 
 
-def download_url(url: str, save_path: str, filename: str = None, chunk_size: int = 128):
-    """Downloads the data from the given url to the save_path location.
+def download_url(
+    url: str, save_path: str, filename: Optional[str] = None, chunk_size: int = 128
+) -> None:
+    """
+    Downloads a file from a URL and saves it to the specified path.
+
     Args:
-        url (str): url to data to download
-        save_path (str): directory to save data
-        chunk_size (int, optional):  Defaults to 128.
+        url (str): The URL to download from.
+        save_path (str): The directory path to save the file.
+        filename (Optional[str]): The filename to save as. If None, extracts from URL.
+        chunk_size (int): The chunk size for downloading in bytes.
     """
     logger.info(f"download url: {url}")
     # get a response from the url
@@ -3091,12 +2839,15 @@ def download_url(url: str, save_path: str, filename: str = None, chunk_size: int
                     pbar.update(len(chunk))
 
 
-def get_center_point(coords: list) -> tuple:
-    """returns the center point of rectangle specified by points coords
+def get_center_point(coords: List[Tuple[float, float]]) -> Tuple[float, float]:
+    """
+    Returns the center point of rectangle specified by points coords.
+
     Args:
-        coords list[tuple(float,float)]: lat,lon coordinates
+        coords (List[Tuple[float, float]]): Lat, lon coordinates.
+
     Returns:
-        tuple[float]: (center x coordinate, center y coordinate)
+        Tuple[float, float]: (center x coordinate, center y coordinate).
     """
     x1, y1 = coords[0][0], coords[0][1]
     x2, y2 = coords[2][0], coords[2][1]
@@ -3140,36 +2891,6 @@ def convert_wgs_to_utm(lon: float, lat: float) -> str:
     return epsg_code
 
 
-def extract_roi_by_id(gdf: gpd.GeoDataFrame, roi_id: int) -> gpd.GeoDataFrame:
-    """Returns GeoDataFrame with a single ROI whose id matches roi_id.
-       If roi_id is None returns gdf
-
-    Args:
-        gdf (gpd.GeoDataFrame): ROI GeoDataFrame to extract ROI with roi_id from
-        roi_id (int): id of the ROI to extract
-    Raises:
-        exceptions.Id_Not_Found: if id doesn't exist in ROI's GeoDataFrame or self.rois.gdf is empty
-    Returns:
-        gpd.GeoDataFrame: ROI with id matching roi_id
-    """
-    if roi_id is None:
-        single_roi = gdf
-    else:
-        # Select a single roi by id
-        single_roi = gdf[gdf["id"].astype(str) == str(roi_id)]
-        # if the id was not found in the GeoDataFrame raise an exception
-    if single_roi.empty:
-        logger.error(f"Id: {id} was not found in {gdf}")
-        raise exceptions.Id_Not_Found(id)
-    logger.info(f"single_roi: {single_roi}")
-    return single_roi
-
-
-def get_area(polygon: dict) -> float:
-    "Calculates the area of the geojson polygon using the same method as geojson.io"
-    return round(area(polygon), 3)
-
-
 def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = None):
     """
     Extracts the specified fields for a specific ROI from a JSON data dictionary.
@@ -3193,7 +2914,9 @@ def extract_roi_data(json_data: dict, roi_id: str, fields_of_interest: list = No
     return roi_data
 
 
-def extract_fields(data: dict, key=None, fields_of_interest: list = None) -> dict:
+def extract_fields(
+    data: dict, key=None, fields_of_interest: Optional[list] = None
+) -> dict:
     """
     Extracts specified fields from a given dictionary.
 
@@ -3238,9 +2961,9 @@ def check_unique_ids(data: gpd.GeoDataFrame) -> bool:
 
 def preprocess_geodataframe(
     data: gpd.GeoDataFrame = gpd.GeoDataFrame(),
-    columns_to_keep: List[str] = None,
+    columns_to_keep: Optional[Iterable[str]] = None,
     create_ids: bool = True,
-    output_crs: str = None,
+    output_crs: Optional[Union[str, int, CRS]] = None,
 ) -> gpd.GeoDataFrame:
     """
     This function preprocesses a GeoDataFrame. It performs several transformations:
@@ -3254,7 +2977,7 @@ def preprocess_geodataframe(
     Args:
         data (gpd.GeoDataFrame, optional): The input GeoDataFrame to be preprocessed.
             Defaults to an empty GeoDataFrame.
-        columns_to_keep (List[str], optional): The list of column names to retain in the preprocessed DataFrame.
+        columns_to_keep (Iterable[str], optional): The list of column names to retain in the preprocessed DataFrame.
             Defaults to None, in which case all columns are kept.
         create_ids (bool, optional): Flag to decide whether to create 'id' column if it doesn't exist.
             Defaults to True.
@@ -3390,42 +3113,6 @@ def remove_z_coordinates(geodf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         return geodf.explode(ignore_index=True)
 
 
-def move_report_files(
-    settings: dict, dest: str, filename_pattern="extract_shorelines*.txt"
-):
-    """
-    Move report files matching a specific pattern from the source directory to the destination.
-
-    :param settings: Dictionary containing 'filepath' and 'sitename'.
-    :param dest: The destination path where the report files will be moved.
-    :param filename_pattern: Pattern of the filenames to search for, defaults to 'extract_shorelines*.txt'.
-    """
-    # Attempt to get the data_path and sitename
-    filepath = settings.get("filepath") or settings.get("inputs", {}).get("filepath")
-    sitename = settings.get("sitename") or settings.get("inputs", {}).get("sitename")
-
-    # Check if data_path and sitename were successfully retrieved
-    if not filepath or not sitename:
-        logger.error("Data path or sitename not found in settings.")
-        return
-
-    # Construct the pattern to match files
-    pattern = os.path.join(filepath, sitename, filename_pattern)
-    matching_files = glob.glob(pattern)
-
-    # Check if there are files to move
-    if not matching_files:
-        logger.warning(f"No files found matching the pattern: {pattern}")
-        return
-
-    # Move the files
-    try:
-        file_utilities.move_files(matching_files, dest, delete_src=True)
-        logger.info(f"Files moved successfully to {dest}")
-    except Exception as e:
-        logger.error(f"Error moving files: {e}")
-
-
 def save_extracted_shoreline_figures(settings: dict, save_path: str):
     """
     Save extracted shoreline figures to the specified save path.
@@ -3453,7 +3140,7 @@ def save_extracted_shoreline_figures(settings: dict, save_path: str):
 
     if os.path.exists(extracted_shoreline_figure_path):
         dst_path = os.path.join(save_path, "jpg_files", "detection")
-        logger.info(f"Moving extracted shoreline figures to : {dst_path }")
+        logger.info(f"Moving extracted shoreline figures to : {dst_path}")
         file_utilities.move_files(
             extracted_shoreline_figure_path, dst_path, delete_src=True
         )
@@ -3543,12 +3230,14 @@ def save_extracted_shorelines(
     )
 
 
-def stringify_datetime_columns(df: pd.DataFrame) -> pd.DataFrame:
+def stringify_datetime_columns(
+    df: Union[pd.DataFrame, gpd.GeoDataFrame],
+) -> Union[pd.DataFrame, gpd.GeoDataFrame]:
     """
     Convert all datetime columns in a DataFrame or GeoDataFrame to string.
 
     Args:
-        df: A pandas DataFrame or GeoPandas GeoDataFrame.
+        df (Union[pd.DataFrame, gpd.GeoDataFrame]): The input DataFrame or GeoDataFrame.
 
     Returns:
         A copy of the input with datetime columns converted to string.
@@ -3585,14 +3274,14 @@ def create_json_config(
             'landsat_collection': 'C01',
             'dates': ['2018-12-01', '2019-03-01'],
             'sitename':'roi_17',
-            'filepath':'C:\\Home'
+            'filepath':'<example_path>'
         }
         '20':{
             'sat_list': ['L8'],
             'landsat_collection': 'C01',
             'dates': ['2018-12-01', '2019-03-01'],
             'sitename':'roi_20',
-            'filepath':'C:\\Home'
+            'filepath':'<example_path>'
         }
     }
 
@@ -3611,27 +3300,23 @@ def create_json_config(
     return config
 
 
-def set_crs_or_initialize_empty(gdf: gpd.GeoDataFrame, epsg_code: str):
-    """Set the CRS for the given GeoDataFrame or initialize an empty one."""
-    # Check if the GeoDataFrame is empty
-    if gdf is None:
-        # Initialize an empty GeoDataFrame with the new CRS
-        return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    elif gdf.empty:
-        # Initialize an empty GeoDataFrame with the new CRS
-        return gpd.GeoDataFrame(geometry=[], crs=epsg_code)
-    else:
-        # Transform the CRS of the non-empty GeoDataFrame
-        return gdf.to_crs(epsg_code)
+def set_crs_or_initialize_empty(
+    gdf: gpd.GeoDataFrame, epsg_code: str
+) -> gpd.GeoDataFrame:
+    return (
+        gpd.GeoDataFrame(geometry=[], crs=epsg_code)
+        if gdf is None or gdf.empty
+        else gdf.to_crs(epsg_code)
+    )
 
 
 def create_config_gdf(
     rois_gdf: gpd.GeoDataFrame,
-    shorelines_gdf: gpd.GeoDataFrame = None,
-    transects_gdf: gpd.GeoDataFrame = None,
-    bbox_gdf: gpd.GeoDataFrame = None,
-    epsg_code: int = None,
-    shoreline_extraction_area_gdf: gpd.GeoDataFrame = None,
+    shorelines_gdf: Optional[gpd.GeoDataFrame] = None,
+    transects_gdf: Optional[gpd.GeoDataFrame] = None,
+    bbox_gdf: Optional[gpd.GeoDataFrame] = None,
+    epsg_code: Optional[int] = None,
+    shoreline_extraction_area_gdf: Optional[gpd.GeoDataFrame] = None,
 ) -> gpd.GeoDataFrame:
     """
     Create a concatenated GeoDataFrame from provided GeoDataFrames with a consistent CRS.
@@ -3686,55 +3371,20 @@ def create_config_gdf(
     return config_gdf
 
 
-def get_jpgs_from_data() -> str:
-    """Returns the folder where all jpgs were copied from the data folder in coastseg.
-    This is where the model will save the computed segmentations."""
-    # Data folder location
-    base_path = os.path.abspath(core_utilities.get_base_dir())
-    src_path = os.path.join(base_path, "data")
-    if os.path.exists(src_path):
-        rename_jpgs(src_path)
-        # Create a new folder to hold all the data
-        location = base_path
-        name = "segmentation_data"
-        # new folder "segmentation_data_datetime"
-        new_folder = file_utilities.mk_new_dir(name, location)
-        # create subdirectories for each image type
-        file_types = ["RGB", "SWIR", "NIR"]
-        for file_type in file_types:
-            new_path = os.path.join(new_folder, file_type)
-            if not os.path.exists(new_path):
-                os.mkdir(new_path)
-            glob_str = (
-                src_path
-                + str(os.sep + "**" + os.sep) * 2
-                + "preprocessed"
-                + os.sep
-                + file_type
-                + os.sep
-                + "*.jpg"
-            )
-            file_utilities.copy_files_to_dst(src_path, new_path, glob_str)
-            RGB_path = os.path.join(new_folder, "RGB")
-        return RGB_path
-    else:
-        print("ERROR: Cannot find the data directory in coastseg")
-        raise Exception("ERROR: Cannot find the data directory in coastseg")
-
-
 def save_config_files(
     save_location: str = "",
     roi_ids: list[str] = [],
     roi_settings: dict = {},
     shoreline_settings: dict = {},
-    transects_gdf=None,
-    shorelines_gdf=None,
-    shoreline_extraction_area_gdf=None,
-    roi_gdf=None,
-    epsg_code="epsg:4326",
+    transects_gdf: Optional[gpd.GeoDataFrame] = None,
+    shorelines_gdf: Optional[gpd.GeoDataFrame] = None,
+    shoreline_extraction_area_gdf: Optional[gpd.GeoDataFrame] = None,
+    roi_gdf: Optional[gpd.GeoDataFrame] = None,
+    epsg_code: str = "epsg:4326",
 ):
     """
-    Save configuration files.
+    Save configuration files. The config.json file and the config GeoDataFrame
+    containing the ROIs, reference shoreline, and transects are saved to the specified location.
 
     Args:
         save_location (str): The directory where the configuration files will be saved.
@@ -3753,9 +3403,8 @@ def save_config_files(
     config_json = create_json_config(roi_settings, shoreline_settings, roi_ids=roi_ids)
     file_utilities.config_to_file(config_json, save_location)
     # save a config GeoDataFrame with the rois, reference shoreline and transects
-    if roi_gdf is not None:
-        if not roi_gdf.empty:
-            epsg_code = roi_gdf.crs
+    if roi_gdf is not None and not roi_gdf.empty:
+        epsg_code = roi_gdf.crs
     config_gdf = create_config_gdf(
         rois_gdf=roi_gdf,
         shorelines_gdf=shorelines_gdf,
@@ -3771,7 +3420,6 @@ def rename_jpgs(src_path: str) -> None:
     Args:
         src_path (str): full path to the data directory in coastseg
     """
-    files_renamed = False
     for folder in os.listdir(src_path):
         folder_path = src_path + os.sep + folder
         # Split the folder name at the first _
@@ -3781,7 +3429,6 @@ def rename_jpgs(src_path: str) -> None:
         # Append folder id to basename of jpg if not already there
         for jpg in jpgs:
             if folder_id not in jpg:
-                files_renamed = True
                 base, ext = os.path.splitext(jpg)
                 new_name = folder_path + os.sep + base + "_" + folder_id + ext
                 old_name = folder_path + os.sep + jpg
@@ -3857,7 +3504,7 @@ def were_rois_downloaded(roi_settings: dict, roi_ids: list) -> bool:
     # print correct message depending on whether ROIs were downloaded
     if is_downloaded:
         logger.info("Located previously downloaded ROI data.")
-    elif is_downloaded == False:
+    elif not is_downloaded:
         print(
             "Did not locate previously downloaded ROI data. To download the imagery for your ROIs click Download Imagery"
         )
@@ -3965,7 +3612,7 @@ def create_roi_settings(
             "sentinel_1_properties": {
                 "transmitterReceiverPolarisation": ["VH"],
                 "instrumentMode": "IW",
-            },  # @todo these are hardcoded for now because only the logic for handling the VH polarisation is implemented
+            },  # default sentinel 1 properties
         }
         roi_settings[roi_id] = inputs_dict
     return roi_settings
@@ -3995,11 +3642,21 @@ def scale(matrix: np.ndarray, rows: int, cols: int) -> np.ndarray:
     return np.array(tmp).reshape((rows, cols))
 
 
-def rescale_array(dat, mn, mx):
+def rescale_array(dat: np.ndarray, mn: float, mx: float) -> np.ndarray:
     """
-    rescales an input dat between mn and mx
-    Code from doodleverse_utils by Daniel Buscombe
-    source: https://github.com/Doodleverse/doodleverse_utils
+    Rescales an input array between mn and mx.
+
+    Args:
+        dat (np.ndarray): Input array to rescale.
+        mn (float): Minimum value for rescaling.
+        mx (float): Maximum value for rescaling.
+
+    Returns:
+        np.ndarray: Rescaled array.
+
+    Note:
+        Code from doodleverse_utils by Daniel Buscombe
+        Source: https://github.com/Doodleverse/doodleverse_utils
     """
     m = min(dat.flatten())
     M = max(dat.flatten())

@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List
+from typing import List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ class Session:
     A class representing a session, which contains sets of classes, years, and ROI IDs.
     """
 
-    def __init__(self, name: str = None, path: str = None):
+    def __init__(self, name: Optional[str] = None, path: Optional[str] = None):
         """
         Initializes a new Session object.
 
@@ -36,7 +36,7 @@ class Session:
         }
         return session_data
 
-    def get_roi_info(self, roi_id: str = None):
+    def get_roi_info(self, roi_id: Optional[str] = None):
         if roi_id:
             return self.roi_info.get(roi_id, "")
         return self.roi_info

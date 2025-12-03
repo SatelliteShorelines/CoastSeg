@@ -1,35 +1,41 @@
 # This file is meant to hold fixtures that can be used for testing
 # These fixtures set up data that can be used as inputs for the tests, so that no code is repeated
-import os
 import io
 import json
-import pytest
+import os
 import tempfile
-from PIL import Image
 from shutil import rmtree
-import geopandas as gpd
-from shapely.geometry import shape
-from shapely.geometry import Point
-from coastseg import roi
-from coastseg import coastseg_map
-from ipyleaflet import GeoJSON
 from tempfile import TemporaryDirectory
+
+import geopandas as gpd
+import nest_asyncio
+import pytest
+from ipyleaflet import GeoJSON
+from PIL import Image
+from shapely.geometry import Point
+
+from coastseg import coastseg_map, roi
+
+# Apply nest_asyncio to handle nested event loops in test environment
+# This fixes ipyleaflet async deprecation warnings
+nest_asyncio.apply()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
+
 # create a custom context manager to create a temporary directory & clean it up after use
 class NamedTemporaryDirectory:
-    def __init__(self, name,base_path=None):
+    def __init__(self, name, base_path=None):
         if base_path is None:
             base_path = tempfile.gettempdir()
         self.name = name
         self.path = os.path.join(base_path, name)
         os.makedirs(self.path, exist_ok=True)
         print(f"Created temporary directory: {self.path}")
-    
+
     def __enter__(self):
         return self.path
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         for root, dirs, files in os.walk(self.path, topdown=False):
             for name in files:
@@ -37,7 +43,8 @@ class NamedTemporaryDirectory:
             for name in dirs:
                 os.rmdir(os.path.join(root, name))
         os.rmdir(self.path)
-        
+
+
 @pytest.fixture
 def named_temp_dir(request):
     # Retrieve the parameter from the request (this would be the name of the temporary directory)
@@ -52,10 +59,28 @@ def named_temp_dir(request):
 def box_no_shorelines_transects():
     geojson = {
         "type": "FeatureCollection",
-        "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+        "crs": {
+            "type": "name",
+            "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"},
+        },
         "features": [
-            { "type": "Feature", "properties": { }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -82.823127, 44.023466 ], [ -82.823127, 44.041917 ], [ -82.802875, 44.041917 ], [ -82.802875, 44.023466 ], [ -82.823127, 44.023466 ] ] ] } }
-        ]
+            {
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-82.823127, 44.023466],
+                            [-82.823127, 44.041917],
+                            [-82.802875, 44.041917],
+                            [-82.802875, 44.023466],
+                            [-82.823127, 44.023466],
+                        ]
+                    ],
+                },
+            }
+        ],
     }
 
     # Convert the GeoJSON into a string
@@ -64,6 +89,7 @@ def box_no_shorelines_transects():
     geojson_file = io.StringIO(geojson_str)
     # Read the GeoJSON file into a GeoDataFrame
     return gpd.read_file(geojson_file)
+
 
 @pytest.fixture(scope="session")
 def config_json_no_sitename_dir():
@@ -132,6 +158,7 @@ def config_json_no_sitename_dir():
     # Cleanup - delete the file after tests are done
     os.remove(tmpfile_path)
 
+
 @pytest.fixture()
 def config_json_temp_file():
     # create a temporary directory that will represent the /data folder
@@ -185,11 +212,11 @@ def config_json_temp_file():
             },
         }
 
-        sitename = config_data[roi_id]['sitename']
+        sitename = config_data[roi_id]["sitename"]
         subdir_path = os.path.join(temp_dir, sitename)
         os.makedirs(subdir_path)
         temp_file_path = os.path.join(subdir_path, "config.json")
-        with open(temp_file_path, 'w') as temp_file:
+        with open(temp_file_path, "w") as temp_file:
             json.dump(config_data, temp_file)
         # # Create a temporary file
         # with tempfile.NamedTemporaryFile(
@@ -199,10 +226,11 @@ def config_json_temp_file():
         #     tmpfile_path = tmpfile.name  # Save the filepath
 
         # Yield the filepath to the test
-        yield temp_file_path, temp_dir,config_data
+        yield temp_file_path, temp_dir, config_data
 
         # Cleanup - delete the file after tests are done
         os.remove(temp_file_path)
+
 
 @pytest.fixture(scope="session")
 def config_json():
@@ -273,11 +301,11 @@ def config_json():
     # Cleanup - delete the file after tests are done
     os.remove(tmpfile_path)
 
+
 @pytest.fixture()
 def config_json_multiple_roi_temp_file():
     # create a temporary directory that will represent the /data folder
     with tempfile.TemporaryDirectory() as temp_dir:
-
         # The dictionary you want to write to the JSON file
         config_data = {
             "zih2": {
@@ -314,7 +342,7 @@ def config_json_multiple_roi_temp_file():
                 "sitename": "ID_zih1_datetime11-15-23__09_56_01",
                 "filepath": str(temp_dir),
             },
-            "roi_ids": ["zih2","zih1"],
+            "roi_ids": ["zih2", "zih1"],
             "settings": {
                 "landsat_collection": "C02",
                 "dates": ["2018-12-01", "2019-03-01"],
@@ -344,8 +372,8 @@ def config_json_multiple_roi_temp_file():
         }
 
         # create subdiretory for each ROI
-        for roi_id in config_data['roi_ids']:
-            sitename = config_data[roi_id]['sitename']
+        for roi_id in config_data["roi_ids"]:
+            sitename = config_data[roi_id]["sitename"]
             subdir_path = os.path.join(temp_dir, sitename)
             # Create the subdirectory
             os.makedirs(subdir_path)
@@ -353,11 +381,10 @@ def config_json_multiple_roi_temp_file():
             # Create a temporary file
             temp_file_path = os.path.join(subdir_path, "config.json")
 
-            with open(temp_file_path, 'w') as temp_file:
+            with open(temp_file_path, "w") as temp_file:
                 json.dump(config_data, temp_file)
         # Yield the filepath to the test
-        yield  temp_dir,config_data
-
+        yield temp_dir, config_data
 
 
 @pytest.fixture()
@@ -400,7 +427,7 @@ def config_json_multiple_shared_roi_temp_file():
                 "sitename": "ID_zih1_datetime11-15-23__09_56_01",
                 "filepath": "fake/path",
             },
-            "roi_ids": ["zih2","zih1"],
+            "roi_ids": ["zih2", "zih1"],
             "settings": {
                 "landsat_collection": "C02",
                 "dates": ["2018-12-01", "2019-03-01"],
@@ -430,20 +457,20 @@ def config_json_multiple_shared_roi_temp_file():
         }
 
         # create subdiretory for each ROI
-        for roi_id in config_data['roi_ids']:
-            sitename = config_data[roi_id]['sitename']
+        for roi_id in config_data["roi_ids"]:
+            sitename = config_data[roi_id]["sitename"]
             subdir_path = os.path.join(temp_dir, sitename)
             # Create the subdirectory
             os.makedirs(subdir_path)
-                    
+
             # Create a temporary file
             temp_file_path = os.path.join(subdir_path, "config.json")
-            
-            with open(temp_file_path, 'w') as temp_file:
+
+            with open(temp_file_path, "w") as temp_file:
                 json.dump(config_data, temp_file)
 
         # Yield the filepath to the test
-        yield  temp_dir,config_data
+        yield temp_dir, config_data
 
 
 @pytest.fixture
@@ -574,9 +601,12 @@ def config_gdf_missing_rois_path(geojson_directory):
 @pytest.fixture(scope="session")
 def empty_geojson_path(geojson_directory):
     """Create an empty geojson file and return its path."""
-    gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
     file_path = os.path.join(geojson_directory, "empty.geojson")
-    gdf.to_file(file_path, driver="GeoJSON")
+    empty_fc = {"type": "FeatureCollection", "features": []}
+
+    with open(file_path, "w") as f:
+        json.dump(empty_fc, f)
+
     return file_path
 
 
@@ -1091,51 +1121,52 @@ def valid_bbox_gdf() -> gpd.GeoDataFrame:
 
 
 @pytest.fixture
-def valid_ROI(transect_compatible_roi) -> gpd.GeoDataFrame:
+def valid_ROI(transect_compatible_roi) -> roi.ROI:
     """returns a valid instance of ROI current espg code : 4326 ROIs with ids:[17,30,35]"""
     return roi.ROI(rois_gdf=transect_compatible_roi)
 
 
 @pytest.fixture
 def valid_ROI_with_settings(valid_ROI):
-    
-    roi_settings = {"13": {
-        "polygon": [
-        [
-            [-117.4684719510983, 33.265263693689256],
-            [-117.46868751642162, 33.30560084719839],
-            [-117.42064919876344, 33.30577275029851],
-            [-117.42045572621824, 33.26543533468434],
-            [-117.4684719510983, 33.265263693689256]
-        ]
-        ],
-        "sitename": "ID_13_datetime06-05-23__04_16_45",
-        "landsat_collection": "C02",
-        "roi_id": "13",
-        "sat_list": ["L8", "L9"],
-        "filepath": r"C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-        "dates": ["2018-12-01", "2023-03-01"]
-    },
-    "12": {
-        "polygon": [
-        [
-            [-117.4682568148693, 33.224926276845096],
-            [-117.4684719510983, 33.265263693689256],
-            [-117.42045572621824, 33.26543533468434],
-            [-117.42026263879279, 33.22509765597134],
-            [-117.4682568148693, 33.224926276845096]
-        ]
-        ],
-        "sitename": "ID_12_datetime06-05-23__04_16_45",
-        "landsat_collection": "C02",
-        "roi_id": "12",
-        "sat_list": ["L8", "L9"],
-        "filepath": r"C:\\development\\doodleverse\\coastseg\\CoastSeg\\data",
-        "dates": ["2018-12-01", "2023-03-01"]
-    },
+    roi_settings = {
+        "13": {
+            "polygon": [
+                [
+                    [-117.4684719510983, 33.265263693689256],
+                    [-117.46868751642162, 33.30560084719839],
+                    [-117.42064919876344, 33.30577275029851],
+                    [-117.42045572621824, 33.26543533468434],
+                    [-117.4684719510983, 33.265263693689256],
+                ]
+            ],
+            "sitename": "ID_13_datetime06-05-23__04_16_45",
+            "landsat_collection": "C02",
+            "roi_id": "13",
+            "sat_list": ["L8", "L9"],
+            "filepath": r"C:\\CoastSeg\\data",
+            "dates": ["2018-12-01", "2023-03-01"],
+        },
+        "12": {
+            "polygon": [
+                [
+                    [-117.4682568148693, 33.224926276845096],
+                    [-117.4684719510983, 33.265263693689256],
+                    [-117.42045572621824, 33.26543533468434],
+                    [-117.42026263879279, 33.22509765597134],
+                    [-117.4682568148693, 33.224926276845096],
+                ]
+            ],
+            "sitename": "ID_12_datetime06-05-23__04_16_45",
+            "landsat_collection": "C02",
+            "roi_id": "12",
+            "sat_list": ["L8", "L9"],
+            "filepath": r"C:\\CoastSeg\\data",
+            "dates": ["2018-12-01", "2023-03-01"],
+        },
     }
     valid_ROI.roi_settings = roi_settings
     return valid_ROI
+
 
 @pytest.fixture
 def valid_single_roi_settings() -> dict:
@@ -1347,3 +1378,166 @@ def valid_config_json() -> dict:
             "landsat_collection": "C01",
         },
     }
+
+
+# ============================================================================
+# Shared fixtures for geometry testing across multiple test modules
+# ============================================================================
+
+
+@pytest.fixture
+def multi_polygon_gdf():
+    "Create a GeoDataFrame with multiple polygons for testing."
+    from shapely.geometry import Polygon
+
+    polygon1 = Polygon(
+        [(-122.5, 37.5), (-122.4, 37.5), (-122.4, 37.6), (-122.5, 37.6), (-122.5, 37.5)]
+    )
+    polygon2 = Polygon(
+        [(-122.3, 37.7), (-122.2, 37.7), (-122.2, 37.8), (-122.3, 37.8), (-122.3, 37.7)]
+    )
+    return gpd.GeoDataFrame({"geometry": [polygon1, polygon2]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def linestring_gdf():
+    "Create a GeoDataFrame with LineString geometry (invalid for polygon-only features)."
+    from shapely.geometry import LineString
+
+    line = LineString([(-122.5, 37.5), (-122.4, 37.6)])
+    return gpd.GeoDataFrame({"geometry": [line]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def different_crs_polygon_gdf():
+    "Create a polygon GeoDataFrame with Web Mercator CRS for CRS conversion testing."
+    from shapely.geometry import Polygon
+
+    # Coordinates in Web Mercator (EPSG:3857)
+    polygon = Polygon(
+        [
+            (-13655000, 4540000),
+            (-13645000, 4540000),
+            (-13645000, 4550000),
+            (-13655000, 4550000),
+            (-13655000, 4540000),
+        ]
+    )
+    return gpd.GeoDataFrame({"geometry": [polygon]}, crs="EPSG:3857")
+
+
+@pytest.fixture
+def sample_polygon_geojson():
+    "Sample GeoJSON dictionary for testing style_layer methods."
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-122.5, 37.5],
+                            [-122.4, 37.5],
+                            [-122.4, 37.6],
+                            [-122.5, 37.6],
+                            [-122.5, 37.5],
+                        ]
+                    ],
+                },
+                "properties": {},
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def large_polygon_gdf():
+    """Create a large polygon GeoDataFrame for testing size validation errors."""
+    from shapely.geometry import Polygon
+
+    # Large polygon that should trigger size validation errors
+    large_polygon = Polygon(
+        [
+            (-122.66944064253451, 36.96768728778939),
+            (-122.66944064253451, 34.10377172691159),
+            (-117.75040020737816, 34.10377172691159),
+            (-117.75040020737816, 36.96768728778939),
+            (-122.66944064253451, 36.96768728778939),
+        ]
+    )
+    return gpd.GeoDataFrame({"geometry": [large_polygon]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def standard_polygon_gdf():
+    """Create a standard-sized polygon GeoDataFrame for testing."""
+    from shapely.geometry import Polygon
+
+    # Standard polygon used across multiple tests
+    polygon = Polygon(
+        [
+            (-121.12083854611063, 35.56544740627308),
+            (-121.12083854611063, 35.53742390816822),
+            (-121.08749373817861, 35.53742390816822),
+            (-121.08749373817861, 35.56544740627308),
+            (-121.12083854611063, 35.56544740627308),
+        ]
+    )
+    return gpd.GeoDataFrame({"geometry": [polygon]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def invalid_linestring_for_polygon_gdf():
+    """Create a LineString GeoDataFrame for testing invalid geometry in polygon contexts."""
+    from shapely.geometry import LineString
+
+    line = LineString(
+        [
+            (-120.83849150866949, 35.43786191889319),
+            (-120.93431712689429, 35.40749430666743),
+        ]
+    )
+    return gpd.GeoDataFrame({"geometry": [line]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def simple_linestring_gdf():
+    """Create a simple LineString GeoDataFrame for testing."""
+    from shapely.geometry import LineString
+
+    line = LineString([(0, 0), (1, 1)])
+    return gpd.GeoDataFrame({"geometry": [line]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def overlapping_polygons_gdf():
+    """Create overlapping polygons GeoDataFrame for intersection testing."""
+    from shapely.geometry import Polygon
+
+    polygon1 = Polygon([(0, 0), (2, 0), (2, 2), (0, 2)])
+    polygon2 = Polygon([(1, 1), (3, 1), (3, 3), (1, 3)])
+
+    return gpd.GeoDataFrame({"geometry": [polygon1, polygon2]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def non_overlapping_polygons_gdf():
+    """Create non-overlapping polygons GeoDataFrame for testing."""
+    from shapely.geometry import Polygon
+
+    polygon1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    polygon2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
+
+    return gpd.GeoDataFrame({"geometry": [polygon1, polygon2]}, crs="EPSG:4326")
+
+
+@pytest.fixture
+def triangle_polygon_gdf():
+    """Simple triangle polygon for basic geometric testing."""
+    from shapely.geometry import Polygon
+
+    return gpd.GeoDataFrame(
+        geometry=[Polygon([(0, 0), (1, 1), (1, 0)])], crs="EPSG:4326"
+    )

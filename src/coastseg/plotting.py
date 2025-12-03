@@ -1,37 +1,43 @@
 # Standard library imports
 import colorsys
-import os
 import logging
-from typing import Any, Dict, Optional, Tuple, List
+import os
 from collections import ChainMap
+from typing import Any, Dict, List, Optional, Tuple
 
-# External dependencies imports
-from matplotlib import gridspec
 import matplotlib.lines as mlines
-from matplotlib import colors as mcolors
-from matplotlib.axes import Axes
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
 # coastsat imports
 from coastsat import SDS_preprocess, SDS_tools
+from matplotlib import colors as mcolors
+
+# External dependencies imports
+from matplotlib import gridspec
+from matplotlib.axes import Axes
 
 # Logger setup
 logger = logging.getLogger(__name__)
 
 
-def determine_layout(im_shape):
+def determine_layout(
+    im_shape: Tuple[int, ...],
+) -> Tuple[
+    gridspec.GridSpec,
+    Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]],
+    Dict[str, Any],
+]:
     """
-    Determines the appropriate subplot layout based on image aspect ratio. By default, it uses a horizontal layout.
+    Determines subplot layout based on image aspect ratio.
 
     Args:
-        im_shape (tuple): Shape of the image (height, width[, channels])
+        im_shape (Tuple[int, ...]): Image shape (height, width[, channels]).
 
     Returns:
-        gs (GridSpec): GridSpec layout
-        ax_indices (tuple): ((ax1_idx), (ax2_idx), (ax3_idx)) as grid positions
-        legend_settings (dict): Dict with bbox_to_anchor and loc for legends
+        Tuple[gridspec.GridSpec, Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]], Dict[str, Any]]:
+            GridSpec layout, axis indices, and legend settings.
     """
     height, width = im_shape[:2]
     if height > 2.5 * width:  # This means the image is vertical
@@ -47,58 +53,35 @@ def determine_layout(im_shape):
 
 
 def plot_shared_panels(
-    ax1,
-    ax2,
-    ax3,
-    im_orig,
-    im_merged,
-    im_all,
-    sl_pix,
-    im_ref_buffer,
-    shoreline_extraction_area,
-    titles,
-    class_mapping,
+    ax1: Axes,
+    ax2: Axes,
+    ax3: Axes,
+    im_orig: np.ndarray,
+    im_merged: np.ndarray,
+    im_all: np.ndarray,
+    sl_pix: np.ndarray,
+    im_ref_buffer: Optional[np.ndarray],
+    shoreline_extraction_area: List[np.ndarray],
+    titles: List[str],
+    class_mapping: Dict[int, str],
     legend_settings: Optional[Dict[str, Any]] = None,
-):
+) -> None:
     """
-    Plots a set of three panels for visualizing shoreline extraction results.
+    Plots three panels for visualizing shoreline extraction results.
 
-    Parameters:
-    -----------
-    ax1, ax2, ax3 : matplotlib.axes.Axes
-        Axes objects where the original image, merged classes, and all classes will be plotted respectively.
-
-    im_orig : np.ndarray
-        The original input image (e.g., satellite image) to be displayed in the first panel.
-
-    im_merged : np.ndarray
-        The image showing merged classes (e.g., binary classification of water and land), displayed in the second panel.
-
-    im_all : np.ndarray
-        The image showing all classification results (multi-class), displayed in the third panel.
-
-    sl_pix : np.ndarray
-        Pixel coordinates of the extracted shoreline to be plotted on all panels (shape: [N, 2]).
-
-    im_ref_buffer : np.ndarray or None
-        Boolean mask indicating reference shoreline buffer to be overlaid on the second and third panels. If None, no buffer is shown.
-
-    shoreline_extraction_area : List[np.ndarray]
-        List of arrays representing different shoreline extraction areas, each array of shape [M, 2].
-
-    titles : List[str]
-        Titles for the three panels in the order: [original image, merged classes, all classes].
-
-    class_mapping : Dict[int, str]
-        Dictionary mapping class indices to human-readable class names. Used in the legend for the third panel.
-
-    legend_settings : Optional[Dict[str, Any]], default=None
-        Additional settings to customize the legend (e.g., location, font size).
-
-    Returns:
-    --------
-    None
-        The function modifies the input axes in-place with the respective plots.
+    Args:
+        ax1 (Axes): Axes for original image panel.
+        ax2 (Axes): Axes for merged classes panel.
+        ax3 (Axes): Axes for all classes panel.
+        im_orig (np.ndarray): Original input image.
+        im_merged (np.ndarray): Image showing merged classes.
+        im_all (np.ndarray): Image showing all classification results.
+        sl_pix (np.ndarray): Pixel coordinates of extracted shoreline.
+        im_ref_buffer (Optional[np.ndarray]): Reference shoreline buffer mask.
+        shoreline_extraction_area (List[np.ndarray]): Shoreline extraction areas.
+        titles (List[str]): Panel titles.
+        class_mapping (Dict[int, str]): Mapping of class indices to names.
+        legend_settings (Optional[Dict[str, Any]], optional): Legend customization settings.
     """
     # the First plot the original image
     ax1.imshow(np.nan_to_num(im_orig))
@@ -117,7 +100,7 @@ def plot_shared_panels(
     ax2.imshow(im_merged)  # plot the land and water classes
     # plot the reference shoreline buffer on top of the merged classes
     if im_ref_buffer is not None:
-        mask = np.ma.masked_where(im_ref_buffer == False, im_ref_buffer)
+        mask = np.ma.masked_where(~im_ref_buffer, im_ref_buffer)
         ax2.imshow(mask, cmap="PiYG", alpha=0.40)
     ax2.plot(sl_pix[:, 0], sl_pix[:, 1], "k.", markersize=1)
     for idx in range(len(shoreline_extraction_area)):
@@ -143,7 +126,7 @@ def plot_shared_panels(
     ax3.imshow(im_all)
     # plot the reference shoreline buffer
     if im_ref_buffer is not None:
-        mask = np.ma.masked_where(im_ref_buffer == False, im_ref_buffer)
+        mask = np.ma.masked_where(~im_ref_buffer, im_ref_buffer)
         ax3.imshow(mask, cmap="PiYG", alpha=0.30)
     ax3.plot(sl_pix[:, 0], sl_pix[:, 1], "k.", markersize=1)
     for idx in range(len(shoreline_extraction_area)):
@@ -179,28 +162,23 @@ def plot_optical_detection(
     output_path: str,
     shoreline_extraction_area: List[np.ndarray],
     titles: Optional[List[str]] = None,
-):
+) -> None:
     """
-    Plots optical shoreline detection including RGB composite, classified output,
-    NDWI index, cloud mask, and reference buffer.
+    Plots optical shoreline detection with RGB composite, classified output, and cloud mask.
 
     Args:
         im_ms (np.ndarray): Multispectral image array (HxWxBands).
-        all_labels (np.ndarray): 2D array of all class labels as integers.Eg [[0, 1, 2, 3],[0,2,2,3]]
-        merged_labels (np.ndarray): 2D array of 0 and 1 where 1 indicates water and 0 indicates land/other
-        cloud_mask (np.ndarray): Boolean array indicating cloud-covered pixels.
-        sl_pix (np.ndarray): Nx2 array of detected shoreline pixel coordinates.
-        class_mapping (Dict[int, str): Mapping of class values to the class name.
-            example: {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
+        all_labels (np.ndarray): 2D array of all class labels.
+        merged_labels (np.ndarray): 2D array where 1 indicates water, 0 indicates land.
+        cloud_mask (np.ndarray): Boolean array indicating cloud pixels.
+        sl_pix (np.ndarray): Detected shoreline pixel coordinates.
+        class_mapping (Dict[int, Tuple[float, float, float]]): Mapping of class values to names.
         date (str): Acquisition date string.
-            example: '20231001' for October 1, 2023.
-        satname (str): Name of the satellite (for display and filename).
-            example:"L8" for Landsat 8.
-        im_ref_buffer (Optional[np.ndarray]): Boolean mask for reference shoreline buffer.
-        output_path (str): Directory to save the output image.
-        shoreline_extraction_area (list[np.ndarry]): The shoreline extraction area in pixel coordinates.
-        sitename (str): Name of the site (for display in title).
-
+        satname (str): Satellite name.
+        im_ref_buffer (Optional[np.ndarray]): Reference shoreline buffer mask.
+        output_path (str): Directory to save output image.
+        shoreline_extraction_area (List[np.ndarray]): Shoreline extraction area coordinates.
+        titles (Optional[List[str]], optional): Panel titles.
     """
     if not titles or len(titles) != 3:
         titles = ["Original Image", "Merged Classes", "All Classes"]
@@ -250,19 +228,18 @@ def mask_clouds_in_images(
     im_merged: np.ndarray,
     im_all: np.ndarray,
     cloud_mask: np.ndarray,
-):
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Applies a cloud mask to three input images (im_RGB, im_merged & im_all) by setting the
-    cloudy portions to a value of 1.0.
+    Applies cloud mask to three images by setting cloudy pixels to 1.0.
 
     Args:
-        im_RGB (np.ndarray[float]): An RGB image, with shape (height, width, 3).
-        im_merged (np.ndarray[float]): A merged image, with the same shape as im_RGB.
-        im_all (np.ndarray[float]): An 'all' image, with the same shape as im_RGB.
-        cloud_mask (np.ndarray[bool]): A boolean cloud mask, with shape (height, width).
+        im_RGB (np.ndarray): RGB image with shape (height, width, 3).
+        im_merged (np.ndarray): Merged image with same shape as im_RGB.
+        im_all (np.ndarray): All classes image with same shape as im_RGB.
+        cloud_mask (np.ndarray): Boolean cloud mask with shape (height, width).
 
     Returns:
-        tuple: A tuple containing the masked im_RGB, im_merged and im_all images.
+        Tuple[np.ndarray, np.ndarray, np.ndarray]: Masked RGB, merged, and all images.
     """
     nan_color_float = 1.0
     new_cloud_mask = np.repeat(cloud_mask[:, :, np.newaxis], im_RGB.shape[2], axis=2)
@@ -274,28 +251,31 @@ def mask_clouds_in_images(
     return im_RGB, im_merged, im_all
 
 
-def _normalize_grayscale(im):
+def _normalize_grayscale(im: np.ndarray) -> np.ndarray:
     """
-    Normalizes a grayscale image array to the range [0, 1] using percentile-based contrast stretching.
+    Normalizes grayscale image to [0, 1] using percentile-based contrast stretching.
 
-    This function replaces NaN values in the input image with 0.0, then computes the 2nd and 98th percentiles
-    to determine the lower and upper bounds for normalization. The image is then scaled so that values below
-    the 2nd percentile become 0, values above the 98th percentile become 1, and all other values are linearly
-    scaled between 0 and 1.
-
-    Parameters:
-        im (np.ndarray): Input grayscale image as a NumPy array.
+    Args:
+        im (np.ndarray): Input grayscale image.
 
     Returns:
-        np.ndarray: Normalized image array with values in the range [0, 1].
+        np.ndarray: Normalized image with values in range [0, 1].
     """
     im = np.nan_to_num(im, nan=0.0)
     im_min, im_max = np.percentile(im, [2, 98])
     return np.clip((im - im_min) / (im_max - im_min), 0, 1)
 
 
-def _convert_color(color: Tuple):
-    """Convert hex or int RGB to normalized RGB."""
+def _convert_color(color: Tuple) -> Tuple[float, float, float]:
+    """
+    Convert hex or int RGB to normalized RGB.
+
+    Args:
+        color (Tuple): Color as hex string or RGB tuple.
+
+    Returns:
+        Tuple[float, float, float]: Normalized RGB values [0, 1].
+    """
     if isinstance(color, str):
         return mcolors.to_rgb(color)
     return np.array(color) / 255
@@ -304,22 +284,19 @@ def _convert_color(color: Tuple):
 def add_legend(
     ax: Axes,
     include_extraction_area: bool,
-    class_mapping: dict,
-    color_mapping: dict,
+    class_mapping: Dict[int, str],
+    color_mapping: Dict[int, Tuple[float, float, float]],
     legend_settings: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
-    Adds a legend to the provided Axes object for optical shoreline classification.
+    Adds a legend to the axes for optical shoreline classification.
 
-    ax (matplotlib.axes.Axes): The axis to which the legend will be added.
-    include_extraction_area (bool): Whether to include the shoreline extraction area in the legend.
-    class_mapping (dict): A dictionary mapping class indices to class names.
-    color_mapping (dict, optional): A dictionary mapping class indices to colors. Defaults to None.
-        If None, a default color mapping will be created.
-
-    Returns:
-        None: The function modifies the Axes object in place.
-
+    Args:
+        ax (Axes): The axis to add legend to.
+        include_extraction_area (bool): Whether to include shoreline extraction area.
+        class_mapping (Dict[int, str]): Mapping of class indices to names.
+        color_mapping (Dict[int, Tuple[float, float, float]]): Mapping of class indices to colors.
+        legend_settings (Optional[Dict[str, Any]], optional): Legend customization settings.
     """
     if not legend_settings:
         legend_settings = {}
@@ -366,39 +343,35 @@ def plot_detection(
     settings: Dict[str, Any],
     date: str,
     satname: str,
-    class_mapping: dict,
+    class_mapping: Dict[int, str],
     save_location: str = "",
     cloud_mask: Optional[np.ndarray] = None,
     im_ref_buffer: Optional[np.ndarray] = None,
     shoreline_extraction_area: Optional[List[np.ndarray]] = None,
     is_sar: bool = False,
-):
+) -> bool:
     """
     Unified function for plotting shoreline detection on SAR and optical images.
-    Saves the plot and optionally prompts user input to skip/accept detections.
 
-    Parameters:
-    - im_ms: np.array - image array (SAR or multispectral)
-    - all_labels : np.array - all class labels (2D array of integers)
-    - merged_labels: np.array - an array of 0 and 1 where 1 indicates water and 0 indicates land/other
-    - shoreline: np.array - coordinates of shoreline (X, Y) (eg. projected coordinates, NOT pixel coordinates)
-    - image_epsg: int - EPSG code of image CRS that the shoreline was derived from
-    - georef: np.array - georeferencing array from the tif that the shoreline was derived from
-    - settings: dict - config dictionary
-    - date: str - date of image
-    - satname: str - satellite name
-    - class_mapping (Dict[int, str): Mapping of class values to the class name.
-        example: {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
-    - cloud_mask: np.array - mask of cloud pixels (optical only)
-    - im_ref_buffer: np.array - reference shoreline buffer
-    - output_directory: str - path to store outputs
-    - shoreline_extraction_area (Optional[List[np.ndarray]]): the shoreline extraction area in geographic coordinates
-        This is a list of np.ndarrays, where each ndarray is a 2D array of coordinates (X, Y) in the geographic coordinate system.
-    - is_sar: bool - whether the input is SAR imagery
+    Args:
+        im_ms (np.ndarray): Image array (SAR or multispectral).
+        all_labels (np.ndarray): All class labels (2D array of integers).
+        merged_labels (np.ndarray): Array where 1 indicates water, 0 indicates land.
+        shoreline (np.ndarray): Shoreline coordinates (X, Y) in projected coordinates.
+        image_epsg (int): EPSG code of image CRS.
+        georef (np.ndarray): Georeferencing array from the source image.
+        settings (Dict[str, Any]): Configuration dictionary.
+        date (str): Date of image.
+        satname (str): Satellite name.
+        class_mapping (Dict[int, str]): Mapping of class values to names.
+        save_location (str, optional): Path to store outputs.
+        cloud_mask (Optional[np.ndarray], optional): Cloud pixel mask (optical only).
+        im_ref_buffer (Optional[np.ndarray], optional): Reference shoreline buffer.
+        shoreline_extraction_area (Optional[List[np.ndarray]], optional): Shoreline extraction area coordinates.
+        is_sar (bool, optional): Whether input is SAR imagery.
 
-    Returns
-        bool: True if the user accepted the detections, False otherwise.
-
+    Returns:
+        bool: True if user accepted detections, False otherwise.
     """
     sitename = settings["inputs"]["sitename"]
     filepath_data = save_location if save_location else settings["inputs"]["filepath"]
@@ -458,16 +431,15 @@ def create_overlay(
     overlay_opacity: float = 0.35,
 ) -> np.ndarray:
     """
-    Create an overlay on the given image using the provided labels and
-    specified overlay opacity.
+    Create an overlay on image using labels with specified opacity.
 
     Args:
-    im_RGB (np.ndarray[float]): The input image as an RGB numpy array (height, width, 3).
-    im_labels (np.ndarray[int]): The array containing integer labels of the same dimensions as the input image.
-    overlay_opacity (float, optional): The opacity value for the overlay (default: 0.35).
+        im_RGB (np.ndarray): Input RGB image (height, width, 3).
+        im_labels (np.ndarray): Integer labels array with same dimensions as image.
+        overlay_opacity (float, optional): Overlay opacity value. Defaults to 0.35.
 
     Returns:
-    np.ndarray[float]: The combined numpy array of the input image and the overlay.
+        np.ndarray: Combined image and overlay array.
     """
     # Create an overlay using the given labels
     overlay = create_classes_overlay_image(im_labels)
@@ -484,44 +456,17 @@ def transform_shoreline_area_to_pixel_coords(
     transform_func,
 ) -> List[np.ndarray]:
     """
-    Transforms a list of world coordinates into pixel coordinates using a transformation function.
+    Transforms world coordinates to pixel coordinates using transformation function.
 
     Args:
-        shoreline_extraction_area (Optional[List[np.ndarray]]):
-            The input list of world coordinates (or None).
-            Example:
-            [array([[ 606270.9268185 , 4079016.66886246],
-                    [ 606967.96694302, 4077461.14324242],
-                    [ 607305.27201052, 4076390.54086919],
-                    [ 607289.08625894, 4076373.12052936],
-                    [ 606690.57810944, 4076373.12052936],
-                    [ 606061.90757097, 4077987.18491909],
-                    [ 605284.49195324, 4079756.58371796],
-                    [ 604687.47197666, 4080853.12052936],
-                    [ 605266.43466503, 4080853.12052936],
-                    [ 606270.9268185 , 4079016.66886246]])]
-        output_epsg (int): EPSG code for the world coordinate system.
-        georef (np.ndarray): Georeferencing metadata used for transformation.
-            Example:  [ 6.04075722e+05  1.00000000e+01  0.00000000e+00  4.08085444e+06, 0.00000000e+00 -1.00000000e+01]
-        image_epsg (int): EPSG code of the image coordinate system.
-            Example : 32610 for UTM zone 10N.
-        transform_func (callable): Function to perform the world-to-pixel transformation.
-            Example: SDS_preprocess.transform_world_coords_to_pixel_coords - default transformation function.
+        shoreline_extraction_area (Optional[List[np.ndarray]]): List of world coordinates or None.
+        output_epsg (int): EPSG code for world coordinate system.
+        georef (np.ndarray): Georeferencing metadata for transformation.
+        image_epsg (int): EPSG code of image coordinate system.
+        transform_func: Function to perform world-to-pixel transformation.
 
     Returns:
-        the transformed pixel coordinates as a list of tuples (x, y) or an empty list if the input is None or empty.
-        Example:
-        Shoreline extraction area in pixel coordinates:
-            [array([[ 2.20236444e+02,  1.83645167e+02],
-                [ 2.89940456e+02,  3.39197729e+02],
-                [ 3.23670963e+02,  4.46257966e+02],
-                [ 3.22052388e+02,  4.48000000e+02],
-                [ 2.62201573e+02,  4.48000000e+02],
-                [ 1.99334519e+02,  2.86593561e+02],
-                [ 1.21592957e+02,  1.09653681e+02],
-                [ 6.18909597e+01, -5.82076609e-11],
-                [ 1.19787229e+02, -5.82076609e-11],
-                [ 2.20236444e+02,  1.83645167e+02]])]
+        List[np.ndarray]: Transformed pixel coordinates or empty list if input is None.
     """
     if not shoreline_extraction_area:
         return []
@@ -543,7 +488,7 @@ def plot_sar_detection(
     all_labels: np.ndarray,
     merged_labels: np.ndarray,
     sl_pix: np.ndarray,
-    class_mapping: dict,
+    class_mapping: Dict[int, str],
     date: str,
     satname: str,
     im_ref_buffer: Optional[np.ndarray],
@@ -552,26 +497,23 @@ def plot_sar_detection(
     titles: Optional[List[str]] = None,
 ) -> bool:
     """
-    Plots SAR detection results including grayscale image, shoreline pixels,
-    labeled water/land areas, and an optional reference shoreline buffer.
+    Plots SAR detection results with grayscale image, shoreline pixels, and labeled areas.
 
     Args:
         im_ms (np.ndarray): Multispectral or grayscale image to display.
-        all_labels (np.ndarray): 2D array of all class labels as integers.Eg [[0, 1, 2, 3],[0,2,2,3]]
-        merged_labels (np.ndarray): 2D array of 0 and 1 where 1 indicates water and 0 indicates land/other
-        sl_pix (np.ndarray): Array of shoreline pixel coordinates (Nx2).
-        class_mapping (Dict[int, str): Mapping of class values to the class name.
-            example: {0: 'sand', 1: 'sediment', 2: 'whitewater', 3: 'water'}
+        all_labels (np.ndarray): 2D array of all class labels.
+        merged_labels (np.ndarray): 2D array where 1 indicates water, 0 indicates land.
+        sl_pix (np.ndarray): Shoreline pixel coordinates (Nx2).
+        class_mapping (Dict[int, str]): Mapping of class values to names.
         date (str): Date string for display and file naming.
-            example: '20231001' for October 1, 2023.
         satname (str): Satellite name for display and file naming.
-            example:"L8" for Landsat 8.
-        im_ref_buffer (Optional[np.ndarray]): Boolean mask of the reference shoreline buffer.
-        output_path (str): Directory path to save the figure if enabled.
-        settings (Dict[str, Any]): Dictionary of settings. Must contain key 'save_figure'.
-        shoreline_extraction_area ([np.ndarray]): Pixel coordinates of the shoreline extraction area.
+        im_ref_buffer (Optional[np.ndarray]): Reference shoreline buffer mask.
+        output_path (str): Directory path to save the figure.
+        shoreline_extraction_area (List[np.ndarray]): Pixel coordinates of extraction area.
+        titles (Optional[List[str]], optional): Panel titles.
+
     Returns:
-        bool: Always returns False. Used as a placeholder return value.
+        bool: Always returns False (placeholder return value).
     """
 
     if not titles or len(titles) != 3:
@@ -605,62 +547,6 @@ def plot_sar_detection(
         class_mapping,
         legend_settings=legend_settings,
     )
-
-    # # Left panel
-    # ax1.imshow(im_display, cmap="gray")
-    # if im_ref_buffer is not None:
-    #     mask = np.ma.masked_where(im_ref_buffer == False, im_ref_buffer)
-    #     ax1.imshow(mask, cmap="PiYG", alpha=0.6)
-    # ax1.plot(sl_pix[:, 0], sl_pix[:, 1], "k.", markersize=1)
-    # for idx in range(len(shoreline_extraction_area)):
-    #     ax1.plot(
-    #         shoreline_extraction_area[idx][:, 0],
-    #         shoreline_extraction_area[idx][:, 1],
-    #         color="#cb42f5",
-    #         markersize=1,
-    #     )
-    # ax1.set_title(titles[0])
-    # ax1.axis("off")
-
-    # # the second plot the merged classes
-    # ax2.imshow(im_merged) # plot the land and water classes
-    # if im_ref_buffer is not None:
-    #     ax2.imshow(
-    #         np.ma.masked_where(~im_ref_buffer, im_ref_buffer), cmap="PiYG", alpha=0.5
-    #     )
-    # ax2.plot(sl_pix[:, 0], sl_pix[:, 1], "k.", markersize=1)
-    # for idx in range(len(shoreline_extraction_area)):
-    #     ax2.plot(
-    #         shoreline_extraction_area[idx][:, 0],
-    #         shoreline_extraction_area[idx][:, 1],
-    #         color="#cb42f5",
-    #         markersize=1,
-    #     )
-
-    # add_legend(ax2,bool(shoreline_extraction_area),class_mapping={0: "other", 1: "water"},color_mapping={})
-    # ax2.set_title(titles[1])
-    # ax2.axis("off")
-
-    # # the third panel plots the all classes
-    # ax3.imshow(im_all)
-    # # plot the reference shoreline buffer
-    # if im_ref_buffer is not None:
-    #     mask = np.ma.masked_where(im_ref_buffer == False, im_ref_buffer)
-    #     ax3.imshow(mask, cmap="PiYG", alpha=0.30)
-    # ax3.plot(sl_pix[:, 0], sl_pix[:, 1], "k.", markersize=1)
-    # for idx in range(len(shoreline_extraction_area)):
-    #     ax3.plot(
-    #         shoreline_extraction_area[idx][:, 0],
-    #         shoreline_extraction_area[idx][:, 1],
-    #         color="#cb42f5",
-    #         markersize=1,
-    #     )
-    # # add a legend to the third panel that shows the classes
-    # add_legend(ax3, bool(shoreline_extraction_area),class_mapping,color_mapping={})
-
-    # ax3.set_title(titles[2] )
-    # ax3.axis("off")
-    # save a .jpg under /jpg_files/detection
     save_detection_figure(fig, output_path, date, satname)
 
     plt.close(fig)
@@ -671,19 +557,17 @@ def transform_shoreline(
     shoreline: np.ndarray, output_epsg: int, image_epsg: int, georef: np.ndarray
 ) -> np.ndarray:
     """
-    Transforms a shoreline's coordinates from one EPSG projection to another and converts them to pixel coordinates.
+    Transforms shoreline coordinates between EPSG projections and converts to pixel coordinates.
 
     Args:
-        shoreline (np.ndarray): Array of shoreline coordinates in the original projection.
-            Example: [[606270.9268185, 4079016.66886246], [606967.96694302, 4077461.14324242], ...]
-        output_epsg (int): EPSG code of the target projection.
-        image_epsg (int): EPSG code of the image's projection.
-        georef (np.ndarray): Georeferencing information for converting world coordinates to pixel coordinates.
+        shoreline (np.ndarray): Shoreline coordinates in original projection.
+        output_epsg (int): EPSG code of target projection.
+        image_epsg (int): EPSG code of image projection.
+        georef (np.ndarray): Georeferencing information for pixel conversion.
 
     Returns:
-        np.ndarray: Array of shoreline coordinates in pixel space. If an error occurs, returns an array of NaN values.
-        Example: [[120.   12.5],[120.5  13. ],[121.   14.5],[121.5  15. ] ... ]
-            where each row represents a pixel coordinate (x, y) in the image.
+        np.ndarray: Shoreline coordinates in pixel space, or NaN array if error occurs.
+
     """
     try:
         shoreline_proj = SDS_tools.convert_epsg(shoreline, output_epsg, image_epsg)
@@ -692,23 +576,19 @@ def transform_shoreline(
         return np.array([[np.nan, np.nan], [np.nan, np.nan]])
 
 
-def _prepare_output_dir(output_dir, base_path, sitename):
+def _prepare_output_dir(
+    output_dir: Optional[str], base_path: str, sitename: str
+) -> str:
     """
-    Creates and ensures the existence of an output directory for detection images.
-
-    This function constructs a directory path for storing detection images in JPEG format.
-    If `output_dir` is provided, it is used as the base directory; otherwise, the path is
-    constructed using `base_path` and `sitename`. The resulting path will have the structure:
-    <output_dir or base_path/sitename>/jpg_files/detection. The directory is created if it
-    does not already exist.
+    Creates and ensures existence of output directory for detection images.
 
     Args:
-        output_dir (str or None): Optional base directory for output. If None, uses base_path and sitename.
-        base_path (str): The base path to use if output_dir is not provided.
-        sitename (str): The site name to use in the directory path.
+        output_dir (Optional[str]): Optional base directory for output.
+        base_path (str): Base path to use if output_dir is not provided.
+        sitename (str): Site name for directory path construction.
 
     Returns:
-        str: The full path to the created output directory.
+        str: Full path to the created output directory.
     """
     path = os.path.join(
         output_dir or os.path.join(base_path, sitename), "jpg_files", "detection"
@@ -717,16 +597,17 @@ def _prepare_output_dir(output_dir, base_path, sitename):
     return path
 
 
-def create_color_mapping_as_ints(int_list: list[int]) -> dict:
+def create_color_mapping_as_ints(
+    int_list: List[int],
+) -> Dict[int, Tuple[int, int, int]]:
     """
-    This function creates a color mapping dictionary for a given list of integers, assigning a unique RGB color to each integer. The colors are generated using the HLS color model, and the resulting RGB values are integers in the range of 0-255.
+    Creates color mapping dictionary with RGB values as integers (0-255).
 
-    Arguments:
+    Args:
+        int_list (List[int]): List of integers for color generation.
 
-    int_list (list): A list of integers for which unique colors need to be generated.
     Returns:
-
-    color_mapping (dict): A dictionary where the keys are the input integers and the values are the corresponding RGB colors as tuples of integers.
+        Dict[int, Tuple[int, int, int]]: Dictionary mapping integers to RGB color tuples.
     """
     n = len(int_list)
     h_step = 1.0 / n
@@ -740,18 +621,15 @@ def create_color_mapping_as_ints(int_list: list[int]) -> dict:
     return color_mapping
 
 
-def create_color_mapping(int_list: list[int]) -> dict:
+def create_color_mapping(int_list: List[int]) -> Dict[int, Tuple[float, float, float]]:
     """
-    This function creates a color mapping dictionary for a given list of integers, assigning a unique RGB color to each integer. The colors are generated using the HLS color model, and the resulting RGB values are floating-point numbers in the range of 0.0-1.0.
+    Creates color mapping dictionary with RGB values as floats (0.0-1.0).
 
-    Arguments:
+    Args:
+        int_list (List[int]): List of integers for color generation.
 
-    int_list (list): A list of integers for which unique colors need to be generated.
     Returns:
-
-    color_mapping (dict): A dictionary where the keys are the input integers and the values are the corresponding RGB colors as tuples of floating-point numbers.
-        Example : {0: (1.0, 0.0, 0.0), 1: (0.5000000000000002, 1.0, 0.0), 2: (0.0, 0.9999999999999998, 1.0), 3: (0.49999999999999956, 0.0, 1.0)}
-        Example : {False: (1.0, 0.0, 0.0), True: (0.0, 0.9999999999999998, 1.0)}
+        Dict[int, Tuple[float, float, float]]: Dictionary mapping integers to RGB color tuples.
     """
     n = len(int_list)
     h_step = 1.0 / n
@@ -765,16 +643,15 @@ def create_color_mapping(int_list: list[int]) -> dict:
     return color_mapping
 
 
-def create_classes_overlay_image(labels):
+def create_classes_overlay_image(labels: np.ndarray) -> np.ndarray:
     """
-    Creates an overlay image by mapping class labels to colors.
+    Creates overlay image by mapping class labels to colors.
 
     Args:
-    labels (numpy.ndarray): A 2D array representing class labels for each pixel in an image.
-    This is an np.ndarray of integer class labels, where each unique integer represents a different class.
+        labels (np.ndarray): 2D array of integer class labels for each pixel.
 
     Returns:
-    numpy.ndarray: A 3D array representing an overlay image with the same size as the input labels.
+        np.ndarray: 3D array representing overlay image with same size as input labels.
     """
     # Ensure that the input labels is a NumPy array
     labels = np.asarray(labels)
@@ -793,18 +670,17 @@ def create_classes_overlay_image(labels):
     return overlay_image
 
 
-def save_detection_figure(fig, filepath: str, date: str, satname: str) -> None:
+def save_detection_figure(
+    fig: plt.Figure, filepath: str, date: str, satname: str
+) -> None:
     """
-    Save the given figure as a jpg file with a specified dpi.
+    Save figure as JPG file with specified DPI.
 
     Args:
-    fig (Figure): The figure object to save.
-    filepath (str): The directory path where the image will be saved.
-    date (str): The date the satellite image was taken in the format 'YYYYMMDD'.
-    satname (str): The name of the satellite that took the image.
-
-    Returns:
-    None
+        fig (plt.Figure): Figure object to save.
+        filepath (str): Directory path for saving image.
+        date (str): Date in format 'YYYYMMDD'.
+        satname (str): Satellite name.
     """
     fig.savefig(
         os.path.join(filepath, date + "_" + satname + ".jpg"),

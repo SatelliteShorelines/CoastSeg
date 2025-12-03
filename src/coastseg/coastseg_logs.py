@@ -6,7 +6,11 @@ from coastseg import core_utilities
 
 
 def prepare_logging():
-    """create a directory named 'logs' in the current working directory if a 'logs' directory does not exist"""
+    """Create the logs/ directory if it doesn't exist.
+
+    The directory is created under the CoastSeg project base directory as
+    determined by :func:`core_utilities.get_base_dir`.
+    """
     if not os.path.exists(os.path.abspath(os.path.join(core_utilities.get_base_dir(), "logs"))):
         os.mkdir(os.path.abspath(os.path.join(core_utilities.get_base_dir(), "logs")))
 
@@ -17,9 +21,19 @@ def clear_default_handlers() -> None:
         logging.root.removeHandler(handler)
 
 
-def create_root_logger():
-    """Creates the root logger. The root logger will write to a log file with the format
-    log_<year>-<month>-<day>-<hour>-<minute>. This log file will  be written to by all the other loggers
+def create_root_logger()-> None:
+    """Configure the root logger to write to a timestamped file in logs/.
+
+    The log filename uses the pattern:
+    log_<MM-DD-YY>-<HH>_<MM>_<SS>.txt (12-hour clock with seconds), and is
+    placed in <base_dir>/logs. The log format includes timestamp, filename,
+    line number, function name, level, and the message.
+
+    Returns:
+        None
+
+    Side Effects:
+        - Affects all loggers (since it configures the root logger).
     """
     log_filename = "log_" + datetime.now().strftime("%m-%d-%y-%I_%M_%S") + ".txt"
     log_file = os.path.abspath(os.path.join(core_utilities.get_base_dir(), "logs", log_filename))

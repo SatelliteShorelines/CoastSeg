@@ -1,25 +1,23 @@
-import os
-import re
-import glob
-import shutil
+import datetime
 import json
 import logging
-import datetime
-from typing import Union, Collection, Optional
+import os
+import pathlib
+import re
+import shutil
+from contextlib import contextmanager
 
 # Specific classes/functions from modules
-from typing import List, Union
 from json import JSONEncoder
-from contextlib import contextmanager
-from tqdm.auto import tqdm
+from typing import Collection, List, Optional, Union
 
 # Third-party imports
 import geopandas as gpd
-import pandas as pd
-import geojson
 import numpy as np
-from coastseg import core_utilities
-from coastseg import common
+import pandas as pd
+from tqdm.auto import tqdm
+
+from coastseg import common, core_utilities
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -32,16 +30,16 @@ def progress_bar_context(
     """
     Context manager for handling progress bar creation and updates.
 
-    Parameters:
-    -----------
-    use_progress_bar : bool
-        If True, a tqdm progress bar will be displayed. Otherwise, it's a no-op.
+    Args:
+        use_progress_bar (bool): If True, a tqdm progress bar will be displayed. Otherwise, it's a no-op.
+        total (int): Total number of expected iterations for the progress bar. Defaults to 6.
+        description (str): Description text to display with the progress bar. Defaults to "".
+        **kwargs: Additional keyword arguments passed to tqdm.
 
-    Yields:
-    -------
-    function
-        A function to call for updating the progress bar. If use_progress_bar is False,
-        it's a no-op.
+    Returns:
+        Callable[[str, float], None]: A function to call for updating the progress bar.
+            Takes a message string and optional update value. If use_progress_bar is False,
+            it's a no-op function.
     """
     if use_progress_bar:
         progress_bar = tqdm(total=total, dynamic_ncols=True, desc=description, **kwargs)
@@ -57,27 +55,25 @@ def progress_bar_context(
         yield lambda message: None
 
 
-def drop_columns_if_exist(df, columns):
-    """
-    Drop columns from a DataFrame if they exist.
-    Parameters:
-    df (pd.DataFrame): DataFrame to drop columns from.
-    columns (list): List of column names to drop.
-
-    Returns:
-    pd.DataFrame: DataFrame with columns dropped.
-    """
-    for col in columns:
-        if col in df.columns:
-            df.drop(columns=col, inplace=True)
-    return df
-
-
 def join_model_scores_to_time_series(
     time_series_csv_path: str,
     good_bad_csv: Optional[str] = None,
     good_bad_seg_csv: Optional[str] = None,
 ) -> str:
+    """
+    Joins model scores to a time series CSV file.
+
+    Reads a time series CSV, merges classifier and/or segmentation model scores,
+    and saves the updated file back to the same location.
+
+    Args:
+        time_series_csv_path (str): Path to the time series CSV file to update.
+        good_bad_csv (Optional[str]): Path to image classifier scores CSV. Defaults to None.
+        good_bad_seg_csv (Optional[str]): Path to segmentation model scores CSV. Defaults to None.
+
+    Returns:
+        str: Path to the updated time series CSV file.
+    """
     df = pd.read_csv(time_series_csv_path)
     df["dates"] = pd.to_datetime(df["dates"], utc=True)
 
@@ -102,28 +98,29 @@ def join_model_scores_to_time_series(
 
 
 def merge_model_scores(
-    df: pd.DataFrame,
+    df: Union[pd.DataFrame, gpd.GeoDataFrame],
     score_csv: str,
     model_type: str,
     date_col: str = "dates",
     merge_on_col: str = "dates",
-) -> pd.DataFrame:
+) -> Union[pd.DataFrame, gpd.GeoDataFrame]:
     """
-    Processes a model score CSV and merges into a provided DataFrame based on date.
-    Merges model score data from a CSV into a Dataframe/GeoDataFrame of based on date.
+    Process a model score CSV and merge into a provided DataFrame/GeoDataFrame based on date.
 
+    Merges model score data from a CSV into a DataFrame/GeoDataFrame based on date.
     Drops the merge_on_col if it is not the same as date_col after merging. Example:
-    If date_col is "date" and merge_on_col is "dates", then "dates" will be dropped
+    If date_col is "date" and merge_on_col is "dates", then "dates" will be dropped.
 
-    Parameters:
-        df (DataFrame): The target DataFrame (Pandas or GeoPandas).
+    Args:
+        df (Union[pd.DataFrame, gpd.GeoDataFrame]): The target DataFrame (Pandas or GeoPandas).
         score_csv (str): Path to model score CSV.
         model_type (str): 'classifier' or 'segmentation'.
-        date_col (str): Name of the datetime column in the target df.
-        merge_on_col (str): Name to use for joining on date from the CSV.
+        date_col (str): Name of the datetime column in the target df. Defaults to "dates".
+        merge_on_col (str): Name to use for joining on date from the CSV. Defaults to "dates".
 
     Returns:
-        DataFrame: Merged DataFrame with model scores added.
+        Union[pd.DataFrame, gpd.GeoDataFrame]: Merged DataFrame with model scores added.
+                                              Returns same type as input df.
     """
     score_data = pd.read_csv(score_csv)
 
@@ -140,7 +137,7 @@ def merge_model_scores(
     score_col = f"{model_type}_model_score"
     threshold_col = f"{model_type}_threshold"
 
-    drop_columns_if_exist(df, [score_col, threshold_col])
+    df.drop(columns=[score_col, threshold_col], errors="ignore", inplace=True)
 
     merge_cols = [merge_on_col, "model_scores"]
     if "threshold" in score_data.columns:
@@ -189,35 +186,39 @@ def join_model_scores_to_geodataframe(
     if not os.path.exists(geodataframe_path):
         raise FileNotFoundError(f"Shoreline file not found: {geodataframe_path}")
 
-    gdf = gpd.read_file(geodataframe_path)
-    gdf["date"] = pd.to_datetime(gdf["date"], utc=True)
+    geodataframe = gpd.read_file(geodataframe_path)
+    geodataframe["date"] = pd.to_datetime(geodataframe["date"], utc=True)
 
     if good_bad_csv:
-        gdf = merge_model_scores(
-            gdf, good_bad_csv, model_type="classifier", date_col="date"
+        result = merge_model_scores(
+            geodataframe, good_bad_csv, model_type="classifier", date_col="date"
         )
+        geodataframe = result if isinstance(result, gpd.GeoDataFrame) else geodataframe
     if good_bad_seg_csv:
-        gdf = merge_model_scores(
-            gdf, good_bad_seg_csv, model_type="segmentation", date_col="date"
+        result = merge_model_scores(
+            geodataframe, good_bad_seg_csv, model_type="segmentation", date_col="date"
         )
+        geodataframe = result if isinstance(result, gpd.GeoDataFrame) else geodataframe
 
-    gdf["date"] = gdf["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
-    gdf = common.stringify_datetime_columns(gdf)
+    geodataframe["date"] = geodataframe["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    geodataframe = common.stringify_datetime_columns(geodataframe)
 
     output_path = output_path or geodataframe_path
-    gdf.to_file(output_path)
+    geodataframe.to_file(output_path, driver="GeoJSON")  # type: ignore
     return output_path
 
 
 def find_file_path_in_roi(
-    roi_id, roi_settings, filename="image_classification_results.csv"
-):
+    roi_id: str, roi_settings: dict, filename: str = "image_classification_results.csv"
+) -> str:
     """
     Finds the file path of a specified file within a region of interest (ROI) directory.
+
     Args:
         roi_id (str): The identifier for the region of interest.
         roi_settings (dict): A dictionary containing settings for each ROI, including file paths and site names.
-        filename (str, optional): The name of the file to find. Defaults to "image_classification_results.csv".
+        filename (str): The name of the file to find. Defaults to "image_classification_results.csv".
+
     Returns:
         str: The path to the file if found, otherwise an empty string.
     """
@@ -300,44 +301,42 @@ def load_package_resource(
             )
     # Get the resource location
     resource_location = resources.files(pkg_name).joinpath(resource_name)
-    # Check if the resource exists and is a directory
-    if not (resource_location.exists() and resource_location.is_dir()):
-        raise FileNotFoundError(resource_location)
-    # If a file name is provided, update the resource location and check again
+
+    # If a file name is provided, update the resource location
     if file_name:
         resource_location = resource_location.joinpath(file_name)
-        if not resource_location.exists():
-            raise FileNotFoundError(resource_location)
 
-    return os.path.abspath(resource_location)
-
-
-def directory_exists(directory_name):
-    return os.path.isdir(directory_name)
+    return str(resource_location)
 
 
 def generate_datestring() -> str:
-    """Returns a datetime string in the following format %m-%d-%y__%I_%M_%S
-    EX: "ID_0__01-31-22_12_19_45"""
+    """
+    Generate a datetime string in the format %m-%d-%y__%I_%M_%S
+
+    Returns:
+        str: A datetime string in the format %m-%d-%y__%I_%M_%S
+             (e.g., "01-31-22__12_19_45").
+    """
     date = datetime.datetime.now()
     return date.strftime("%m-%d-%y__%I_%M_%S")
 
 
-def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> dict:
+def read_json_file(
+    json_file_path: str, raise_error: bool = False, encoding: str = "utf-8"
+) -> dict:
     """
     Reads a JSON file and returns the parsed data as a dictionary.
 
     Args:
         json_file_path (str): The path to the JSON file.
-        encoding (str, optional): The encoding of the file. Defaults to "utf-8".
-        raise_error (bool, optional): Set to True if an error should be raised if the file doesn't exist.
+        raise_error (bool): Set to True if an error should be raised if the file doesn't exist. Defaults to False.
+        encoding (str): The encoding of the file. Defaults to "utf-8".
 
     Returns:
-        dict: The parsed JSON data as a dictionary.
+        dict: The parsed JSON data as a dictionary. Returns empty dict if file doesn't exist and raise_error is False.
 
     Raises:
         FileNotFoundError: If the file does not exist and `raise_error` is True.
-
     """
     if not os.path.exists(json_file_path):
         if raise_error:
@@ -351,7 +350,20 @@ def read_json_file(json_file_path: str, raise_error=False, encoding="utf-8") -> 
     return data
 
 
-def get_session_contents_location(session_name: str, roi_id: str = ""):
+def get_session_contents_location(session_name: str, roi_id: str = "") -> str:
+    """
+    Get the location of the session folder, optionally filtered by ROI ID.
+
+    Args:
+        session_name (str): The name of the session.
+        roi_id (str): Optional ROI ID to find a specific ROI directory within the session. Defaults to "".
+
+    Returns:
+        str: Path to the session directory or ROI-specific directory within the session.
+
+    Raises:
+        Exception: If the session directory doesn't exist or doesn't contain a config.json file.
+    """
     session_path = get_session_location(session_name)
     if roi_id:
         roi_location = find_matching_directory_by_id(session_path, roi_id)
@@ -398,13 +410,17 @@ def find_file_by_regex(
 
 
 def validate_config_files_exist(src: str) -> bool:
-    """Check if config files exist in the source directory.
-    Looks for files with names starting with "config_gdf" and ending with ".geojson"
+    """
+    Check if config files exist in the source directory.
+
+    Validates the presence of both a geojson file starting with "config_gdf"
     and a file named "config.json" in the source directory.
+
     Args:
-        src (str): the source directory
+        src (str): The source directory to check.
+
     Returns:
-        bool: True if both files exist, False otherwise
+        bool: True if both config files exist, False otherwise.
     """
     files = os.listdir(src)
     config_gdf_exists = False
@@ -493,30 +509,25 @@ def move_files(
                     logger.info(f"Deleted source directory {src_dir}")
 
 
-def get_all_subdirectories(directory: str) -> List[str]:
-    """Return a list of all subdirectories in the given directory, including the directory itself."""
-    return [dirpath for dirpath, dirnames, filenames in os.walk(directory)]
-
-
 def find_parent_directory(
     path: str, directory_name: str, stop_directory: str = ""
-) -> Union[str, None]:
+) -> Optional[str]:
     """
     Find the path to the parent directory that contains the specified directory name.
 
-    Parameters:
+    Args:
         path (str): The path to start the search from.
         directory_name (str): Part of the name of the directory to find.
             For example, directory_name = 'ID' will return the first directory
             that contains 'ID' in its name.
-        stop_directory (str): Optional. A directory name to stop the search at.
-                              If this is specified, the search will stop when this
-                              directory is reached. If not specified, the search will
-                              continue until the top-level directory is reached.
+        stop_directory (str): Optional directory name to stop the search at.
+            If this is specified, the search will stop when this
+            directory is reached. If not specified, the search will
+            continue until the top-level directory is reached. Defaults to "".
 
     Returns:
-        str or None: The path to the parent directory containing the directory with
-                     the specified name, or None if the directory is not found.
+        Optional[str]: The path to the parent directory containing the directory with
+                      the specified name, or None if the directory is not found.
     """
     while True:
         # check if the current directory name contains the target directory name
@@ -537,31 +548,40 @@ def find_parent_directory(
         path = parent_dir
 
 
-def config_to_file(config: Union[dict, gpd.GeoDataFrame], filepath: str):
-    """Saves config to config.json or config_gdf.geojson
-    config's type is dict or geodataframe respectively
+def config_to_file(config: Union[dict, gpd.GeoDataFrame], filepath: str) -> None:
+    """
+    Save config to config.json or config_gdf.geojson.
+
+    The config type determines the file type: dict saves to config.json,
+    geodataframe saves to config_gdf.geojson.
 
     Args:
-        config (Union[dict, gpd.GeoDataFrame]): data to save to config file
-        filepath (str): full path to directory to save config file. NOT INCLUDING THE FILE
+        config (Union[dict, gpd.GeoDataFrame]): Data to save to config file.
+        filepath (str): Full path to directory to save config file.
+                       NOT INCLUDING THE FILENAME unless it ends with config.json or config_gdf.geojson.
+
+    Returns:
+        None
     """
     # default save path
     filepath = str(filepath)
     save_path = filepath
     # check if config.json or config_gdf.geojson in the filepath
     if filepath.endswith("config.json"):
-        filename = f"config.json"
-        write_to_json(filepath, config)
+        filename = "config.json"
+        if isinstance(config, dict):
+            write_to_json(filepath, config)
     elif filepath.endswith("config_gdf.geojson"):
-        filename = f"config.json"
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        config.to_file(filepath, driver="GeoJSON")
+        filename = "config_gdf.geojson"
+        if isinstance(config, gpd.GeoDataFrame):
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            config.to_file(filepath, driver="GeoJSON")
     elif isinstance(config, dict):
-        filename = f"config.json"
+        filename = "config.json"
         save_path = os.path.abspath(os.path.join(filepath, filename))
         write_to_json(save_path, config)
     elif isinstance(config, gpd.GeoDataFrame):
-        filename = f"config_gdf.geojson"
+        filename = "config_gdf.geojson"
         save_path = os.path.abspath(os.path.join(filepath, filename))
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         config.to_file(save_path, driver="GeoJSON")
@@ -600,53 +620,6 @@ def filter_files(files: List[str], avoid_patterns: List[str]) -> List[str]:
     return filtered_files
 
 
-def save_to_geojson_file(out_file: str, geojson: dict, **kwargs) -> None:
-    """save_to_geojson_file Saves given geojson to a geojson file at outfile
-    Args:
-        out_file (str): The output file path
-        geojson (dict): geojson dict containing FeatureCollection for all geojson objects in selected_set
-    """
-    # Save the geojson to a file
-    out_file = check_file_path(out_file)
-    ext = os.path.splitext(out_file)[1].lower()
-    if ext == ".geojson":
-        out_geojson = out_file
-    else:
-        out_geojson = os.path.splitext(out_file)[1] + ".geojson"
-    with open(out_geojson, "w") as f:
-        json.dump(geojson, f, **kwargs)
-
-
-def check_file_path(file_path, make_dirs=True):
-    """Gets the absolute file path.
-
-    Args:
-        file_path (str): The path to the file.
-        make_dirs (bool, optional): Whether to create the directory if it does not exist. Defaults to True.
-
-    Raises:
-        FileNotFoundError: If the directory could not be found.
-        TypeError: If the input directory path is not a string.
-
-    Returns:
-        str: The absolute path to the file.
-    """
-    if isinstance(file_path, str):
-        if file_path.startswith("~"):
-            file_path = os.path.expanduser(file_path)
-        else:
-            file_path = os.path.abspath(file_path)
-
-        file_dir = os.path.dirname(file_path)
-        if not os.path.exists(file_dir) and make_dirs:
-            os.makedirs(file_dir)
-
-        return file_path
-
-    else:
-        raise TypeError("The provided file path must be a string.")
-
-
 def get_session_location(
     session_name: str = "", base_path: str = "", raise_error: bool = False
 ) -> str:
@@ -654,12 +627,12 @@ def get_session_location(
     Gets the session location path based on the provided session name.
     If the session directory doesn't exist, it creates one.
 
-    Parameters:
-    - session_name (str, optional): Name of the session. Defaults to "".
-    - base_path (str, optional): location of parent directory containing sessions directory. Defaults to "".
-    - raise_error (bool,optional): Raise a FileNotFound error is session_path does not exist. Defaults to False
+    Args:
+        session_name (str, optional): Name of the session. Defaults to "".
+        base_path (str, optional): location of parent directory containing sessions directory. Defaults to "".
+        raise_error (bool,optional): Raise a FileNotFound error is session_path does not exist. Defaults to False
     Returns:
-    - str: Path to the session location.
+        str: Path to the session location.
 
     Note:
     - This function assumes the presence of a function named `create_directory`.
@@ -679,24 +652,15 @@ def get_session_location(
     return session_path
 
 
-def file_exists(file_path: str, filename: str) -> bool:
-    """Helper function to check if a file exists and log its status."""
-    if os.path.exists(file_path):
-        logger.info(f"{filename} exists at location: {file_path}")
-        return True
-
-    logger.warning(f"{filename} file missing at {file_path}")
-    return False
-
-
-def extract_roi_id(path: str) -> str:
-    """extracts the ROI ID from the path
+def extract_roi_id(path: str) -> Optional[str]:
+    """
+    Extract the ROI ID from the path.
 
     Args:
-        path (str): path containing ROI directory
+        path (str): Path containing ROI directory.
 
     Returns:
-        str: ID of the ROI within the path
+        Optional[str]: ID of the ROI within the path, or None if not found.
     """
     pattern = r"ID_([A-Za-z0-9]+)"
     match = re.search(pattern, path)
@@ -706,16 +670,19 @@ def extract_roi_id(path: str) -> str:
         return None
 
 
-def find_matching_directory_by_id(base_directory: str, roi_id: str) -> str:
+def find_matching_directory_by_id(base_directory: str, roi_id: str) -> Optional[str]:
     """
-    Loops through all directories in the given base_directory to find a directory with a matching ROI ID.
+    Find a directory with a matching ROI ID in the given base directory.
+
+    Loops through all directories in the given base_directory to find a directory
+    with a matching ROI ID.
 
     Args:
         base_directory (str): Path to the directory containing subdirectories to check.
         roi_id (str): ROI ID to match against directories.
 
     Returns:
-        str: Path to the matching directory if found. Otherwise, returns None.
+        Optional[str]: Path to the matching directory if found, otherwise None.
     """
 
     # Iterate over each directory in the base_directory
@@ -748,15 +715,15 @@ def create_session_path(session_name: str, ROI_directory_name: str) -> str:
     base_dir = os.path.abspath(core_utilities.get_base_dir())
     session_path = os.path.join(base_dir, "sessions", session_name)
     session_path = create_directory(session_path, ROI_directory_name)
-    logger.info(f"session_path: {session_path}")
+    logger.info(f"Created a session folder at {session_path}")
     return session_path
 
 
-def create_directory(file_path: str, name: str) -> str:
+def create_directory(file_path: Union[os.PathLike, str], name: str) -> str:
     """Creates a new directory with the given name at the specified file path.
 
     Args:
-        file_path (str): The file path where the new directory will be created.
+        file_path (os.PathLike): The file path where the new directory will be created.
         name (str): The name of the new directory to be created.
 
     Returns:
@@ -775,8 +742,17 @@ def create_directory(file_path: str, name: str) -> str:
     return new_directory
 
 
-def write_to_json(filepath: str, settings: dict):
-    """ "Write the  settings dictionary to json file"""
+def write_to_json(filepath: str, settings: dict) -> None:
+    """
+    Write the settings dictionary to a JSON file.
+
+    Args:
+        filepath (str): The file path where the JSON will be written.
+        settings (dict): Dictionary containing the settings to save.
+
+    Returns:
+        None
+    """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     to_file(settings, filepath)
 
@@ -819,31 +795,19 @@ def to_file(data: dict, filepath: str) -> None:
         json.dump(data, fp, cls=DateTimeEncoder)
 
 
-def copy_files_to_dst(src_path: str, dst_path: str, glob_str: str) -> None:
-    """Copies all files from src_path to dest_path
-    Args:
-        src_path (str): full path to the data directory in coastseg
-        dst_path (str): full path to the images directory in Sniffer
-    """
-    if not os.path.exists(dst_path):
-        raise FileNotFoundError(f"dst_path: {dst_path} doesn't exist.")
-    elif not os.path.exists(src_path):
-        raise FileNotFoundError(f"src_path: {src_path} doesn't exist.")
-    else:
-        for file in glob.glob(glob_str):
-            shutil.copy(file, dst_path)
-        logger.info(f"\nCopied files that matched {glob_str}  \nto {dst_path}")
-
-
 def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
     """
-    Recursively search for a directory named "RGB" in the given path or its subdirectories.
+    Recursively search for a directory with the given name.
 
     Args:
         path (str): The starting directory to search in. Defaults to current directory.
+        name (str): The name of the directory to find. Defaults to "RGB".
 
     Returns:
-        str: The path of the first directory named "RGB" found, or None if not found.
+        str: The path of the first directory with the given name found.
+
+    Raises:
+        Exception: If the directory is empty or no directory matching the name is found.
     """
     dir_location = None
     if os.path.basename(path) == name:
@@ -863,71 +827,19 @@ def find_directory_recursively(path: str = ".", name: str = "RGB") -> str:
     return dir_location
 
 
-def find_files_recursively(
-    path: str = ".", search_pattern: str = "*RGB*", raise_error: bool = False
-) -> List[str]:
-    """
-    Recursively search for files with the given search pattern in the given path or its subdirectories.
-
-    Args:
-        path (str): The starting directory to search in. Defaults to current directory.
-        search_pattern (str): The search pattern to match against file names. Defaults to "*RGB*".
-        raise_error (bool): Whether to raise an error if no files are found. Defaults to False.
-
-    Returns:
-        list: A list of paths to all files that match the given search pattern.
-    """
-    file_locations = []
-    regex = re.compile(search_pattern, re.IGNORECASE)
-    for dirpath, dirnames, filenames in os.walk(path):
-        for filename in filenames:
-            if regex.match(filename):
-                file_location = os.path.join(dirpath, filename)
-                file_locations.append(file_location)
-
-    if not file_locations and raise_error:
-        raise Exception(f"No files matching {search_pattern} could be found at {path}")
-
-    return file_locations
-
-
-def find_files_in_directory(
-    path: str = ".", search_pattern: str = "*RGB*", raise_error: bool = False
-) -> List[str]:
-    """
-    Return a list of files with the given search pattern in the given directory.
-
-    Args:
-        path (str): The starting directory to search in. Defaults to current directory.
-        search_pattern (str): The search pattern to match against file names. Defaults to "*RGB*".
-        raise_error (bool): Whether to raise an error if no files are found. Defaults to False.
-
-    Returns:
-        list: A list of paths to all files that match the given search pattern.
-    """
-    file_locations = []
-    regex = re.compile(search_pattern, re.IGNORECASE)
-    filenames = os.listdir(path)
-    for filename in filenames:
-        if regex.match(filename):
-            file_location = os.path.join(path, filename)
-            file_locations.append(file_location)
-
-    if not file_locations and raise_error:
-        raise Exception(f"No files matching {search_pattern} could be found at {path}")
-
-    return file_locations
-
-
 def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
     """
-    Recursively search for a file named "RGB" in the given path or its subdirectories.
+    Recursively search for a file with the given name.
 
     Args:
         path (str): The starting directory to search in. Defaults to current directory.
+        name (str): The name of the file to find. Defaults to "RGB".
 
     Returns:
-        str: The path of the first directory named "RGB" found, or None if not found.
+        str: The path of the first file with the given name found.
+
+    Raises:
+        Exception: If the file location is empty or no file matching the name is found.
     """
     file_location = None
     if os.path.basename(path) == name:
@@ -947,38 +859,6 @@ def find_file_recursively(path: str = ".", name: str = "RGB") -> str:
     return file_location
 
 
-def mk_new_dir(name: str, location: str):
-    """Create new folder with name_datetime stamp at location
-    Args:
-        name (str): name of folder to create
-        location (str): full path to location to create folder
-    """
-    if os.path.exists(location):
-        new_folder = location + os.sep + name + "_" + generate_datestring()
-        os.mkdir(new_folder)
-        return new_folder
-    else:
-        raise Exception("Location provided does not exist.")
-
-
-def read_geojson_file(geojson_file: str) -> dict:
-    """Returns the geojson of the selected ROIs from the file specified by geojson_file"""
-    with open(geojson_file) as f:
-        data = geojson.load(f)
-    return data
-
-
-def read_gpd_file(filename: str) -> gpd.GeoDataFrame:
-    """
-    Returns geodataframe from geopandas geodataframe file
-    """
-    if os.path.exists(filename):
-        logger.info(f"Opening \n {filename}")
-        return gpd.read_file(filename)
-    else:
-        raise FileNotFoundError
-
-
 def load_json_data_from_file(search_location: str, filename: str) -> dict:
     """
     Load JSON data from a file by searching for the file in the specified location.
@@ -994,15 +874,17 @@ def load_json_data_from_file(search_location: str, filename: str) -> dict:
     Returns:
         dict: Data read from the JSON file as a dictionary.
 
+    Raises:
+        FileNotFoundError: If the file cannot be found in the search location.
     """
     file_path = find_file_recursively(search_location, filename)
     json_data = load_data_from_json(file_path)
     return json_data
 
 
-def load_data_from_json(filepath: str) -> dict:
+def load_data_from_json(filepath: Union[str, pathlib.Path]) -> dict:
     """
-    Reads data from a JSON file and returns it as a dictionary.
+    Read data from a JSON file and return it as a dictionary.
 
     The function reads the data from the specified JSON file using the provided filepath.
     It applies a custom object hook, `DecodeDateTime`, to decode the datetime and shoreline
@@ -1012,8 +894,7 @@ def load_data_from_json(filepath: str) -> dict:
         filepath (str): Path to the JSON file.
 
     Returns:
-        dict: Data read from the JSON file as a dictionary.
-
+        dict: Data read from the JSON file as a dictionary with decoded datetime and shoreline data.
     """
 
     def DecodeDateTime(readDict):
@@ -1043,27 +924,3 @@ def load_data_from_json(filepath: str) -> dict:
     with open(filepath, "r") as fp:
         data = json.load(fp, object_hook=DecodeDateTime)
     return data
-
-
-def rename_jpgs(src_path: str) -> None:
-    """Renames all the jpgs in the data directory in coastseg
-    Args:
-        src_path (str): full path to the data directory in coastseg
-    """
-    files_renamed = False
-    for folder in os.listdir(src_path):
-        folder_path = src_path + os.sep + folder
-        # Split the folder name at the first _
-        folder_id = folder.split("_")[0]
-        folder_path = folder_path + os.sep + "jpg_files" + os.sep + "preprocessed"
-        jpgs = glob.glob1(folder_path + os.sep, "*jpg")
-        # Append folder id to basename of jpg if not already there
-        for jpg in jpgs:
-            if folder_id not in jpg:
-                files_renamed = True
-                base, ext = os.path.splitext(jpg)
-                new_name = folder_path + os.sep + base + "_" + folder_id + ext
-                old_name = folder_path + os.sep + jpg
-                os.rename(old_name, new_name)
-        if files_renamed:
-            print(f"Renamed files in {src_path} ")
