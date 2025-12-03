@@ -469,6 +469,29 @@ class UI:
         self.save_style = dict(button_color="#50bf8f")
         self.clear_stlye = dict(button_color="#a3adac")
 
+    def _bordered_box(
+        self,
+        children: List[Any],
+        color: str = "#e74c3c",
+        padding: str = "6px",
+        margin: str = "0px",
+    ) -> widgets.VBox:
+        """Create a VBox with a colored border to visually group related controls.
+
+        Args:
+            children: List of widgets to include inside the box.
+            color: Border color (hex or CSS color name). Defaults to red (#e74c3c).
+            padding: Inner padding for the box. Defaults to "6px".
+            margin: Outer margin for the box. Defaults to "0px".
+
+        Returns:
+            widgets.VBox: A VBox widget styled with the provided border and layout.
+        """
+        layout = widgets.Layout(
+            border=f"3px solid {color}", padding=padding, margin=margin
+        )
+        return widgets.VBox(children, layout=layout)
+
     def launch_error_box(
         self, title: Optional[str] = None, msg: Optional[str] = None
     ) -> None:
@@ -896,20 +919,38 @@ class UI:
         load_file_vbox = widgets.VBox(
             [self.load_file_instr, self.load_file_radio, self.load_file_button]
         )
+
+        # Group remove controls and extracted shorelines together (red border)
+        remove_and_extracted_group = self._bordered_box(
+            [remove_buttons, self.extract_shorelines_widget],
+            color="#e74c3c",
+            padding="8px",
+            margin="0px 8px 0px 8px",
+        )
+
         save_vbox = widgets.VBox(
             [
                 save_to_file_buttons,
                 load_file_vbox,
-                remove_buttons,
-                self.extract_shorelines_widget,
+                remove_and_extracted_group,
             ]
         )
+
         config_vbox = widgets.VBox(
             [
                 self.instr_config_btns,
                 self.load_session_button,
             ]
         )
+
+        # Create tidal widget and visually group it (cyan border)
+        tidal_widget = self.create_tidal_correction_widget(
+            self.coastseg_map.id_container
+        )
+        tidal_group = self._bordered_box(
+            [tidal_widget], color="#00bcd4", padding="8px", margin="0px 8px 0px 8px"
+        )
+
         download_vbox = widgets.VBox(
             [
                 self.instr_download_roi,
@@ -918,7 +959,7 @@ class UI:
                 widgets.Box(children=[UI.preview_view], layout=BOX_LAYOUT),
                 self.extract_shorelines_button,
                 self.get_session_selection(),
-                self.create_tidal_correction_widget(self.coastseg_map.id_container),
+                tidal_group,
                 config_vbox,
             ]
         )
@@ -932,8 +973,19 @@ class UI:
             ]
         )
         ROI_btns_box = widgets.VBox([area_control_box, self.gen_button])
+
+        # Put load feature into bounding box in a green bordered group
+        load_bbox_group = self._bordered_box(
+            [load_buttons], color="#2ecc71", padding="8px", margin="0px 8px 0px 8px"
+        )
+
+        # Put draw controls into its own bordered group (subtle gray)
+        draw_controls_group = self._bordered_box(
+            [draw_control_section], color="#9e9e9e", padding="8px", margin="0px 8px 0px 8px"
+        )
+
         roi_controls_box = widgets.VBox(
-            [self.instr_create_roi, ROI_btns_box, load_buttons, draw_control_section],
+            [self.instr_create_roi, ROI_btns_box, load_bbox_group, draw_controls_group],
             layout=widgets.Layout(margin="0px 5px 5px 0px"),
         )
         self.settings_row = widgets.HBox(
