@@ -973,8 +973,19 @@ class UI:
             ]
         )
         ROI_btns_box = widgets.VBox([area_control_box, self.gen_button])
+
+        # Put load feature into bounding box in a green bordered group
+        load_bbox_group = self._bordered_box(
+            [load_buttons], color="#2ecc71", padding="8px", margin="0px 8px 0px 8px"
+        )
+
+        # Put draw controls into its own bordered group (subtle gray)
+        draw_controls_group = self._bordered_box(
+            [draw_control_section], color="#9e9e9e", padding="8px", margin="0px 8px 0px 8px"
+        )
+
         roi_controls_box = widgets.VBox(
-            [self.instr_create_roi, ROI_btns_box, load_buttons, draw_control_section],
+            [self.instr_create_roi, ROI_btns_box, load_bbox_group, draw_controls_group],
             layout=widgets.Layout(margin="0px 5px 5px 0px"),
         )
         self.settings_row = widgets.HBox(
