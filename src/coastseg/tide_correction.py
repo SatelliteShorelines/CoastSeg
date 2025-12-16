@@ -12,7 +12,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyproj
-import netCDF4 # do this otherwise pyTMD will have issues loading netCDF4.Dataset
+import netCDF4  # do this otherwise pyTMD will have issues loading netCDF4.Dataset
 import pyTMD.io
 import pyTMD.io.model
 import pyTMD.predict
@@ -1256,7 +1256,9 @@ def setup_tide_model_config(
 
 def get_tide_model_location(location: str = "", model: str = "fes2022") -> str:
     """
-    Validates the existence of a tide model at the specified location and returns the absolute path.
+    Validates the existence of a tide model at the specified location and returns the absolute path to the folder.
+
+    Ensures the tide model exists at the given location and validates it contains all the necessary files.
 
     This function checks if a tide model exists at the given location. If the model exists,
     it returns the absolute path of the location. If the model does not exist, it raises an exception.
@@ -1290,6 +1292,9 @@ def get_tide_model_location(location: str = "", model: str = "fes2022") -> str:
 
     logger.info(f"Checking if tide model exists at {location}")
     if validate_tide_model_exists(location, model=model):
+        print(
+            f"Tide model {model} found at: '{os.path.abspath(location)}' and is valid."
+        )
         return os.path.abspath(location)
     else:
         raise Exception(
@@ -1338,12 +1343,12 @@ def validate_tide_model_exists(location: str, model: str = "fes2022") -> bool:
 
 def sub_directory_contains_files(
     sub_directory_path: str, extension: str, count: int
-) -> bool:
+) -> Tuple[bool, int, List[str]]:
     """
     Check if a sub-directory contains a specified number of files with a given extension.
 
-    This function validates that a directory exists and contains exactly the expected
-    number of files with the specified file extension.
+    Validates that a directory exists and reports whether it contains the expected
+    number of files with the provided extension.
 
     Args:
         sub_directory_path (str): The path to the sub-directory to check.
@@ -1351,40 +1356,43 @@ def sub_directory_contains_files(
         count (int): The expected number of files with the specified extension.
 
     Returns:
-        bool: True if the sub-directory contains the exact number of specified files, False otherwise.
+        Tuple[bool, int, List[str]]: Boolean indicating if the expected count was met,
+            the actual file count, and the list of matching files.
 
     Raises:
         Exception: If the sub-directory does not exist.
 
     Example:
-        >>> has_files = sub_directory_contains_files("/path/to/dir", ".nc", 34)
+        >>> has_files, file_count, files = sub_directory_contains_files("/path/to/dir", ".nc", 34)
         >>> print(has_files)
         True  # If the directory contains exactly 34 .nc files
+        >>> print(file_count)
+        34
+        >>> print(files)
+        ['file1.nc', 'file2.nc', ...]
     """
 
     if not os.path.isdir(sub_directory_path):
         raise Exception(
             f" Missing directory {os.path.basename(sub_directory_path)} at {sub_directory_path}"
         )
-        return False
 
-    files_with_extension = [
+    files_with_extension = sorted(
         f for f in os.listdir(sub_directory_path) if f.endswith(extension)
-    ]
-    return len(files_with_extension) == count
+    )
+    file_count = len(files_with_extension)
+    return file_count == count, file_count, files_with_extension
 
 
-def contains_sub_directories(
-    directory_name: str, num_regions: int, model="fes2014"
-) -> bool:
+def contains_sub_directories(location: str, num_regions: int, model="fes2014") -> bool:
     """
     Check if a directory contains sub-directories in the format "regionX/fes2014/load_tide"
     and "regionX/fes2014/ocean_tide", and if each of these sub-directories contains 34 .nc files.
 
     Args:
-    - directory_name (str): The name of the main directory.
+    - location (str): The path to the directory to check.
     - num_regions (int): The number of regions to check (e.g., for 10 regions, it'll check region0 to region10).
-
+    - model (str): The tide model to check. Defaults to 'fes2014'.
     Returns:
     - bool: True if all conditions are met, False otherwise.
     """
@@ -1392,32 +1400,47 @@ def contains_sub_directories(
         model = "fes2022b"
 
     for i in range(num_regions + 1):
-        region_dir = os.path.join(directory_name, f"region{i}")
+        region_dir = os.path.join(location, f"region{i}")
         load_tide_path = os.path.join(region_dir, model, "load_tide")
         ocean_tide_path = os.path.join(region_dir, model, "ocean_tide")
 
+        # fix this so it acutally indicates where the tide model is at and what files are missing.
+
         if not os.path.isdir(region_dir):
             raise Exception(
-                f"Tide Model was not clipped correctly. Missing the directory '{os.path.basename(region_dir)}' for region {i} at {region_dir}"
+                f"Tide Model was not clipped correctly. Missing the directory '{os.path.basename(region_dir)}' for region {i} at {location}. This indicates the tide model was not downloaded correctly try again"
+            )
+
+        # check if the region directory is empty
+        if not os.listdir(region_dir):
+            raise Exception(
+                f"Tide Model was not clipped correctly. Region {i} directory '{os.path.basename(region_dir)}' at {region_dir} is empty. This indicates the tide model was not downloaded correctly try again"
             )
 
         if not os.path.isdir(load_tide_path):
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} was missing directory '{os.path.basename(load_tide_path)}' at {load_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} was missing directory '{os.path.basename(load_tide_path)}' at {load_tide_path}. This indicates the tide model was not downloaded correctly try again"
             )
 
         if not os.path.isdir(ocean_tide_path):
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} was missing directory '{os.path.basename(ocean_tide_path)}' at {ocean_tide_path}"
+                f"Tide Model was not clipped correctly. Region {i} was missing directory '{os.path.basename(ocean_tide_path)}' at {ocean_tide_path}. This indicates the tide model was not downloaded correctly try again"
             )
 
-        if not sub_directory_contains_files(load_tide_path, ".nc", 34):
+        load_tide_has_files, load_tide_count, load_tide_files = (
+            sub_directory_contains_files(load_tide_path, ".nc", 34)
+        )
+        if not load_tide_has_files:
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(load_tide_path)}' directory did not contain all 34 .nc files at {load_tide_path}.Please download again"
+                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(load_tide_path)}' directory contained {load_tide_count} of 34 .nc files at {load_tide_path}. Present files: {load_tide_files}. Please download again"
             )
-        if not sub_directory_contains_files(ocean_tide_path, ".nc", 34):
+
+        ocean_tide_has_files, ocean_tide_count, ocean_tide_files = (
+            sub_directory_contains_files(ocean_tide_path, ".nc", 34)
+        )
+        if not ocean_tide_has_files:
             raise Exception(
-                f"Tide Model was not clipped correctly. Region {i} '{os.path.basename(ocean_tide_path)}' directory did not contain all 34 .nc files at {ocean_tide_path}. Please download again"
+                f"Tide Model was not clipped correctly. You may want to try downloading the model then clipping again. Region {i} '{os.path.basename(ocean_tide_path)}' directory contained {ocean_tide_count} of 34 .nc files at {ocean_tide_path}. Present files: {ocean_tide_files}. Please download again"
             )
 
     return True
