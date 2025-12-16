@@ -1,7 +1,7 @@
 """
 This script was originally written by Tyler Sutterley and modified by Sharon Fitzpatrick for Coastseg.
 aviso_fes_tides.py
-Written by Tyler Sutterley (11/2022)
+Originally written by Tyler Sutterley (11/2022)
 Downloads the FES (Finite Element Solution) global tide model from AVISO
 Decompresses the model tar files into the constituent files and auxiliary files
     https://www.aviso.altimetry.fr/data/products/auxiliary-products/
@@ -22,6 +22,7 @@ COMMAND LINE OPTIONS:
         FES2004
         FES2012
         FES2014
+        FES2022
     --load: download load tide model outputs (fes2014)
     --currents: download tide model current outputs (fes2012 and fes2014)
     --log: output log of files downloaded
@@ -35,6 +36,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/16/2025: Added ResilientFTP class for downloading files with timeout handling
     Update 1/7/2025: added option to download FES2022 by Sharon Fitzpatrick Batiste
     Updated 11/2022: added encoding for writing ascii files
         use f-strings for formatting verbose or ascii output
@@ -59,6 +61,8 @@ import os
 import tarfile
 import time
 import traceback
+import socket
+from functools import partial
 
 # Standard libraries
 import ftplib
@@ -67,6 +71,7 @@ import json
 import posixpath
 import shutil
 from glob import glob
+from typing import BinaryIO
 
 # Third-party libraries
 import numpy as np
@@ -157,6 +162,299 @@ OCEAN_TIDE_FILES = {
     "ssa.nc.gz": 66958840,
     "t2.nc.gz": 79210226,
 }
+
+
+class ResilientFTP:
+    """
+    Wrapper around ftplib.FTP that automatically reconnects for
+    control/metadata commands, and provides a special download
+    helper that returns a BytesIO and handles timeouts by
+    returning whatever data was downloaded.
+    """
+
+    def __init__(
+        self,
+        host: str,
+        user: str,
+        password: str,
+        timeout: int | None = None,
+        max_retries: int = 2,
+        logger: logging.Logger | None = None,
+    ):
+        self.host = host
+        self.user = user
+        self.password = password
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.logger = logger or logging.getLogger(__name__)
+        self._ftp: ftplib.FTP | None = None
+        self._connect()
+
+    # --- connection management ---
+
+    def _connect(self):
+        if self._ftp is not None:
+            try:
+                self._ftp.close()
+            except Exception:
+                pass
+        self._ftp = ftplib.FTP(self.host, timeout=self.timeout)
+        self._ftp.login(self.user, self.password)
+        self.logger.info("Connected to FTP server %s", self.host)
+
+    def _ensure_connected(self):
+        if self._ftp is None:
+            self._connect()
+
+    def _with_retry(self, fn, *args, **kwargs):
+        """
+        Run an FTP method with automatic reconnect/retry.
+        Used for small control commands (SIZE, MDTM, NLST, etc).
+        NOT used for bulk downloads.
+        """
+        last_exc = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                self._ensure_connected()
+                return fn(*args, **kwargs)
+            except (TimeoutError, socket.timeout, ftplib.error_temp, OSError) as e:
+                last_exc = e
+                self.logger.warning(
+                    "FTP error (%s) on attempt %d/%d, reconnecting...",
+                    e,
+                    attempt,
+                    self.max_retries,
+                )
+                self._connect()
+        self.logger.error("All retries failed: %s", last_exc)
+        raise last_exc
+
+    # --- proxied FTP methods you actually use for control plane ---
+
+    def sendcmd(self, cmd):
+        self._ensure_connected()
+        return self._with_retry(self._ftp.sendcmd, cmd)
+
+    def nlst(self, *args, **kwargs):
+        self._ensure_connected()
+        return self._with_retry(self._ftp.nlst, *args, **kwargs)
+
+    # You can still expose raw retrbinary if you want:
+    def retrbinary(self, cmd, callback, blocksize=8192):
+        """
+        Low-level passthrough. No retries. For most use-cases, prefer
+        download_fileobj() which implements your timeout behavior.
+        """
+        self._ensure_connected()
+        return self._ftp.retrbinary(cmd, callback, blocksize)
+
+    def quit(self):
+        try:
+            if self._ftp is not None:
+                self._ftp.quit()
+        except Exception:
+            pass
+
+    def close(self):
+        try:
+            if self._ftp is not None:
+                self._ftp.close()
+        except Exception:
+            pass
+        finally:
+            self._ftp = None
+
+    def retrieve_file_size(self, remote_file: str) -> int | None:
+        """
+        Retrieve the size of a file on the FTP server.
+
+        Returns int size in bytes, or None if SIZE is not available.
+        """
+        try:
+            self._ensure_connected()
+            self._ftp.voidcmd("TYPE I")  # binary mode
+            response = self.sendcmd(f"SIZE {remote_file}")
+            return int(response.split()[1])
+        except ftplib.error_perm as e:
+            self.logger.warning("Could not get size of %s: %s", remote_file, e)
+            return None
+        except Exception as e:
+            self.logger.warning(
+                "Unexpected error getting size of %s: %s", remote_file, e
+            )
+            return None
+
+    def handle_timeout(
+        self, remote_file: str, bytes_read, file_size: int | None, e: Exception
+    ):
+        self.logger.warning("Timeout in retrbinary for %s after : %s", remote_file, e)
+        # This connection is likely dead; close it so next call reconnects.
+        self.close()
+
+        complete = file_size is not None and bytes_read == file_size
+
+        if file_size is None:
+            self.logger.warning(
+                "Timeout downloading %s with unknown file size; downloaded %d bytes",
+                remote_file,
+                bytes_read,
+            )
+            return
+
+        if not complete:
+            raise TimeoutError(
+                f"Download incomplete for {remote_file}: {bytes_read}/{file_size} bytes"
+            ) from e
+
+        self.logger.warning(
+            "FTP response timeout, but download completed for %s (%d bytes)",
+            remote_file,
+            file_size,
+        )
+
+    def download_fileobj(
+        self,
+        remote_file: str,
+        chunk_size: int = 8192,
+    ) -> io.BytesIO | str:
+        """
+        Download a file from the FTP server to a BytesIO object.
+        This method downloads a file from the remote FTP server and stores it in memory
+        as a BytesIO object. It includes progress tracking via tqdm and handles timeouts
+        gracefully for large file downloads.
+        Args:
+            remote_file (str): The path to the file on the remote FTP server to download.
+            chunk_size (int, optional): The size of chunks to use when downloading the file
+                in bytes. Defaults to 8192.
+        Returns:
+            io.BytesIO | str: A BytesIO object containing the downloaded file data, or
+                potentially a string in case of special handling scenarios.
+        Raises:
+            socket.timeout and TimeoutError: Raised when the FTP connection times out during download,
+                though this is caught and handled internally.
+        Note:
+            - Progress bar is displayed only when file size can be determined.
+        """
+        self._ensure_connected()
+        fileobj = io.BytesIO()
+        file_size = self.retrieve_file_size(remote_file)
+        bytes_read = 0
+        # LOG FILE SIZE
+        self.logger.info(
+            "Downloading %s (%s bytes)", remote_file, file_size or "unknown"
+        )
+        # create a progress bar if file size is known
+        pbar = None
+        if file_size:
+            pbar = tqdm(
+                total=file_size,
+                desc=f"Downloading {remote_file}",
+                unit="B",
+                unit_scale=True,
+            )
+
+        bytes_read = 0
+
+        def on_chunk(data: bytes, sink: BinaryIO) -> None:
+            nonlocal bytes_read
+            sink.write(data)
+            bytes_read += len(data)
+            if pbar is not None:
+                pbar.update(len(data))
+
+        try:
+            callback = partial(on_chunk, sink=fileobj)
+            self._ftp.retrbinary(f"RETR {remote_file}", callback, blocksize=chunk_size)
+        # this exception is raised on large downloads even if data transfer completed
+        except (socket.timeout, TimeoutError) as e:
+            self.handle_timeout(remote_file, bytes_read, file_size, e)
+        finally:
+            if pbar is not None:
+                pbar.close()
+        return fileobj
+
+    def download_file_directly(
+        self,
+        remote_file: str,
+        chunk_size: int = 8192,
+        local_file: str = "",
+        opener=open,
+    ) -> io.BytesIO | str:
+        """
+        Download a file into a BytesIO with the following behavior:
+
+        - Try to get file size (if use_size=True).
+        - On timeout:
+            * If file size is known and bytes_read == size:
+                  treat as success and return the BytesIO.
+            * If file size is known and bytes_read < size:
+                  raise TimeoutError (known incomplete).
+            * If file size is unknown:
+                  return whatever bytes were downloaded (caller validates).
+
+        The FTP connection is closed on timeout. Next call will reconnect.
+        """
+        self._ensure_connected()
+        file_size = self.retrieve_file_size(remote_file)
+        bytes_read = 0
+        # LOG FILE SIZE
+        self.logger.info(
+            "Downloading %s (%s bytes)", remote_file, file_size or "unknown"
+        )
+        # create a progress bar if file size is known
+        pbar = None
+        if file_size:
+            pbar = tqdm(
+                total=file_size,
+                desc=f"Downloading {remote_file}",
+                unit="B",
+                unit_scale=True,
+            )
+
+        def on_chunk(data: bytes, sink: BinaryIO) -> None:
+            nonlocal bytes_read
+            sink.write(data)
+            bytes_read += len(data)
+            if pbar is not None:
+                pbar.update(len(data))
+
+        try:
+            # download the file directly if the local_file is supplied
+            with opener(local_file, "wb") as f_out:
+                callback = partial(on_chunk, sink=f_out)
+                self._ftp.retrbinary(
+                    f"RETR {remote_file}", callback, blocksize=chunk_size
+                )
+        # this exception is raised on large downloads even if data transfer completed
+        except (socket.timeout, TimeoutError) as e:
+            self.handle_timeout(remote_file, bytes_read, file_size, e)
+        finally:
+            if pbar is not None:
+                pbar.close()
+        return local_file
+
+
+def decompress_lzma_file(fileobj, dest_path):
+    """
+    Decompresses an LZMA-compressed file object and writes the output to the specified destination path.
+
+    Parameters:
+    fileobj (io.BytesIO): The LZMA-compressed file object to be decompressed.
+    dest_path (str or pathlib.Path): The destination path where the decompressed file will be saved.
+
+    Returns:
+    None
+    """
+    try:
+        fileobj.seek(0)  # reset file pointer to the beginning
+        with lzma.open(fileobj) as f_in, open(dest_path, "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    except lzma.LZMAError as e:
+        # Compressed stream is incomplete / corrupt
+        print(
+            f"Decompression failed - download is incomplete, need to retry. Error: {e}"
+        )
+        raise e
 
 
 # PURPOSE: compare the modification time of two files
@@ -306,7 +604,7 @@ def get_geometries_from_file(file_path):
     return geometries
 
 
-def unzip_gzip_files(directory, use_progress_bar: bool = True):
+def unzip_gzip_files(directory: str, use_progress_bar: bool = True):
     """
     Unzips all gzip (.gz) files in a given directory and removes the original .gz files.
 
@@ -406,13 +704,13 @@ def check_files(directory_path: str, files_dict: dict) -> list:
 
 # PURPOSE: pull file from a remote ftp server and decompress if tar file
 def ftp_download(
-    logger,
-    ftp,
-    remote_path,
-    local_dir,
-    LZMA=True,
-    TARMODE=False,
-    FLATTEN=False,
+    logger: logging.Logger,
+    ftp_client: ResilientFTP,
+    remote_path: list,
+    local_dir: pathlib.Path,
+    LZMA=None,
+    TARMODE=None,
+    FLATTEN=None,
     GZIP=False,
     CHUNK=8192,
     MODE=0o775,
@@ -424,11 +722,11 @@ def ftp_download(
     ----------
     logger: logging.logger object
         Logger for outputting file transfer information
-    f: ftplib.FTP object
-        Active ftp connection to AVISO server
+    ftp_client: ResilientFTP
+        Authenticated ftp client for downloading files
     remote_path: list
         Remote path components to file on ftp server
-    local_dir: str or pathlib.Path
+    local_dir: pathlib.Path
         Local directory to save file
     LZMA: bool, default None
         Decompress lzma-compressed file
@@ -451,42 +749,52 @@ def ftp_download(
     logger.info(f"Using LZMA: {LZMA}, Using TARMODE {TARMODE}")
 
     # Printing files transferred
-    remote_ftp_url = posixpath.join("ftp://", ftp.host, remote_file)
+    remote_ftp_url = posixpath.join("ftp://", ftp_client.host, remote_file)
     logger.info(f"{remote_ftp_url} -->")
+    # the code under TARMODE may look like a duplicate but unlike ftp_download_file it doesn't check if the files already exist locally resulting in extra downloads
     if TARMODE:
-        # copy remote file contents to bytesIO object
-        fileobj = io.BytesIO()
-        ftp.retrbinary(f"RETR {remote_file}", fileobj.write, blocksize=CHUNK)
+        # download remote file contents to bytesIO object that will be extracted
+        fileobj = ftp_client.download_fileobj(
+            remote_file,
+            chunk_size=CHUNK,
+        )
         fileobj.seek(0)
         # open the tar file
         tar = tarfile.open(name=remote_path[-1], fileobj=fileobj, mode=TARMODE)
         # read tar file and extract all files
         member_files = [m for m in tar.getmembers() if tarfile.TarInfo.isfile(m)]
-        for m in member_files:
-            member = posixpath.basename(m.name) if FLATTEN else m.name
-            base, sfx = posixpath.splitext(m.name)
-            # extract file contents to new file
-            output = f"{member}.gz" if sfx in (".asc", ".nc") and GZIP else member
-            local_file = local_dir.joinpath(*posixpath.split(output))
-            # check if the local file exists
-            if local_file.exists() and newer(m.mtime, local_file.stat().st_mtime):
-                # check the modification time of the local file
-                # if remote file is newer: overwrite the local file
-                continue
-            # print the file being transferred
-            logger.info(f"\t{str(local_file)}")
-            # recursively create output directory if non-existent
-            local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
-            # extract file to local directory
-            with tar.extractfile(m) as fi, opener(local_file, "wb") as fo:
-                shutil.copyfileobj(fi, fo)
-            # get last modified date of remote file within tar file
-            # keep remote modification time of file and local access time
-            os.utime(local_file, (local_file.stat().st_atime, m.mtime))
-            local_file.chmod(mode=MODE)
+        with tqdm(
+            total=len(member_files), desc="Extracting tar members", unit="file"
+        ) as pbar:
+            for m in member_files:
+                member = posixpath.basename(m.name) if FLATTEN else m.name
+                base, sfx = posixpath.splitext(m.name)
+                # extract file contents to new file
+                output = f"{member}.gz" if sfx in (".asc", ".nc") and GZIP else member
+                local_file = local_dir.joinpath(*posixpath.split(output))
+                # check if the local file exists
+                if local_file.exists() and newer(m.mtime, local_file.stat().st_mtime):
+                    # check the modification time of the local file
+                    # if remote file is newer: overwrite the local file
+                    pbar.set_postfix_str(f"Already exists {member} - skipping")
+                    pbar.update(1)
+                    continue
+                # print the file being transferred
+                logger.info(f"\t{str(local_file)}")
+                pbar.set_postfix_str(f"extracting: {member}")
+                # recursively create output directory if non-existent
+                local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
+                # extract file to local directory
+                with tar.extractfile(m) as fi, opener(local_file, "wb") as fo:
+                    shutil.copyfileobj(fi, fo)
+                # get last modified date of remote file within tar file
+                # keep remote modification time of file and local access time
+                os.utime(local_file, (local_file.stat().st_atime, m.mtime))
+                local_file.chmod(mode=MODE)
+                pbar.update(1)
     elif LZMA:
         # get last modified date of remote file and convert into unix time
-        mdtm = ftp.sendcmd(f"MDTM {remote_file}")
+        mdtm = ftp_client.sendcmd(f"MDTM {remote_file}")
         mtime = calendar.timegm(time.strptime(mdtm[4:], "%Y%m%d%H%M%S"))
         # output file name for compressed and uncompressed cases
         stem = posixpath.basename(posixpath.splitext(remote_file)[0])
@@ -494,22 +802,20 @@ def ftp_download(
         # extract file contents to new file
         output = f"{stem}.gz" if sfx in (".asc", ".nc") and GZIP else stem
         local_file = local_dir.joinpath(output)
-        # check if the local file exists
+        # check if the local file exists and is up to date otherwise skip download
         if local_file.exists() and newer(mtime, local_file.stat().st_mtime):
-            # check the modification time of the local file
             # if remote file is newer: overwrite the local file
             return
         # print the file being transferred
-        logger.info(f"\t{str(local_file)}")
+        logger.info(f"Downloading remote file {remote_file} to {str(local_file)}")
         # recursively create output directory if non-existent
         local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
-        # copy remote file contents to bytesIO object
-        fileobj = io.BytesIO()
-        ftp.retrbinary(f"RETR {remote_file}", fileobj.write, blocksize=CHUNK)
-        fileobj.seek(0)
+        file_obj = ftp_client.download_fileobj(
+            remote_file,
+            chunk_size=CHUNK,
+        )
         # decompress lzma file and extract contents to local directory
-        with lzma.open(fileobj) as f_in, opener(local_file, "wb") as f_out:
-            shutil.copyfileobj(f_in, f_out)
+        decompress_lzma_file(file_obj, local_file)
         # get last modified date of remote file within tar file
         # keep remote modification time of file and local access time
         os.utime(local_file, (local_file.stat().st_atime, mtime))
@@ -522,7 +828,7 @@ def ftp_download(
         output = f"{stem}.gz" if sfx in (".asc", ".nc") and GZIP else stem
         local_file = local_dir.joinpath(output)
         # get last modified date of remote file and convert into unix time
-        mdtm = ftp.sendcmd(f"MDTM {remote_file}")
+        mdtm = ftp_client.sendcmd(f"MDTM {remote_file}")
         mtime = calendar.timegm(time.strptime(mdtm[4:], "%Y%m%d%H%M%S"))
         # check if the local file exists
         if local_file.exists() and newer(mtime, local_file.stat().st_mtime):
@@ -533,9 +839,9 @@ def ftp_download(
         logger.info(f"\t{str(local_file)}\n")
         # recursively create output directory if non-existent
         local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
-        # copy remote file contents to local file
-        with opener(local_file, "wb") as f_out:
-            ftp.retrbinary(f"RETR {remote_file}", f_out.write, blocksize=CHUNK)
+        local_file = ftp_client.download_file_directly(
+            remote_file, chunk_size=CHUNK, local_file=local_file, opener=opener
+        )
         # keep remote modification time of file and local access time
         os.utime(local_file, (local_file.stat().st_atime, mtime))
         local_file.chmod(mode=MODE)
@@ -545,7 +851,7 @@ def ftp_download(
 # by downloading tar files and extracting contents
 def aviso_fes_tar(
     model,
-    f,
+    ftp_client,
     logger,
     DIRECTORY: str | pathlib.Path | None = None,
     LOAD: bool = False,
@@ -553,9 +859,32 @@ def aviso_fes_tar(
     GZIP: bool = False,
     MODE: int = 0o775,
     use_progress_bar: bool = True,
-    LOG=True,
-    LOGFILE="AVISO_FES_tides.log",
 ):
+    """
+    Download FES tidal model files from AVISO ftp server
+    Parameters
+    ----------
+    model: str
+        FES tidal model to download
+    ftp_client: ResilientFTP
+        Authenticated ftp client for downloading files
+    logger: logging.Logger
+        Logger for outputting file transfer information
+    DIRECTORY: str or pathlib.Path, default None
+        Local directory to save FES files
+    LOAD: bool, default False
+        Download load tide files for FES2014
+    CURRENTS: bool, default False
+        Download current files for FES2012 and FES2014
+    GZIP: bool, default False
+        Compress output ascii and netCDF4 tide files
+    MODE: oct, default 0o775
+        Local permissions mode of the files downloaded
+    use_progress_bar: bool, default True
+        Use progress bar to track file downloads
+    LOG: bool, default True
+        Log file transfer information
+    """
     # check if local directory exists and recursively create if not
     localpath = os.path.join(DIRECTORY, model.lower())
     os.makedirs(localpath, MODE) if not os.path.exists(localpath) else None
@@ -622,32 +951,31 @@ def aviso_fes_tar(
         TAR["FES2014"].extend(["r"])
         FLATTEN["FES2014"].extend([False])
 
-    num_files_to_process = len(FES[model])
+    # for each file for a model
     with progress_bar_context(
         use_progress_bar,
-        total=num_files_to_process,
-        description=f"Downloading files from AVISO FTP",
+        total=len(FES[model]),
+        description=f"Downloading files for {model}",
     ) as update:
+        # download file from ftp and decompress tar files
         for remotepath, tarmode, flatten in zip(FES[model], TAR[model], FLATTEN[model]):
+            print(f"tarmode: {tarmode}, flatten: {flatten}")
             # download file from ftp and decompress tar files
             update(f"Downloading files...{localpath}\n{remotepath}", 0)
             ftp_download_file(
-                logger, f, remotepath, localpath, tarmode, flatten, GZIP, MODE
+                logger, ftp_client, remotepath, localpath, tarmode, flatten, GZIP, MODE
             )
             update(f"Downloading files...{localpath}\n{remotepath}", 1)
 
         # close the ftp connection
-        f.quit()
-        # close log file and set permissions level to MODE
-        if LOG:
-            os.chmod(os.path.join(DIRECTORY, LOGFILE), MODE)
+        ftp_client.quit()
 
 
 # PURPOSE: download local AVISO FES files with ftp server
 # by downloading individual files
 def aviso_fes_list(
     model,
-    f,
+    ftp_client,
     logger,
     DIRECTORY: str | pathlib.Path | None = None,
     LOAD: bool = False,
@@ -663,8 +991,8 @@ def aviso_fes_list(
     ----------
     MODEL: str
         FES tide model to download
-    f: ftplib.FTP object
-        Active ftp connection to AVISO server
+    ftp_client: ResilientFTP
+        Authenticated ftp client for downloading files
     logger: logging.logger object
         Logger for outputting file transfer information
     DIRECTORY: str or pathlib.Path
@@ -687,6 +1015,7 @@ def aviso_fes_list(
     FES = {}
     # 2022 model
     FES["FES2022"] = []
+    # example of path to ocean tide files: fes2022b/ocean_tide_20241025
     FES["FES2022"].append(["fes2022b", "ocean_tide_20241025"])
     if LOAD:
         FES["FES2022"].append(["fes2022b", "load_tide"])
@@ -698,13 +1027,14 @@ def aviso_fes_list(
     # for each model file type
     for subdir in FES[model]:
         local_dir = DIRECTORY.joinpath(*subdir)
-        file_list = ftp_list(f, subdir, basename=True, sort=True)
+        file_list = ftp_list(ftp_client, subdir, basename=True, sort=True)
         for fi in tqdm(file_list, desc=f"Downloading {model} files"):
+            # example remote path : ['fes2022b', 'ocean_tide_20241025', 'filename']
             remote_path = [*subdir, fi]
             LZMA = fi.endswith(".xz")
             ftp_download(
                 logger,
-                f,
+                ftp_client,
                 remote_path,
                 local_dir,
                 LZMA=LZMA,
@@ -715,7 +1045,7 @@ def aviso_fes_list(
 
 
 # PURPOSE: List a directory on a ftp host
-def ftp_list(ftp, remote_path, basename=False, pattern=None, sort=False):
+def ftp_list(ftp_client, remote_path, basename=False, pattern=None, sort=False):
     """
     List a directory on a ftp host
 
@@ -733,7 +1063,7 @@ def ftp_list(ftp, remote_path, basename=False, pattern=None, sort=False):
         Sort the listed items alphabetically
     """
     # list remote path
-    output = ftp.nlst(posixpath.join("auxiliary", "tide_model", *remote_path))
+    output = ftp_client.nlst(posixpath.join("auxiliary", "tide_model", *remote_path))
     # reduce to basenames
     if basename:
         output = [posixpath.basename(i) for i in output]
@@ -751,40 +1081,51 @@ def ftp_list(ftp, remote_path, basename=False, pattern=None, sort=False):
     return output
 
 
-# PURPOSE: download local AVISO FES files with ftp server
-def aviso_fes_tides(
-    model,
-    DIRECTORY: str | pathlib.Path | None = None,
-    USER="",
-    PASSWORD="",
-    LOAD=False,
-    CURRENTS=False,
-    GZIP=False,
-    LOG=True,
-    MODE=0o775,
-    EXTRAPOLATED: bool = False,
-):
+def create_logger(
+    LOG: bool, DIRECTORY: str | None, model: str, mode: int = 0o775
+) -> logging.Logger:
+    """
+    Creates and configures a logger for FES tide model downloads.
 
-    # connect and login to AVISO ftp server
-    f = ftplib.FTP("ftp-access.aviso.altimetry.fr", timeout=1000)
-    f.login(USER, PASSWORD)
+    If logging is enabled, creates a log file in the specified directory with
+    timestamped filename. Otherwise, returns a logger that outputs to standard output.
+
+    Args:
+        LOG (bool): If True, log to a file; otherwise log to terminal.
+        DIRECTORY (str | None): Directory where the log file will be saved.
+            Required if LOG is True.
+        model (str): Name of the tide model being downloaded (e.g., "FES2014").
+        mode (int): Unix file permissions mode for the log file. Default is 0o775.
+
+    Returns:
+        logging.Logger: Configured logger instance for file or console output.
+
+    Raises:
+        ValueError: If LOG is True but DIRECTORY is not provided.
+
+    Example:
+        >>> logger = create_logger(True, "/path/to/logs", "FES2014")
+        >>> logger.info("Starting download...")
+    """
     # check if local directory exists and recursively create if not
     # create log file with list of downloaded files (or print to terminal)
     if LOG:
         # format: AVISO_FES_tides_2002-04-01.log
         today = time.strftime("%Y-%m-%d", time.localtime())
         LOGFILE = f"AVISO_FES_tides_{today}.log"
+        if not DIRECTORY:
+            raise ValueError("DIRECTORY must be provided if LOG is True")
         os.makedirs(DIRECTORY, exist_ok=True)
         fid = open(os.path.join(DIRECTORY, LOGFILE), mode="w", encoding="utf8")
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
-        # logger = pyTMD.utilities.build_logger(__name__, stream=fid, level=logging.INFO)
         logger.propagate = False  # Ensure log messages don't propagate to root logger
         file_handler = logging.FileHandler(fid.name)
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         file_handler.setFormatter(formatter)
+        os.chmod(os.path.join(DIRECTORY, LOGFILE), mode)
         logger.addHandler(file_handler)
         logger.info(f"AVISO FES Sync Log ({today})")
         logger.info(f"\tMODEL: {model}")
@@ -792,25 +1133,80 @@ def aviso_fes_tides(
         # standard output (terminal output)
         logger = pyTMD.utilities.build_logger(__name__, level=logging.INFO)
 
+    return logger
+
+
+# PURPOSE: download local AVISO FES files with ftp server
+def aviso_fes_tides(
+    model: str,
+    DIRECTORY: str | pathlib.Path | None = None,
+    USER: str = "",
+    PASSWORD: str = "",
+    LOAD: bool = False,
+    CURRENTS: bool = False,
+    GZIP: bool = False,
+    LOG: bool = True,
+    MODE=0o775,
+    EXTRAPOLATED: bool = False,
+):
+    """
+    Download AVISO FES global tide models from the AVISO FTP server
+
+    Parameters
+    ----------
+    model: str
+        FES tide model to download
+    directory: str or pathlib.Path
+        Working data directory
+    user: str, default ''
+        Username for AVISO Login
+    password: str, default ''
+        Password for AVISO Login
+    load: bool, default False
+        Download load tide model outputs
+    currents: bool, default False
+        Download tide model current outputs
+    extrapolated: bool, default False
+        Download extrapolated tide model outputs
+    compressed: bool, default False
+        Compress output ascii and netCDF4 tide files
+    timeout: int, default None
+        Timeout in seconds for blocking operations
+    mode: oct, default 0o775
+        Local permissions mode of the files downloaded
+    """
+    # check if local directory exists and recursively create if not
+    # create log file with list of downloaded files (or print to terminal)
+    logger = create_logger(LOG, DIRECTORY, model, mode=MODE)
+
+    # connect to AVISO ftp server and authenticate
+    client = ResilientFTP(
+        host="ftp-access.aviso.altimetry.fr",
+        user=USER,
+        password=PASSWORD,
+        timeout=60,  # short timeout for due to new ftp server settings
+        max_retries=2,
+        logger=logger,
+    )
+
     model = model.upper()
 
     # download the FES tide model files
     if model.upper() in ("FES1999", "FES2004", "FES2012", "FES2014"):
         aviso_fes_tar(
             model,
-            f,
+            client,
             logger,
             DIRECTORY=DIRECTORY,
             LOAD=LOAD,
             CURRENTS=CURRENTS,
             GZIP=GZIP,
             MODE=MODE,
-            LOGFILE=LOGFILE,
         )
     elif model.upper() in ("FES2022",):
         aviso_fes_list(
             model,
-            f,
+            client,
             logger,
             DIRECTORY=DIRECTORY,
             LOAD=LOAD,
@@ -821,40 +1217,21 @@ def aviso_fes_tides(
         )
     else:
         print(
-            f"Model name provided not recogized as any of the available models : ['FES1999','FES2004','FES2012','FES2014','FES2022']"
+            "Model name provided not recogized as any of the available models : ['FES1999','FES2004','FES2012','FES2014','FES2022']"
         )
 
 
-def retrieve_file_size(ftp: ftplib.FTP, remote_file: str):
-    """
-    Retrieve the size of a file on an FTP server.
-
-    Parameters:
-    - ftp (ftplib.FTP): An active FTP connection.
-    - remote_file (str): Path to the file on the FTP server.
-
-    Returns:
-    - int or None: Size of the file in bytes or None if there's an error.
-    """
-    try:
-        ftp.voidcmd("TYPE I")  # Switch to binary mode
-        response = ftp.sendcmd(f"SIZE {remote_file}")
-        return int(response.split()[1])
-    except ftplib.error_perm as e:
-        print(f"Could not get size of {remote_file}: {e}")
-        return None
-
-
-def get_missing_files(local_file, local_dir, OCEAN_TIDE_FILES, LOAD_TIDE_FILES):
+def get_missing_files(
+    local_file: str, local_dir: str, OCEAN_TIDE_FILES: dict, LOAD_TIDE_FILES: dict
+) -> list:
     """
     Determine the missing files based on the filename and check them in the respective directories.
 
     Parameters:
     - local_file (str): Path to the local file.
     - local_dir (str): Base directory where the files are located.
-    - OCEAN_TIDE_FILES (list): List of expected ocean tide files.
-    - LOAD_TIDE_FILES (list): List of expected load tide files.
-
+    - OCEAN_TIDE_FILES (dict): Dictionary of expected ocean tide files.
+    - LOAD_TIDE_FILES (dict): Dictionary of expected load tide files.
     Returns:
     - list: A list of missing files. If no files are missing, returns an empty list.
     """
@@ -871,39 +1248,6 @@ def get_missing_files(local_file, local_dir, OCEAN_TIDE_FILES, LOAD_TIDE_FILES):
     return missing_files
 
 
-def download_with_progress_bar(ftp: ftplib.FTP, remote_file: str, local_file: str):
-    """
-    Download a file from an FTP server with a progress bar.
-
-    Parameters:
-    - ftp (ftplib.FTP): An active FTP connection.
-    - remote_file (str): Path to the file on the FTP server.
-    - local_file (str): Path where the file should be saved locally.
-
-    Note:
-    - The function uses tqdm to display a progress bar.
-    """
-    file_size = retrieve_file_size(ftp, remote_file)
-    if not file_size:
-        return
-
-    def callback(data):
-        pbar.update(len(data))
-        # update(f"Downloading File {remote_file}", len(data))
-        fileobj.write(data)
-
-    fileobj = io.BytesIO()
-
-    with tqdm(
-        total=file_size, desc=f"Downloading {remote_file}", unit="B", unit_scale=True
-    ) as pbar:
-        fileobj = io.BytesIO()
-        ftp.retrbinary(f"RETR {remote_file}", callback)
-
-    fileobj.seek(0)
-    return fileobj
-
-
 def extract_tar_with_progress_bar(
     fileobj, local_dir, missing_files, GZIP, MODE, tarmode, flatten, logger
 ):
@@ -916,12 +1260,13 @@ def extract_tar_with_progress_bar(
     - missing_files (list): List of filenames that need to be extracted.
     - GZIP (bool): Whether to gzip-compress the extracted files.
     - MODE (int): Unix file permissions for the extracted files.
-    - tarmode (_type_): The mode in which the tar files should be processed, if applicable
+    - tarmode (str): The mode in which the tar files should be processed, if applicable
     - flatten (bool): A boolean indicating whether the downloaded files should be flattened or not
     - logger (logging object): logger: A logging object used to log events and messages during the process
     Note:
     - The function uses tqdm to display a progress bar.
     """
+    fileobj.seek(0)  # reset file object pointer to beginning
     tar = tarfile.open(fileobj=fileobj, mode=tarmode)
     member_files = [m for m in tar.getmembers() if tarfile.TarInfo.isfile(m)]
     total_size = sum(m.size for m in member_files)
@@ -929,7 +1274,7 @@ def extract_tar_with_progress_bar(
     with progress_bar_context(
         True,
         total=total_size,
-        description=f"Extracting Tar",
+        description=f"Extracting Tar files",
         unit="B",
         unit_scale=True,
     ) as update:
@@ -971,7 +1316,15 @@ def extract_tar_with_progress_bar(
 
 # PURPOSE: pull file from a remote ftp server and decompress if tar file
 def ftp_download_file(
-    logger, ftp, remote_path, local_dir, tarmode, flatten, GZIP, MODE
+    logger,
+    ftp_client,
+    remote_path,
+    local_dir,
+    tarmode,
+    flatten,
+    GZIP: bool = False,
+    MODE: int = 0o775,
+    CHUNK=8192,
 ):
     """
     The function performs the following tasks:
@@ -981,13 +1334,13 @@ def ftp_download_file(
 
     Args:
         logger (logging object): logger: A logging object used to log events and messages during the process
-        ftp (_type_): A connection to an FTP server to download the files
+        ftp_client (ResilientFTP object): An active FTP connection to the AVISO server managed by the ResilientFTP class
         remote_path (_type_): The path where the files are located on the FTP server
         local_dir (str): The path where the files should be downloaded on the local machine
         tarmode (_type_): The mode in which the tar files should be processed, if applicable
         flatten (bool): A boolean indicating whether the downloaded files should be flattened or not
         GZIP (bool): A boolean indicating whether gzip compression should be applied to the downloaded files
-        MODE (_type_): Unix file permissions for downloaded files
+        MODE (): Unix file permissions for downloaded files
 
     """
     try:
@@ -1013,27 +1366,30 @@ def ftp_download_file(
         logger.info(f"remote_file: {remote_file} --> local_file: {local_file}")
 
         # Printing files transferred
-        remote_ftp_url = posixpath.join("ftp://", ftp.host, remote_file)
+        remote_ftp_url = posixpath.join("ftp://", ftp_client.host, remote_file)
         logger.info(f"remote_ftp_url: {remote_ftp_url} -->")
         if tarmode:
             logger.info(f"tarmode is {tarmode}")
-            # copy remote file contents to bytesIO object
-            # fileobj = io.BytesIO()
-            fileobj = download_with_progress_bar(ftp, remote_file, local_file)
-            # fileobj.seek(0)
+            # download remote file contents to bytesIO object that will be extracted
+            fileobj = ftp_client.download_fileobj(
+                remote_file,
+                chunk_size=CHUNK,
+            )
+            # extract the tar file with a progress bar from the bytesIO object
             extract_tar_with_progress_bar(
                 fileobj, local_dir, missing_files, GZIP, MODE, tarmode, flatten, logger
             )
         else:
-            logger.info(f"not tarmode")
+            logger.info(f"Downloading non-tar file: {remote_file}")
             # copy readme and uncompressed files directly
             local_file = os.path.join(local_dir, remote_path[-1])
             logger.info(f"\t local_file: {local_file}\n")
             # Download the file with a progress bar
-            download_with_progress_bar(ftp, remote_file, local_file)
-
+            ftp_client.download_file_directly(
+                remote_file, chunk_size=CHUNK, local_file=local_file
+            )
             # get last modified date of remote file and convert into unix time
-            mdtm = ftp.sendcmd(f"MDTM {remote_file}")
+            mdtm = ftp_client.sendcmd(f"MDTM {remote_file}")
             remote_mtime = calendar.timegm(time.strptime(mdtm[4:], "%Y%m%d%H%M%S"))
             # Set the modification time of the local file to match the remote file
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
@@ -1091,7 +1447,7 @@ def download_fes_tides(
                 LOG=log,
                 MODE=mode,
             )
-        print(f"Download the {tide_model_name} to {directory}")
+        print(f"Downloaded the {tide_model_name} to {directory}")
 
 
 def clip_model_to_regions(
@@ -1099,7 +1455,7 @@ def clip_model_to_regions(
         os.path.abspath(core_utilities.get_base_dir()), "tide_model"
     ),
     regions_file: str = "",
-    model: str = "FES2014",
+    MODEL: str = "FES2014",
     use_progess_bar: bool = True,
 ):
     """
@@ -1136,7 +1492,7 @@ def clip_model_to_regions(
     with progress_bar_context(
         use_progess_bar,
         total=6,
-        description=f"Clipping the Tide Model",
+        description="Clipping the Tide Model",
     ) as update:
         if not os.path.exists(tide_model_directory) and os.path.isdir(
             tide_model_directory
@@ -1151,14 +1507,14 @@ def clip_model_to_regions(
                 "tide_model", "tide_regions_map.geojson"
             )
 
-        model_name = model.lower()
+        model_name = MODEL.lower()
 
-        if model.upper() == "FES2014":
+        if MODEL.upper() == "FES2014":
             # create paths to tide models
             fes2014_model_directory = os.path.join(tide_model_directory, "fes2014")
             load_tide_dir = os.path.join(fes2014_model_directory, "load_tide")
             ocean_tide_dir = os.path.join(fes2014_model_directory, "ocean_tide")
-        elif model.upper() == "FES2022":
+        elif MODEL.upper() == "FES2022":
             # create paths to tide models
             fes2022_model_directory = os.path.join(tide_model_directory, "fes2022b")
             ocean_tide_dir = os.path.join(
@@ -1168,10 +1524,11 @@ def clip_model_to_regions(
             model_name = "fes2022b"
         else:
             raise Exception(
-                f"Model {model} is not supported.\n{traceback.format_exc()}"
+                f"Model {MODEL} is not supported.\n{traceback.format_exc()}"
             )
 
-        # load geometries from regions file
+        # Geojson file with world regions to split tide model for faster loading
+        # Load the geometries from the regions file to clip the tide model
         geometries = get_geometries_from_file(regions_file)
         update("Clipping the Tide Model: Unzipping load tide files")
 
