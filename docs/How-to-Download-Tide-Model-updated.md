@@ -2,7 +2,9 @@
 
 This guide will walk you through signing up for the necessary account and then choosing between two methods to download and clip the tide model for use in CoastSeg.
 
-# Part 1: Download the Tide Model
+# Part 1: Register for the Tide Model
+You only need to do this part once. Be sure to save your username and password in a safe place. 
+Be aware that AVISO may update their registration guide at any time and this page may be out of date.
 
 ### Step 1: Register
 - **Sign Up:** Begin by registering on the AVISO platform. Visit the [AVISO Registration Page ](https://www.aviso.altimetry.fr/en/data/data-access/registration-form.html) to create your account.
