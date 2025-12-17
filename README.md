@@ -32,6 +32,9 @@ CoastSeg is an interactive browser-based program that aims to broaden the adopti
 
 CoastSeg is a Python package installed via pip into a conda environment that serves as an toolkit for building custom SDS workflows. CoastSeg also provides full SDS workflow implementations via Jupyter notebooks and Python scripts that call functions and classes in the core CoastSeg toolkit for specific workflows. CoastSeg provides two fully functioning SDS workflows and its design allows for collaborators in the SDS software community to contribute additional workflows. All the codes, notebooks, scripts, and documentation are hosted on the [CoastSeg GitHub repository](https://github.com/SatelliteShorelines/CoastSeg).
 
+<img width="822" height="471" alt="coastseg_overview_shoreline_extraction-overview_diagram" src="https://github.com/user-attachments/assets/951b906a-126b-4d7e-a4f0-a8f40562d33a" />
+
+
 So-called `instantaneous' SDS workflows, such as the implementation of [CoastSat](https://github.com/kvos/CoastSat), where shorelines are extracted from each individual satellite image rather than temporal composites, follow a basic recipe, namely:
 
 1) waterline estimation, where the 2D (x,y) location of the land-sea interface is determined
