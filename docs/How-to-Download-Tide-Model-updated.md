@@ -125,36 +125,11 @@ If you are running coastseg on a secure network you may need to make the followi
 
 ⚠️ You must have downloaded the FES2014 and/or FES2022 tide model before attempting to correct tides
 
-
 ## ⚠️ Important: Read Before Using Tide Correction Button
 
 If the tide model was NOT downloaded to `CoastSeg/tide_model` then the tide correction button will NOT work. The tide correction button will try to load the tide model from `<CoastSeg location>/tide_model` and an error will occur. If you downloaded the tide model to a different location please move it to `CoastSeg/tide_model` and be sure to clip the tide model.
 
-
-##  Tide Correction Button 
-
-Ever since coastseg 1.1.0 released you can now use the `correct tides` button in coastseg to automatically correct the timeseries. This button will automatically find which files need to be tidally corrected and apply the tidal correction for you.
-
-### Steps
-
-**WARNING**
-You must have downloaded the tide model to the `tide_model` folder within coastseg for this button to work correctly.
-
-1.**Enter the beach slope**
-
-- This is the beach slope in meters for the ROI you have selected.
-
-  2.**Enter the beach elevation**
-
-- This is the beach elevation in meters for the ROI you have selected.
-
-  3.**Select the ROIs' ids to tidally correct**
-
-  4.**Click compute tides and wait a few minutes.**
-
-If you encounter any issues or have any questions please submit an issue at [CoastSeg Issues](https://github.com/Doodleverse/CoastSeg/issues/new/choose)
-
-![predict-tide_script](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/4ce506c2-403e-44e7-9ecd-6a4a4898b870)
+For detailed instructions on performing tide correction, see [How to Tidally Correct](How-to-Tidally-Correct.md).
 
 
 ## Credits
