@@ -78,6 +78,9 @@ Note: CoastSeg will work in Anaconda, however since not all users can use Anacon
   pip install transformers
   ```
 
+
+
+
 ## Method #2: Install from Pypi
 
 **1.Create an miniconda/Anaconda environment**
@@ -132,3 +135,10 @@ conda install -c conda-forge  gdal -y
 ## **Having Installation Errors?**
 
 Use the command `conda clean --all` to clean old packages from your anaconda base environment. Ensure you are not in your coastseg environment or any other environment by running `conda deactivate`, to deactivate any environment you're in before running `conda clean --all`. It is recommended that you have Anaconda prompt (terminal for Mac and Linux) open as an administrator before you attempt to install `coastseg` again.
+
+
+## Method #3: Install with Pixi (Developer/Contributor Install)
+
+Pixi is a modern dependency manager that seamlessly handles both pip and conda packages that CoastSeg requires. This is the recommended method for developers and contributors as it creates an editable install from your local git clone. We also recommend this for users of the zoo workflow as Tensorflow 2.12 is difficult to maintain dependencies for.
+
+For complete instructions, see: [How to Install Pixi](how-to-install-pixi.md) 

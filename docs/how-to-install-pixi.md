@@ -1,144 +1,61 @@
-
-
-## Non-Windows Users
-
-Visit the [Pixi installation page](https://pixi.sh/latest/) and follow instructions to install Pixi in your shell.
-
-## Tutorial: Install Pixi with Powershell for Windows
-
-### 1. Install Pixi
-Visit the [Pixi installation page](https://pixi.sh/latest/) and follow instructions to install Pixi in your shell.
-
-### 2. Open Powershell and Configure Pixi
-This code below tells Powershell to allow pixi to connect to the shell
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-pixi shell
-```
-<details>
-<summary>Technical explanation</summary>
-This sets the current user's PowerShell execution policy to "RemoteSigned," allowing local scripts to run unsigned while requiring signatures for downloaded scripts.
-- Local scripts run without needing a digital signature, allowing for flexibility during development.
-- Scripts from the internet must be signed, which helps protect against running untrusted or tampered code.
-</details>
-<details>
-<summary>Command Breakdown</summary>
-        - `Set-ExecutionPolicy`: Changes the PowerShell script execution policy.</br>
-        - `RemoteSigned`: Allows unsigned local scripts, but requires a signature for downloaded ones.</br>
-        - `-Scope CurrentUser`: Affects only your user account (no admin rights needed).
-</details>
-
-### 3. Move to CoastSeg
-Change directories to the location of your pyproject.toml
-
-1. `cd <CoastSeg folder containing pyproject.toml>`
-
-2. Check if the `pyproject.toml` exists in that directory with `Test-Path .\pyproject.toml` 
-    1. If it exists it will print `True`
-
-### 4. Validate Pixi is Working
-Activate the environment with:
-
-```
-pixi shell --frozen
-
-```
-
-1. This will activate the default environment, which in this example is called `(coastseg)`
-
-![pixi shell frozen](https://github.com/user-attachments/assets/c2b459b5-082a-4614-88e7-15afa7de44c9)
-
-If you get an error like:
-
-![pixi permission_error](https://github.com/user-attachments/assets/38da7a21-de80-4e10-b278-937c1358e203)
-
-Then try the following (you don’t need admin permissions)
-
-- This command tells powershell that Pixi is safe to connect to Powershell, buts temporary so you will need to re-run it each time you run `pixi shell` in a new powershell window
-
-```powershell
-function Invoke-Pixi {
-    powershell.exe -ExecutionPolicy Bypass -Command "pixi $args"
-}
-
-Set-Alias pixi Invoke-Pixi -Option AllScope
-
-pixi shell --frozen
-```
-    
 ## Install CoastSeg with Pixi
 
-### Step 1: Navigate to Project Directory
+**Pixi warning (please read)**
+- Keep your local CoastSeg repo **up to date**, or you will use an **outdated** CoastSeg.
+- This is an **editable install**: Pixi builds CoastSeg from the code in your **local git clone**.
+- ⚠️⚠️⚠️**Do not run `pip install` or `conda install` inside a Pixi environment.** It can permanently break the environment.⚠️⚠️⚠️
+  - Usually this is fine but if you start getting import errors use the advice below
+  - If that happens: delete the `.pixi/` folder and re-run `pixi shell --locked` to reinstall all the dependencies
 
-Open your preferred shell (this example uses PowerShell) and navigate to your project's directory containing:
+## Table of Contents
 
-- `pyproject.toml`
-- `pixi.lock`
+- [Before anything: Install Pixi](#before-anything-install-pixi)
+- [Basic Pixi install (recommended)](#basic-pixi-install-recommended)
+- [Use Pixi without admin access](#use-pixi-without-admin-access)
+- [Activate an existing Pixi environment](#activate-an-existing-pixi-environment)
+- [Upgrade your Pixi environment](#upgrade-your-pixi-environment-get-the-latest-coastseg)
+- [Pixi Command Reference Table](#pixi-command-reference-table)
+- [FAQs](#faqs)
+---
 
-### Step 2: Install the Environment
 
-Install dependencies specified in the `pixi.lock` file:
+### Before anything:  Install Pixi
+Visit the [Pixi installation page](https://pixi.sh/latest/) and follow instructions to install Pixi in your shell.
+    
+## Basic Pixi install (recommended)
 
-```
-pixi install --frozen
+1. **Clone the CoastSeg repo (shallow clone)**
+    - You only need to do this once
+   ```bash
+   git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
+    ```
+2. Navigate to the CoastSeg Directory
 
-```
+    - Make sure the directory you are at contains the files. You can use the `ls` command to list the files.
+        - `pyproject.toml`
+        - `pixi.lock`
 
-![pixi install frozen](https://github.com/user-attachments/assets/83d60c87-aaeb-4d3c-b146-96670cf378f6)
+    ```
+    cd CoastSeg
+    # Make sure this folder contains pyproject.toml
+    ```
+3. Create + activate the Pixi environment
+    - This is like  `conda install` + `conda activate` in one step, it reads  CoastSeg’s `pixi.lock` file to build the environment and then activates it
+    ```
+    pixi shell --frozen
+    ```
+4. Verify it worked
 
-### Step 3: Activate the Default Environment
+    - You should see something like (coastseg:all) in your terminal prompt.
 
-Activate the environment with:
+    - Test the import:
+    ```
+    python -c "import coastseg; print('CoastSeg import OK')"
 
-```
-pixi shell --frozen
-
-```
-
-1. This will activate the default environment, which in this example is called `(coastseg)`
-
-![pixi shell frozen](https://github.com/user-attachments/assets/c2b459b5-082a-4614-88e7-15afa7de44c9)
-
-If you get an error like:
-
-![pixi permission_error](https://github.com/user-attachments/assets/38da7a21-de80-4e10-b278-937c1358e203)
-
-Then try the following (you don’t need admin permissions)
-
-- this command tells powershell that Pixi is safe to connect to Powershell
-
-```powershell
-function Invoke-Pixi {
-    powershell.exe -ExecutionPolicy Bypass -Command "pixi $args"
-}
-
-Set-Alias pixi Invoke-Pixi -Option AllScope
-
-pixi shell --frozen
-```
-
-### Step 4: Verify Installation
-
-Check that the environment is correctly set up by running:
-
-```
-python -c "import coastseg"
-
-```
-
+    ```
 ![pixi default env](https://github.com/user-attachments/assets/83920c04-1182-479f-9bcc-ba97a1a7ad33)
 
-### Optional: Open the CoastSat notebook
-
-- If you don't want to use the zoo workflow and only want to use the CoastSat workflow then use the command below to run the `SDS_coastsat_classifier.ipynb` notebook in the environment.
-
-```
-jupyter lab SDS_coastsat_classifier.ipynb
-
-```
-
-
-### Step 5: Exit the Environment
+5. Exit the Environment (optional)
 
 Exit the current Pixi environment:
 
@@ -146,38 +63,86 @@ Exit the current Pixi environment:
 exit
 
 ```
-
 - notice how `(coastseg)` is no longer in front, this means that we have exited the coastseg environment
 
 ![exit coastseg pixi](https://github.com/user-attachments/assets/d52aa046-e734-405c-ac01-9ca413c68942)
 
 
-### Step 6: Activate a Custom Environment (Zoo Workflow)
+## Use Pixi without admin access
+If you cannot install Pixi system-wide, install it into a conda environment:
 
-Activate the Pixi environment configured for machine learning workflows (e.g., Zoo workflow):
+    ```
+    conda create -n coastseg_pixi python=3.10 -y
+    conda activate coastseg_pixi
+    conda install -c conda-forge pixi -y
+    ```
+Then follow the steps in [Basic Pixi install](#basic-pixi-install-recommended) (starting from git clone).
+
+## Activate an existing Pixi environment
+- Activate your pixi environment using the `pixi shell` command
+- Use `pixi shell -e all` if you want to use the zoo workflow.
+
+    ```
+    cd <coastseg_location>
+    pixi shell
+    ```
+
+## Upgrade your Pixi environment (get the latest CoastSeg)
+
+> ❗ Reminder (Pixi installed via conda): If you installed Pixi inside > a conda environment (for example coastseg_pixi), activate that conda > environment before running any pixi commands:
 
 ```
-pixi shell -e ml
-
+conda activate coastseg_pixi
 ```
 
-This environment adds TensorFlow and Transformers, which are essential for running Zoo workflow custom models.
+1. Go to your CoastSeg repo
 
-![pixi shell ml](https://github.com/user-attachments/assets/3d26ed7e-fe7f-49cd-b5c5-d9e0e2287bf6)
+    ```
+    cd <coastseg_location>
+    ```
+2. Set the remote connection to CoastSeg on GitHub (if needed)
 
+    - A `git remote` is a URL pointing to the CoastSeg GitHub repo, used to fetch and pull the latest changes.
 
-### Step 7: Verify ML Environment
+    - `origin` is just the name of that remote — it could be named anything (like cat).
 
-In the `ml` environment, verify that TensorFlow and Transformers are installed:
+    ```
+    git remote add origin https://github.com/Doodleverse/CoastSeg.git
+    ```
 
-```
-python -c "import tensorflow; from transformers import TFSegformerForSemanticSegmentation;"
+    Verify the remote is set up:
+    ```
+    git remote -v
+    ```
+    You should see something like
+    ```
+    origin  https://github.com/SatelliteShorelines/CoastSeg (fetch)
+    origin  https://github.com/SatelliteShorelines/CoastSeg (push)
 
-```
+    ```
+3. Pull the latest changes
 
+    ```
+    git pull origin
+    ```
+    If it fails due to local changes:
+    ```
+    git stash
+    git pull origin
+    ```
+4. Re-create/update the environment from the updated lockfile
+    
+    ```
+    pixi shell --frozen
+    ```
 
+5. Verify the upgrade
 
-## Command Reference Table
+    ```
+    python -c "import coastseg; print('CoastSeg import OK')"
+    ```
+
+# Pixi Command Reference Table
 
 | Command | Description | Conda Equivalent | Documentation |
 | --- | --- | --- | --- |
@@ -190,6 +155,9 @@ python -c "import tensorflow; from transformers import TFSegformerForSemanticSeg
 
 ## FAQs
 
+### Why can't I use pip install or conda install inside my pixi environment?
+Pixi is supposed to managed your dependencies and if you run `pip install` or `conda install` those packages get written to a different location on your computer than where your pixi environments get saved. This means when you run `pixi shell` it won't be able to find any of the dependencies you installed with `pip install` or `conda install`.
+
 ### What is `pixi.lock`?
 
 The `pixi.lock` file explicitly lists exact versions of Conda and PyPI packages required for each environment defined in `pyproject.toml`. You can open this file to view detailed package version information and sources (PyPI or Conda Forge).
@@ -199,11 +167,8 @@ The `pixi.lock` file explicitly lists exact versions of Conda and PyPI packages 
 The `pyproject.toml` file remains mostly unchanged, but now includes additional sections to help Pixi configure your Python environments more effectively.
 
 ### Hold up, what do you mean there are multiple environments?
-Yeah, that confused me too at first. What's special about pixi is that it can define multiple related environments all within the same file, `pyproject.toml`. For CoastSeg I've created two environments, one thats the default environment that can run the coastsat workflow and the other environment called `ml` that adds `tensorflow` & `transformers` to the environment to run the zoo workflow. If you are only interested in the coastsat workflow then you will only need the default environment.
+Yeah, that confused me too at first. What's special about pixi is that it can define multiple related environments all within the same file, `pyproject.toml`. 
 
-
-### Wait, I want to use both workflows and I don't want to switch. 
-Yeah, I'm lazy too that's why I created a third environment called `all` that contains the dependencies for both environments. To use this simply use `pixi shell -e all` and this will open a pixi shell that can use both workflows. Once the shell opens you can use python commands, jupyter commands just like you would with conda prompt.
 
 ### Why did you separate the environments like this?
-Great question, I did it because for our zoo workflow we require tensorflow version 2.12 to run our models correctly, which isn't a package avavilable on conda forge for windows machines. Since we want CoastSeg to be available in on conda-forge I opted to make it an optional dependency and a separate environment. But don't worry you can still the secret third environment called `all` to be able to use the coastsat and zoo workflows at the same time with the `pixi shell -e all` command.
+Great question, I did it because for our zoo workflow we require tensorflow version 2.12 to run our models correctly, which isn't a package avavilable on conda forge for windows machines. Since we want CoastSeg to be available in on conda-forge I opted to make it an optional dependency and a separate environment. But don't worry you can still the  third environment called `all` to be able to use the coastsat and zoo workflows at the same time with the `pixi shell -e all` command.
