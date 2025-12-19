@@ -407,6 +407,9 @@ class Shoreline(Feature):
             DownloadError: If the download fails.
         """
         # Construct URL and download
+        logger.info(
+            f"Preparing to download shoreline file: {filename} for dataset {dataset_id} from Zenodo"
+        )
         url = construct_download_url("https://zenodo.org/record/", dataset_id, filename)
 
         logger.info(f"Downloading {filename} from {url} to {save_location}")

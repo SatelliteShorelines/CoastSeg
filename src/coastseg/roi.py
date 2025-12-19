@@ -78,7 +78,7 @@ class ROI(Feature):
 
         Args:
             bbox: Bounding box GeoDataFrame.
-            shoreline: Shoreline GeoDataFrame.
+            shoreline(Optional): Shoreline GeoDataFrame. If provided, ROIs will be generated based on shoreline intersection.
             rois_gdf: Existing ROIs GeoDataFrame.
             square_len_lg: Large square length for ROI generation.
             square_len_sm: Small square length for ROI generation.
@@ -96,7 +96,7 @@ class ROI(Feature):
         if rois_gdf is not None:
             self.gdf = self._initialize_from_roi_gdf(rois_gdf)
         else:
-            self.gdf = self._initialize_from_bbox_and_shoreline(
+            self.gdf = self._initialize_from_bbox(
                 bbox, shoreline, square_len_lg, square_len_sm
             )
 
@@ -208,12 +208,12 @@ class ROI(Feature):
 
         return gdf
 
-    def _initialize_from_bbox_and_shoreline(
+    def _initialize_from_bbox(
         self,
         bbox: Optional[gpd.GeoDataFrame],
-        shoreline: Optional[gpd.GeoDataFrame],
-        square_len_lg: float,
-        square_len_sm: float,
+        shoreline: Optional[gpd.GeoDataFrame] = None,
+        square_len_lg: float = 5000,
+        square_len_sm: float = 0,
     ) -> gpd.GeoDataFrame:
         """
         Initialize GeoDataFrame from bounding box and shoreline intersection.
@@ -221,8 +221,8 @@ class ROI(Feature):
         Args:
             bbox: Bounding box GeoDataFrame.
             shoreline: Shoreline GeoDataFrame.
-            square_len_lg: Large square side length in meters.
-            square_len_sm: Small square side length in meters.
+            square_len_lg: Large square side length in meters. Default is 5000 meters
+            square_len_sm: Small square side length in meters. Default is 0.
 
         Returns:
             GeoDataFrame of ROIs intersecting with the shoreline.
@@ -234,8 +234,6 @@ class ROI(Feature):
         # Validate inputs
         if bbox is None or bbox.empty:
             raise exceptions.Object_Not_Found("bounding box")
-        if shoreline is None or shoreline.empty:
-            raise exceptions.Object_Not_Found("shorelines")
         if square_len_sm == square_len_lg == 0:
             raise ValueError("At least one square size must be greater than 0")
 
@@ -373,7 +371,7 @@ class ROI(Feature):
             >>> import geopandas as gpd
             >>> from shapely.geometry import Polygon
             >>> from coastseg.roi import ROI
-            >>> 
+            >>>
             >>> # Create test GeoDataFrame with ROIs
             >>> roi_data = {
             ...     'id': ['roi1', 'roi2'],
@@ -383,7 +381,7 @@ class ROI(Feature):
             ...     ]
             ... }
             >>> rois_gdf = gpd.GeoDataFrame(roi_data, crs='EPSG:4326')
-            >>> 
+            >>>
             >>> # Extract single ROI by ID
             >>> single_roi = ROI.extract_roi_by_id(rois_gdf, 'roi1')
             >>> print(single_roi['id'].iloc[0])
@@ -394,7 +392,7 @@ class ROI(Feature):
 
         # Select a single roi by id
         single_roi = gdf[gdf["id"].astype(str) == str(roi_id)]
-        
+
         # If the id was not found in the GeoDataFrame raise an exception
         if single_roi.empty:
             logger.error(f"Id: {roi_id} was not found in {gdf}")
@@ -403,8 +401,10 @@ class ROI(Feature):
                 id_as_int = int(roi_id)
                 raise exceptions.Id_Not_Found(id_as_int)
             except (ValueError, TypeError):
-                raise exceptions.Id_Not_Found(None, f"The ROI id '{roi_id}' does not exist.")
-        
+                raise exceptions.Id_Not_Found(
+                    None, f"The ROI id '{roi_id}' does not exist."
+                )
+
         logger.info(f"single_roi: {single_roi}")
         return single_roi
 
@@ -557,7 +557,7 @@ class ROI(Feature):
     def create_geodataframe(
         self,
         bbox: gpd.GeoDataFrame,
-        shoreline: gpd.GeoDataFrame,
+        shoreline: Optional[gpd.GeoDataFrame] = None,
         large_length: float = 7500,
         small_length: float = 5000,
     ) -> gpd.GeoDataFrame:
@@ -565,8 +565,8 @@ class ROI(Feature):
         Generate ROIs along shoreline using fishnet method.
 
         Args:
-            bbox: Bounding box GeoDataFrame.
-            shoreline: Shoreline GeoDataFrame.
+            bbox: Bounding box GeoDataFrame, limits area for ROI generation.
+            shoreline: Shoreline GeoDataFrame used to keep only the ROIs that intersect with the shoreline. If none then load all available ROIs in a grid in the bbox.
             large_length: Large square side length in meters.
             small_length: Small square side length in meters.
 
@@ -576,7 +576,7 @@ class ROI(Feature):
         Raises:
             ValueError: If bbox or shoreline is None.
         """
-        if bbox is None or shoreline is None:
+        if bbox is None:
             raise ValueError("bbox and shoreline must not be None")
 
         # Determine fishnet configuration
@@ -724,7 +724,7 @@ class ROI(Feature):
     def get_fishnet_gdf(
         self,
         bbox_gdf: gpd.GeoDataFrame,
-        shoreline_gdf: gpd.GeoDataFrame,
+        shoreline_gdf: Optional[gpd.GeoDataFrame] = None,
         square_length: float = 1000,
     ) -> gpd.GeoDataFrame:
         """
@@ -732,7 +732,7 @@ class ROI(Feature):
 
         Args:
             bbox_gdf: Bounding box GeoDataFrame.
-            shoreline_gdf: Shoreline GeoDataFrame to intersect with.
+            shoreline_gdf: Shoreline GeoDataFrame to intersect with. If None, all ROIs in the bbox are loaded.
             square_length: Square side length in meters.
 
         Returns:
@@ -741,9 +741,13 @@ class ROI(Feature):
         Raises:
             ValueError: If bbox_gdf or shoreline_gdf is None.
         """
-        if bbox_gdf is None or shoreline_gdf is None:
-            raise ValueError("Both bbox_gdf and shoreline_gdf are required")
+        if bbox_gdf is None:
+            raise ValueError(
+                "A bounding box GeoDataFrame is required into order to create ROIs"
+            )
 
         # Create fishnet and find intersection with shoreline
         fishnet = self.create_rois(bbox_gdf, square_length)
+        if shoreline_gdf is None:
+            return fishnet
         return self.fishnet_intersection(fishnet, shoreline_gdf)
