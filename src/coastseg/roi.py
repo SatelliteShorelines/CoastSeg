@@ -78,7 +78,7 @@ class ROI(Feature):
 
         Args:
             bbox: Bounding box GeoDataFrame.
-            shoreline: Shoreline GeoDataFrame.
+            shoreline(Optional): Shoreline GeoDataFrame. If provided, ROIs will be generated based on shoreline intersection.
             rois_gdf: Existing ROIs GeoDataFrame.
             square_len_lg: Large square length for ROI generation.
             square_len_sm: Small square length for ROI generation.
@@ -96,7 +96,7 @@ class ROI(Feature):
         if rois_gdf is not None:
             self.gdf = self._initialize_from_roi_gdf(rois_gdf)
         else:
-            self.gdf = self._initialize_from_bbox_and_shoreline(
+            self.gdf = self._initialize_from_bbox(
                 bbox, shoreline, square_len_lg, square_len_sm
             )
 
@@ -208,7 +208,7 @@ class ROI(Feature):
 
         return gdf
 
-    def _initialize_from_bbox_and_shoreline(
+    def _initialize_from_bbox(
         self,
         bbox: Optional[gpd.GeoDataFrame],
         shoreline: Optional[gpd.GeoDataFrame] = None,
@@ -234,9 +234,6 @@ class ROI(Feature):
         # Validate inputs
         if bbox is None or bbox.empty:
             raise exceptions.Object_Not_Found("bounding box")
-        # @todo decide what to do if no shoreline is available
-        # if shoreline is None or shoreline.empty:
-        #     raise exceptions.Object_Not_Found("shorelines")
         if square_len_sm == square_len_lg == 0:
             raise ValueError("At least one square size must be greater than 0")
 
@@ -568,8 +565,8 @@ class ROI(Feature):
         Generate ROIs along shoreline using fishnet method.
 
         Args:
-            bbox: Bounding box GeoDataFrame.
-            shoreline: Shoreline GeoDataFrame. If none then load all available ROIs in a grid in the bbox.
+            bbox: Bounding box GeoDataFrame, limits area for ROI generation.
+            shoreline: Shoreline GeoDataFrame used to keep only the ROIs that intersect with the shoreline. If none then load all available ROIs in a grid in the bbox.
             large_length: Large square side length in meters.
             small_length: Small square side length in meters.
 
@@ -579,9 +576,6 @@ class ROI(Feature):
         Raises:
             ValueError: If bbox or shoreline is None.
         """
-        # @todo decide what to do if no shoreline is available
-        # if bbox is None or shoreline is None:
-        #     raise ValueError("bbox and shoreline must not be None")
         if bbox is None:
             raise ValueError("bbox and shoreline must not be None")
 
