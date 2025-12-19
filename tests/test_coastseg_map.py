@@ -496,19 +496,21 @@ def test_load_feature_on_map_generate_rois(valid_bbox_gdf):
             assert coastsegmap.rois is not None
 
 
-def test_load_feature_on_map_rois_no_shoreline(box_no_shorelines_transects):
+def test_load_feature_on_map_rois_without_shorelines(box_no_shorelines_transects):
     coastsegmap = coastseg_map.CoastSeg_Map()
     # load bbox on map where no default shorelines are available
     coastsegmap.load_feature_on_map("bbox", gdf=box_no_shorelines_transects)
-    # now that bbox is loaded on map, this should work
-    # this will automatically load a shoreline within the bbox
-    with pytest.raises(exceptions.Object_Not_Found):
-        coastsegmap.load_feature_on_map(
-            "rois",
-            lg_area=20,
-            sm_area=0,
-            units="km²",
-        )
+    # attempt to load rois within the bbox where no shorelines are available
+    coastsegmap.load_feature_on_map(
+        "rois",
+        lg_area=20,
+        sm_area=0,
+        units="km²",
+    )
+    # validate that the rois exists
+    assert coastsegmap.rois is not None
+    assert coastsegmap.bbox is not None
+    assert coastsegmap.shoreline is None
 
 
 def test_load_feature_on_map_rois_custom(box_no_shorelines_transects):

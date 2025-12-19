@@ -139,26 +139,35 @@ def test_get_fishnet(
     assert not intersection_gdf.empty
 
 
-def test_roi_missing_lengths(valid_bbox_gdf, valid_shoreline_gdf):
+def test_roi_missing_lengths(valid_bbox_gdf):
     # test with missing square lengths
-    with pytest.raises(Exception):
-        roi.ROI(bbox=valid_bbox_gdf, shoreline=valid_shoreline_gdf)
+    with pytest.raises(ValueError, match="At least one square size must be greater than 0"):
+        roi.ROI(bbox=valid_bbox_gdf)
 
 
 def test_bad_roi_initialization(valid_bbox_gdf):
     empty_gdf = gpd.GeoDataFrame()
-    # test with missing shoreline
-    with pytest.raises(exceptions.Object_Not_Found):
-        roi.ROI(bbox=valid_bbox_gdf)
     # test with missing bbox and shoreline
     with pytest.raises(exceptions.Object_Not_Found):
         roi.ROI()
     # test with empty bbox
     with pytest.raises(exceptions.Object_Not_Found):
         roi.ROI(bbox=empty_gdf)
-    # test with empty shoreline
-    with pytest.raises(exceptions.Object_Not_Found):
-        roi.ROI(bbox=valid_bbox_gdf, shoreline=empty_gdf)
+
+
+def test_roi_initialization_without_shoreline(valid_bbox_gdf):
+    large_len = 1000
+    small_len = 750
+    rois_without_shoreline = roi.ROI(
+        bbox=valid_bbox_gdf,
+        square_len_lg=large_len,
+        square_len_sm=small_len,
+    )
+
+    assert isinstance(rois_without_shoreline, roi.ROI)
+    assert isinstance(rois_without_shoreline.gdf, gpd.GeoDataFrame)
+    assert not rois_without_shoreline.gdf.empty
+    assert set(rois_without_shoreline.gdf.columns) == {"geometry", "id"}
 
 
 def test_roi_from_bbox_and_shorelines(valid_bbox_gdf, valid_shoreline_gdf):
