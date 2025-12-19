@@ -7,7 +7,6 @@ from geopandas import GeoDataFrame
 
 from coastseg import exception_handler
 from coastseg.bbox import Bounding_Box
-from coastseg.exceptions import Object_Not_Found
 from coastseg.roi import ROI
 from coastseg.shoreline import Shoreline
 from coastseg.shoreline_extraction_area import Shoreline_Extraction_Area
@@ -192,7 +191,8 @@ def create_rois(
     coastsegmap: "CoastSeg_Map", gdf: Optional[GeoDataFrame] = None, **kwargs
 ) -> ROI:
     """
-    Creates ROI object from GeoDataFrame or CoastSeg_Map.
+    Creates ROI object from GeoDataFrame or using the bounding box in CoastSeg_Map.
+    Optionally, large and small area sizes can be provided to define ROI square length in meters.
 
     Args:
         coastsegmap: CoastSeg_Map instance.
@@ -206,27 +206,15 @@ def create_rois(
         Exception: If required kwargs missing.
         Object_Not_Found: If bbox not available.
     """
-    if gdf is not None:
+    if gdf is not None:  # use provided rois gdf instead of creating new rois
         rois = ROI(rois_gdf=gdf)
         exception_handler.check_if_gdf_empty(rois.gdf, "rois")
-    else:
+    else:  # create rois using bbox in coastsegmap
         # to create an ROI a bounding box must exist
         exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
-        # generate a shoreline within the bounding box
-        # @todo decide what to do if no shoreline is available
-        # if coastsegmap.shoreline is None:
-        #     try:
-        #         coastsegmap.load_feature_on_map("shoreline")
-        #     except Object_Not_Found as e:
-        #         logger.error(e)
-        #         raise Object_Not_Found(
-        #             "shoreline",
-        #             "Cannot create an ROI without a shoreline. No shorelines were available in this region. Please upload a shoreline from a file",
-        #         )
         logger.info(
             f"coastsegmap.shoreline:{coastsegmap.shoreline}\ncoastsegmap.bbox:{coastsegmap.bbox}"
         )
-
         lg_area = kwargs.get("lg_area")
         sm_area = kwargs.get("sm_area")
         units = kwargs.get("units")
@@ -243,7 +231,7 @@ def create_rois(
         large_len = sqrt(lg_area)
 
         # create rois within the bbox that intersect shorelines
-        shorelines = coastsegmap.shoreline
+        shorelines = getattr(coastsegmap, "shoreline", None)
         if shorelines is not None:
             shorelines = coastsegmap.shoreline.gdf  # type: ignore
 
