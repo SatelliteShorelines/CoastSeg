@@ -204,7 +204,7 @@ def create_rois(
 
     Raises:
         Exception: If required kwargs missing.
-        Object_Not_Found: If shoreline not available.
+        Object_Not_Found: If bbox not available.
     """
     if gdf is not None:
         rois = ROI(rois_gdf=gdf)
@@ -213,15 +213,16 @@ def create_rois(
         # to create an ROI a bounding box must exist
         exception_handler.check_if_None(coastsegmap.bbox, "bounding box")
         # generate a shoreline within the bounding box
-        if coastsegmap.shoreline is None:
-            try:
-                coastsegmap.load_feature_on_map("shoreline")
-            except Object_Not_Found as e:
-                logger.error(e)
-                raise Object_Not_Found(
-                    "shoreline",
-                    "Cannot create an ROI without a shoreline. No shorelines were available in this region. Please upload a shoreline from a file",
-                )
+        # @todo decide what to do if no shoreline is available
+        # if coastsegmap.shoreline is None:
+        #     try:
+        #         coastsegmap.load_feature_on_map("shoreline")
+        #     except Object_Not_Found as e:
+        #         logger.error(e)
+        #         raise Object_Not_Found(
+        #             "shoreline",
+        #             "Cannot create an ROI without a shoreline. No shorelines were available in this region. Please upload a shoreline from a file",
+        #         )
         logger.info(
             f"coastsegmap.shoreline:{coastsegmap.shoreline}\ncoastsegmap.bbox:{coastsegmap.bbox}"
         )
@@ -242,9 +243,13 @@ def create_rois(
         large_len = sqrt(lg_area)
 
         # create rois within the bbox that intersect shorelines
+        shorelines = coastsegmap.shoreline
+        if shorelines is not None:
+            shorelines = coastsegmap.shoreline.gdf  # type: ignore
+
         rois = ROI(
             coastsegmap.bbox.gdf,  # type: ignore
-            coastsegmap.shoreline.gdf,  # type: ignore
+            shorelines,  # type: ignore
             square_len_lg=large_len,
             square_len_sm=small_len,
         )
