@@ -8,6 +8,7 @@ import random
 import re
 import shutil
 import string
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import (
@@ -2788,6 +2789,35 @@ def clear_row(row: HBox):
     row.children = []
 
 
+def check_url_status(url: str) -> int:
+    """
+    Retrieve the HTTP status code for a Zenodo download endpoint without downloading the payload.
+
+    Args:
+        url (str): Zenodo download URL to query.
+
+    Returns:
+        int: HTTP status code; returns 443 if both attempts time out.
+
+    Raises:
+        requests.RequestException: If the request fails for reasons other than read timeout.
+    """
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=10)
+        return response.status_code
+    except requests.exceptions.ReadTimeout:
+        logger.warning("Read timeout while checking %s; retrying after 3s", url)
+        time.sleep(3)
+        try:
+            response = requests.head(url, allow_redirects=True, timeout=10)
+            return response.status_code
+        except requests.exceptions.ReadTimeout:
+            logger.warning(
+                "Second read timeout while checking %s; treating as 443", url
+            )
+            return 443
+
+
 def download_url(
     url: str, save_path: str, filename: Optional[str] = None, chunk_size: int = 128
 ) -> None:
@@ -2811,7 +2841,7 @@ def download_url(
         if r.status_code == 429:
             logger.error(f"Error {r.status_code}.DownloadError: {save_path} {r}")
             raise Exception(
-                "Zenodo has denied the request. You may have requested too many files at once."
+                "Zenodo has denied the request. Too many requests in a short period of time."
             )
         if r.status_code != 200:
             logger.error(f"Error {r.status_code}. DownloadError: {save_path} {r}")

@@ -62,9 +62,9 @@ def create_shoreline(
     Raises:
         Object_Not_Found: If  the coastsegmap object does not have a valid bbox or shoreline
     """
-    if gdf is not None:
+    if gdf is not None:  # load the shorelines from the provided gdf
         shoreline = Shoreline(shoreline=gdf)
-    else:
+    else:  # load the shorelines within either the ROIS or bbox in coastsegmap
         # check if coastsegmap has a ROI
         if coastsegmap.rois is not None:
             if not coastsegmap.rois.gdf.empty:

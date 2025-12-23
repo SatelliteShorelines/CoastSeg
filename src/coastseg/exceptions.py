@@ -270,3 +270,15 @@ class DownloadError(Exception):
 
     def __str__(self):
         return f"{self.msg}"
+
+
+class DownloadShorelineError(Exception):
+    """
+    Raised when a download error occurs.
+
+    Args:
+        file: Name of the file that failed to download.
+    """
+
+    def __init__(self, msg: str):
+        super().__init__(msg)

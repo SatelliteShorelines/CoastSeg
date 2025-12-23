@@ -433,10 +433,11 @@ class TestShorelineFileOperations:
         shoreline = Shoreline()
 
         with patch("os.path.exists", return_value=False):
-            with patch.object(shoreline, "download_shoreline") as mock_download:
-                result = shoreline.get_intersecting_shoreline_files(valid_bbox_gdf)
-                assert len(result) == 1
-                mock_download.assert_called_once()
+            with patch("coastseg.shoreline.check_url_status", return_value=200):
+                with patch.object(shoreline, "download_shoreline") as mock_download:
+                    result = shoreline.get_intersecting_shoreline_files(valid_bbox_gdf)
+                    assert len(result) == 1
+                    mock_download.assert_called_once()
 
     @patch("coastseg.shoreline.gpd.read_file")
     def test_get_intersecting_shoreline_files_download_failure(
@@ -456,16 +457,17 @@ class TestShorelineFileOperations:
         shoreline = Shoreline()
 
         with patch("os.path.exists", return_value=False):
-            with patch.object(
-                shoreline,
-                "download_shoreline",
-                side_effect=DownloadError("Download failed"),
-            ):
-                # Should raise FileNotFoundError when no files can be obtained
-                with pytest.raises(
-                    FileNotFoundError, match="No shoreline files could be obtained"
+            with patch("coastseg.shoreline.check_url_status", return_value=200):
+                with patch.object(
+                    shoreline,
+                    "download_shoreline",
+                    side_effect=DownloadError("Download failed"),
                 ):
-                    shoreline.get_intersecting_shoreline_files(valid_bbox_gdf)
+                    # Should raise FileNotFoundError when no files can be obtained
+                    with pytest.raises(
+                        FileNotFoundError, match="No shoreline files could be obtained"
+                    ):
+                        shoreline.get_intersecting_shoreline_files(valid_bbox_gdf)
 
     def test_download_shoreline(self):
         """Test shoreline download functionality."""
