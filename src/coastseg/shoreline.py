@@ -264,7 +264,7 @@ class Shoreline(Feature):
             return self.create_geodataframe(bbox, shoreline_files)
         except Exception as e:
             logger.error(f"Failed to initialize shorelines from bbox: {e}")
-            raise
+            raise e
 
     def get_clipped_shoreline(
         self, shoreline_file: str, bbox: gpd.GeoDataFrame, columns_to_keep: List[str]

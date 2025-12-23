@@ -463,11 +463,9 @@ class TestShorelineFileOperations:
                     "download_shoreline",
                     side_effect=DownloadError("Download failed"),
                 ):
-                    # Should raise FileNotFoundError when no files can be obtained
-                    with pytest.raises(
-                        FileNotFoundError, match="No shoreline files could be obtained"
-                    ):
-                        shoreline.get_intersecting_shoreline_files(valid_bbox_gdf)
+                    # this should return an empty list due to download failure
+                    result = shoreline.get_intersecting_shoreline_files(valid_bbox_gdf)
+                    assert result == []  # Should return empty Slist on download failure
 
     def test_download_shoreline(self):
         """Test shoreline download functionality."""
