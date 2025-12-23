@@ -755,24 +755,23 @@ class UI:
                 ",
             layout=widgets.Layout(padding="0px"),
         )
-        self.load_radio = widgets.Dropdown(
-            options=["Shoreline", "Transects"],
-            value="Transects",
-            description="",
-            disabled=False,
-        )
-        self.load_button = widgets.Button(
-            description=f"Load {self.load_radio.value}",
+        self.load_shoreline_button = widgets.Button(
+            description="Load Shoreline",
             icon="file-o",
             style=self.load_style,
         )
-        self.load_button.on_click(self.load_button_clicked)
+        self.load_shoreline_button.on_click(self.load_button_clicked)
 
-        def handle_load_radio_change(change: dict):
-            self.load_button.description = f"Load {str(change['new'])}"
+        self.load_transects_button = widgets.Button(
+            description="Load Transects",
+            icon="file-o",
+            style=self.load_style,
+        )
+        self.load_transects_button.on_click(self.load_button_clicked)
 
-        self.load_radio.observe(handle_load_radio_change, "value")
-        load_buttons = widgets.VBox([load_instr, self.load_radio, self.load_button])
+        load_buttons = widgets.VBox(
+            [load_instr, self.load_shoreline_button, self.load_transects_button]
+        )
         return load_buttons
 
     def draw_control_section(self) -> widgets.VBox:
