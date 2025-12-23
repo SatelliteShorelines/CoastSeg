@@ -1,5 +1,5 @@
 """
-CoastSeg Shoreline Management.
+CoastSeg Shoreline Class and Utilities
 
 Streamlined tools to download, validate, clip, and visualize shoreline geometries
 (LineString/MultiLineString) with CRS handling (EPSG:4326), unique ID generation,
@@ -10,6 +10,7 @@ Classes:
 
 Functions:
   - construct_download_url: helper for Zenodo URL construction.
+  - raise_download_shoreline_error: helper to raise download errors with instructions.
 
 Key Features:
   - Streamlined loading: automatically finds intersecting files and downloads as needed
@@ -20,7 +21,7 @@ Key Features:
 # Standard library imports
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 # External dependencies imports
 import geopandas as gpd
@@ -30,11 +31,14 @@ from ipyleaflet import GeoJSON
 from coastseg import exception_handler
 from coastseg.common import (
     download_url,
+    check_url_status,
 )
-from coastseg.exceptions import DownloadError
+from coastseg.exceptions import DownloadError, DownloadShorelineError
 from coastseg.feature import Feature
+from coastseg import core_utilities
 
 logger = logging.getLogger(__name__)
+
 
 # only export Shoreline class
 __all__ = ["Shoreline"]
@@ -58,6 +62,7 @@ class Shoreline(Feature):
     DATASET_ID = "7814755"
     LAYER_NAME = "shoreline"
     SELECTED_LAYER_NAME = "Selected Shorelines"
+    ZENODO_URL = "https://zenodo.org/record/7814755"
     # Read in each shoreline file and clip it to the bounding box
     COLUMNS_TO_KEEP = [
         "id",
@@ -91,25 +96,62 @@ class Shoreline(Feature):
             filename: Name for the shoreline file. Defaults to 'shoreline.geojson'.
             bounds_file: Path to GeoJSON file containing bounding boxes for shoreline files.
                 Defaults to 'coastseg/bounding_boxes/world_reference_shorelines_bboxes.geojson'.
-            shorelines_directory: Directory for shoreline files. Defaults to 'coastseg/shorelines'.
+            shorelines_dir: Directory to read/write shoreline files.
+                If not provided, CoastSeg will try to create a project-level 'shorelines'
+                directory and fall back to the packaged shoreline directory on failure.
 
         Raises:
             ValueError: If shoreline data is invalid or bbox processing fails.
             FileNotFoundError: If no intersecting shoreline data can be found.
         """
+        # base directory is coastseg package location
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         # coastseg/bounding_boxes by default
         # this is the location of the bounds file. Its each shoreline file name and the bounds each covers
         self.bounds_file = bounds_file or os.path.join(
             self.base_dir, "bounding_boxes", "world_reference_shorelines_bboxes.geojson"
         )
-        # coastseg/shorelines by default
-        # this is the location of the shoreline files to load the reference shoreline from
-        self.shoreline_dir = shorelines_dir or os.path.join(self.base_dir, "shorelines")
-
+        self.shoreline_pkg_dir = self.get_shoreline_package_dir()
+        self.shoreline_dir = self._resolve_shoreline_dir(shorelines_dir)
+        logger.info("Using shoreline directory: %s", self.shoreline_dir)
         # initialize the shorelines
         super().__init__(filename or "shoreline.geojson")
         self.initialize_shorelines(bbox, shoreline)
+
+    def _resolve_shoreline_dir(self, shorelines_dir: Optional[str]) -> str:
+        """Resolve the directory used to store shoreline files.
+
+        Precedence:
+        1) Explicit `shorelines_dir` (created if missing when possible)
+        2) Project-level `CoastSeg/shorelines` (via `make_shoreline_dir()`)
+        3) Packaged shoreline directory (read-only fallback)
+
+        Args:
+            shorelines_dir (Optional[str]): User-provided shoreline directory.
+
+        Returns:
+            str: Directory path used for shoreline storage.
+        """
+        if shorelines_dir:
+            try:
+                os.makedirs(shorelines_dir, exist_ok=True)
+            except OSError as e:
+                logger.warning(
+                    "Could not create shorelines_dir '%s' (%s). Falling back.",
+                    shorelines_dir,
+                    e,
+                )
+            else:
+                return shorelines_dir
+
+        try:
+            return make_shoreline_dir()
+        except Exception as e:
+            logger.error(
+                "Defaulting to package shoreline directory. Could not create shoreline directory: %s",
+                e,
+            )
+            return self.shoreline_pkg_dir
 
     def __repr__(self) -> str:
         """
@@ -197,7 +239,7 @@ class Shoreline(Feature):
         self, bbox: gpd.GeoDataFrame
     ) -> gpd.GeoDataFrame:
         """
-        Initialize shorelines by downloading and clipping to a bounding box.
+        Initialize shorelines by downloading them from zenodo and clipping to a bounding box.
 
         Args:
             bbox: Bounding box geometry for clipping shorelines.
@@ -213,8 +255,11 @@ class Shoreline(Feature):
             raise ValueError("Bounding box cannot be None or empty")
 
         try:
+            # get the shoreline files that intersect with the bbox
             shoreline_files = self.get_intersecting_shoreline_files(bbox)
-            if not shoreline_files:
+            if (
+                not shoreline_files
+            ):  # if no default shorelines existed within bbox then tell the user to use their own
                 exception_handler.check_if_default_feature_available(None, "shoreline")
             return self.create_geodataframe(bbox, shoreline_files)
         except Exception as e:
@@ -244,6 +289,142 @@ class Shoreline(Feature):
             output_crs=self.DEFAULT_CRS,
         )
 
+    def read_bounding_boxes(
+        self, geojson_file: str, bbox: gpd.GeoDataFrame
+    ) -> Optional[gpd.GeoDataFrame]:
+        """
+        Read bounding boxes from a GeoJSON file that intersect with a given bounding box.
+        The bounding boxes file contains the extents of all shoreline files available and are indexed by filename.
+        Eg. shoreline_1.geojson, geometry: POLYGON((...))
+        Args:
+            geojson_file (str): Path to the GeoJSON file containing bounding boxes.
+            bbox (gpd.GeoDataFrame): GeoDataFrame representing the bounding box to use as a mask
+                for filtering the geometries from the GeoJSON file.
+        Returns:
+            Optional[gpd.GeoDataFrame]: A GeoDataFrame containing the bounding boxes that intersect
+                with the provided bbox, with 'filename' set as the index if the column exists.
+                Returns None if the file cannot be loaded or if no intersecting geometries are found.
+        Raises:
+            Logs a warning if the GeoJSON file cannot be loaded or if no intersecting shoreline
+            files are found.
+        """
+        try:
+            bounds_df = gpd.read_file(geojson_file, mask=bbox)
+            if "filename" in bounds_df.columns:
+                bounds_df = bounds_df.set_index("filename")
+        except Exception as e:
+            logger.warning(f"Could not load bounding box file {geojson_file}: {e}")
+            return None
+
+        if bounds_df.empty:
+            logger.warning("No intersecting shoreline files found")
+            return None
+
+        return bounds_df
+
+    def get_shoreline_package_dir(self) -> str:
+        """
+        Get the default shoreline directory within the CoastSeg package.
+
+        Returns:
+            str: Path to the CoastSeg shoreline directory.
+        """
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        shoreline_dir = os.path.join(base_dir, "shorelines")
+        return shoreline_dir
+
+    def get_local_shoreline_files(
+        self,
+        bounds_file: str,
+        bbox: gpd.GeoDataFrame,
+        dirs_to_check: Optional[List[str]] = None,
+    ) -> tuple:
+        """
+        Get list of local shoreline files that intersect with the specified bounding box and a list of filenames to download.
+        This method reads a bounding boxes file to determine which shoreline files intersect
+        with the given bbox, then checks which of those files exist locally in the shoreline
+        directory. If they do not exist locally, their filenames are added to a list for downloading.
+        Args:
+            bounds_file (str): Path to the file containing bounding box information for
+                shoreline files.
+            bbox (gpd.GeoDataFrame): Bounding box GeoDataFrame to check for intersection. This is the area the user wants to load shorelines within
+            dirs_to_check (Optional[List[str]]): List of directories to check for shoreline files.
+                If None, defaults to checking only the main shoreline directory.
+        Returns:
+            tuple: A tuple containing two lists:
+                - A list of file paths (str) to locally available shoreline files that
+                  intersect with the specified bounding box.
+                - A list of filenames (str) that need to be downloaded because they are not available locally.
+        """
+        bounds_df = self.read_bounding_boxes(bounds_file, bbox)
+        if bounds_df is None:
+            return [], []
+
+        search_dirs = dirs_to_check or [self.shoreline_dir]
+
+        def first_existing_path(filename: str) -> Optional[str]:
+            for shoreline_dir in search_dirs:
+                shoreline_path = os.path.join(shoreline_dir, filename)
+                if os.path.exists(shoreline_path):
+                    return shoreline_path
+            return None
+
+        # Check for each shoreline file if its available locally
+        available_files: List[str] = []
+        files_to_download: List[str] = []
+
+        for filename in bounds_df.index:
+            shoreline_path = first_existing_path(filename)
+            if shoreline_path:
+                available_files.append(shoreline_path)
+            else:
+                files_to_download.append(filename)
+
+        return available_files, files_to_download
+
+    def download_all_shorelines(self, filenames: List[str], output_dir) -> list:
+        """
+        Download the requested files from Zenodo dataset and save to output directory.
+        Validates Zenodo API availability before each download and if rate limited
+        raises a DownloadShorelineError with remaining files to download so the user can downlaod them manually.
+
+        Args:
+            filenames: List of shoreline file names to download.
+        Raises:
+            DownloadError: If any download fails.
+            DownloadShorelineError: If the zenodo api returns the status 429
+        """
+        downloaded_files = []
+        filenames_stack = (
+            filenames.copy()
+        )  # make a stack so its easier to track the files the user need to download for the error message
+
+        # Gets the filename from the stack as long as one is available and if zenodo is not avilable prints error message with remaining files to download
+        while filenames_stack:
+            # check if the api is available before downloading each file
+            status_code = check_url_status(self.ZENODO_URL)
+            if status_code == 429:
+                logger.info(
+                    f"Zenodo returned 429 (rate limited) for url {self.ZENODO_URL}."
+                )
+                raise_download_shoreline_error(
+                    self.shoreline_dir, filenames_stack, self.DATASET_ID
+                )
+            else:
+                filename = (
+                    filenames_stack.pop()
+                )  # now that we are sure zenodo is available lets remove the file to download from the stack
+                # attempt the download
+                shoreline_path = os.path.join(output_dir, filename)
+                try:
+                    self.download_shoreline(filename, shoreline_path, self.DATASET_ID)
+                    downloaded_files.append(shoreline_path)
+                except DownloadError as e:
+                    logger.error(f"Failed to download {filename}: {e}")
+                    # Continue with other files rather than failing completely
+
+        return downloaded_files
+
     def get_intersecting_shoreline_files(
         self,
         bbox: gpd.GeoDataFrame,
@@ -259,40 +440,35 @@ class Shoreline(Feature):
 
         Raises:
             FileNotFoundError: If no intersecting shoreline files are found.
+            DownloadShorelineError: If shoreline files cannot be downloaded due to rate limiting.
         """
-        try:
-            bounds_df = gpd.read_file(self.bounds_file, mask=bbox)
-            if "filename" in bounds_df.columns:
-                bounds_df = bounds_df.set_index("filename")
-        except Exception as e:
-            logger.warning(f"Could not load bounding box file {self.bounds_file}: {e}")
-            return []
+        ## Check at <coastseg package location>/shorelines first then user shoreline dir
+        search_dirs = [
+            self.shoreline_pkg_dir,
+            self.shoreline_dir,
+        ]  # search the user shoreline dir first then the coastseg shoreline dir
 
-        if bounds_df.empty:
-            logger.warning("No intersecting shoreline files found")
-            return []
+        # Get local shoreline files that intersect with the bbox and the list of filenames to download
+        available_files, files_to_download = self.get_local_shoreline_files(
+            self.bounds_file, bbox, search_dirs
+        )
 
-        # Process each intersecting file
-        available_files = []
+        # if there are files to download then download them now
+        if files_to_download:
+            # once that is done see if the zenodo api is available
+            status_code = check_url_status(self.ZENODO_URL)
+            logger.info(f"Zenodo status code: {status_code}")
+            # now download all the files that need to be downloaded if zenodo is available
 
-        for filename in bounds_df.index:
-            shoreline_path = os.path.join(self.shoreline_dir, filename)
-
-            # Check if file exists locally, download if needed
-            if os.path.exists(shoreline_path):
-                available_files.append(shoreline_path)
-            else:
-                try:
-                    self.download_shoreline(filename, shoreline_path, self.DATASET_ID)
-                    available_files.append(shoreline_path)
-                except DownloadError as e:
-                    logger.error(f"Failed to download {filename}: {e}")
-                    # Continue with other files rather than failing completely
-
-        if not available_files:
-            raise FileNotFoundError(
-                "No shoreline files could be obtained for the given area"
-            )
+            if status_code == 200:
+                downloaded_files = self.download_all_shorelines(
+                    files_to_download, self.shoreline_dir
+                )
+                available_files.extend(downloaded_files)
+            else:  # if zenodo is not available then have the user manually download the files
+                raise_download_shoreline_error(
+                    self.shoreline_dir, files_to_download, self.DATASET_ID
+                )
 
         logger.info(f"Found {len(available_files)} available shoreline files")
         return available_files
@@ -434,3 +610,65 @@ def construct_download_url(root_url: str, dataset_id: str, filename: str) -> str
         "https://zenodo.org/record/7814755/files/shoreline.geojson?download=1"
     """
     return f"{root_url}{dataset_id}/files/{filename}?download=1"
+
+
+def raise_download_shoreline_error(
+    shoreline_dir: Union[os.PathLike, str], files_to_download: Iterable[str], dataset_id
+) -> None:
+    """
+    Raises a DownloadShorelineError with instructions for manual file downloads.
+
+    This function is called when shoreline files cannot be automatically downloaded from Zenodo
+    (typically due to rate limiting). It constructs download URLs for the required files and
+    raises an error with HTML-formatted instructions for manual download.
+
+    Args:
+        shoreline_dir (Union[os.PathLike, str]): The directory where the shoreline files should be saved.
+        files_to_download (Iterable[str]): An iterable of filenames that need to be downloaded.
+        dataset_id: The Zenodo dataset identifier used to construct the download URLs.
+
+    Raises:
+        DownloadShorelineError: Always raised with a message containing clickable download links
+            and instructions for manual file download and placement.
+
+    Note:
+        The error message includes HTML-formatted links that will be clickable in contexts
+        that support HTML rendering.
+    """
+    save_location = os.path.abspath(shoreline_dir)
+    # Make a list of the urls you need
+    urls = [
+        construct_download_url(
+            "https://zenodo.org/record/",
+            dataset_id,
+            filename,  # type: ignore
+        )
+        for filename in files_to_download
+    ]
+    # Convert URLs to clickable HTML links
+    clickable_urls = [
+        f'<a href="{u}" target="_blank" rel="noopener noreferrer">{u}</a>' for u in urls
+    ]
+    # Trigger a custom popup to tell the user to click each link to download them then save
+    raise DownloadShorelineError(
+        "Error these shoreline files cannot be downloaded from Zenodo due to rate limiting: "
+        f"Please download the file(s) manually from the links below and place them in {save_location}.<br>"
+        "Once you have downloaded the files close this popup and click 'Load Shoreline' again.<br>"
+        + "<br>".join(clickable_urls)
+    )
+
+
+def make_shoreline_dir() -> str:
+    """Create and return the CoastSeg project-level shorelines directory.
+
+    Returns:
+        str: Absolute path to the `CoastSeg/shorelines` directory.
+
+    Raises:
+        OSError: If the directory cannot be created.
+    """
+    base_dir = core_utilities.get_base_dir()  # Get CoastSeg project repo
+    shoreline_dir = os.path.join(base_dir, "shorelines")
+    # might be a good idea to set shoreline_dir to self.shoreline_dir
+    os.makedirs(shoreline_dir, exist_ok=True)
+    return shoreline_dir
