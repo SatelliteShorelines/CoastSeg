@@ -188,7 +188,8 @@ def download_files(url_dict: Dict[str, str]) -> None:
     Raises:
         Exception on any non-successful response.
     """
-    for save_path, url in url_dict.items():
+    url_items = list(url_dict.items())
+    for idx, (save_path, url) in enumerate(url_items):
         response = common.get_response(url, stream=True)
         with response:
             logger.info(f"response: {response}")
@@ -203,7 +204,21 @@ def download_files(url_dict: Dict[str, str]) -> None:
 
             if response.status_code == 429:
                 content = response.text
-                msg = f"Response from API for status_code: {response.status_code}: {content}"
+                remaining_items = url_items[idx:]
+                downloads_list = "\n".join(
+                    f"{dl_url}\n  save_to: {dl_path}"
+                    for dl_path, dl_url in remaining_items
+                )
+                msg = (
+                    "Rate limit exceeded when downloading from Zenodo. "
+                    "Please download the files manually using the URLs below (one per file) "
+                    "and save each file to the corresponding 'save_to' path:\n\n"
+                    f"{downloads_list}"
+                )
+
+                logger.info(
+                    f"Response from API for status_code: {response.status_code}: {content}"
+                )
                 print(msg)
                 logger.info(msg)
                 raise Exception(msg)
@@ -238,7 +253,6 @@ def download_files(url_dict: Dict[str, str]) -> None:
                         if not chunk:
                             break
                         fd.write(chunk)
-
 
 
 def load_good_bad_csv(roi_id: str, roi_settings: Dict[str, Any]) -> Optional[str]:
@@ -1326,7 +1340,7 @@ class Zoo_Model:
         session.name = session_name
         model_dict = {
             "use_GPU": use_GPU,
-            "sample_direc": "",
+            "sample_direc": src_directory,
             "implementation": model_implementation,
             "model_type": model_name,
             "otsu": use_otsu,
@@ -1335,12 +1349,6 @@ class Zoo_Model:
         }
 
         print(f"Preprocessing the data at {src_directory}")
-
-        model_dict = self.preprocess_data(
-            src_directory, model_dict, img_type, functions=[apply_smooth_otsu_to_folder]
-        )
-        logger.info(f"model_dict after preprocessing: {model_dict}")
-
         self.compute_segmentation(model_dict, percent_no_data)
         self.postprocess_data_without_session(model_dict, session)
         print(f"\n Model results saved to {session.path}")
