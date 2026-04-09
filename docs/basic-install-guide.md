@@ -52,7 +52,7 @@ Note: CoastSeg will work in Anaconda, however since not all users can use Anacon
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
 
   ```bash
-  conda create --name coastseg python=3.10 -y
+  conda create --name coastseg python=3.11 -y
   conda activate coastseg
   ```
 
@@ -68,17 +68,8 @@ Note: CoastSeg will work in Anaconda, however since not all users can use Anacon
 
   **3.(Optional) Install Optional Dependencies**
 
-  - Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
-  - **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
-
-- Note: As of Jan 2,2025 the commands below are only known to work on Windows, not Linux or Apple.
-  
-  ```bash
-  pip install tensorflow==2.12
-  pip install transformers
-  ```
-
-
+- If you want to use the segmentation (zoo) workflow to access additional models follow the guide in [How to Install the Segmentation (Zoo) Workflow](https://satelliteshorelines.github.io/CoastSeg/install-zoo-workflow/)
+- This is only recommended for advanced users of CoastSeg or users familar with [segmentation_gym](https://github.com/Doodleverse/segmentation_gym) or [segmentation_zoo](https://github.com/Doodleverse/segmentation_zoo)
 
 
 ## Method #2: Install from Pypi
@@ -87,7 +78,7 @@ Note: CoastSeg will work in Anaconda, however since not all users can use Anacon
 
 - This command creates an anaconda environment named `coastseg` and installs `python 3.10` in it.
   ```bash
-  conda create --name coastseg python=3.10 -y
+  conda create --name coastseg python=3.11 -y
   ```
 
 **2.Activate your conda environment**
@@ -120,17 +111,9 @@ conda install -c conda-forge  gdal -y
 
 **5.(Optional) Install Optional Dependencies for the Zoo Workflow**
 
-- Only install these dependencies if you plan to use CoastSeg's Zoo workflow notebook.
-- **Warning** installing tensorflow will not work correctly on Mac see for more details [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/)
+- If you want to use the segmentation (zoo) workflow to access additional models follow the guide in [How to Install the Segmentation (Zoo) Workflow](https://satelliteshorelines.github.io/CoastSeg/install-zoo-workflow/)
+- This is only recommended for advanced users of CoastSeg or users familar with [segmentation_gym](https://github.com/Doodleverse/segmentation_gym) or [segmentation_zoo](https://github.com/Doodleverse/segmentation_zoo)
 
-- Note: As of Jan 2,2025 the commands below are only known to work on Windows, not Linux or Apple.
-  
-  ```bash
-  pip install tensorflow==2.12
-  pip install transformers
-  ```
-
-* If you get any errors about numpy try running `pip install numpy<2`
 
 ## **Having Installation Errors?**
 
@@ -141,4 +124,4 @@ Use the command `conda clean --all` to clean old packages from your anaconda bas
 
 Pixi is a modern dependency manager that seamlessly handles both pip and conda packages that CoastSeg requires. This is the recommended method for developers and contributors as it creates an editable install from your local git clone. We also recommend this for users of the zoo workflow as Tensorflow 2.12 is difficult to maintain dependencies for.
 
-For complete instructions, see: [How to Install Pixi](how-to-install-pixi.md) 
+For complete instructions, see: [How to Install CoastSeg with Pixi](how-to-install-pixi.md) 
