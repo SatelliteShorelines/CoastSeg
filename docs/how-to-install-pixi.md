@@ -28,11 +28,12 @@ Visit the [Pixi installation page](https://pixi.sh/latest/) and follow instructi
     
 ## Basic Pixi install (recommended)
 
-1. **Clone the CoastSeg repo (shallow clone)**
+1. **Clone the CoastSeg Repository**
     - You only need to do this once
    ```bash
    git clone --depth 1 https://github.com/SatelliteShorelines/CoastSeg.git
     ```
+
 2. Navigate to the CoastSeg Directory
 
     - Make sure the directory you are at contains the files. You can use the `ls` command to list the files.
@@ -43,16 +44,19 @@ Visit the [Pixi installation page](https://pixi.sh/latest/) and follow instructi
     cd CoastSeg
     # Make sure this folder contains pyproject.toml
     ```
+
 3. Create + activate the Pixi environment
+
     - This is like  `conda install` + `conda activate` in one step, it reads  CoastSeg’s `pixi.lock` file to build the environment and then activates it
     ```
     pixi shell
     ```
-4. Verify it worked
 
-    - You should see something like (coastseg:all) in your terminal prompt.
+4. Verify The CoastSeg Environment was Activated
 
-    - Test the import:
+    - You should see something like (coastseg) in your terminal prompt.
+    - You can ignore the `--frozen` in the screenshot below
+    - Run the command below to test if CoastSeg is installed in your environment:
     ```
     python -c "import coastseg; print('CoastSeg import OK')"
 
@@ -61,22 +65,22 @@ Visit the [Pixi installation page](https://pixi.sh/latest/) and follow instructi
 
 5. Exit the Environment (optional)
 
-Exit the current Pixi environment:
+    - Exit the current Pixi environment:
 
-```
-exit
+    ```
+    exit
 
-```
-- notice how `(coastseg)` is no longer in front, this means that we have exited the coastseg environment
+    ```
+    - Notice how `(coastseg)` is no longer in front, this means that we have exited the coastseg environment
 
-![exit coastseg pixi](https://github.com/user-attachments/assets/d52aa046-e734-405c-ac01-9ca413c68942)
+    ![exit coastseg pixi](https://github.com/user-attachments/assets/d52aa046-e734-405c-ac01-9ca413c68942)
 
 
 ## Use Pixi without admin access
 If you cannot install Pixi system-wide, install it into a conda environment:
 
     ```
-    conda create -n coastseg_pixi python=3.10 -y
+    conda create -n coastseg_pixi python=3.11 -y
     conda activate coastseg_pixi
     conda install -c conda-forge pixi -y
     ```
@@ -84,7 +88,7 @@ Then follow the steps in [Basic Pixi install](#basic-pixi-install-recommended) (
 
 ## Activate an existing Pixi environment
 - Activate your pixi environment using the `pixi shell` command
-- Use `pixi shell -e all` if you want to use the zoo workflow.
+- Use `pixi shell` if you want to use the zoo workflow.
 
     ```
     cd <coastseg_location>
@@ -111,7 +115,7 @@ conda activate coastseg_pixi
     - `origin` is just the name of that remote — it could be named anything (like cat).
 
     ```
-    git remote add origin https://github.com/Doodleverse/CoastSeg.git
+    git remote add origin https://github.com/SatelliteShorelines/CoastSeg.git
     ```
 
     Verify the remote is set up:
@@ -135,6 +139,8 @@ conda activate coastseg_pixi
     git pull origin
     ```
 4. Re-create/update the environment from the updated lockfile
+
+ - If you get any stange errors about a particular package being incompability try deleting `.pixi` folder and try this command again
     
     ```
     pixi shell 
@@ -175,4 +181,4 @@ Yeah, that confused me too at first. What's special about pixi is that it can de
 
 
 ### Why did you separate the environments like this?
-Great question, I did it because for our zoo workflow we require tensorflow version 2.12 to run our models correctly, which isn't a package avavilable on conda forge for windows machines. Since we want CoastSeg to be available in on conda-forge I opted to make it an optional dependency and a separate environment. But don't worry you can still the  third environment called `all` to be able to use the coastsat and zoo workflows at the same time with the `pixi shell -e all` command.
+Great question, I did it because for our zoo workflow we require tensorflow version 2.12 and specific version of the Transformers library to run our models correctly. Unforuately there are not packages avavilable on conda forge for Windows computers. Since we want CoastSeg to be available in on conda-forge I opted to make it an optional dependency and a separate environment. But don't worry you can still the  third environment by following the instructions in [How to Install the Zoo workflow](https://satelliteshorelines.github.io/CoastSeg/install-zoo-workflow/).
