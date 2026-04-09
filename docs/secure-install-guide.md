@@ -2,9 +2,6 @@
 
 Please refer to the [installation guide](https://github.com/Doodleverse/CoastSeg#installation-instructions) on the README
 
-## Mac users
-
-CoastSeg requires Tensorflow (TF), which doesn't play nicely with Mac. Please see [Mac install guide](https://satelliteshorelines.github.io/CoastSeg/mac-install-guide/) for more details.
 
 ## Users working over secure network
 
