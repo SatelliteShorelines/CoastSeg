@@ -122,6 +122,7 @@ The output folder keeps the same relative folder structure as the input folder.
 After the model finishes, you can extract shorelines from the segmentation outputs.
 
 To do this, use the script `3_zoo_workflow_extract_shorelines.py` in the main CoastSeg folder.
+Or you can use the `SDS_zoo_classifier.ipynb` and use the `workflow b` option to extract shorelines from the folder of segmentations you just created.
 
 1. Exit or deactivate the `segmentation_workflow` environment.
 2. Go back to the main CoastSeg folder.
