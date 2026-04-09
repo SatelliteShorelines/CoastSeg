@@ -12,7 +12,40 @@ The rest of this guide assumes you followed the instructions in [How to Install 
 ## Run Start Up Cell
 ![zoo_run_cell](https://github.com/user-attachments/assets/f67ccc77-7a59-401e-a0a7-ba15d4fba7cf)
 
-## Step 1: Select a Model
+
+## Step 1: Select Settings
+- Select the settings you would like for your current session
+- Make sure to click the save settings button to ensure your settings have been applied (Can check in the view settings tab)
+- For more information on these settings see the [Extract Shorelines Settings Guide](https://satelliteshorelines.github.io/CoastSeg/extract_shoreline_settings/) 
+
+![zoo_step2](https://github.com/user-attachments/assets/5990ba97-959d-4b36-a9bf-159d96a5fa63)
+
+
+## Step 2: Upload Files
+- Upload a GeoJSON file that contains either transects or shorelines
+- If both the transects and shorelines are within the same ‘config_gdf.geojson’ file, you will need to upload the same file for the reference shoreline and the transects
+- If no file is provided, CoastSeg will attempt to load an available file for you
+	- If no transects or shorelines are available within the region of interest, an error will occur
+
+![zoo_step3](https://github.com/user-attachments/assets/d7023052-9c0c-460e-974a-02d38869cc3e)
+
+**Example of Uploading Transects & Shorelines GeoJSON Files**
+
+![zoo_preview_uploaded_feature](https://github.com/user-attachments/assets/996cb358-0318-4844-961e-a8a17eee336f)
+
+
+## Step 3: Extract Shorelines with Model
+There are two options for extracting shorelines depending on which environment you installed in the guide [How to Install the Zoo Workflow](https://satelliteshorelines.github.io/CoastSeg/install-zoo-workflow/). 
+
+- If you followed the instructions to install the `segmentation_workflow` with pixi , then you will follow workflow a. 
+
+- If you instead installed the conda environment for the `segmentation_workflow` then you will follow the guide [How to Run Zoo Models](https://satelliteshorelines.github.io/CoastSeg/How-To-Run-Models/) to generate a folder of segmentations for your chosen site, then follow workflow b.
+
+![zoo_two_workflow_options_extract_shorelines](https://github.com/user-attachments/assets/25a4a0f0-605c-423b-a9b0-d486efd95859)
+
+### Workflow A: Run Model and Extract Shorelines
+
+1: Select a model
 - Select the Model input you would like to use (RGB, MNDWI, or NDWI)
 - The NDWI and MNDWI will be automatically created using avalible RGB imagery
 
@@ -22,44 +55,14 @@ The rest of this guide assumes you followed the instructions in [How to Install 
 
 - By default the global segformer model is selected
 
-**Advanced Model Settings (Experienced Users Only)**
 
-- Otsu Threshold (off by default)
-
-![zoo_otsu](https://github.com/user-attachments/assets/da291475-124b-484c-a499-5b41a10df4ea)
-
-- Time Test Augmentation (off by default)
-
-![zoo_time_test](https://github.com/user-attachments/assets/93c2c307-b7c6-49f5-8ebe-24f470b5bdff)
-
-## Step 2: Select Settings
-- Select the settings you would like for your current session
-- Make sure to click the save settings button to ensure your settings have been applied (Can check in the view settings tab)
-- For more information on these settings see the [Extract Shorelines Settings Guide](https://satelliteshorelines.github.io/CoastSeg/extract_shoreline_settings/) 
-
-![zoo_step2](https://github.com/user-attachments/assets/5990ba97-959d-4b36-a9bf-159d96a5fa63)
-
-
-## Step 3: Upload Files
-- Upload a GeoJSON file that contains either transects or shorelines
-- If both the transects and shorelines are within the same ‘config_gdf.geojson’ file, you will need to upload the same file for the reference shoreline and the transects
-- If no file is provided, CoastSeg will attempt to load an available file for you
-	- If no transects or shorelines are available within the region of interest, an error will occur
-
-![zoo_step3](https://github.com/user-attachments/assets/d7023052-9c0c-460e-974a-02d38869cc3e)
-
-**Example of uploading transect GeoJSON file**
-
-![zoo_step3_add_transects](https://github.com/user-attachments/assets/0c624ff2-5234-40e0-a7ee-767f55731d23)
-
-## Step 4: Extract Shorelines with Model
-1: Session Name
+2: Session Name
 - Enter a name for your session. A new folder will be created with this name in the ‘sessions’ directory 
 
-2: Select Images
+3: Select Images
 - Select the RGB directory from your region of interest (roi) with downloaded imagery from the ‘data’ directory 
 
-3: Run Model
+4: Run Model
 
 ![zoo_step4](https://github.com/user-attachments/assets/726ab090-9712-4430-89bd-dec528243212)
 
@@ -77,6 +80,18 @@ Red arrow showing the RGB folder to be selected containing the images for shorel
 
 ![zoo_step4_run_model](https://github.com/user-attachments/assets/3776be97-5e2b-42c4-a113-9d7245944826)
 ![zoo_step4_run_model_pt2](https://github.com/user-attachments/assets/93138876-085e-4511-82b9-0bfa0a7d9df2)
+
+### Workflow b: Extract from Existing Segmentations
+
+- This assumes that you already have a folder of segmentations from running one of the models in `CoastSeg/segmentation_workflow/run_zoo_segmentation_models.py` 
+
+1: Select the folder full of segmentations
+
+- This folder should be in `CoastSeg/sessions` for example `CoastSeg/sessions/model_outputs`
+
+2: Click the button 'Extract Shorelines from Folder'
+
+- This will read the segmentations in the folder and extract shorelines from them 
 
 ## Step 5: Tidal Correction 
 - Ensure the tide model has been downloaded to CoastSeg/tide_model for tidal correction to work 
