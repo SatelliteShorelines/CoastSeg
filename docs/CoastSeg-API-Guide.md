@@ -11,7 +11,7 @@ This guide provides instructions on how to use the CoastSeg API to download imag
 ## Prerequisites
 
 - Ensure you have the CoastSeg conda environment set up and activated. If not, please follow the setup instructions provided in the CoastSeg documentation.
-- Download the tide model required for tide correction. You can find instructions and download links [here](https://github.com/Doodleverse/CoastSeg/wiki/09.-How-to-Download-and-clip-Tide-Model).
+- Download the tide model required for tide correction. You can find instructions and download links [here](https://satelliteshorelines.github.io/CoastSeg/How-to-Download-Tide-Model-updated/).
 
 ## Running the Scripts
 

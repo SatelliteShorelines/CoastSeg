@@ -51,7 +51,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Run the cell located under 'Authenticate with Google Earth Engine (GEE)'
 
-![auth_cell_cropped](https://github.com/Doodleverse/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
+![auth_cell_cropped](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/642c8353-bfab-4458-a248-a8efce01f1ee)
 
 ### 3.Draw an Bounding Box
 
