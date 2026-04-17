@@ -82,10 +82,18 @@ git pull origin main
 If you want to keep your local changes, stash them first:
 
 ```bash
-git stash push -u
+git stash
 git pull origin main
+```
+
+(OPTIONAL) If you want to keep your local changes, stash them first, then retrieve them from the stash.
+
+
+```bash
 git stash pop
 ```
+
+🎉 You're done!
 
 **Last resort: force your clone to match GitHub**
 
