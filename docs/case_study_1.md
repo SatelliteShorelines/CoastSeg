@@ -193,7 +193,7 @@ jupyter lab SDS_coastsat_classifier.ipynb
 
 - Before tidal correction can be applied the tide model must be downloaded
 
-- Follow the tutorial: [How to Download Tide Model](https://satelliteshorelines.github.io/CoastSeg/How-to-Download-Tide-Model/)
+- Follow the tutorial: [How to Download Tide Model](https://satelliteshorelines.github.io/CoastSeg/How-to-Download-Tide-Model-updated/)
 
 ### 2.Load the Session with Extracted Shorelines
 

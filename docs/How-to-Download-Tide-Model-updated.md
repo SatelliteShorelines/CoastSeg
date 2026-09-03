@@ -31,17 +31,17 @@ Be aware that AVISO may update their registration guide at any time and this pag
 
 
 
-# Part 2: Download and Clip the Tide Model
+# Part 2: Download the Tide Model
 
 ### Space and Time Requirements
 
-- **Storage Space:** Ensure you have at least 14GB of free space available for fes2014.
-   - If you want both fes2014 and fes2022 you will need at least 35 GB of free space.
-- **Time Commitment:** The download and setup process for the fes2014 model takes approximately 1-2 hours. This is a one-time requirement.
+- **Storage Space:** Ensure you have at least 12GB of free space available for fes2022.
+   - If you want both fes2014 and fes2022 you will need at least ~27 GB of free space.
+- **Time Commitment:** The download and setup process for the fes2022 model takes approximately 1-2 hours. This is a one-time requirement.
 
 ## Download_tide_model.ipynb Notebook
 
-The easiest way to download and clip the tide model is to use this notebook. Run all the code in the notebook and you're done!
+The easiest way to download the tide model is to use this notebook. Run all the code in the notebook and you're done!
 
 1. **Prepare:** Ensure you have you are in an activated coastseg environment and know your AVISO email and password.
 2. **Open Notebook:** Launch `Download_tide_model.ipynb` in Jupyter Notebook.
@@ -51,27 +51,65 @@ cd CoastSeg
 jupyter lab Download_tide_model.ipynb
 ```
 
-3.**Run Code:** Execute all cells in the notebook. The notebook will guide you through the download and clipping process automatically.
+3.**Run Code:** Execute the download cells in the notebook. The notebook will guide you through the download and clipping process automatically (please note in CoastSeg 2.1.0 and beyond no longer recommend clipping the tide model)
 
-4.**Check Results:** Confirm that the model files are correctly downloaded and clipped in the specified directory.
+4.**Check Results:** Confirm that the model files are correctly downloaded in the specified directory.
 
 - **Example Output from Downloading Tide Model Step in Notebook**
   ![download_tide_model_notebook](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/eecae8d2-cb5e-4e50-a587-3260ff9469b7)
 
-- **Example Output from Clipping Tide Model Step in Notebook**
+- **Example Output from Clipping Tide Model Step in Notebook (clipping is no longer recommended)**
   ![clip_tide_model](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/abba33ae-1c63-4c48-be14-4e51e8224870)
 
 5.**Downloaded Tide Model Contents**
 
-- Below is an example of the CoastSeg tide model contents for FES 2014 after the model was downloaded and clipped.
+- Below is an example of the CoastSeg tide model contents for the FES2022 tide model after the model was downloaded. 
 
-![tide model contents](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/2a8f2425-993f-4184-90cf-01b6ff65af4a)
+<img width="1012" height="361" alt="Screenshot 2026-09-03 114444" src="https://github.com/user-attachments/assets/98ceda73-db8a-404a-b28d-9e7beb18c98f" />
 
-### Why is the tide model clipped?
+- FES2022 folder contents, showing the 34 NetCDF files (.nc) that make up the global ocean tide constituents.
+
+<img width="1113" height="895" alt="Screenshot 2026-09-03 114348" src="https://github.com/user-attachments/assets/ca0bdd49-ded8-4d34-b94e-3abd01d8439b" />
+
+- Structure of the downloaded tide model. Please note your folders may not exactly match these folder names here because when new FES models are released the date attached to the ocean tide and load tide folder names change.
+
+```
+├── CoastSeg
+|
+|___tide_model
+|    |_ fes2022b
+|    |     |_load_tide
+|    |     |       |__2n2.nc.gz
+|    |     |       |__eps2.nc.gz
+|    |     |       |__j1_fes2022.nc
+|    |     |       |__ ....
+|    |     |_ocean_tide
+|    |     |       |__2n2.nc.gz
+|    |     |       |__eps2.nc.gz
+|    |     |       |__j1_fes2022.nc
+|    |     |       |__ ....
+|    |
+
+```
+
+
+6. **(LEGACY, Not Recommended)** Clip the Tide Model
+
+- (Please note in CoastSeg 2.1.0 and beyond clipping the tide model is no longer required and NOT recommended.)
+
+- Clipping the tide model takes an extra ~10GB of disk space and make tide correction slower.
+
+- **(LEGACY)** : Below is an example of the CoastSeg tide model contents for FES 2014 after the model was downloaded and clipped. (Please note in CoastSeg 2.1.0 and beyond clipping the tide model is no longer required.)
+
+![legacy tide model contents](https://github.com/SatelliteShorelines/CoastSeg/assets/61564689/2a8f2425-993f-4184-90cf-01b6ff65af4a)
+
+### **(LEGACY)** Why is the tide model clipped?
+
+- (Please note in CoastSeg 2.1.0 and beyond clipping the tide model is no longer required and NOT recommended.)
 
 To make the tide predictions compute faster we will clip the model it to various regions across the planet. After we've clipped the model to each region, when we want to predict the tide at a particular latitude and longitude we first figure out which region the point lies within, then we load the tide model we clipped to that region.
 
-### Structure of tide model in CoastSeg
+### **(LEGACY)** Structure of Clipped Tide Model in CoastSeg
 
 ```
 ├── CoastSeg
@@ -117,18 +155,10 @@ To make the tide predictions compute faster we will clip the model it to various
 1. Your account may not be verified yet, which means you can't download the model
 2. Occasionally the AVISO server goes down. Wait a few hours and try again and see if its working.
 
-### Troubleshooting
-
-If you are running coastseg on a secure network you may need to make the following modifications to your `.condarc` file.
-
-1. If you get an error message similar to `CondaValueError: You have chosen a non-default solver backend(libmamba) but it was not recongized`
-   - Solution: comment out the line in the .condarc file `solve:libmamba`
-2. You may also need to modify the `ssl_verify` to either True or False depending on your network security.
-   - Always switch `ssl_verify` to True if you ever set it it to False for debugging purposes.
 
 # How to Perform Tide Correction
 
-⚠️ You must have downloaded the FES2014 and/or FES2022 tide model before attempting to correct tides
+⚠️ You must have downloaded the FES2022 and/or FES2014 tide model before attempting to correct tides
 
 ## ⚠️ Important: Read Before Using Tide Correction Button
 

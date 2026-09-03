@@ -61,7 +61,7 @@ Note: This script should be run after the first one because it loads the 'sample
 
 2.**Uncomment Code to Apply Tide Correction (Optional)**
 
-- The tide model MUST be downloaded as per the prerequisites. Follow a guide here on how to download it [How to Download Tide Model](https://satelliteshorelines.github.io/CoastSeg/How-to-Download-Tide-Model/)
+- The tide model MUST be downloaded as per the prerequisites. Follow a guide here on how to download it [How to Download Tide Model](https://satelliteshorelines.github.io/CoastSeg/How-to-Download-Tide-Model-updated/)
 
 - Uncomment the tide correction section in the script (shown below):
   - make sure to enter the `beach slope` and `reference_elevation`(relative to MSL) for your site.
