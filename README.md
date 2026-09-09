@@ -7,7 +7,8 @@ Paper:
 [![image](https://img.shields.io/pypi/v/coastseg.svg?color=%23ec3dc8)](https://pypi.python.org/pypi/coastseg)
 [![image](https://img.shields.io/badge/YouTube-Channel-red)](https://www.youtube.com/@CoastSeg-n3e)
 </br>
-[![image](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/pip_install_e.yml/badge.svg)](https://github.com/SatelliteShorelines/CoastSeg/actions)
+[![image](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/tests.yml/badge.svg)](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/tests.yml)
+[![image](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/release_env_matrix.yml/badge.svg)](https://github.com/SatelliteShorelines/CoastSeg/actions/workflows/release_env_matrix.yml)
 
 [![Last Commit](https://img.shields.io/github/last-commit/SatelliteShorelines/CoastSeg)](https://github.com/Doodleverse/segmentation_gym/commits/main)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SatelliteShorelines/CoastSeg/graphs/commit-activity)
