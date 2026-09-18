@@ -1,0 +1,213 @@
+# ✍️ Description:
+# Pre-release validation of the artifact that actually ships. Builds the wheel
+# and sdist once, then installs THAT artifact into a fresh conda environment on
+# every supported Python version and operating system.
+#
+# This is deliberately different from `pip_install_e.yml`, which installs
+# `pip install -e .` from the source tree -- an editable install can succeed
+# while the built distribution is missing data files or has broken metadata.
+#
+# Run it from the Actions tab ("Run workflow") before cutting a release. It also
+# runs automatically on release tags, alongside Publish_package_to_pypi.yml.
+#
+# 🚨 GITHUB SECRETS REQUIRED: None
+name: "Pre-release: build & install matrix"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-tests:
+        description: "Run the full pytest suite after install (off = import smoke test only)"
+        type: boolean
+        default: true
+  push:
+    # Same tag patterns as Publish_package_to_pypi.yml, so every tag that
+    # publishes is also validated. ex. v2.0.4 or v2.0.4dev1
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+dev[0-9]+"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Release readiness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the tree is releasable
+        # Catches machine-local path dependencies, absolute paths baked into
+        # pixi.lock, direct-reference requirements PyPI would reject, and
+        # requires-python / classifier / matrix drift. Stdlib only, so it runs
+        # before anything is installed.
+        run: |
+          python .github/scripts/check_release_ready.py \
+            --python-versions 3.10 3.11 3.12 \
+            --tag "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+
+  build:
+    name: Build wheel + sdist
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build a binary wheel and a source tarball
+        # Identical invocation to Publish_package_to_pypi.yml, so this is a
+        # true dry run of the publish step.
+        run: python -m build --sdist --wheel --outdir dist/ .
+
+      - name: Check distribution metadata
+        # Long-description rendering and metadata problems otherwise only
+        # surface as a failed upload, after the tag has already been pushed.
+        run: twine check dist/*
+
+      - name: Verify runtime data files are in the wheel
+        # MANIFEST.in is a setuptools file and the build backend is hatchling,
+        # so nothing enforces those include rules. These CSV/GeoJSON files are
+        # loaded at runtime; if a hatch exclude pattern ever swallows them the
+        # failure should happen here, not on a user's first import.
+        run: |
+          python - <<'PY'
+          import glob
+          import sys
+          import zipfile
+
+          REQUIRED = [
+              "coastseg/bounding_boxes/shorelines_bounding_boxes.csv",
+              "coastseg/bounding_boxes/transects_bounding_boxes.csv",
+              "coastseg/tide_model/tide_regions_map.geojson",
+          ]
+
+          wheel = glob.glob("dist/*.whl")[0]
+          names = set(zipfile.ZipFile(wheel).namelist())
+          missing = [path for path in REQUIRED if path not in names]
+
+          for path in REQUIRED:
+              print(f"{'ok  ' if path in names else 'MISSING'}  {path}")
+
+          if missing:
+              sys.exit(f"\n{wheel} is missing {len(missing)} runtime data file(s)")
+          print(f"\nAll runtime data files present in {wheel}")
+          PY
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  install:
+    name: ${{ matrix.os }} / py${{ matrix.python-version }} / ${{ matrix.dist }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # Login shell so setup-miniconda's activation is live in every step.
+        # -e makes a step fail on the first failing command.
+        shell: bash -el {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+        dist: [wheel]
+        include:
+          # The sdist is what the conda-forge feedstock builds from, so prove
+          # it builds and installs at least once. One cell is enough -- the
+          # wheel is pure Python and platform independent.
+          - os: ubuntu-latest
+            python-version: "3.12"
+            dist: sdist
+
+    steps:
+      # The checkout is only needed for tests/; coastseg itself comes from the
+      # built artifact.
+      - uses: actions/checkout@v4
+
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Setup Conda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniconda-version: "latest"
+          python-version: ${{ matrix.python-version }}
+          activate-environment: coastseg-release-test
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install conda-only dependencies
+        # gdal is in [tool.pixi.dependencies] but deliberately not in
+        # [project.dependencies] -- it does not install cleanly from pip.
+        run: conda install -c conda-forge gdal -y
+
+      - name: Install coastseg from the built ${{ matrix.dist }}
+        # Install by explicit file path so pip cannot quietly fall back to the
+        # already-published coastseg on PyPI. [test] pulls pytest from
+        # [project.optional-dependencies].
+        run: |
+          python -m pip install --upgrade pip
+          if [ "${{ matrix.dist }}" = "wheel" ]; then
+            artifact="$(ls dist/*.whl)"
+          else
+            artifact="$(ls dist/*.tar.gz)"
+          fi
+          echo "Installing ${artifact}"
+          python -m pip install "${artifact}[test]"
+
+      - name: Verify the installed distribution
+        # Run from outside the checkout so a stray source directory cannot
+        # satisfy the import. __version__ comes from
+        # importlib.metadata.version("coastseg"), so this also proves the
+        # distribution metadata installed correctly.
+        run: |
+          cd "${RUNNER_TEMP}"
+          python - <<'PY'
+          import pathlib
+
+          import coastseg
+
+          location = pathlib.Path(coastseg.__file__).resolve()
+          print(f"version  : {coastseg.__version__}")
+          print(f"location : {location}")
+          assert "site-packages" in location.parts, (
+              f"imported from the source tree rather than the installed distribution: {location}"
+          )
+          PY
+
+      - name: Import smoke test
+        # The heavy optional stack (ipyleaflet, leafmap, geopandas, onnxruntime)
+        # only fails at import time. tests/conftest.py imports coastseg_map and
+        # roi at module level, so this must work for pytest to even collect.
+        run: |
+          cd "${RUNNER_TEMP}"
+          python -c "from coastseg import coastseg_map, common, extracted_shoreline, roi; print('imports ok')"
+
+      - name: Test with pytest
+        # Skipped only when a manual run explicitly turns tests off. The suite
+        # needs no credentials: Earth Engine is patched in the tests, and the
+        # SAR ONNX tests self-skip because models/**/*.onnx is gitignored.
+        if: ${{ github.event.inputs.run-tests != 'false' }}
+        run: python -m pytest -q tests

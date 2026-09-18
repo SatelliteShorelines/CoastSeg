@@ -5,6 +5,8 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # Allow to run on demand before a release.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
