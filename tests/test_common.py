@@ -3213,3 +3213,82 @@ def test_uncorrectable_rows_are_not_recorded_as_off_transect(tmp_path):
     assert "t2" in set(kept_merged["transect_id"]), (
         "an uncorrectable observation was deleted from the merged output"
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #273: continuing a download must EXTEND, not overwrite, config settings
+# ---------------------------------------------------------------------------
+
+
+def test_extend_existing_unions_sat_list_and_widens_dates():
+    """Continuing a download on a saved session adds the newly-selected
+    satellite/date range instead of overwriting the ones already downloaded."""
+    roi_settings = {
+        "roi1": {
+            "sat_list": ["L5", "L8"],
+            "dates": ["2020-01-01", "2020-12-31"],
+            "sitename": "roi1_site",
+            "filepath": "/data",
+        }
+    }
+    global_settings = {"sat_list": ["S2"], "dates": ["2019-06-01", "2021-06-30"]}
+
+    updated = common.update_roi_settings_with_global_settings(
+        roi_settings, global_settings, extend_existing=True
+    )
+
+    assert updated["roi1"]["sat_list"] == ["L5", "L8", "S2"]
+    assert updated["roi1"]["dates"] == ["2019-06-01", "2021-06-30"]
+
+
+def test_extend_existing_dedupes_and_preserves_order():
+    roi_settings = {"roi1": {"sat_list": ["L5", "L8"], "dates": ["2020-01-01", "2020-12-31"]}}
+    global_settings = {"sat_list": ["L8", "S2"], "dates": ["2020-03-01", "2020-06-01"]}
+
+    updated = common.update_roi_settings_with_global_settings(
+        roi_settings, global_settings, extend_existing=True
+    )
+
+    # L8 is not duplicated; the narrower global date range does not shrink the ROI's
+    assert updated["roi1"]["sat_list"] == ["L5", "L8", "S2"]
+    assert updated["roi1"]["dates"] == ["2020-01-01", "2020-12-31"]
+
+
+def test_extend_existing_is_noop_for_fresh_session():
+    """When the ROI already matches the global settings (a fresh session), the
+    union/widen leaves the values unchanged."""
+    roi_settings = {"roi1": {"sat_list": ["S2"], "dates": ["2021-01-01", "2021-12-31"]}}
+    global_settings = {"sat_list": ["S2"], "dates": ["2021-01-01", "2021-12-31"]}
+
+    updated = common.update_roi_settings_with_global_settings(
+        roi_settings, global_settings, extend_existing=True
+    )
+
+    assert updated["roi1"]["sat_list"] == ["S2"]
+    assert updated["roi1"]["dates"] == ["2021-01-01", "2021-12-31"]
+
+
+def test_default_behavior_still_overwrites():
+    """Without extend_existing the original overwrite behavior is preserved."""
+    roi_settings = {"roi1": {"sat_list": ["L5", "L8"], "dates": ["2020-01-01", "2020-12-31"]}}
+    global_settings = {"sat_list": ["S2"], "dates": ["2019-06-01", "2021-06-30"]}
+
+    updated = common.update_roi_settings_with_global_settings(
+        roi_settings, global_settings
+    )
+
+    assert updated["roi1"]["sat_list"] == ["S2"]
+    assert updated["roi1"]["dates"] == ["2019-06-01", "2021-06-30"]
+
+
+def test_extend_existing_does_not_alias_global_lists():
+    """Extending must not alias the global settings lists into the ROI."""
+    roi_settings = {"roi1": {"sat_list": ["L8"], "dates": ["2020-01-01", "2020-12-31"]}}
+    global_settings = {"sat_list": ["S2"], "dates": ["2019-06-01", "2021-06-30"]}
+
+    updated = common.update_roi_settings_with_global_settings(
+        roi_settings, global_settings, extend_existing=True
+    )
+    updated["roi1"]["sat_list"].append("L9")
+
+    assert global_settings["sat_list"] == ["S2"]

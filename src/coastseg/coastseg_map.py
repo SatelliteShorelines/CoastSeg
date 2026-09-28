@@ -1285,7 +1285,7 @@ class CoastSeg_Map:
         # the user might have updated the date range or satellite list to extract shorelines from so update the ROI settings
         if new_settings:
             roi_settings = common.update_roi_settings_with_global_settings(
-                roi_settings, new_settings
+                roi_settings, new_settings, extend_existing=True
             )
         self.rois.set_roi_settings(roi_settings)
         logger.info(f"Checking roi_settings for missing ROIs: {roi_settings}")
@@ -1420,9 +1420,10 @@ class CoastSeg_Map:
                     file_path=file_path,
                 )
                 existing_settings.update(new_part)
-            # Sync global changes (e.g. dates/sat_list)
+            # Sync global changes (e.g. dates/sat_list). extend_existing keeps
+            # satellites/dates already downloaded for a loaded session (issue #273).
             existing_settings = common.update_roi_settings_with_global_settings(
-                existing_settings, settings
+                existing_settings, settings, extend_existing=True
             )
             return existing_settings
 
