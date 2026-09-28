@@ -2267,10 +2267,13 @@ class CoastSeg_Map:
             exception_handler.check_selected_set(self.selected_set)
 
         exception_handler.check_if_empty_string(self.get_session_name(), "session name")
-        # ROIs, transects,shorelines and a bounding box must exist
+        # ROIs and shorelines must exist. Transects are OPTIONAL (issue #249):
+        # without them only the 2D shorelines and config files are produced
+        # (no transect intersections and no tide correction).
         exception_handler.validate_feature(self.rois, "roi")
         exception_handler.validate_feature(self.shoreline, "shoreline")
-        exception_handler.validate_feature(self.transects, "transects")
+        if self.transects is not None:
+            exception_handler.validate_feature(self.transects, "transects")
         # ROI settings must not be empty
         if hasattr(self.rois, "roi_settings"):
             exception_handler.check_empty_dict(self.rois.roi_settings, "roi_settings")  # type: ignore
@@ -2484,7 +2487,10 @@ class CoastSeg_Map:
         roi_ids_with_extracted_shorelines = self.get_roi_ids(has_shorelines=True)
         # get the transects for the selected ROIs with extracted shorelines
         selected_roi_ids = list(set(roi_ids) & set(roi_ids_with_extracted_shorelines))
-        if hasattr(self.transects, "gdf"):
+        # Transects are optional (issue #249): only compute the shoreline-transect
+        # intersections when transects were provided. Without them, the 2D shoreline
+        # and config files produced above are the complete output.
+        if self.transects is not None and hasattr(self.transects, "gdf"):
             self.compute_transects(
                 self.transects.gdf,
                 self.get_settings(),

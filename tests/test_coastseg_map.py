@@ -607,3 +607,38 @@ def test_roi_extracted_shoreline_lookup_normalizes_roi_id(coastseg_map_with_rois
 
     assert coastsegmap.rois.get_extracted_shoreline("17") is extracted_shoreline_obj
     assert coastsegmap.rois.get_extracted_shoreline(17) is extracted_shoreline_obj
+
+
+def test_validate_extract_shoreline_inputs_allows_missing_transects(
+    coastseg_map_with_rois,
+):
+    """Issue #249: transects are optional.
+
+    validate_extract_shoreline_inputs must not raise when self.transects is None -
+    only ROIs and shorelines are required. Before the fix the transects
+    validate_feature() call raised Object_Not_Found on a None transects layer.
+    """
+    coastsegmap = coastseg_map_with_rois
+    coastsegmap.shoreline = SimpleNamespace(
+        gdf=gpd.GeoDataFrame({"geometry": [Point(0, 0)]}, crs="EPSG:4326")
+    )
+    coastsegmap.transects = None
+    coastsegmap.rois.roi_settings = {"17": {}}
+    coastsegmap.set_session_name("test_session")
+
+    settings = {
+        "dates": ["2020-01-01", "2020-12-31"],
+        "sat_list": ["L8"],
+        "landsat_collection": "C02",
+    }
+
+    with (
+        patch.object(coastsegmap, "get_settings", return_value=settings),
+        patch.object(coastsegmap, "get_roi_ids", return_value=["17"]),
+        patch("coastseg.coastseg_map.exception_handler.check_empty_dict"),
+        patch("coastseg.coastseg_map.exception_handler.check_if_subset"),
+        patch("coastseg.coastseg_map.exception_handler.check_if_dirs_missing"),
+        patch("coastseg.coastseg_map.common.get_missing_roi_dirs", return_value={}),
+    ):
+        # Should complete without raising Object_Not_Found for the missing transects.
+        coastsegmap.validate_extract_shoreline_inputs(roi_ids=["17"])
