@@ -252,6 +252,10 @@ def test_load_json_config_downloaded(
                 == actual_config[roi_id][key]
             )
     for roi_id, item in actual_config.get("settings", {}).items():
+        if roi_id == "pan_off":
+            # the config stores the legacy string "False"; it is loaded as a boolean
+            assert actual_coastsegmap.settings[roi_id] is False
+            continue
         assert actual_coastsegmap.settings[roi_id] == item
 
 
@@ -321,7 +325,7 @@ def test_coastseg_map():
         "min_length_sl": 100,
         "cloud_mask_issue": False,
         "sand_color": "default",
-        "pan_off": "False",
+        "pan_off": False,
         "max_dist_ref": 25,
         "along_dist": 25,
         "min_points": 3,
@@ -336,6 +340,19 @@ def test_coastseg_map():
     for key in default_settings:
         assert key in coastsegmap.settings
         assert coastsegmap.settings[key] == default_settings[key]
+    # must be the boolean False, not the truthy string "False", so pansharpening runs
+    assert coastsegmap.settings["pan_off"] is False
+
+
+@pytest.mark.parametrize(
+    "pan_off, expected",
+    [("False", False), ("false", False), ("True", True), (False, False), (True, True)],
+)
+def test_set_settings_stores_pan_off_as_a_boolean(pan_off, expected):
+    """Old configs stored pan_off as a string; it must be saved back as a boolean."""
+    coastsegmap = coastseg_map.CoastSeg_Map(create_map=False)
+    coastsegmap.set_settings(pan_off=pan_off)
+    assert coastsegmap.get_settings()["pan_off"] is expected
 
 
 def test_set_settings():
@@ -360,7 +377,7 @@ def test_set_settings():
         "min_length_sl": 100,  # minimum length (in metres) of shoreline perimeter to be valid
         "cloud_mask_issue": True,  # switch this parameter to True if sand pixels are masked (in black) on many images
         "sand_color": "default",  # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
-        "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+        "pan_off": False,  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
         "max_dist_ref": 20,
         "landsat_collection": "C02",
     }

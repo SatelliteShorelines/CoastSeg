@@ -2140,6 +2140,29 @@ def test_load_settings_empty_filepath():
     assert len(settings) == 0
 
 
+@pytest.mark.parametrize(
+    "pan_off, expected",
+    [
+        (False, False),
+        (True, True),
+        ("False", False),
+        ("false", False),
+        (" FALSE ", False),
+        ("True", True),
+        ("true", True),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_normalize_pan_off(pan_off, expected):
+    # the legacy string "False" is truthy, so it must become the boolean False
+    assert common.normalize_pan_off(pan_off) is expected
+
+
+def test_normalize_pan_off_defaults_to_false():
+    assert common.normalize_pan_off() is False
+
+
 def test_load_settings_with_invalid_filepath():
     # Test loading settings from an invalid filepath
     filepath = "/path/to/invalid.json"

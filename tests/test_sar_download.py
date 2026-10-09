@@ -1,17 +1,15 @@
-"""Tests for the Sentinel-1 download and the resume of a partly-downloaded site.
+"""Tests for getting Sentinel-1 imagery onto disk and describing it.
 
-The download itself lives in coastsat; CoastSeg only builds the ``inputs`` block and calls
-``SDS_download.retrieve_images``. These tests pin that boundary:
+Three parts:
 
-1. an S1 download asks for both polarizations, and an explicit choice is not overwritten,
-2. a site missing a polarization reaches coastsat untouched -- CoastSeg does not intercept
-   or warn, because coastsat backfills it during this same call and reports that itself,
-3. re-running such a site re-queues the incomplete scene and backfills VV in place --
-   same sitename, no duplicate.
+1. the download itself and the resume of a partly-downloaded site,
+2. the ``sentinel_1_properties`` settings and the polarization folder layout,
+3. reading ``band_order`` back out of a scene's metadata file.
 
-Earth Engine is never contacted: ``retrieve_images`` is replaced by a capturing stub.
+Earth Engine is never contacted.
 """
 
+import json
 import os
 
 import geopandas as gpd
@@ -20,8 +18,26 @@ from shapely.geometry import Polygon
 
 from coastsat import SDS_download
 
-from coastseg import coastseg_map
+from coastseg import coastseg_map, common
 from coastseg import extracted_shoreline as es
+
+
+# ===========================================================================
+# Download and resume
+#
+# Tests for the Sentinel-1 download and the resume of a partly-downloaded site.
+#
+# The download itself lives in coastsat; CoastSeg only builds the ``inputs`` block and calls
+# ``SDS_download.retrieve_images``. These tests pin that boundary:
+#
+# 1. an S1 download asks for both polarizations, and an explicit choice is not overwritten,
+# 2. a site missing a polarization reaches coastsat untouched -- CoastSeg does not intercept
+#    or warn, because coastsat backfills it during this same call and reports that itself,
+# 3. re-running such a site re-queues the incomplete scene and backfills VV in place --
+#    same sitename, no duplicate.
+#
+# Earth Engine is never contacted: ``retrieve_images`` is replaced by a capturing stub.
+# ===========================================================================
 
 
 @pytest.fixture
@@ -205,3 +221,371 @@ def test_the_resumed_site_keeps_its_sitename_and_gains_no_duplicate(
         assert len(tifs) == 1
         assert "_dup" not in tifs[0]
         assert tifs[0].startswith(sar_legacy_site_with_meta["scene_date"])
+
+
+# ===========================================================================
+# Download settings and on-disk layout
+#
+# Tests for the Sentinel-1 download settings and on-disk layout.
+#
+# The SAR model needs both VV and VH, so these pin that the default requests both, that
+# the setting survives a config round-trip, and that the polarization folders are found.
+# ===========================================================================
+
+
+def make_selected_rois(*roi_ids):
+    return {
+        "features": [
+            {
+                "properties": {"id": roi_id},
+                "geometry": {"coordinates": [[[0, 0], [0, 1], [1, 1], [0, 0]]]},
+            }
+            for roi_id in roi_ids
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+
+
+def test_default_sentinel_1_properties_request_both_polarizations():
+    properties = common.get_default_sentinel_1_properties()
+    assert properties["transmitterReceiverPolarisation"] == ["VV", "VH"]
+    assert properties["instrumentMode"] == "IW"
+
+
+def test_create_roi_settings_defaults_to_vv_and_vh():
+    roi_settings = common.create_roi_settings(
+        settings={"sat_list": ["S1"], "dates": ["2023-05-01", "2023-06-01"]},
+        selected_rois=make_selected_rois("1"),
+        filepath="/data",
+        date_str="01-01-25__00_00_00",
+    )
+    assert roi_settings["1"]["sentinel_1_properties"][
+        "transmitterReceiverPolarisation"
+    ] == ["VV", "VH"]
+
+
+def test_create_roi_settings_gives_each_roi_its_own_properties_dict():
+    """A shared mutable dict would let an edit to one ROI silently change every ROI."""
+    roi_settings = common.create_roi_settings(
+        settings={"sat_list": ["S1"], "dates": ["2023-05-01", "2023-06-01"]},
+        selected_rois=make_selected_rois("1", "2"),
+        filepath="/data",
+        date_str="01-01-25__00_00_00",
+    )
+
+    first = roi_settings["1"]["sentinel_1_properties"]
+    second = roi_settings["2"]["sentinel_1_properties"]
+    assert first is not second
+
+    first["transmitterReceiverPolarisation"].append("HH")
+    assert second["transmitterReceiverPolarisation"] == ["VV", "VH"]
+
+
+def test_create_roi_settings_honours_an_explicit_override():
+    roi_settings = common.create_roi_settings(
+        settings={
+            "sat_list": ["S1"],
+            "dates": ["2023-05-01", "2023-06-01"],
+            "sentinel_1_properties": {
+                "transmitterReceiverPolarisation": ["VH"],
+                "instrumentMode": "IW",
+            },
+        },
+        selected_rois=make_selected_rois("1"),
+        filepath="/data",
+        date_str="01-01-25__00_00_00",
+    )
+    assert roi_settings["1"]["sentinel_1_properties"][
+        "transmitterReceiverPolarisation"
+    ] == ["VH"]
+
+
+# ---------------------------------------------------------------------------
+# Config round-trip
+# ---------------------------------------------------------------------------
+
+
+def test_extract_roi_settings_keeps_sentinel_1_properties():
+    """Without this the setting is dropped whenever a session config is reloaded."""
+    properties = {
+        "transmitterReceiverPolarisation": ["VV", "VH"],
+        "instrumentMode": "IW",
+    }
+    json_data = {
+        "roi_ids": ["1"],
+        "1": {
+            "dates": ["2023-05-01", "2023-06-01"],
+            "sitename": "ID_1_datetime01-01-25__00_00_00",
+            "polygon": [[[0, 0]]],
+            "roi_id": "1",
+            "sat_list": ["S1"],
+            "landsat_collection": "C02",
+            "filepath": "/data",
+            "sentinel_1_properties": properties,
+        },
+    }
+
+    roi_settings = common.extract_roi_settings(json_data)
+    assert roi_settings["1"]["sentinel_1_properties"] == properties
+
+
+def test_load_settings_keeps_sentinel_1_properties(tmp_path):
+    properties = {
+        "transmitterReceiverPolarisation": ["VV", "VH"],
+        "instrumentMode": "IW",
+    }
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps({"sat_list": ["S1"], "sentinel_1_properties": properties}),
+        encoding="utf-8",
+    )
+
+    settings = common.load_settings(str(config))
+    assert settings["sentinel_1_properties"] == properties
+
+
+def test_global_settings_upgrade_a_legacy_roi_without_the_key():
+    """Legacy ROI settings have no sentinel_1_properties key at all.
+
+    update_roi_settings skips keys that are absent, so without add_if_missing the ROI
+    would stay on coastsat's VH-only fallback forever.
+    """
+    roi_settings = {"1": {"sat_list": ["S1"], "dates": ["2023-05-01", "2023-06-01"]}}
+    global_settings = {
+        "sat_list": ["S1"],
+        "dates": ["2023-05-01", "2023-06-01"],
+        "sentinel_1_properties": {
+            "transmitterReceiverPolarisation": ["VV", "VH"],
+            "instrumentMode": "IW",
+        },
+    }
+
+    updated = common.update_roi_settings_with_global_settings(
+        roi_settings, global_settings
+    )
+    assert updated["1"]["sentinel_1_properties"][
+        "transmitterReceiverPolarisation"
+    ] == ["VV", "VH"]
+
+
+def test_global_settings_propagation_does_not_alias_the_global_dict():
+    global_settings = {
+        "sentinel_1_properties": {"transmitterReceiverPolarisation": ["VV", "VH"]}
+    }
+    roi_settings = {"1": {"sat_list": ["S1"]}}
+
+    updated = common.update_roi_settings_with_global_settings(
+        roi_settings, global_settings
+    )
+    updated["1"]["sentinel_1_properties"]["transmitterReceiverPolarisation"].append("HH")
+
+    assert global_settings["sentinel_1_properties"][
+        "transmitterReceiverPolarisation"
+    ] == ["VV", "VH"]
+
+
+# ---------------------------------------------------------------------------
+# On-disk layout
+# ---------------------------------------------------------------------------
+
+
+def test_get_filepath_returns_every_polarization_in_canonical_order(tmp_path):
+    site = "ID_test_datetime01-01-25__00_00_00"
+    # created out of order on purpose: the result must not depend on listdir order
+    os.makedirs(tmp_path / site / "S1" / "VH")
+    os.makedirs(tmp_path / site / "S1" / "VV")
+
+    paths = es.get_filepath(str(tmp_path), site, "S1")
+
+    assert [os.path.basename(path) for path in paths] == ["VV", "VH"]
+
+
+def test_get_filepath_on_a_legacy_vh_only_site(tmp_path):
+    site = "ID_legacy_datetime01-01-20__00_00_00"
+    os.makedirs(tmp_path / site / "S1" / "VH")
+
+    paths = es.get_filepath(str(tmp_path), site, "S1")
+
+    assert [os.path.basename(path) for path in paths] == ["VH"]
+
+
+def test_get_filepath_when_nothing_is_downloaded_yet(tmp_path):
+    """Keep the legacy single-element shape so callers fail the way they always did."""
+    paths = es.get_filepath(str(tmp_path), "ID_missing", "S1")
+    assert [os.path.basename(path) for path in paths] == ["VH"]
+
+
+# ===========================================================================
+# band_order in the scene metadata
+#
+# Tests for reading Sentinel-1 `band_order` out of a scene's metadata .txt file.
+#
+# coastsat writes one metadata file per S1 scene carrying the polarizations it downloaded.
+# CoastSeg keeps its own copy of `get_metadata`, which used to drop that key entirely.
+# coastsat reads it back when it cannot list the files on disk -- for example to tell a
+# complete scene from one still missing a band -- so it has to survive the round trip and
+# stay index-aligned with `filenames`.
+# ===========================================================================
+
+
+LEGACY_META = """\
+filename\t2024-08-02-08-39-41_S1_site_VH.tif
+epsg\t32756
+im_width\t168
+im_height\t436
+orbitProperties_pass\tASCENDING
+transmitterReceiverPolarisation\t['VV', 'VH']
+saved_polarization\tVH
+instrumentMode\tIW
+"""
+
+DUAL_POL_META = """\
+filename\t2023-12-03-19-15-49_S1_site_VV.tif
+epsg\t32756
+im_width\t168
+im_height\t436
+band_order\t['VV', 'VH']
+orbitProperties_pass\tDESCENDING
+transmitterReceiverPolarisation\t['VV', 'VH']
+instrumentMode\tIW
+"""
+
+
+def write_meta(directory, filename, contents):
+    path = os.path.join(directory, filename)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(contents)
+    return path
+
+
+@pytest.fixture
+def s1_site(tmp_path):
+    """A site whose meta folder the caller fills in."""
+    meta_dir = tmp_path / "site" / "S1" / "meta"
+    meta_dir.mkdir(parents=True)
+    return tmp_path, meta_dir
+
+
+def read_s1_metadata(root, dates=("2020-01-01", "2030-01-01")):
+    return es.get_metadata(
+        {
+            "filepath": str(root),
+            "sitename": "site",
+            "sat_list": ["S1"],
+            "dates": list(dates),
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# read_metadata_file
+# ---------------------------------------------------------------------------
+
+
+def test_band_order_is_parsed_into_a_list(tmp_path):
+    path = write_meta(str(tmp_path), "scene.txt", DUAL_POL_META)
+
+    assert es.read_metadata_file(path)["band_order"] == ["VV", "VH"]
+
+
+def test_a_legacy_file_has_no_band_order(tmp_path):
+    path = write_meta(str(tmp_path), "scene.txt", LEGACY_META)
+    meta_info = es.read_metadata_file(path)
+
+    assert meta_info["band_order"] == []
+    assert meta_info["saved_polarization"] == "VH"
+
+
+def test_a_malformed_band_order_does_not_break_the_read(tmp_path, caplog):
+    """band_order is optional; a bad value must not take down the whole file."""
+    path = write_meta(
+        str(tmp_path), "scene.txt", DUAL_POL_META.replace("['VV', 'VH']", "[VV, VH")
+    )
+
+    with caplog.at_level("WARNING"):
+        meta_info = es.read_metadata_file(path)
+
+    assert meta_info["band_order"] == []
+    assert meta_info["epsg"] == 32756  # the rest of the file still parsed
+    assert "band_order" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# get_band_order_from_meta
+# ---------------------------------------------------------------------------
+
+
+def test_band_order_wins_over_saved_polarization():
+    resolved = es.get_band_order_from_meta(
+        {"band_order": ["VV", "VH"], "saved_polarization": "VH"}
+    )
+    assert resolved == ["VV", "VH"]
+
+
+def test_a_legacy_scene_falls_back_to_saved_polarization():
+    assert es.get_band_order_from_meta({"saved_polarization": "VH"}) == ["VH"]
+
+
+def test_neither_key_resolves_to_empty():
+    assert es.get_band_order_from_meta({"filename": "x.tif"}) == []
+
+
+def test_the_requested_polarizations_are_not_mistaken_for_the_saved_ones():
+    """transmitterReceiverPolarisation is what was asked for, not what landed on disk --
+    a legacy file carries ['VV','VH'] there while holding only VH."""
+    resolved = es.get_band_order_from_meta(
+        {"transmitterReceiverPolarisation": ["VV", "VH"], "saved_polarization": "VH"}
+    )
+    assert resolved == ["VH"]
+
+
+# ---------------------------------------------------------------------------
+# get_metadata
+# ---------------------------------------------------------------------------
+
+
+def test_get_metadata_records_band_order_for_s1(s1_site):
+    root, meta_dir = s1_site
+    write_meta(str(meta_dir), "2023-12-03-19-15-49_S1_site.txt", DUAL_POL_META)
+
+    metadata = read_s1_metadata(root)
+
+    assert metadata["S1"]["band_order"] == [["VV", "VH"]]
+
+
+def test_band_order_stays_index_aligned_on_a_mixed_site(s1_site):
+    """A legacy VH-only scene sitting next to a new dual-pol one. band_order[i] must
+    stay safe to index alongside filenames[i]."""
+    root, meta_dir = s1_site
+    write_meta(str(meta_dir), "2023-12-03-19-15-49_S1_site.txt", DUAL_POL_META)
+    write_meta(str(meta_dir), "2024-08-02-08-39-41_S1_site_VH.txt", LEGACY_META)
+
+    s1 = read_s1_metadata(root)["S1"]
+
+    assert len(s1["band_order"]) == len(s1["filenames"]) == 2
+    assert s1["band_order"] == [["VV", "VH"], ["VH"]]
+
+
+def test_optical_satellites_do_not_gain_a_band_order_key(tmp_path):
+    meta_dir = tmp_path / "site" / "L8" / "meta"
+    meta_dir.mkdir(parents=True)
+    write_meta(
+        str(meta_dir),
+        "2023-12-03-19-15-49_L8_site.txt",
+        "filename\t2023-12-03-19-15-49_L8_site_ms.tif\nepsg\t32756\n",
+    )
+
+    metadata = es.get_metadata(
+        {
+            "filepath": str(tmp_path),
+            "sitename": "site",
+            "sat_list": ["L8"],
+            "dates": ["2020-01-01", "2030-01-01"],
+        }
+    )
+
+    assert "band_order" not in metadata["L8"]

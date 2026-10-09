@@ -491,6 +491,24 @@ def get_default_sentinel_1_properties() -> Dict[str, Any]:
     return copy.deepcopy(dict(DEFAULT_SENTINEL_1_PROPERTIES))
 
 
+def normalize_pan_off(pan_off: Any = False) -> bool:
+    """Return pan_off as a real boolean.
+
+    Old versions of CoastSeg stored pan_off as the string "False", which is
+    truthy and so turned pansharpening off. Only the string "true" (any case) and
+    truthy non-strings disable pansharpening; everything else, including None, is False.
+
+    Args:
+        pan_off (Any): Value read from the settings or a config file.
+
+    Returns:
+        bool: True if pansharpening should be skipped, False otherwise.
+    """
+    if isinstance(pan_off, str):
+        return pan_off.strip().lower() == "true"
+    return bool(pan_off)
+
+
 def relativize_sar_model_path(sar_model_path: str = "") -> str:
     """Store a SAR model path relative to the CoastSeg base directory.
 

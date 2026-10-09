@@ -6,7 +6,6 @@ import fnmatch
 import json
 import logging
 import os
-import re
 from datetime import timezone
 from glob import glob
 from itertools import islice
@@ -66,10 +65,8 @@ NO_SEGMENTATIONS_FOUND_MESSAGE = "No segmentations found to extract shorelines f
 # CoastSeg maps shorelines from class labels in a *_res.npz, never by thresholding MNDWI,
 # so none of these carry an MNDWI threshold -- see threshold_filter_applies() below.
 SEGMENTATION_ZOO_MODEL = "zoo_model"  # optical: Zoo classifier labels, no threshold
-# Sentinel-1 goes through the ONNX model in coastseg.sar_model, which has no Otsu
-# fallback: run_sar_segmentation raises rather than thresholding. Reuse coastsat's
-# constants so the two spell them the same way. SAR_OTSU only ever appears on output
-# from the coastsat extraction path, which does fall back.
+# Reuse coastsat's constants so both spell them the same way. SAR_OTSU only appears
+# on output from the coastsat path; the ONNX path here has no Otsu fallback.
 SEGMENTATION_SAR_MODEL = SDS_tools.SEGMENTATION_SAR_MODEL
 SEGMENTATION_SAR_OTSU = SDS_tools.SEGMENTATION_SAR_OTSU
 
@@ -419,10 +416,8 @@ def get_filepath(filepath_data: str, sitename: str, satname: str) -> List[str]:
         fp_mask = os.path.join(filepath_data, sitename, satname, "mask")
         filepath = [fp_ms, fp_swir, fp_mask]
     elif satname == "S1":
-        # access downloaded Sentinel 1 images: one folder per polarization, in
-        # canonical order, and only the ones that actually exist. Mirrors
-        # SDS_tools.get_filepath so a VV+VH site is readable and a legacy VH-only
-        # site keeps working.
+        # Sentinel-1: one folder per polarization, in canonical order, skipping any
+        # that don't exist (mirrors SDS_tools.get_filepath).
         s1_root = os.path.join(filepath_data, sitename, satname)
         filepath = [
             os.path.join(s1_root, polarization)
@@ -629,10 +624,8 @@ def read_metadata_file(filepath: str) -> Dict[str, Union[str, int, float]]:
         "im_quality",
         "im_width",
         "im_height",
-        # Sentinel-1 only: the polarizations downloaded for this scene, in the order
-        # they are stacked. Written by coastsat as a repr'd list, e.g. "['VV', 'VH']".
-        # saved_polarization is the pre-multi-polarization spelling, still read so
-        # legacy VH-only sites resolve to ["VH"] instead of [].
+        # Sentinel-1 only: polarizations in stacking order, e.g. "['VV', 'VH']".
+        # saved_polarization is the legacy spelling, kept so VH-only sites still resolve.
         "band_order",
         "saved_polarization",
     ]
@@ -896,304 +889,6 @@ def log_contents_of_shoreline_dict(extracted_shorelines_dict: dict) -> None:
 def metadata_has_no_filenames(metadata: dict) -> bool:
     """Return True when every satellite entry has an empty filenames list."""
     return all(not satdata.get("filenames", []) for satdata in metadata.values())
-
-
-# Main function to preprocess a satellite image (L5, L7, L8, L9 or S2)
-def preprocess_single(
-    fn: Union[str, List[str]],
-    satname: str,
-    cloud_mask_issue: bool,
-    pan_off: bool,
-    collection: str = "C02",
-    do_cloud_mask: bool = True,
-    s2cloudless_prob: float = 60,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Reads the image and outputs the pansharpened/down-sampled multispectral bands,
-    the georeferencing vector of the image (coordinates of the upper left pixel),
-    the cloud mask, the QA band and a no_data image.
-    For Landsat 7-8 it also outputs the panchromatic band and for Sentinel-2 it
-    also outputs the 20m SWIR band.
-
-    KV WRL 2018
-    Modified by Sharon Fitzpatrick Batiste 2025
-
-    Arguments:
-    -----------
-    KV WRL 2018, modified by Sharon Fitzpatrick Batiste 2025.
-
-    Args:
-        fn: Filename of .TIF file. For L7, L8, S2, list of filenames for different resolutions.
-        satname: Satellite mission name (e.g., 'L5').
-        cloud_mask_issue: True if cloud mask issue masks sand pixels mistakenly.
-        pan_off: If True, disable panchromatic sharpening.
-        collection: Landsat collection 'C02'.
-        do_cloud_mask: If True, apply cloud mask.
-        s2cloudless_prob: Threshold for S2 cloud pixels [0,100).
-                threshold to identify cloud pixels in the s2cloudless probability mask
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Tuple of (im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata).
-
-        im_ms: np.array
-            3D array containing the pansharpened/down-sampled bands (B,G,R,NIR,SWIR1)
-        georef: np.array
-            vector of 6 elements [Xtr, Xscale, Xshear, Ytr, Yshear, Yscale] defining the
-            coordinates of the top-left pixel of the image
-        cloud_mask: np.array
-            2D cloud mask with True where cloud pixels are
-        im_extra : np.array
-            2D array containing the 20m resolution SWIR band for Sentinel-2 and the 15m resolution
-            panchromatic band for Landsat 7 and Landsat 8. This field is empty for Landsat 5.
-        im_QA: np.array
-            2D array containing the QA band, from which the cloud_mask can be computed.
-        im_nodata: np.array
-            2D array with True where no data values (-inf) are located
-    """
-    if isinstance(fn, list):
-        fn_to_split = fn[0]
-    elif isinstance(fn, str):
-        fn_to_split = fn
-    # split by os.sep and only get the filename at the end then split again to remove file extension
-    fn_to_split = fn_to_split.split(os.sep)[-1].split(".")[0]
-    # search for the year the tif was taken with regex and convert to int
-    match = re.search("[0-9]+", fn_to_split)
-    if not match:
-        raise ValueError(f"Could not find a year in filename: {fn_to_split}")
-    year = int(match.group(0))
-    # after 2022 everything is automatically from Collection 2
-    if collection == "C01" and year >= 2022:
-        collection = "C02"
-
-    # =============================================================================================#
-    # L5 images
-    # =============================================================================================#
-    if satname == "L5":
-        # filepaths to .tif files
-        fn_ms = fn[0]
-        fn_mask = fn[1]
-        # read ms bands
-        data = gdal.Open(fn_ms, gdal.GA_ReadOnly)
-        georef = np.array(data.GetGeoTransform())
-        bands = SDS_preprocess.read_bands(fn_ms)
-        im_ms = np.stack(bands, 2)
-        # read cloud mask
-        im_QA = SDS_preprocess.read_bands(fn_mask)[0]
-        if not do_cloud_mask:
-            cloud_mask = SDS_preprocess.create_cloud_mask(
-                im_QA, satname, cloud_mask_issue, collection
-            )
-            # add pixels with -inf or nan values on any band to the nodata mask
-            im_nodata = SDS_preprocess.get_nodata_mask(im_ms, cloud_mask.shape)
-            # cloud mask is the same as the no data mask
-            cloud_mask = im_nodata.copy()
-            # check if there are pixels with 0 intensity in the Green, NIR and SWIR bands and add those
-            # to the cloud mask as otherwise they will cause errors when calculating the NDWI and MNDWI
-            im_zeros = SDS_preprocess.get_zero_pixels(im_ms, cloud_mask.shape)
-            # add zeros to im nodata
-            im_nodata = np.logical_or(im_zeros, im_nodata)
-        else:
-            cloud_mask = SDS_preprocess.create_cloud_mask(
-                im_QA, satname, cloud_mask_issue, collection
-            )
-            # add pixels with -inf or nan values on any band to the nodata mask
-            im_nodata = SDS_preprocess.get_nodata_mask(im_ms, cloud_mask.shape)
-            # check if there are pixels with 0 intensity in the Green, NIR and SWIR bands and add those
-            # to the cloud mask as otherwise they will cause errors when calculating the NDWI and MNDWI
-            im_zeros = SDS_preprocess.get_zero_pixels(im_ms, cloud_mask.shape)
-            # add zeros to im nodata
-            im_nodata = np.logical_or(im_zeros, im_nodata)
-            # update cloud mask with all the nodata pixels
-            cloud_mask = np.logical_or(cloud_mask, im_nodata)
-
-        # no extra image for Landsat 5 (they are all 30 m bands)
-        im_extra = []
-    # =============================================================================================#
-    # L7, L8 and L9 images
-    # =============================================================================================#
-    elif satname in ["L7", "L8", "L9"]:
-        # filepaths to .tif files
-        fn_ms = fn[0]
-        fn_pan = fn[1]
-        fn_mask = fn[2]
-        # read ms bands
-        data = gdal.Open(fn_ms, gdal.GA_ReadOnly)
-        georef = np.array(data.GetGeoTransform())
-        bands = SDS_preprocess.read_bands(fn_ms)
-        im_ms = np.stack(bands, 2)
-        # read cloud mask and get the QA from the first band
-        im_QA = SDS_preprocess.read_bands(fn_mask)[0]
-
-        if not do_cloud_mask:
-            cloud_mask = SDS_preprocess.create_cloud_mask(
-                im_QA, satname, cloud_mask_issue, collection
-            )
-            # add pixels with -inf or nan values on any band to the nodata mask
-            im_nodata = SDS_preprocess.get_nodata_mask(im_ms, cloud_mask.shape)
-            # cloud mask is the no data mask
-            cloud_mask = im_nodata.copy()
-            # check if there are pixels with 0 intensity in the Green, NIR and SWIR bands and add those
-            # to the cloud mask as otherwise they will cause errors when calculating the NDWI and MNDWI
-            im_zeros = SDS_preprocess.get_zero_pixels(im_ms, cloud_mask.shape)
-            # add zeros to im nodata
-            im_nodata = np.logical_or(im_zeros, im_nodata)
-        else:
-            cloud_mask = SDS_preprocess.create_cloud_mask(
-                im_QA, satname, cloud_mask_issue, collection
-            )
-            # add pixels with -inf or nan values on any band to the nodata mask
-            im_nodata = SDS_preprocess.get_nodata_mask(im_ms, cloud_mask.shape)
-            # check if there are pixels with 0 intensity in the Green, NIR and SWIR bands and add those
-            # to the cloud mask as otherwise they will cause errors when calculating the NDWI and MNDWI
-            im_zeros = SDS_preprocess.get_zero_pixels(im_ms, cloud_mask.shape)
-            # add zeros to im nodata
-            im_nodata = np.logical_or(im_zeros, im_nodata)
-            # update cloud mask with all the nodata pixels
-            cloud_mask = np.logical_or(cloud_mask, im_nodata)
-
-        # if panchromatic sharpening is turned off
-        if pan_off:
-            # ms bands are untouched and the extra image is empty
-            im_extra = []
-
-        # otherwise perform panchromatic sharpening
-        else:
-            # read panchromatic band
-            data = gdal.Open(fn_pan, gdal.GA_ReadOnly)
-            georef = np.array(data.GetGeoTransform())
-            bands = [
-                data.GetRasterBand(k + 1).ReadAsArray() for k in range(data.RasterCount)
-            ]
-            im_pan = bands[0]
-
-            # pansharpen all of the landsat 7 bands
-            if satname == "L7":
-                try:
-                    im_ms_ps = SDS_preprocess.pansharpen(
-                        im_ms[:, :, [0, 1, 2, 3, 4]], im_pan, cloud_mask
-                    )
-                except (
-                    Exception
-                ):  # if pansharpening fails, keep downsampled bands (for long runs)
-                    print("\npansharpening of image %s failed." % fn[0])
-                    im_ms_ps = im_ms[:, :, [1, 2, 3]]
-                    # add downsampled Blue and SWIR1 bands
-                    im_ms_ps = np.append(im_ms[:, :, [0]], im_ms_ps, axis=2)
-                    im_ms_ps = np.append(im_ms_ps, im_ms[:, :, [4]], axis=2)
-
-                im_ms = im_ms_ps.copy()
-                # the extra image is the 15m panchromatic band
-                im_extra = im_pan
-
-            # pansharpen Blue, Green, Red for Landsat 8 and 9
-            elif satname in ["L8", "L9"]:
-                try:
-                    im_ms_ps = SDS_preprocess.pansharpen(
-                        im_ms[:, :, [0, 1, 2, 3, 4]], im_pan, cloud_mask
-                    )
-                except (
-                    Exception
-                ):  # if pansharpening fails, keep downsampled bands (for long runs)
-                    print("\npansharpening of image %s failed." % fn[0])
-                    im_ms_ps = im_ms[:, :, [0, 1, 2]]
-                    # add downsampled NIR and SWIR1 bands
-                    im_ms_ps = np.append(im_ms_ps, im_ms[:, :, [3, 4]], axis=2)
-
-                im_ms = im_ms_ps.copy()
-                # the extra image is the 15m panchromatic band
-                im_extra = im_pan
-
-    # =============================================================================================#
-    # S2 images
-    # =============================================================================================#
-    if satname == "S2":
-        # read 10m bands (R,G,B,NIR)
-        fn_ms = fn[0]
-        data = gdal.Open(fn_ms, gdal.GA_ReadOnly)
-        georef = np.array(data.GetGeoTransform())
-        bands = SDS_preprocess.read_bands(fn_ms, satname)
-        im_ms = np.stack(bands, 2)
-        im_ms = im_ms / 10000  # TOA scaled to 10000
-        # read s2cloudless cloud probability (last band in ms image)
-        cloud_prob = data.GetRasterBand(data.RasterCount).ReadAsArray()
-
-        # image size
-        nrows = im_ms.shape[0]
-        ncols = im_ms.shape[1]
-        # if image contains only zeros (can happen with S2), skip the image
-        if sum(sum(sum(im_ms))) < 1:
-            im_ms = []
-            georef = []
-            # skip the image by giving it a full cloud_mask
-            cloud_mask = np.ones((nrows, ncols)).astype("bool")
-            return im_ms, georef, cloud_mask, [], [], []
-
-        # read 20m band (SWIR1) from the first band
-        fn_swir = fn[1]
-        im_swir = SDS_preprocess.read_bands(fn_swir)[0] / 10000  # TOA scaled to 10000
-        im_swir = np.expand_dims(im_swir, axis=2)
-
-        # append down-sampled SWIR1 band to the other 10m bands
-        im_ms = np.append(im_ms, im_swir, axis=2)
-
-        # create cloud mask using 60m QA band (not as good as Landsat cloud cover)
-        fn_mask = fn[2]
-        im_QA = SDS_preprocess.read_bands(fn_mask)[0]
-        if not do_cloud_mask:
-            cloud_mask_QA60 = SDS_preprocess.create_cloud_mask(
-                im_QA, satname, cloud_mask_issue, collection
-            )
-            # compute cloud mask using s2cloudless probability band
-            cloud_mask_s2cloudless = SDS_preprocess.create_s2cloudless_mask(
-                cloud_prob, s2cloudless_prob
-            )
-            # combine both cloud masks
-            cloud_mask = np.logical_or(cloud_mask_QA60, cloud_mask_s2cloudless)
-            # add pixels with -inf or nan values on any band to the nodata mask
-            im_nodata = SDS_preprocess.get_nodata_mask(im_ms, cloud_mask.shape)
-            im_nodata = SDS_preprocess.pad_edges(im_swir, im_nodata)
-            # cloud mask is the no data mask
-            cloud_mask = im_nodata.copy()
-            # check if there are pixels with 0 intensity in the Green, NIR and SWIR bands and add those
-            # to the cloud mask as otherwise they will cause errors when calculating the NDWI and MNDWI
-            im_zeros = SDS_preprocess.get_zero_pixels(im_ms, cloud_mask.shape)
-            # add zeros to im nodata
-            im_nodata = np.logical_or(im_zeros, im_nodata)
-            if "merged" in fn_ms:
-                im_nodata = morphology.dilation(im_nodata, morphology.square(5))
-            # update cloud mask with all the nodata pixels
-            # v0.1.40 change : might be bug
-            cloud_mask = np.logical_or(cloud_mask, im_nodata)
-        else:  # apply the cloud mask
-            # compute cloud mask using QA60 band
-            cloud_mask_QA60 = SDS_preprocess.create_cloud_mask(
-                im_QA, satname, cloud_mask_issue, collection
-            )
-            # compute cloud mask using s2cloudless probability band
-            cloud_mask_s2cloudless = SDS_preprocess.create_s2cloudless_mask(
-                cloud_prob,
-                s2cloudless_prob,  # type: ignore
-            )
-            # combine both cloud masks
-            cloud_mask = np.logical_or(cloud_mask_QA60, cloud_mask_s2cloudless)
-            # add pixels with -inf or nan values on any band to the nodata mask
-            im_nodata = SDS_preprocess.get_nodata_mask(im_ms, cloud_mask.shape)
-            im_nodata = SDS_preprocess.pad_edges(im_swir, im_nodata)
-            # check if there are pixels with 0 intensity in the Green, NIR and SWIR bands and add those
-            # to the cloud mask as otherwise they will cause errors when calculating the NDWI and MNDWI
-            im_zeros = SDS_preprocess.get_zero_pixels(im_ms, cloud_mask.shape)
-            # add zeros to im nodata
-            im_nodata = np.logical_or(im_zeros, im_nodata)
-            # update cloud mask with all the nodata pixels
-            cloud_mask = np.logical_or(cloud_mask, im_nodata)
-            if "merged" in fn_ms:
-                im_nodata = morphology.dilation(im_nodata, morphology.square(5))
-            # move cloud mask to above if statement to avoid bug in v0.1.40
-
-        # no extra image
-        im_extra = []
-
-    return im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata
 
 
 def check_percent_no_data_allowed(
@@ -1713,10 +1408,8 @@ def process_satellite_image(
         fn, satname, settings=settings, collection=collection
     )
 
-    # Sentinel-1 scenes are swath crops, so a large share of a downloaded tile is often
-    # empty. preprocess_image reports an all-zero nodata mask for S1, which lets those
-    # blank areas reach the contour finder and be traced as shoreline. Recover the real
-    # mask from the GeoTIFFs before any of the checks below run.
+    # preprocess_image reports an all-zero nodata mask for S1, so recover the real one
+    # from the GeoTIFFs or blank swath areas get traced as shoreline.
     if satname == "S1" and settings.get("sar_mask_nodata", True):
         sar_nodata = sar_model.sar_nodata_mask(fn)
         if sar_nodata is not None and sar_nodata.shape == im_nodata.shape:
@@ -2253,12 +1946,8 @@ class Extracted_Shoreline:
         self.gdf = gpd.GeoDataFrame()
         # Use roi id to identify which ROI extracted shorelines derive from
         self.roi_id = ""
-        # dictionary : dictionary of extracted shorelines
-        # contains keys 'dates', 'shorelines', 'filename', 'cloud_cover', 'geoaccuracy',
-        # 'idx', 'satname', 'segmentation_method'.
-        # Note there is no 'MNDWI_threshold': CoastSeg maps shorelines from class labels
-        # in a *_res.npz, never by thresholding MNDWI, so there is no threshold to record.
-        # Anything filtering on that column must go through threshold_filter_applies().
+        # dictionary of extracted shorelines. No 'MNDWI_threshold' key: shorelines come
+        # from class labels, so filter on it only via threshold_filter_applies().
         self.dictionary = {}
         # shoreline_settings: dictionary of settings used to extract shoreline
         self.shoreline_settings = {}
@@ -2553,6 +2242,11 @@ class Extracted_Shoreline:
         self.shoreline_settings = self.create_shoreline_settings(
             settings, roi_settings, reference_shoreline
         )
+        # keep each separate line of the reference shoreline apart so coastsat does
+        # not join the end of one line to the start of the next when it buffers the reference shoreline
+        self.shoreline_settings["reference_shoreline_parts"] = (
+            get_reference_shoreline_parts(shoreline, settings["output_epsg"])
+        )
 
         logger.info(
             f"self.shoreline_settings['inputs'] {self.shoreline_settings['inputs']}"
@@ -2747,6 +2441,11 @@ class Extracted_Shoreline:
         self.shoreline_settings = self.create_shoreline_settings(
             settings, roi_settings, reference_shoreline
         )
+        # keep each separate line of the reference shoreline apart so coastsat does
+        # not join the end of one line to the start of the next when it creates reference shoreline buffer
+        self.shoreline_settings["reference_shoreline_parts"] = (
+            get_reference_shoreline_parts(shoreline_gdf, settings["output_epsg"])
+        )
         # gets metadata used to extract shorelines
         filepath_data = get_data_folder(self.shoreline_settings["inputs"]["filepath"])
         filepath = self.shoreline_settings["inputs"].get("filepath", None)
@@ -2890,24 +2589,21 @@ class Extracted_Shoreline:
             "percent_no_data",
             "model_session_path",  # path to model session file
             "apply_cloud_mask",
-            # Sentinel-1 only. coastsat reads these straight out of this dict:
-            # sar_segmentation and sar_model_path in SDS_shoreline.load_sar_segmenter,
-            # sar_water_threshold in SDS_shoreline.segment_sar_water. Leaving them out
-            # of this allowlist silently drops them and the user's choice is ignored.
+            # Sentinel-1 only. coastsat reads these straight from this dict, so leaving
+            # them out of the allowlist silently ignores the user's choice.
             "sar_segmentation",
             "sar_water_threshold",
             "sar_model_path",
         ]
         shoreline_settings = {k: v for k, v in settings.items() if k in SHORELINE_KEYS}
 
-        # Stored relative to the CoastSeg directory so config.json stays portable, but
-        # coastsat has to be handed something it can open.
-        #
-        # When the user set no path, point coastsat at a model sitting in CoastSeg's own
-        # models/ directory if there is one. coastsat looks only in its pooch cache, so
-        # without this a manually downloaded model would be used by the zoo workflow and
-        # silently re-downloaded (~130 MB) by this one. Still "" when nothing is there,
-        # which lets coastsat resolve and download as usual.
+        # old versions of coastseg stored pan off as a string instead of a boolean
+        shoreline_settings["pan_off"] = common.normalize_pan_off(
+            shoreline_settings.get("pan_off", False)
+        )
+
+        # coastsat needs a path it can open: resolve the stored relative path, or fall
+        # back to a model in CoastSeg's models/ directory so it is not re-downloaded.
         if "sar_model_path" in shoreline_settings:
             shoreline_settings["sar_model_path"] = (
                 common.resolve_sar_model_path(shoreline_settings["sar_model_path"])
@@ -3038,6 +2734,30 @@ def get_reference_shoreline(
     shorelines = np.insert(shorelines, 2, np.zeros(len(shorelines)), axis=1)
 
     return shorelines
+
+
+def get_reference_shoreline_parts(
+    shoreline_gdf: gpd.GeoDataFrame, output_crs: str
+) -> list:
+    """
+    Converts GeoDataFrame shoreline to a list with one numpy array per separate line.
+
+    A shoreline clipped to an ROI can be left in several pieces, for example when it
+    leaves the ROI and comes back in somewhere else. Keeping the pieces apart lets the
+    reference shoreline buffer be drawn around each one on its own.
+
+    Args:
+        shoreline_gdf (gpd.GeoDataFrame): Shoreline features GeoDataFrame.
+        output_crs (str): Output CRS for projection.
+
+    Returns:
+        list: Arrays of [lat, lon, 0] for mean sea level, one per line.
+    """
+    reprojected_shorelines = shoreline_gdf.to_crs(output_crs)
+    return [
+        np.insert(np.array(part)[:, :2], 2, 0, axis=1)
+        for part in make_coastsat_compatible(reprojected_shorelines)
+    ]
 
 
 def make_coastsat_compatible(feature: gpd.GeoDataFrame) -> list:
