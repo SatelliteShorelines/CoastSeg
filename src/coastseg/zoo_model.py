@@ -1107,7 +1107,7 @@ class Zoo_Model:
             "cloud_mask_issue": False,
             # 'default', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
             "sand_color": "default",
-            "pan_off": "False",  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
+            "pan_off": False,  # if True, no pan-sharpening is performed on Landsat 7,8 and 9 imagery
             "max_dist_ref": 25,
             "along_dist": 25,  # along-shore distance to use for computing the intersection
             "min_points": 3,  # minimum number of shoreline points to calculate an intersection
@@ -1136,6 +1136,11 @@ class Zoo_Model:
 
         for key, value in default_settings.items():
             self.settings.setdefault(key, value)
+
+        # old configs stored pan_off as the string "False"; always keep it a boolean
+        self.settings["pan_off"] = common.normalize_pan_off(
+            self.settings.get("pan_off", False)
+        )
 
         logger.info(f"Settings: {self.settings}")
         return self.settings.copy()

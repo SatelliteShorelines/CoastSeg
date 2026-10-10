@@ -1823,7 +1823,7 @@ class CoastSeg_Map:
             "min_length_sl": 100,
             "cloud_mask_issue": False,
             "sand_color": "default",
-            "pan_off": "False",
+            "pan_off": False,
             "max_dist_ref": 25,
             "along_dist": 25,
             "min_points": 3,
@@ -1867,6 +1867,11 @@ class CoastSeg_Map:
 
         for key, value in self.default_settings.items():
             self.settings.setdefault(key, value)
+
+        # old configs stored pan_off as the string "False"; always keep it a boolean
+        self.settings["pan_off"] = common.normalize_pan_off(
+            self.settings.get("pan_off", False)
+        )
 
         # Never persist an absolute path to the SAR model: config.json travels between
         # machines. Idempotent, so it is safe to run on every call.
