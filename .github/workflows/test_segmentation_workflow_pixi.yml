@@ -37,7 +37,7 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
         with:
-          pixi-version: v0.66.0
+          pixi-version: v0.81.0
           manifest-path: segmentation_workflow/pyproject.toml
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'develop' }}

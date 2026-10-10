@@ -28,7 +28,7 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
         with:
-          pixi-version: v0.66.0
+          pixi-version: v0.81.0
           manifest-path: pyproject.toml
           environments: test
           cache: true
