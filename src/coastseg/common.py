@@ -914,14 +914,55 @@ def load_settings(
     return filtered_settings
 
 
+def _union_preserve_order(existing: Optional[list], incoming: Optional[list]) -> list:
+    """Return ``existing`` followed by any ``incoming`` items not already present.
+
+    An order-preserving union used to EXTEND (never shrink) a downloaded ROI's
+    satellite list when a session is continued. A brand-new list is returned so
+    the global settings dict is never aliased into an ROI's settings.
+    """
+    result = list(existing) if existing else []
+    for item in incoming or []:
+        if item not in result:
+            result.append(item)
+    return result
+
+
+def _widen_date_range(
+    existing: Optional[list], incoming: Optional[list]
+) -> Optional[list]:
+    """Return the widest ``[start, end]`` spanning both ISO ``YYYY-MM-DD`` ranges.
+
+    ISO dates sort lexicographically, so ``min``/``max`` are chronological. If
+    either range is missing or malformed, the other valid range is returned.
+    """
+
+    def _valid(rng) -> bool:
+        return isinstance(rng, (list, tuple)) and len(rng) == 2 and all(rng)
+
+    if not _valid(existing):
+        return list(incoming) if _valid(incoming) else existing
+    if not _valid(incoming):
+        return list(existing)
+    return [min(existing[0], incoming[0]), max(existing[1], incoming[1])]
+
+
 def update_roi_settings_with_global_settings(
-    roi_settings: dict, global_settings: dict
+    roi_settings: dict, global_settings: dict, extend_existing: bool = False
 ) -> dict:
     """Update the ROI settings with the global settings.
 
     Args:
         roi_settings (dict): A dictionary containing the ROI settings.
         global_settings (dict): A dictionary containing the global settings.
+        extend_existing (bool): When True, each ROI's ``sat_list`` and ``dates``
+            are EXTENDED to include the global values (order-preserving union of
+            satellites, widened date range) instead of being overwritten. Used
+            when continuing a download on a previously-saved session so earlier
+            satellites/dates are not dropped from config.json (issue #273). The
+            union/widen is a no-op when the ROI already matches the global values
+            (the fresh-session case), so only continued sessions are affected.
+            Defaults to False, preserving the original overwrite behavior.
 
     Returns:
         dict: The updated ROI settings dictionary.
@@ -931,9 +972,19 @@ def update_roi_settings_with_global_settings(
     dates = global_settings.get("dates", [])
     min_roi_coverage = global_settings.get("min_roi_coverage", 0.5)
 
-    # update the roi_settings with the global settings
-    updated_roi_settings = update_roi_settings(roi_settings, "sat_list", sat_list)
-    updated_roi_settings = update_roi_settings(updated_roi_settings, "dates", dates)
+    if extend_existing:
+        # Extend rather than overwrite so continuing a download on a saved
+        # session keeps the satellites/dates already downloaded (issue #273).
+        for roi in roi_settings.values():
+            if "sat_list" in roi:
+                roi["sat_list"] = _union_preserve_order(roi.get("sat_list"), sat_list)
+            if "dates" in roi:
+                roi["dates"] = _widen_date_range(roi.get("dates"), dates)
+        updated_roi_settings = roi_settings
+    else:
+        # update the roi_settings with the global settings
+        updated_roi_settings = update_roi_settings(roi_settings, "sat_list", sat_list)
+        updated_roi_settings = update_roi_settings(updated_roi_settings, "dates", dates)
     updated_roi_settings = update_roi_settings(
         updated_roi_settings, "min_roi_coverage", min_roi_coverage
     )
